@@ -4,6 +4,20 @@ import { SITE } from "../../src/lib/site/config";
 
 const REPOSITORY = "https://github.com/Abdul-Muizz1310/dyelot";
 
+/** `a b; c d` becomes `{ a: ["b"], c: ["d"] }`, so a test reads one directive and ignores order. */
+function directives(policy: string): Record<string, string[]> {
+  return Object.fromEntries(
+    policy
+      .split(";")
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .map((part) => {
+        const [name = "", ...values] = part.split(/\s+/);
+        return [name, values];
+      }),
+  );
+}
+
 // Breaks when the built app fails to start, the home route is missing or errors, or the page
 // loses its single top-level heading or stops naming the product in it.
 test("the home page is served with exactly one top-level heading that names dyelot", async ({
@@ -68,4 +82,43 @@ test("an unknown address answers 404 with the terminal page and a way home", asy
   expect(results.violations).toEqual([]);
   await page.getByRole("link", { name: /cd ~/ }).click();
   await expect(page).toHaveURL("/");
+});
+
+// Breaks when the security headers leave next.config.ts, when their source stops matching a route,
+// or when the policy loosens: another origin in `connect-src`, a framable page, a plugin object or
+// `unsafe-eval` in a production build. A later milestone swaps `'unsafe-inline'` for a nonce.
+test("every page is served with the security headers and a same-origin policy", async ({
+  request,
+}) => {
+  for (const path of ["/", "/no-such-page"]) {
+    const headers = (await request.get(path)).headers();
+    expect(headers["x-frame-options"], path).toBe("DENY");
+    expect(headers["x-content-type-options"], path).toBe("nosniff");
+    expect(headers["referrer-policy"], path).toBe("strict-origin-when-cross-origin");
+    const policy = directives(headers["content-security-policy"] ?? "");
+    expect(policy["default-src"], path).toEqual(["'self'"]);
+    expect(policy["base-uri"], path).toEqual(["'self'"]);
+    expect(policy["connect-src"], path).toEqual(["'self'"]);
+    expect(policy["img-src"], path).toEqual(["'self'", "data:", "blob:"]);
+    expect(policy["worker-src"], path).toEqual(["'self'", "blob:"]);
+    expect(policy["script-src"], path).toEqual(["'self'", "'unsafe-inline'"]);
+    expect(policy["frame-ancestors"], path).toEqual(["'none'"]);
+    expect(policy["object-src"], path).toEqual(["'none'"]);
+  }
+});
+
+// Breaks when the policy blocks something the page needs, such as an inline script, a font or a
+// style. The browser reports each block as a console error, and a blocked script leaves the page
+// unhydrated while the static markup still looks right.
+test("the home page loads under its policy without a console error", async ({ page }) => {
+  const problems: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") problems.push(message.text());
+  });
+  page.on("pageerror", (error) => problems.push(error.message));
+  await page.goto("/");
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+  });
+  expect(problems).toEqual([]);
 });
