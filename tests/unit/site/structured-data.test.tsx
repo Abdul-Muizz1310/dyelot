@@ -1,3 +1,6 @@
+// The T-FE-nn ids in this file are borrowed from inkthread-frontend/docs/specs/01-site-metadata.md.
+// The convention is knowledge/conventions/convention-site-metadata.md in the meta-repo.
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { SITE } from "@/lib/site/config";
@@ -54,7 +57,7 @@ describe("structured data (T-FE-30)", () => {
     });
   });
 
-  it("serialises with every < escaped, so no value can close the script tag", () => {
+  it("serializes with every < escaped, so no value can close the script tag", () => {
     const site = defineSite({
       ...SITE,
       description: `${"d".repeat(60)} </script><script>alert(1)`,

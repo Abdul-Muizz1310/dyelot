@@ -1,3 +1,6 @@
+// The T-FE-nn ids in this file are borrowed from inkthread-frontend/docs/specs/01-site-metadata.md.
+// The convention is knowledge/conventions/convention-site-metadata.md in the meta-repo.
+
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 import { shareCardAssets } from "@/lib/site/assets";
