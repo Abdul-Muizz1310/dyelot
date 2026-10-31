@@ -12,7 +12,7 @@ export default function NotFound() {
           <h1 className="font-mono text-xl font-semibold tracking-tight">404: no such page</h1>
           <Prompt kind="comment">check the address, or start again from the home page</Prompt>
           <Link href="/" className="inline-block pt-1 font-mono text-sm text-accent-madder">
-            $ cd ~
+            <span aria-hidden="true">$ </span>cd ~
           </Link>
         </div>
       </TerminalWindow>

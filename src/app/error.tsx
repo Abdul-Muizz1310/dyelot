@@ -7,6 +7,8 @@ import { TerminalWindow } from "@/components/terminal/TerminalWindow";
 
 // Next 16.4 passes `error` as `unknown`: a value thrown in a Client Component arrives as-is, so
 // nothing here reads a property from it. `retry` re-fetches the segment; `reset` would not.
+// The `$ ` before the command is decoration, so assistive technology skips it. The button is a
+// flex container, which would collapse the span's trailing space, so `whitespace-pre` keeps it.
 export default function ErrorPage({ error, retry }: { error: unknown; retry: () => void }) {
   useEffect(() => {
     console.error(error);
@@ -23,7 +25,10 @@ export default function ErrorPage({ error, retry }: { error: unknown; retry: () 
             onClick={() => retry()}
             className="inline-flex h-8 items-center font-mono text-sm text-accent-madder"
           >
-            $ retry
+            <span aria-hidden="true" className="whitespace-pre">
+              {"$ "}
+            </span>
+            retry
           </button>
         </div>
       </TerminalWindow>

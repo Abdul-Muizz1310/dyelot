@@ -18,6 +18,12 @@ describe("the error page", () => {
     expect(retry).toHaveBeenCalledTimes(1);
   });
 
+  it("names the retry button by the command alone, not by its decorative prompt marker", () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    render(<ErrorPage error={new Error("boom")} retry={() => {}} />);
+    expect(screen.getByRole("button", { name: "retry" })).toBeInTheDocument();
+  });
+
   it("logs the thrown value for the developer, once per error", () => {
     const log = vi.spyOn(console, "error").mockImplementation(() => {});
     const error = new Error("boom");

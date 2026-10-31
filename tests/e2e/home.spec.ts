@@ -80,7 +80,8 @@ test("an unknown address answers 404 with the terminal page and a way home", asy
   await expect(page.locator("h1")).toHaveCount(1);
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
-  await page.getByRole("link", { name: /cd ~/ }).click();
+  // The `$ ` is decoration: the link's accessible name is the command alone.
+  await page.getByRole("link", { name: "cd ~", exact: true }).click();
   await expect(page).toHaveURL("/");
 });
 
