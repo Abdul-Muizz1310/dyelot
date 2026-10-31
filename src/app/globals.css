@@ -1,26 +1,137 @@
 @import "tailwindcss";
 
+/* ─────────────────────────────────────────────────────────────
+ * dyelot: house tokens. Dark only, like every sibling.
+ *
+ * Page and panel are the portfolio's shared neutrals. Madder, the
+ * historic red dye, is dyelot's one accent: oklch(0.70 0.17 22),
+ * 6.87:1 on the page and 6.46:1 on the panel. The chrome stays
+ * achromatic apart from it, so a color shown in the studio can be
+ * judged against a neutral surround.
+ * ───────────────────────────────────────────────────────────── */
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Surfaces */
+  --page: #0a0a0a;
+  --panel: #12121a;
+
+  /* Text. The muted tone is 5.89:1 on the page and 5.54:1 on the panel. */
+  --foreground: #fafafa;
+  --fg-muted: #8a8aa3;
+
+  /* Borders and decoration (never text: they are below 4.5:1) */
+  --border: #1e1e2e;
+  --border-bright: #2a2a3d;
+
+  /* Accent */
+  --accent-madder: #f66c6d;
+  --accent-madder-soft: rgb(246 108 109 / 0.1);
+
+  /* Depth, named apart from Tailwind's own --shadow-* theme variables */
+  --window-shadow: 0 8px 30px rgb(0 0 0 / 0.6);
+  --window-glow: 0 0 20px rgb(246 108 109 / 0.15);
+
+  --radius: 0.625rem;
 }
 
 @theme inline {
-  --color-background: var(--background);
+  --color-page: var(--page);
+  --color-panel: var(--panel);
   --color-foreground: var(--foreground);
+  --color-fg-muted: var(--fg-muted);
+  --color-border: var(--border);
+  --color-border-bright: var(--border-bright);
+  --color-accent-madder: var(--accent-madder);
+  --color-accent-madder-soft: var(--accent-madder-soft);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  --radius-xl: calc(var(--radius) * 1.4);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+@layer base {
+  * {
+    border-color: var(--border);
+    outline-color: color-mix(in oklch, var(--accent-madder) 50%, transparent);
+  }
+  html {
+    color-scheme: dark;
+  }
+  body {
+    background-color: var(--page);
+    color: var(--foreground);
+  }
+  ::selection {
+    background: var(--accent-madder-soft);
+    color: var(--accent-madder);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent-madder);
+    outline-offset: 2px;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* ─────────────────────────────────────────────────────────────
+ * Atmosphere: a dot grid under a faint madder crown. It sits on a
+ * pseudo-element behind the content, so every piece of text keeps
+ * a plain background color for contrast checks.
+ * ───────────────────────────────────────────────────────────── */
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle at 50% 0%, rgb(246 108 109 / 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.06) 1px, transparent 0);
+  background-size:
+    100% 100%,
+    24px 24px;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Terminal window chrome
+ * ───────────────────────────────────────────────────────────── */
+
+.terminal-glow {
+  box-shadow:
+    0 0 0 1px var(--border),
+    var(--window-shadow),
+    var(--window-glow);
+}
+
+@keyframes blink {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * Reduced motion: honored everywhere. A still cursor stays visible.
+ * ───────────────────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-blink {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
