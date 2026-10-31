@@ -85,6 +85,28 @@ test("an unknown address answers 404 with the terminal page and a way home", asy
   await expect(page).toHaveURL("/");
 });
 
+// Breaks when the nav stops marking the current page for assistive technology, or when its GitHub
+// link goes anywhere but the repository.
+test("the nav marks home as the current page and links to the repository", async ({ page }) => {
+  await page.goto("/");
+  const nav = page.getByRole("navigation");
+  await expect(nav.getByRole("link", { name: "home", exact: true })).toHaveAttribute(
+    "aria-current",
+    "page",
+  );
+  await expect(nav.getByRole("link", { name: "github", exact: true })).toHaveAttribute(
+    "href",
+    REPOSITORY,
+  );
+});
+
+// Breaks when the nav marks home as current on a page that is not home.
+test("the nav marks no link as current on the 404 page", async ({ page }) => {
+  await page.goto("/no-such-page");
+  const home = page.getByRole("navigation").getByRole("link", { name: "home", exact: true });
+  await expect(home).not.toHaveAttribute("aria-current");
+});
+
 // Breaks when the security headers leave next.config.ts, when their source stops matching a route,
 // or when the policy loosens: another origin in `connect-src`, a framable page, a plugin object or
 // `unsafe-eval` in a production build. A later milestone swaps `'unsafe-inline'` for a nonce.
