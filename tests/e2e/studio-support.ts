@@ -141,6 +141,33 @@ export async function pickColor(input: Locator, hex: string): Promise<void> {
   }, hex);
 }
 
+/**
+ * Replaces `window.Worker` with a subclass that answers every request with a forced `RangeError`
+ * once the test sets `window.__dyelotFault` (F-STUDIO-19); until then it is the real worker.
+ */
+export async function failingWorker(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const Real = window.Worker;
+    const flags = window as unknown as { __dyelotFault: boolean };
+    flags.__dyelotFault = false;
+    class FaultWorker extends Real {
+      override postMessage(message: { id: number }, ...rest: never[]) {
+        if (!flags.__dyelotFault) {
+          super.postMessage(message, ...rest);
+          return;
+        }
+        const data = {
+          id: message.id,
+          ok: false,
+          error: { name: "RangeError", message: "forced" },
+        };
+        setTimeout(() => this.dispatchEvent(new MessageEvent("message", { data })), 0);
+      }
+    }
+    window.Worker = FaultWorker;
+  });
+}
+
 /** A link whose payload is any JSON value, with a valid trailer (deflate-raw, FNV-1a 64). */
 export function linkOfValue(value: unknown): string {
   const deflated = new Uint8Array(

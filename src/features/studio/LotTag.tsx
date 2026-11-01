@@ -33,6 +33,8 @@ export function LotTag({ store }: { store: StudioStore }) {
           <span
             key={step.step}
             data-swatch=""
+            role="img"
+            aria-label={`${step.step} ${step.hex}`}
             title={`${step.step} ${step.hex}`}
             style={{ backgroundColor: step.hex }}
             className="h-5 w-3"

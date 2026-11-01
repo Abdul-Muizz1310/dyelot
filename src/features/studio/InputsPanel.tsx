@@ -19,6 +19,7 @@ import {
   SCALE_MODES,
   TYPE_CONTEXTS,
 } from "@/engine";
+import { PRESSED, PRIMARY_BUTTON } from "./chrome";
 import { isOneOf } from "./guards";
 import { autoPairingLabel, GAMUT_LABELS, SEED_FIELD_MESSAGE, seedHex } from "./inputs";
 import { SEED_SLOT } from "./shortcuts";
@@ -55,131 +56,135 @@ export function InputsPanel({ store }: { store: StudioStore }) {
       : null;
 
   return (
-    <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pt-4 pb-6">
-      <Section title="Seeds">
-        {(["primary", "secondary", "accent"] as const).map((slot) => (
-          <SeedRow key={slot} slot={slot} store={store} />
-        ))}
-      </Section>
+    <>
+      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pt-4 pb-6">
+        <Section title="Seeds">
+          {(["primary", "secondary", "accent"] as const).map((slot) => (
+            <SeedRow key={slot} slot={slot} store={store} />
+          ))}
+        </Section>
 
-      <Section title="Color">
-        <Picker
-          label="Harmony"
-          value={params.harmony}
-          options={same(HARMONIES)}
-          onChange={(value) => {
-            if (isOneOf(value, HARMONIES)) setParams({ harmony: value });
-          }}
-        />
-        <Choice
-          legend="Chroma"
-          value={params.chroma}
-          options={same(CHROMA_LEVELS)}
-          onChange={(chroma) => setParams({ chroma })}
-        />
-        <Choice
-          legend="Neutral tint"
-          value={params.neutralTint}
-          options={same(NEUTRAL_TINTS)}
-          onChange={(neutralTint) => setParams({ neutralTint })}
-        />
-        <Choice
-          legend="Contrast level"
-          value={params.contrastLevel}
-          options={same(CONTRAST_LEVELS)}
-          onChange={(contrastLevel) => setParams({ contrastLevel })}
-        />
-        <Choice
-          legend="Gamut"
-          value={params.gamut}
-          options={GAMUTS.map((value) => ({ value, label: GAMUT_LABELS[value] }))}
-          onChange={(gamut) => setParams({ gamut })}
-        />
-        <Choice
-          legend="Scale mode"
-          value={params.scaleMode}
-          options={same(SCALE_MODES)}
-          onChange={(scaleMode) => setParams({ scaleMode })}
-        />
-      </Section>
-
-      <Section title="Style">
-        <div className="space-y-2">
+        <Section title="Color">
           <Picker
-            label="Preset"
-            value={preset ?? CUSTOM}
-            describedBy={notes === null ? undefined : "preset-notes"}
-            options={[
-              ...(preset === null ? [{ value: CUSTOM, label: "Custom", disabled: true }] : []),
-              ...PRESET_IDS.map((id) => ({ value: id, label: PRESETS[id].label })),
-            ]}
+            label="Harmony"
+            value={params.harmony}
+            options={same(HARMONIES)}
             onChange={(value) => {
-              if (isOneOf(value, PRESET_IDS)) applyPreset(value);
+              if (isOneOf(value, HARMONIES)) setParams({ harmony: value });
             }}
           />
-          {notes !== null && <PresetNotes preset={notes} />}
-        </div>
-        <Picker
-          label="Pairing"
-          value={params.pairing ?? AUTO}
-          options={[
-            { value: AUTO, label: autoPairingLabel(seed) },
-            ...PAIRINGS.map((pairing) => ({ value: pairing.id, label: pairing.label })),
-          ]}
-          onChange={(value) => {
-            if (value === AUTO) setParams({ pairing: undefined });
-            else if (isOneOf(value, PAIRING_IDS)) setParams({ pairing: value });
-          }}
-        />
-        <Picker
-          label="Type context"
-          value={params.type.context}
-          options={same(TYPE_CONTEXTS)}
-          onChange={(value) => {
-            if (isOneOf(value, TYPE_CONTEXTS)) setParams({ type: { context: value } });
-          }}
-        />
-        <Choice
-          legend="Radius"
-          value={params.radius}
-          options={same(RADIUS_SET_NAMES)}
-          onChange={(radius) => setParams({ radius })}
-        />
-        <Choice
-          legend="Depth"
-          value={params.depth}
-          options={same(DEPTH_STYLES)}
-          onChange={(depth) => setParams({ depth })}
-        />
-        <Choice
-          legend="Density"
-          value={density}
-          options={same(DENSITIES)}
-          onChange={(value) => setView({ density: value })}
-        />
-        <Choice
-          legend="Motion feel"
-          value={params.motion}
-          options={same(MOTION_FEELS)}
-          onChange={(motion) => setParams({ motion })}
-        />
-      </Section>
+          <Choice
+            legend="Chroma"
+            value={params.chroma}
+            options={same(CHROMA_LEVELS)}
+            onChange={(chroma) => setParams({ chroma })}
+          />
+          <Choice
+            legend="Neutral tint"
+            value={params.neutralTint}
+            options={same(NEUTRAL_TINTS)}
+            onChange={(neutralTint) => setParams({ neutralTint })}
+          />
+          <Choice
+            legend="Contrast level"
+            value={params.contrastLevel}
+            options={same(CONTRAST_LEVELS)}
+            onChange={(contrastLevel) => setParams({ contrastLevel })}
+          />
+          <Choice
+            legend="Gamut"
+            value={params.gamut}
+            options={GAMUTS.map((value) => ({ value, label: GAMUT_LABELS[value] }))}
+            onChange={(gamut) => setParams({ gamut })}
+          />
+          <Choice
+            legend="Scale mode"
+            value={params.scaleMode}
+            options={same(SCALE_MODES)}
+            onChange={(scaleMode) => setParams({ scaleMode })}
+          />
+        </Section>
 
-      <div className="space-y-3">
+        <Section title="Style">
+          <div className="space-y-2">
+            <Picker
+              label="Preset"
+              value={preset ?? CUSTOM}
+              describedBy={notes === null ? undefined : "preset-notes"}
+              options={[
+                ...(preset === null ? [{ value: CUSTOM, label: "Custom", disabled: true }] : []),
+                ...PRESET_IDS.map((id) => ({ value: id, label: PRESETS[id].label })),
+              ]}
+              onChange={(value) => {
+                if (isOneOf(value, PRESET_IDS)) applyPreset(value);
+              }}
+            />
+            {notes !== null && <PresetNotes preset={notes} />}
+          </div>
+          <Picker
+            label="Pairing"
+            value={params.pairing ?? AUTO}
+            options={[
+              { value: AUTO, label: autoPairingLabel(seed) },
+              ...PAIRINGS.map((pairing) => ({ value: pairing.id, label: pairing.label })),
+            ]}
+            onChange={(value) => {
+              if (value === AUTO) setParams({ pairing: undefined });
+              else if (isOneOf(value, PAIRING_IDS)) setParams({ pairing: value });
+            }}
+          />
+          <Picker
+            label="Type context"
+            value={params.type.context}
+            options={same(TYPE_CONTEXTS)}
+            onChange={(value) => {
+              if (isOneOf(value, TYPE_CONTEXTS)) setParams({ type: { context: value } });
+            }}
+          />
+          <Choice
+            legend="Radius"
+            value={params.radius}
+            options={same(RADIUS_SET_NAMES)}
+            onChange={(radius) => setParams({ radius })}
+          />
+          <Choice
+            legend="Depth"
+            value={params.depth}
+            options={same(DEPTH_STYLES)}
+            onChange={(depth) => setParams({ depth })}
+          />
+          <Choice
+            legend="Density"
+            value={density}
+            options={same(DENSITIES)}
+            onChange={(value) => setView({ density: value })}
+          />
+          <Choice
+            legend="Motion feel"
+            value={params.motion}
+            options={same(MOTION_FEELS)}
+            onChange={(motion) => setParams({ motion })}
+          />
+        </Section>
+      </div>
+      {/* The panel's footer: Regenerate and the keys stay in view while the controls scroll. */}
+      <div className="shrink-0 space-y-3 border-border border-t px-4 pt-3 pb-4">
         <button
           type="button"
           data-primary=""
+          aria-keyshortcuts="Space"
           onClick={regenerate}
-          className="inline-flex h-10 w-full items-center justify-center rounded-md bg-accent-madder font-medium text-page text-sm hover:opacity-90"
+          className={`${PRIMARY_BUTTON} h-10 w-full`}
         >
           Regenerate
         </button>
-        <p className="text-fg-muted text-xs leading-relaxed">
+        <p data-shortcut-hint="" className="text-fg-muted text-xs leading-relaxed">
           <Key>Space</Key> regenerates. <Key>←</Key> and <Key>→</Key> undo and redo. <Key>L</Key>{" "}
-          locks the focused seed. <Key>Alt</Key> <Key>T</Key> flips the mode.
+          locks the focused seed. <Key>Alt+T</Key> flips the mode. <Key>Ctrl+S</Key> (<Key>⌘S</Key>{" "}
+          on a Mac) copies the link.
         </p>
       </div>
-    </div>
+    </>
   );
 }
 
@@ -260,7 +265,7 @@ function Choice<T extends string>({
         {options.map((option) => (
           <label
             key={option.value}
-            className="relative flex min-h-8 min-w-0 flex-1 items-center justify-center rounded-[5px] px-1.5 text-center text-fg-muted text-xs hover:text-foreground has-checked:bg-accent-madder-soft has-checked:text-accent-madder has-checked:shadow-[inset_0_0_0_1px_var(--accent-madder)]"
+            className="relative flex min-h-8 min-w-0 flex-1 items-center justify-center rounded-[5px] px-1.5 text-center text-fg-muted text-xs hover:text-foreground has-checked:bg-border has-checked:font-medium has-checked:text-foreground has-checked:shadow-[inset_0_0_0_1px_var(--border-bright)]"
           >
             <input
               type="radio"
@@ -384,7 +389,7 @@ function SeedRow({ slot, store }: { slot: Lockable; store: StudioStore }) {
           onKeyDown={(event) => {
             if (event.key === "Enter") commit();
           }}
-          className="h-9 min-w-0 flex-1 rounded-md border border-fg-muted bg-page px-2 font-mono text-foreground text-sm tabular-nums placeholder:text-fg-muted aria-invalid:border-foreground"
+          className="h-9 min-w-0 flex-1 rounded-md border border-border-bright bg-page px-2 font-mono text-foreground text-sm tabular-nums placeholder:text-fg-muted hover:border-fg-muted aria-invalid:border-foreground"
         />
         <input
           type="color"
@@ -397,7 +402,7 @@ function SeedRow({ slot, store }: { slot: Lockable; store: StudioStore }) {
             setInvalid(false);
             setSeedColor(slot, event.currentTarget.value, { coalesce: `seed:${slot}` });
           }}
-          className="size-9 shrink-0 cursor-pointer rounded-md border border-fg-muted bg-page p-0.5 [&::-webkit-color-swatch]:rounded-[4px] [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
+          className="size-9 shrink-0 cursor-pointer rounded-md border border-border-bright bg-page p-0.5 [&::-webkit-color-swatch]:rounded-[4px] [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
         />
         <button
           type="button"
@@ -405,7 +410,7 @@ function SeedRow({ slot, store }: { slot: Lockable; store: StudioStore }) {
           aria-pressed={locked}
           {...{ [SEED_SLOT]: slot }}
           onClick={() => toggleLock(slot)}
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border-bright text-fg-muted hover:text-foreground aria-pressed:border-accent-madder aria-pressed:bg-accent-madder-soft aria-pressed:text-accent-madder"
+          className={`inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border-bright text-fg-muted hover:text-foreground ${PRESSED}`}
         >
           <LockIcon locked={locked} />
         </button>

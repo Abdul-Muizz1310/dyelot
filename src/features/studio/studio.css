@@ -8,6 +8,13 @@
  * `inert` state always agree.
  * ───────────────────────────────────────────────────────────── */
 
+/* The surround is achromatic (F-A11Y-08): the house dot grid without the home page's madder
+ * crown, so a color on the canvas is judged against neutrals only. */
+body:has(.studio-surround)::before {
+  background-image: radial-gradient(circle at 1px 1px, rgb(255 255 255 / 0.06) 1px, transparent 0);
+  background-size: 24px 24px;
+}
+
 .studio {
   display: grid;
   height: 100dvh;

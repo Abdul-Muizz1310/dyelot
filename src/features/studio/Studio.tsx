@@ -2,22 +2,13 @@
 
 import "./studio.css";
 import Link from "next/link";
-import {
-  type KeyboardEvent as ReactKeyboardEvent,
-  type RefObject,
-  useEffect,
-  useEffectEvent,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type RefObject, useEffect, useRef, useState } from "react";
 import { CanvasFrame } from "./CanvasFrame";
 import { createStudioClient } from "./client";
 import { safeStorage } from "./drafts";
 import { InputsPanel } from "./InputsPanel";
 import { LotTag } from "./LotTag";
 import { Notices } from "./Notices";
-import { type Shortcut, shortcutFor } from "./shortcuts";
 import {
   bindStudioWindow,
   createStudioStore,
@@ -26,20 +17,15 @@ import {
   useStudio,
 } from "./store";
 import { Toast, type ToastState } from "./Toast";
-import { type DrawerName, Toolbar } from "./Toolbar";
+import { Toolbar } from "./Toolbar";
 import { linkUrl } from "./url";
+import { useDrawers } from "./useDrawers";
+import { useStudioKeys } from "./useStudioKeys";
 
 // The studio page (spec section 7.1): the store, the shell, the drawers and the keyboard. The store
 // is made in an effect, because its first load reads the hash and localStorage, which the server
-// does not have; until then the page shows its loading state.
-
-/** Below these widths a panel is a drawer (R2-16): inputs below 1024 px, the inspector below 1280. */
-const INPUTS_DRAWER = "(max-width: 1023.98px)";
-const INSPECTOR_DRAWER = "(max-width: 1279.98px)";
-
-/** Elements a Tab can reach inside a drawer. */
-const FOCUSABLE =
-  "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])";
+// does not have; until then the page shows its loading state. `studio-surround` marks the page so
+// studio.css drops the home page's madder crown behind it (F-A11Y-08).
 
 export function Studio() {
   const [store, setStore] = useState<StudioStore | null>(null);
@@ -66,7 +52,7 @@ export function Studio() {
 
 function StudioLoading() {
   return (
-    <div className="grid min-h-dvh place-items-center p-4">
+    <div className="studio-surround grid min-h-dvh place-items-center p-4">
       <h1 className="sr-only">dyelot studio</h1>
       <p role="status" className="font-mono text-fg-muted text-sm">
         Loading the studio…
@@ -75,152 +61,48 @@ function StudioLoading() {
   );
 }
 
-/** Whether a media query matches, following its changes. */
-function useMedia(query: string): boolean {
-  return useSyncExternalStore(
-    (onChange) => {
-      const list = window.matchMedia(query);
-      list.addEventListener("change", onChange);
-      return () => list.removeEventListener("change", onChange);
-    },
-    () => window.matchMedia(query).matches,
-    () => false,
-  );
-}
-
-/** Keeps Tab and Shift+Tab inside an open drawer (R2-16 item 2). */
-function trapFocus(event: ReactKeyboardEvent<HTMLElement>): void {
-  if (event.key !== "Tab") return;
-  const stops = [...event.currentTarget.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-    (element) => element.getClientRects().length > 0,
-  );
-  const first = stops[0];
-  const last = stops[stops.length - 1];
-  if (first === undefined || last === undefined) {
-    event.preventDefault();
-    return;
-  }
-  const active = document.activeElement;
-  if (event.shiftKey && (active === first || !stops.some((stop) => stop === active))) {
-    event.preventDefault();
-    last.focus();
-  } else if (!event.shiftKey && active === last) {
-    event.preventDefault();
-    first.focus();
-  }
-}
-
 function StudioShell({ store }: { store: StudioStore }) {
-  const isDrawer = {
-    inputs: useMedia(INPUTS_DRAWER),
-    inspector: useMedia(INSPECTOR_DRAWER),
-  };
-  const [requested, setRequested] = useState<DrawerName | null>(null);
-  // A drawer whose width turned it back into a column is no longer open, and stays closed if the
-  // window narrows again.
-  const open = requested !== null && isDrawer[requested] ? requested : null;
-  useEffect(() => {
-    if (open === null) setRequested(null);
-  }, [open]);
-  const opener = useRef<HTMLElement | null>(null);
-  const inputsHeading = useRef<HTMLHeadingElement>(null);
-  const inspectorHeading = useRef<HTMLHeadingElement>(null);
+  const { open, isDrawer, headings, openDrawer, closeDrawer, panelState } = useDrawers();
   const canvas = useRef<HTMLElement>(null);
-  const shown = useRef<DrawerName | null>(null);
+  const copyButton = useRef<HTMLButtonElement>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const busy = useStudio(store, (studio) => studio.status.phase === "generating");
 
-  // Opening moves focus to the drawer's heading; closing gives it back to the button that opened it.
-  useEffect(() => {
-    if (open === "inputs") inputsHeading.current?.focus();
-    else if (open === "inspector") inspectorHeading.current?.focus();
-    else if (shown.current !== null) opener.current?.focus();
-    shown.current = open;
-  }, [open]);
-
-  function openDrawer(name: DrawerName, button: HTMLElement): void {
-    opener.current = button;
-    setRequested(name);
-  }
-
-  function closeDrawer(): void {
-    setRequested(null);
-  }
-
   async function copyLink(): Promise<void> {
+    // Where focus goes back to when the visitor closes a toast that took it (F-STUDIO-23).
+    const returnTo = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const link = linkUrl(window.location.origin, store.getState().spec);
     try {
       await navigator.clipboard.writeText(link);
       setToast({ kind: "copied", at: Date.now() });
     } catch {
-      // A denied or missing clipboard (I-M2-05): the link goes in a field the visitor copies.
-      setToast({ kind: "blocked", link, at: Date.now() });
+      // A denied or missing clipboard (I-M2-05): the link goes in a field the visitor copies. With
+      // a drawer open the field waits outside it, and the live region announces it.
+      setToast({ kind: "blocked", link, at: Date.now(), returnTo, takeFocus: open === null });
     }
   }
 
-  function run(shortcut: Shortcut): void {
-    const studio = store.getState();
-    switch (shortcut.kind) {
-      case "close-drawer":
-        closeDrawer();
-        return;
-      case "copy-link":
-        void copyLink();
-        return;
-      case "toggle-mode":
-        studio.toggleMode();
-        return;
-      case "regenerate":
-        studio.regenerate();
-        return;
-      case "undo":
-        studio.undo();
-        return;
-      case "redo":
-        studio.redo();
-        return;
-      case "toggle-lock":
-        studio.toggleLock(shortcut.slot);
-        return;
-      default: {
-        const unknown: never = shortcut;
-        throw new Error(`unknown shortcut ${JSON.stringify(unknown)}`);
-      }
-    }
-  }
-
-  const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
-    const target = event.target instanceof Element ? event.target : null;
-    const shortcut = shortcutFor(event, target, { drawerOpen: open !== null });
-    if (shortcut === null) return;
-    event.preventDefault();
-    run(shortcut);
+  useStudioKeys(store, {
+    drawerOpen: open !== null,
+    closeDrawer,
+    copyLink: () => void copyLink(),
   });
 
-  useEffect(() => {
-    const listener = (event: KeyboardEvent) => onKeyDown(event);
-    window.addEventListener("keydown", listener);
-    return () => window.removeEventListener("keydown", listener);
-  }, []);
+  /** After a notice action removes the focused button, focus goes to the canvas (F-STUDIO-23). */
+  const focusCanvas = () => canvas.current?.focus();
 
   /** The rest of the page while a drawer is open: inert (R2-16 item 2). */
   const blocked = open !== null;
-  const panelState = (name: DrawerName) => ({
-    "data-drawer": isDrawer[name] ? "" : undefined,
-    "data-open": open === name ? "" : undefined,
-    inert: isDrawer[name] ? open !== name : blocked,
-    onKeyDown: open === name ? trapFocus : undefined,
-  });
 
   return (
-    <div className="studio">
+    <div className="studio studio-surround">
       {/* biome-ignore lint/a11y/useValidAnchor: a skip link stays a link; the click focuses the canvas without writing "#canvas" over the share link in the hash. */}
       <a
         href="#canvas"
         inert={blocked}
         onClick={(event) => {
           event.preventDefault();
-          canvas.current?.focus();
+          focusCanvas();
         }}
         className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-panel focus:px-3 focus:py-2 focus:text-sm"
       >
@@ -245,7 +127,7 @@ function StudioShell({ store }: { store: StudioStore }) {
           </p>
           <LotTag store={store} />
         </div>
-        <Notices store={store} />
+        <Notices store={store} onAction={focusCanvas} />
       </header>
       <aside
         id="studio-inputs"
@@ -255,7 +137,7 @@ function StudioShell({ store }: { store: StudioStore }) {
       >
         <PanelHead
           title="Inputs"
-          headingRef={inputsHeading}
+          headingRef={headings.inputs}
           closeLabel="Close inputs"
           canClose={isDrawer.inputs}
           onClose={closeDrawer}
@@ -269,6 +151,7 @@ function StudioShell({ store }: { store: StudioStore }) {
         open={open}
         onOpen={openDrawer}
         onCopyLink={() => void copyLink()}
+        copyButton={copyButton}
       />
       <main
         ref={canvas}
@@ -291,7 +174,7 @@ function StudioShell({ store }: { store: StudioStore }) {
       >
         <PanelHead
           title="Inspector"
-          headingRef={inspectorHeading}
+          headingRef={headings.inspector}
           closeLabel="Close inspector"
           canClose={isDrawer.inspector}
           onClose={closeDrawer}
@@ -300,7 +183,7 @@ function StudioShell({ store }: { store: StudioStore }) {
       {open !== null && (
         <div aria-hidden="true" className="studio-backdrop" onClick={closeDrawer} />
       )}
-      <Toast state={toast} onClose={() => setToast(null)} />
+      <Toast state={toast} onClose={() => setToast(null)} fallbackFocus={copyButton} />
     </div>
   );
 }
@@ -319,7 +202,7 @@ function PanelHead({
   onClose: () => void;
 }) {
   return (
-    <div className="flex min-h-12 items-center justify-between gap-3 border-border border-b px-4">
+    <div className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-border border-b px-4">
       <h2
         ref={headingRef}
         tabIndex={-1}

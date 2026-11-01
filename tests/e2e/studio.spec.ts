@@ -21,6 +21,7 @@ import {
   designFor,
   expectedVars,
   FRESH,
+  failingWorker,
   focusBody,
   inputsAside,
   inputsPanel,
@@ -132,6 +133,14 @@ test.describe("7.1 Layout and the shell", () => {
     await expect(inspectorAside(page)).toHaveAttribute("inert", "");
     await expect(button(page, "Inspector")).toBeVisible();
     await expect(button(page, "Inputs")).toBeHidden();
+    // The open Inspector drawer is modal over the inputs column, and gives focus back on close.
+    await button(page, "Inspector").click();
+    await expect(inspectorAside(page).getByRole("heading", { name: "Inspector" })).toBeFocused();
+    await expect(inputsAside(page)).toHaveAttribute("inert", "");
+    await page.keyboard.press("Escape");
+    await expect(inspectorAside(page)).toBeHidden();
+    await expect(button(page, "Inspector")).toBeFocused();
+    await expect(inputsAside(page)).not.toHaveAttribute("inert");
   });
 
   test("F-STUDIO-04 at 360 px both panels are drawers and the page does not scroll sideways", async ({
@@ -254,6 +263,8 @@ test.describe("7.1 Layout and the shell", () => {
       expect(shown.map(rgbToHex)).toEqual(scale.map((step) => step.hex));
       for (const [i, step] of scale.entries()) {
         await expect(swatches.nth(i)).toHaveAttribute("title", `${step.step} ${step.hex}`);
+        await expect(swatches.nth(i)).toHaveAttribute("role", "img");
+        await expect(swatches.nth(i)).toHaveAccessibleName(`${step.step} ${step.hex}`);
       }
     }
   });
@@ -498,26 +509,7 @@ test.describe("7.1 Layout and the shell", () => {
   test("F-STUDIO-19 a failing generator shows a message with Revert and keeps the canvas", async ({
     page,
   }) => {
-    await page.addInitScript(() => {
-      const Real = window.Worker;
-      const flags = window as unknown as { __dyelotFault: boolean };
-      flags.__dyelotFault = false;
-      class FaultWorker extends Real {
-        override postMessage(message: { id: number }, ...rest: never[]) {
-          if (!flags.__dyelotFault) {
-            super.postMessage(message, ...rest);
-            return;
-          }
-          const data = {
-            id: message.id,
-            ok: false,
-            error: { name: "RangeError", message: "forced" },
-          };
-          setTimeout(() => this.dispatchEvent(new MessageEvent("message", { data })), 0);
-        }
-      }
-      window.Worker = FaultWorker;
-    });
+    await failingWorker(page);
     await openStudio(page);
     const before = await canvasVars(page);
     await page.evaluate(() => {
@@ -590,6 +582,132 @@ test.describe("7.1 Layout and the shell", () => {
     await expect(notice).toContainText("Editing it resets the fonts to the automatic pairing.");
     await expect(lotId(page)).toHaveText(lotOf(custom));
   });
+});
+
+test.describe("7.1 Focus and drafts after the review", () => {
+  test("F-STUDIO-23 after Start fresh or Dismiss focus moves to the canvas region", async ({
+    page,
+  }) => {
+    const bad = `#s=${tampered(encodeSpec(designFor(FRESH, "e2e-link")))}`;
+    await openStudio(page, bad);
+    await banner(page).getByRole("button", { name: "Dismiss", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(banner(page)).toHaveCount(0);
+    await expect(canvasRegion(page)).toBeFocused();
+    await page.goto("about:blank");
+    await openStudio(page, bad);
+    await banner(page).getByRole("button", { name: "Start fresh", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(banner(page)).toHaveCount(0);
+    await expect(canvasRegion(page)).toBeFocused();
+  });
+
+  test("F-STUDIO-23 after Revert focus moves to the canvas region", async ({ page }) => {
+    await failingWorker(page);
+    await openStudio(page);
+    await page.evaluate(() => {
+      (window as unknown as { __dyelotFault: boolean }).__dyelotFault = true;
+    });
+    await radio(page, "Chroma", "vivid").check();
+    const revert = banner(page).getByRole("button", { name: "Revert", exact: true });
+    await revert.focus();
+    await page.keyboard.press("Enter");
+    await expect(banner(page)).toHaveCount(0);
+    await expect(canvasRegion(page)).toBeFocused();
+  });
+
+  test("F-STUDIO-23 closing the copy-blocked toast gives focus back", async ({ page }) => {
+    await page.addInitScript(() =>
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined }),
+    );
+    await openStudio(page);
+    const close = button(page, "Close");
+    // From Copy link: focus returns to it.
+    await button(page, "Copy link").focus();
+    await page.keyboard.press("Enter");
+    await expect(field(page, "Share link")).toBeFocused();
+    await close.click();
+    await expect(button(page, "Copy link")).toBeFocused();
+    // From another control, by Mod+S: focus returns to that control.
+    await button(page, "Lock secondary").focus();
+    await page.keyboard.press("ControlOrMeta+s");
+    await expect(field(page, "Share link")).toBeFocused();
+    await close.focus();
+    await page.keyboard.press("Enter");
+    await expect(button(page, "Lock secondary")).toBeFocused();
+    // From the page body: focus falls back to Copy link.
+    await focusBody(page);
+    await page.keyboard.press("ControlOrMeta+s");
+    await expect(field(page, "Share link")).toBeFocused();
+    await close.click();
+    await expect(button(page, "Copy link")).toBeFocused();
+  });
+
+  test("F-STUDIO-23 with a drawer open, a copy-blocked toast announces itself and keeps focus", async ({
+    page,
+  }) => {
+    await page.addInitScript(() =>
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined }),
+    );
+    await page.setViewportSize(PHONE);
+    await openStudio(page);
+    await button(page, "Inputs").click();
+    const lock = button(page, "Lock primary");
+    await lock.focus();
+    await page.keyboard.press("ControlOrMeta+s");
+    await expect(
+      page.getByRole("status").filter({ hasText: "Copy blocked. Select the link below." }),
+    ).toBeVisible();
+    await expect(lock).toBeFocused();
+    await expect(inputsAside(page)).toBeVisible();
+  });
+
+  test("F-STUDIO-24 Drafts off opens by keyboard and says why", async ({ page }) => {
+    await page.addInitScript(() => {
+      Object.defineProperty(window, "localStorage", {
+        configurable: true,
+        get() {
+          throw new DOMException("The operation is insecure.", "SecurityError");
+        },
+      });
+    });
+    await openStudio(page);
+    const why =
+      "This browser does not let the studio save a draft. The link in the address bar still holds the design.";
+    const toggle = page.locator("[data-toolbar]").getByText("Drafts off", { exact: true });
+    await expect(page.getByText(why)).toBeHidden();
+    await toggle.focus();
+    await page.keyboard.press("Enter");
+    await expect(page.getByText(why)).toBeVisible();
+  });
+
+  test("F-STUDIO-24 drafts that turn off mid-session are announced", async ({ page }) => {
+    await page.addInitScript(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      };
+    });
+    await openStudio(page);
+    const live = page.locator("[data-toolbar]").getByRole("status");
+    await expect(live).toHaveText("");
+    await changeDesign(page, () => radio(page, "Chroma", "vivid").check());
+    await expect(live).toHaveText("Drafts off");
+  });
+});
+
+test("F-INPUT-16 Regenerate stays in view at 1280 × 800 and every shortcut is named", async ({
+  page,
+}) => {
+  await openStudio(page);
+  const regenerate = button(page, "Regenerate");
+  await expect(regenerate).toBeInViewport({ ratio: 1 });
+  await expect(regenerate).toHaveAttribute("aria-keyshortcuts", "Space");
+  await expect(modeSwitch(page)).toHaveAttribute("aria-keyshortcuts", "Alt+T");
+  await expect(button(page, "Copy link")).toHaveAttribute("aria-keyshortcuts", "Control+S Meta+S");
+  const hint = inputsPanel(page).locator("[data-shortcut-hint]");
+  await expect(hint).toContainText("Alt+T");
+  await expect(hint).toContainText("Ctrl+S");
+  await expect(hint).toBeInViewport({ ratio: 1 });
 });
 
 /** Runs `change` and waits until the lot tag shows another design. */
@@ -1155,7 +1273,11 @@ test.describe("7.3 Keyboard", () => {
   }) => {
     await stubSeeds(page);
     await openStudio(page);
-    const lot = lotOf(first());
+    // A change first, so an undo or a redo would show.
+    await button(page, "Regenerate").click();
+    const lot = lotOf(designFor(FRESH, seedOf(2)));
+    await expect(lotId(page)).toHaveText(lot);
+    await settled(page);
     await field(page, "Primary").focus();
     for (const key of ["Space", "l", "ArrowLeft", "ArrowRight", "Alt+KeyT"]) {
       await page.keyboard.press(key);
@@ -1169,7 +1291,9 @@ test.describe("7.3 Keyboard", () => {
     await expect(lotId(page)).toHaveText(lot);
     await expect(modeSwitch(page)).toHaveAttribute("aria-checked", "false");
     await expect(button(page, "Lock primary")).toHaveAttribute("aria-pressed", "false");
-    expect(await seedCalls(page)).toBe(1);
+    await expect(button(page, "Undo")).toHaveAttribute("aria-disabled", "false");
+    await expect(button(page, "Redo")).toHaveAttribute("aria-disabled", "true");
+    expect(await seedCalls(page)).toBe(2);
     await expect(select(page, "Harmony")).toHaveValue(FRESH.harmony);
   });
 
@@ -1340,10 +1464,17 @@ test.describe("7.3 Keyboard", () => {
   test("F-KEY-13 inside the canvas the keys stay with the preview", async ({ page }) => {
     await stubSeeds(page);
     await openStudio(page);
-    // Preview controls arrive with Task 2.7; the test puts two of them in the frame.
+    // A change first, so an undo or a redo would show.
+    await button(page, "Regenerate").click();
+    const lot = lotOf(designFor(FRESH, seedOf(2)));
+    await expect(lotId(page)).toHaveText(lot);
+    await settled(page);
+    // Preview controls arrive with Task 2.7; the test puts two of them in the frame, one marked as a
+    // seed control, so that L would lock primary if the canvas did not keep its keys.
     await page.locator("[data-canvas]").evaluate((frame) => {
       const box = document.createElement("input");
       box.type = "checkbox";
+      box.setAttribute("data-seed-slot", "primary");
       box.setAttribute("aria-label", "Sample checkbox");
       const tab = document.createElement("div");
       tab.setAttribute("role", "tab");
@@ -1362,10 +1493,25 @@ test.describe("7.3 Keyboard", () => {
       }
     }
     await page.waitForTimeout(400);
-    expect(await seedCalls(page)).toBe(1);
-    await expect(lotId(page)).toHaveText(lotOf(first()));
+    expect(await seedCalls(page)).toBe(2);
+    await expect(lotId(page)).toHaveText(lot);
     await expect(modeSwitch(page)).toHaveAttribute("aria-checked", "false");
-    await expect(button(page, "Undo")).toHaveAttribute("aria-disabled", "true");
+    await expect(button(page, "Lock primary")).toHaveAttribute("aria-pressed", "false");
+    await expect(button(page, "Undo")).toHaveAttribute("aria-disabled", "false");
+    await expect(button(page, "Redo")).toHaveAttribute("aria-disabled", "true");
+  });
+
+  test("F-KEY-14 a keydown that is a plain Event raises nothing", async ({ page }) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await stubSeeds(page);
+    await openStudio(page);
+    await page.evaluate(() => {
+      document.body.dispatchEvent(new Event("keydown", { bubbles: true }));
+    });
+    await page.waitForTimeout(200);
+    expect(errors).toEqual([]);
+    expect(await seedCalls(page)).toBe(1);
   });
 });
 
@@ -1440,8 +1586,7 @@ test.describe("7.9 Accessibility", () => {
       );
       const hex = (rgb: number[]) =>
         `#${rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
-      const allowed =
-        '[aria-pressed="true"], [aria-checked="true"], [data-primary], label:has(input:checked), :focus-visible';
+      const allowed = "[data-primary], :focus-visible";
       const problems: string[] = [];
       for (const el of document.querySelectorAll("body *")) {
         if (el.closest("[data-canvas], [data-swatch], script, style")) continue;
@@ -1474,6 +1619,27 @@ test.describe("7.9 Accessibility", () => {
       return problems;
     }, chromaScript().toString());
     expect(offenders).toEqual([]);
+  });
+
+  test("F-A11Y-08 the studio surround keeps the dot grid without the madder crown", async ({
+    page,
+  }) => {
+    const stops = () =>
+      page.evaluate((script) => {
+        const chroma = new Function(`return (${script})`)() as (rgb: number[]) => number;
+        const image = getComputedStyle(document.body, "::before").backgroundImage;
+        return [...image.matchAll(/rgba?\(([^)]+)\)/g)].map((match) => {
+          const [r = 0, g = 0, b = 0] = (match[1] ?? "").split(/[ ,/]+/).map(Number);
+          return { color: match[0], chroma: chroma([r, g, b]) };
+        });
+      }, chromaScript().toString());
+    await openStudio(page);
+    const studio = await stops();
+    expect(studio.length).toBeGreaterThan(0);
+    expect(studio.filter((stop) => stop.chroma > 0.005)).toEqual([]);
+    // The home page keeps its crown.
+    await page.goto("/");
+    expect((await stops()).some((stop) => stop.chroma > 0.1)).toBe(true);
   });
 
   test("F-A11Y-06 with reduced motion the drawers and toasts move in 0.01 ms or less", async ({

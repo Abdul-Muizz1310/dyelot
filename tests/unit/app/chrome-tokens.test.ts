@@ -35,7 +35,9 @@ describe("F-A11Y-07 the chrome tokens", () => {
     },
   );
 
-  // Non-text: the edge of a text field and a swatch is --fg-muted; the focus ring is madder.
+  // Non-text: the mode switch's thumb at rest is --fg-muted; the focus ring is madder. Field edges
+  // use --border-bright like every control; a hex field always shows its value or the generated hex
+  // as a placeholder in --fg-muted, which marks where it is.
   it.each(["fg-muted", "accent-madder"])(
     "--%s meets 3:1 as a control edge on the page and the panel",
     (name) => {

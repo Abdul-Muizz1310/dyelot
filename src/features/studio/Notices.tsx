@@ -1,24 +1,25 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { BUTTON, PRIMARY_BUTTON } from "./chrome";
 import { type StudioStore, useStudio } from "./store";
 import { bannerFor, type Notice } from "./url";
 
 // The studio's notices (spec R2-14 item 3, I-M2-03): a failure never shows a raw error. A link
 // that did not open and a change the generator refused are alerts with a way forward; the custom
-// fonts and the restored draft are polite notices the visitor can dismiss.
+// fonts and the restored draft are polite notices the visitor can dismiss. Each action removes the
+// notice and the button with it, so `onAction` moves focus on (to the canvas, F-STUDIO-23).
 
-const ACTION =
-  "inline-flex min-h-8 items-center rounded-md border border-border-bright px-3 text-sm text-foreground hover:border-fg-muted";
-const PRIMARY =
-  "inline-flex min-h-8 items-center rounded-md bg-accent-madder px-3 font-medium text-page text-sm hover:opacity-90";
-
-export function Notices({ store }: { store: StudioStore }) {
+export function Notices({ store, onAction }: { store: StudioStore; onAction(): void }) {
   const notice = useStudio(store, (studio) => studio.status.notice);
   if (notice === null) return null;
   const { startFresh, dismissNotice, revert } = store.getState();
+  const act = (action: () => void) => () => {
+    onAction();
+    action();
+  };
   const dismiss = (
-    <button type="button" onClick={dismissNotice} className={ACTION}>
+    <button type="button" onClick={act(dismissNotice)} className={BUTTON}>
       Dismiss
     </button>
   );
@@ -26,7 +27,12 @@ export function Notices({ store }: { store: StudioStore }) {
     case "link":
       return (
         <Banner role="alert" notice={notice}>
-          <button type="button" data-primary="" onClick={startFresh} className={PRIMARY}>
+          <button
+            type="button"
+            data-primary=""
+            onClick={act(startFresh)}
+            className={PRIMARY_BUTTON}
+          >
             Start fresh
           </button>
           {dismiss}
@@ -35,7 +41,7 @@ export function Notices({ store }: { store: StudioStore }) {
     case "generation":
       return (
         <Banner role="alert" notice={notice}>
-          <button type="button" data-primary="" onClick={revert} className={PRIMARY}>
+          <button type="button" data-primary="" onClick={act(revert)} className={PRIMARY_BUTTON}>
             Revert
           </button>
         </Banner>

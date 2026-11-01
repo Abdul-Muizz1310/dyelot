@@ -92,7 +92,7 @@ function Specimen() {
           Read the tide before you set out.
         </h2>
         <p style={{ ...text("lead"), color: "var(--muted-foreground)" }}>
-          A sample page set in the design on the left: its colors, type, radius, shadow and density.
+          A sample page set in this design: its colors, type, radius, shadow and density.
         </p>
       </div>
       <div style={{ display: "flex", flexWrap: "wrap", gap: "var(--space-3)" }}>
