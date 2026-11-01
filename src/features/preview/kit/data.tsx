@@ -11,25 +11,125 @@ import type { KitState } from "./states";
 
 const PLACES = SAMPLE_PLACES;
 
+/** The readings' fields after the place, as the table heads them and a record labels them. */
+const OBSERVER = "Observer";
+const READING = "Reading (m)";
+const STATE = "State";
+const NONE_SAVED = "No readings saved yet.";
+
+type Layout = "row" | "record";
+
+/** What marks a reading as a kit specimen: its state, its label's container and its roles. */
+function marks(state: KitState) {
+  return {
+    "data-kit": "table-row",
+    "data-state": state,
+    "data-specimen": "",
+    "data-roles":
+      state === "selected"
+        ? "accent accent-foreground"
+        : state === "empty"
+          ? "muted-foreground"
+          : "muted border",
+  } as const;
+}
+
+function StateLabel({ state }: { state: KitState }) {
+  return (
+    <span data-state-label="" className="kit-mono kit-t-caption">
+      {state}
+    </span>
+  );
+}
+
+/**
+ * One reading, as a table row or as a stacked record: the same data, states and marks in either
+ * layout. A place or an observer wraps only between words (`kit-word`); the reading keeps its line.
+ */
+function ReadingEntry({
+  layout,
+  state,
+  place,
+  person,
+  amount,
+}: {
+  layout: Layout;
+  state: KitState;
+  place: string;
+  person: string;
+  amount: string;
+}) {
+  if (layout === "row") {
+    return (
+      <tr {...marks(state)}>
+        <td>
+          <StateLabel state={state} />
+        </td>
+        <td className="kit-word">{place}</td>
+        <td className="kit-word">{person}</td>
+        <td className="kit-num">{amount}</td>
+      </tr>
+    );
+  }
+  return (
+    <li {...marks(state)} className="kit-record">
+      <p className="kit-record-place kit-word">{place}</p>
+      <dl className="kit-record-pairs">
+        <dt>{OBSERVER}</dt>
+        <dd className="kit-word">{person}</dd>
+        <dt>{READING}</dt>
+        <dd className="kit-num">{amount}</dd>
+        <dt>{STATE}</dt>
+        <dd>
+          <StateLabel state={state} />
+        </dd>
+      </dl>
+    </li>
+  );
+}
+
+/** The `empty` state: no reading saved, in either layout. */
+function EmptyEntry({ layout }: { layout: Layout }) {
+  const content = (
+    <>
+      <StateLabel state="empty" /> · {NONE_SAVED}
+    </>
+  );
+  if (layout === "row") {
+    return (
+      <tr {...marks("empty")}>
+        <td colSpan={4}>{content}</td>
+      </tr>
+    );
+  }
+  return (
+    <li {...marks("empty")} className="kit-record">
+      {content}
+    </li>
+  );
+}
+
 function Head() {
   return (
     <thead>
       <tr>
-        <th scope="col" className="kit-table-state">
-          State
-        </th>
+        <th scope="col">{STATE}</th>
         <th scope="col">Place</th>
-        <th scope="col">Observer</th>
+        <th scope="col">{OBSERVER}</th>
         <th scope="col" className="kit-num">
-          Reading (m)
+          {READING}
         </th>
       </tr>
     </thead>
   );
 }
 
-/** A table whose rows each show one state, and a table with no rows (the `empty` state). */
-export function ReadingsTables({
+/**
+ * The readings, one per state, and the `empty` state in a set of its own. From 480 px of frame they
+ * are a table; below it they stack as records (spec F-TPL-03). The frame's container query shows one
+ * layout and removes the other (`display: none`), so only one is in the accessibility tree.
+ */
+export function Readings({
   states,
   person,
   amount,
@@ -38,53 +138,43 @@ export function ReadingsTables({
   person: string;
   amount: string;
 }) {
-  const rows = states.filter((state) => state !== "empty");
+  const rows = states
+    .filter((state) => state !== "empty")
+    .map((state, index) => ({ state, place: PLACES[index % PLACES.length] ?? "" }));
+  const entries = (layout: Layout) =>
+    rows.map((row) => (
+      <ReadingEntry
+        key={row.state}
+        layout={layout}
+        state={row.state}
+        place={row.place}
+        person={person}
+        amount={amount}
+      />
+    ));
   return (
-    <>
+    <div className="kit-readings">
       <table className="kit-table" aria-label="Sample readings">
         <Head />
-        <tbody>
-          {rows.map((state, index) => (
-            <tr
-              key={state}
-              data-kit="table-row"
-              data-state={state}
-              data-specimen=""
-              data-roles={state === "selected" ? "accent accent-foreground" : "muted border"}
-            >
-              <td className="kit-table-state">
-                <span data-state-label="" className="kit-mono kit-t-caption">
-                  {state}
-                </span>
-              </td>
-              <td>{PLACES[index % PLACES.length]}</td>
-              <td>{person}</td>
-              <td className="kit-num">{amount}</td>
-            </tr>
-          ))}
-        </tbody>
+        <tbody>{entries("row")}</tbody>
       </table>
+      <ul className="kit-records" aria-label="Sample readings">
+        {entries("record")}
+      </ul>
       {states.includes("empty") && (
-        <table className="kit-table" aria-label="Sample readings, none saved">
-          <Head />
-          <tbody>
-            <tr
-              data-kit="table-row"
-              data-state="empty"
-              data-specimen=""
-              data-roles="muted-foreground"
-            >
-              <td colSpan={4}>
-                <span data-state-label="" className="kit-mono kit-t-caption">
-                  empty
-                </span>{" "}
-                · No readings saved yet.
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <>
+          <table className="kit-table" aria-label="Sample readings, none saved">
+            <Head />
+            <tbody>
+              <EmptyEntry layout="row" />
+            </tbody>
+          </table>
+          <ul className="kit-records" aria-label="Sample readings, none saved">
+            <EmptyEntry layout="record" />
+          </ul>
+        </>
       )}
-    </>
+    </div>
   );
 }
 

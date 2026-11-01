@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { hexToRgb, ROLE_NAMES, wcagRatio } from "@/engine";
-import { BUTTON_VARIANTS, KIT_COMPONENTS } from "@/features/preview/kit/states";
+import { BUTTON_VARIANTS, KIT_COMPONENTS, statesOf } from "@/features/preview/kit/states";
 import { TEXT_PAIRS } from "@/features/preview/swatches";
 import { themeVars } from "@/theme/vars";
 import {
@@ -133,7 +133,10 @@ function stateDifferences(pane: Locator): Promise<string[]> {
     const differs = (a: Set<string>, b: Set<string>) =>
       [...a].some((value) => !b.has(value)) || [...b].some((value) => !a.has(value));
     const problems: string[] = [];
-    const parts = [...element.querySelectorAll<HTMLElement>("[data-kit][data-state]")];
+    // The parts on screen: a layout the frame hides (the readings' table or records) is not compared.
+    const parts = [...element.querySelectorAll<HTMLElement>("[data-kit][data-state]")].filter(
+      (part) => part.getBoundingClientRect().width > 0,
+    );
     const key = (part: HTMLElement) => `${part.dataset.kit}|${part.dataset.variant ?? ""}`;
     const defaults = new Map<string, HTMLElement>();
     for (const part of parts) {
@@ -380,6 +383,34 @@ test.describe("7.5 The kitchen sink", () => {
       // Only the default specimens and the live demos take focus: at most 60 Tab stops per frame.
     }
     expect(await tabStops(page)).toBeLessThanOrEqual(60);
+    // Under 480 px of frame the readings stack as records: the table leaves the accessibility
+    // tree, every row keeps its state label on screen, and each forced state still paints.
+    const frames = page
+      .getByRole("region", { name: "Canvas toolbar" })
+      .getByRole("group", { name: "Frame", exact: true });
+    await frames.getByRole("radio", { name: "360", exact: true }).check();
+    for (const mode of MODES) {
+      const pane = canvasPane(page, mode);
+      await expect(pane.getByRole("table", { name: "Sample readings", exact: true })).toHaveCount(
+        0,
+      );
+      const labels = await pane.locator('[data-kit="table-row"]').evaluateAll((rows) =>
+        rows
+          .filter((row) => row.getBoundingClientRect().width > 0)
+          .map((row) => {
+            const label = row.querySelector("[data-state-label]");
+            const box = label?.getBoundingClientRect();
+            return [
+              row.getAttribute("data-state"),
+              label?.textContent ?? null,
+              box !== undefined && box.width > 0 && box.height > 0,
+            ];
+          }),
+      );
+      expect(labels, mode).toEqual(statesOf("table-row").map((state) => [state, state, true]));
+      expect(await stateDifferences(pane), `${mode} at 360`).toEqual([]);
+    }
+    await frames.getByRole("radio", { name: "1280", exact: true }).check();
   });
 
   test("F-TPL-04 the five button variants paint with their roles and name them", async () => {

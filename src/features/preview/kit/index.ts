@@ -4,7 +4,7 @@ import "./base.css";
 
 export { BUTTON_ROLES, Button } from "./Button";
 export { Checkbox, Radio, Segmented, Switch } from "./choices";
-export { Avatar, Badge, Chip, Progress, ReadingsTables, Skeleton, type Tone } from "./data";
+export { Avatar, Badge, Chip, Progress, Readings, Skeleton, type Tone } from "./data";
 export { Input, Select, Textarea } from "./fields";
 export { Entrance, MotionScope } from "./motion";
 export { MenuSpecimen, TabSpecimen, TabsDemo } from "./navigation";

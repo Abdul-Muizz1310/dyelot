@@ -19,7 +19,7 @@ import {
   MenuSpecimen,
   Progress,
   Radio,
-  ReadingsTables,
+  Readings,
   Select,
   SheetStage,
   Skeleton,
@@ -178,7 +178,7 @@ function specimensOf(id: KitComponentId, states: readonly KitState[], copy: Canv
         </div>
       );
     case "table-row":
-      return <ReadingsTables states={states} person={copy.person} amount={copy.amount} />;
+      return <Readings states={states} person={copy.person} amount={copy.amount} />;
     case "card":
       return (
         <div className="sink-specimens" data-fill="">

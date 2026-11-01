@@ -3,7 +3,7 @@ import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { fontStack, hexToRgb, PAIRINGS, simulate, toHex } from "@/engine";
-import { COPY } from "@/features/preview/copy";
+import { COPY, SAMPLE_PLACES } from "@/features/preview/copy";
 import { frameFit } from "@/features/preview/frame";
 import { writeHash } from "@/features/studio/url";
 import { normalizeSpec } from "@/spec";
@@ -432,16 +432,47 @@ test.describe("7.4 The canvas on the kitchen sink", () => {
     }
     for (const frame of [360, 768, 1280] as const) {
       await toolbarRadio(page, "Frame", String(frame)).check();
-      // A figure never breaks: each numeric cell holds its number on one line.
+      // A figure never breaks: each reading on screen holds its number on one line.
       const lines = await canvasFrame(page).evaluate((element) =>
-        [...element.querySelectorAll("td.kit-num")].map((cell) => {
-          const range = document.createRange();
-          range.selectNodeContents(cell);
-          return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
-        }),
+        [...element.querySelectorAll('[aria-label="Sample readings"] :is(td, dd).kit-num')]
+          .filter((cell) => cell.getBoundingClientRect().width > 0)
+          .map((cell) => {
+            const range = document.createRange();
+            range.selectNodeContents(cell);
+            return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+          }),
       );
       expect(lines.length, `${frame}`).toBeGreaterThan(0);
       expect(new Set(lines), `${frame}`).toEqual(new Set([1]));
+      // A place or an observer breaks only between words: every word of 20 characters or fewer
+      // (a hyphen ends a word) sits on one line. Only the 40-character word may break anywhere.
+      const words = await canvasFrame(page).evaluate(
+        (element, names) => {
+          const broken: string[] = [];
+          let checked = 0;
+          for (const scope of element.querySelectorAll('[aria-label="Sample readings"]')) {
+            if (scope.getBoundingClientRect().width === 0) continue;
+            const walker = document.createTreeWalker(scope, NodeFilter.SHOW_TEXT);
+            for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+              const text = node.textContent ?? "";
+              if (!names.some((name) => text.includes(name))) continue;
+              for (const match of text.matchAll(/[^\s-]+-?/g)) {
+                if (match[0].length > 20) continue;
+                const range = document.createRange();
+                range.setStart(node, match.index);
+                range.setEnd(node, match.index + match[0].length);
+                const rects = [...range.getClientRects()].filter((rect) => rect.width > 0);
+                checked++;
+                if (rects.length !== 1) broken.push(`${match[0]} in ${rects.length} pieces`);
+              }
+            }
+          }
+          return { checked, broken };
+        },
+        [...SAMPLE_PLACES, edge.person],
+      );
+      expect(words.checked, `${frame}`).toBeGreaterThan(10);
+      expect(words.broken, `${frame}`).toEqual([]);
       const overflow = await page.evaluate(() =>
         [...document.querySelectorAll<HTMLElement>("[data-canvas]")].map((element) => [
           element.scrollWidth,
