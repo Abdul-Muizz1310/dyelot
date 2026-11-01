@@ -31,6 +31,11 @@ const STUDIO_HELPERS = [
   "inputs",
 ].map((name) => `src/features/studio/${name}.ts`);
 
+/** The preview's pure helpers (Task 2.7), held to `PURE_FLOORS` the same way. */
+const PREVIEW_HELPERS = ["frame", "swatches", "copy", "vars", "kit/states"].map(
+  (name) => `src/features/preview/${name}.ts`,
+);
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -77,6 +82,7 @@ export default defineConfig({
         // The studio's pure helpers (spec R2-22). The store, the worker shell and the UI are
         // covered by the flows; inspect.ts arrives with Task 2.10 and is held to the floor then.
         ...STUDIO_HELPERS,
+        ...PREVIEW_HELPERS,
       ],
       thresholds: {
         lines: 80,
@@ -88,7 +94,9 @@ export default defineConfig({
         "src/spec/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/theme/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
-        ...Object.fromEntries(STUDIO_HELPERS.map((file) => [file, PURE_FLOORS])),
+        ...Object.fromEntries(
+          [...STUDIO_HELPERS, ...PREVIEW_HELPERS].map((file) => [file, PURE_FLOORS]),
+        ),
       },
     },
   },

@@ -16,6 +16,8 @@ import { linkUrl, writeHash } from "@/features/studio/url";
 import { encodeSpec, normalizeSpec } from "@/spec";
 import { SITE } from "../../src/lib/site/config";
 import {
+  canvasFrame,
+  canvasPane,
   canvasRegion,
   canvasVars,
   designFor,
@@ -58,6 +60,17 @@ const button = (page: Page, name: string) => page.getByRole("button", { name, ex
 const group = (page: Page, name: string) => page.getByRole("group", { name, exact: true });
 const radio = (page: Page, groupName: string, name: string) =>
   group(page, groupName).getByRole("radio", { name, exact: true });
+/** A radio of the inputs panel, for a group the canvas toolbar repeats (Density, section 7.4). */
+const panelRadio = (page: Page, groupName: string, name: string) =>
+  inputsPanel(page)
+    .getByRole("group", { name: groupName, exact: true })
+    .getByRole("radio", { name, exact: true });
+/** A radio of the canvas toolbar (section 7.4). */
+const toolbarRadio = (page: Page, groupName: string, name: string) =>
+  page
+    .getByRole("region", { name: "Canvas toolbar" })
+    .getByRole("group", { name: groupName, exact: true })
+    .getByRole("radio", { name, exact: true });
 const select = (page: Page, name: string) => page.getByRole("combobox", { name, exact: true });
 const field = (page: Page, name: string) => page.getByRole("textbox", { name, exact: true });
 const modeSwitch = (page: Page) => page.getByRole("switch", { name: "Dark mode", exact: true });
@@ -305,7 +318,7 @@ test.describe("7.1 Layout and the shell", () => {
     await expect(alert.getByRole("button", { name: "Dismiss", exact: true })).toBeVisible();
     // Never blank: the canvas holds a whole design.
     expect(Object.keys(await canvasVars(page))).toHaveLength(206);
-    const frame = await page.locator("[data-canvas]").boundingBox();
+    const frame = await canvasFrame(page).boundingBox();
     expect(frame?.height ?? 0).toBeGreaterThan(100);
   });
 
@@ -395,7 +408,7 @@ test.describe("7.1 Layout and the shell", () => {
     const timing = page.evaluate(
       () =>
         new Promise<{ varsAt: number; hashAt: number }>((resolve) => {
-          const frame = document.querySelector("[data-canvas]");
+          const frame = document.querySelector("[data-canvas][data-frame]");
           const style = frame?.getAttribute("style");
           let varsAt: number | null = null;
           const tick = () => {
@@ -1021,7 +1034,7 @@ test.describe("7.2 The inputs panel", () => {
       expect(await canvasVars(page), `${name} undone`).toEqual(base);
     }
     // Density is a view setting: it changes the canvas without a new design.
-    await radio(page, "Density", "dense").check();
+    await panelRadio(page, "Density", "dense").check();
     await expect.poll(async () => (await canvasVars(page))["--control-height"]).toBe("32px");
   });
 
@@ -1076,7 +1089,7 @@ test.describe("7.2 The inputs panel", () => {
     await expect(radio(page, "Radius", preset.params.radius)).toBeChecked();
     await expect(radio(page, "Depth", preset.params.depth)).toBeChecked();
     await expect(radio(page, "Motion feel", preset.params.motion)).toBeChecked();
-    await expect(radio(page, "Density", preset.view.density)).toBeChecked();
+    await expect(panelRadio(page, "Density", preset.view.density)).toBeChecked();
     await expect(modeSwitch(page)).toHaveAttribute("aria-checked", "true");
     await expect(button(page, "Lock primary")).toHaveAttribute("aria-pressed", "true");
     await expect(field(page, "Primary")).toHaveValue("#1f6f5b");
@@ -1509,9 +1522,25 @@ test.describe("7.3 Keyboard", () => {
       select(page, "Type context"),
       radio(page, "Radius", "soft"),
       radio(page, "Depth", "soft"),
-      radio(page, "Density", "comfortable"),
+      panelRadio(page, "Density", "comfortable"),
       radio(page, "Motion feel", "brisk"),
       button(page, "Regenerate"),
+    ];
+  }
+
+  /** The Tab stops of the canvas toolbar after its drawer buttons, in the order of section 7.1. */
+  function toolbarStops(page: Page) {
+    return [
+      toolbarRadio(page, "Frame", "1280"),
+      select(page, "Template"),
+      modeSwitch(page),
+      toolbarRadio(page, "Density", "comfortable"),
+      page.getByRole("switch", { name: "Reduce motion", exact: true }),
+      toolbarRadio(page, "Copy", "Real copy"),
+      toolbarRadio(page, "Vision", "none"),
+      button(page, "Undo"),
+      button(page, "Redo"),
+      button(page, "Copy link"),
     ];
   }
 
@@ -1523,10 +1552,7 @@ test.describe("7.3 Keyboard", () => {
       page.getByRole("link", { name: "Skip to canvas", exact: true }),
       page.getByRole("link", { name: "dyelot", exact: true }),
       ...panelStops(page),
-      modeSwitch(page),
-      button(page, "Undo"),
-      button(page, "Redo"),
-      button(page, "Copy link"),
+      ...toolbarStops(page),
       canvasRegion(page),
     ];
     await focusBody(page);
@@ -1545,10 +1571,7 @@ test.describe("7.3 Keyboard", () => {
     const toolbar = [
       button(page, "Inputs"),
       button(page, "Inspector"),
-      modeSwitch(page),
-      button(page, "Undo"),
-      button(page, "Redo"),
-      button(page, "Copy link"),
+      ...toolbarStops(page),
       canvasRegion(page),
     ];
     await focusBody(page);
@@ -1588,24 +1611,21 @@ test.describe("7.3 Keyboard", () => {
     const lot = lotOf(designFor(FRESH, seedOf(2)));
     await expect(lotId(page)).toHaveText(lot);
     await settled(page);
-    // Preview controls arrive with Task 2.7; the test puts two of them in the frame, one marked as a
-    // seed control, so that L would lock primary if the canvas did not keep its keys.
-    await page.locator("[data-canvas]").evaluate((frame) => {
-      const box = document.createElement("input");
-      box.type = "checkbox";
-      box.setAttribute("data-seed-slot", "primary");
-      box.setAttribute("aria-label", "Sample checkbox");
-      const tab = document.createElement("div");
-      tab.setAttribute("role", "tab");
-      tab.tabIndex = 0;
-      tab.textContent = "Sample tab";
-      frame.append(box, tab);
-    });
-    const box = page.getByRole("checkbox", { name: "Sample checkbox" });
+    // The kitchen sink's own controls: a checkbox, marked as a seed control so that L would lock
+    // primary if the canvas did not keep its keys, and the kit's tab list.
+    await select(page, "Template").selectOption("kitchen-sink");
+    const light = canvasPane(page, "light");
+    const box = light.locator('[data-kit="checkbox"][data-state="default"]');
+    await box.evaluate((element) => element.setAttribute("data-seed-slot", "primary"));
     await box.focus();
     await page.keyboard.press("Space");
     await expect(box).toBeChecked();
-    for (const target of [box, page.getByRole("tab", { name: "Sample tab" }), canvasRegion(page)]) {
+    const tabs = light.locator('[data-kit-demo="tabs"]').getByRole("tab");
+    await tabs.first().focus();
+    await page.keyboard.press("ArrowRight");
+    await expect(tabs.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(tabs.nth(1)).toBeFocused();
+    for (const target of [box, tabs.nth(1), canvasRegion(page)]) {
       await target.focus();
       await pressEachUnmoved(page, ["Space", "ArrowLeft", "ArrowRight", "l", "Alt+KeyT"]);
     }

@@ -3,7 +3,8 @@
 import "./studio.css";
 import Link from "next/link";
 import { type RefObject, useEffect, useRef, useState } from "react";
-import { CanvasFrame } from "./CanvasFrame";
+import { Canvas } from "@/features/preview/Canvas";
+import { useFrameFit } from "@/features/preview/useFrameFit";
 import { createStudioClient } from "./client";
 import { DraftsAnnouncer } from "./DraftsAnnouncer";
 import { safeStorage } from "./drafts";
@@ -68,6 +69,9 @@ function StudioShell({ store }: { store: StudioStore }) {
   const copyButton = useRef<HTMLButtonElement>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
   const busy = useStudio(store, (studio) => studio.status.phase === "generating");
+  const spec = useStudio(store, (studio) => studio.spec);
+  const view = useStudio(store, (studio) => studio.view);
+  const { stageRef, fit } = useFrameFit(view.frame);
 
   async function copyLink(): Promise<void> {
     // Where focus goes back to when the visitor closes a toast that took it (F-STUDIO-23).
@@ -153,6 +157,7 @@ function StudioShell({ store }: { store: StudioStore }) {
         onOpen={openDrawer}
         onCopyLink={() => void copyLink()}
         copyButton={copyButton}
+        fit={fit.label}
       />
       <main
         ref={canvas}
@@ -165,7 +170,7 @@ function StudioShell({ store }: { store: StudioStore }) {
         inert={blocked}
         className="studio-canvas p-4 md:p-6"
       >
-        <CanvasFrame store={store} />
+        <Canvas spec={spec} view={view} stageRef={stageRef} scale={fit.scale} />
       </main>
       <aside
         id="studio-inspector"

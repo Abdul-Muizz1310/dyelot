@@ -153,23 +153,3 @@ body:has(.studio-surround)::before {
   transform: translateY(8px);
   pointer-events: none;
 }
-
-/* ─────────────────────────────────────────────────────────────
- * The canvas frame until the preview kit arrives (Task 2.7): it
- * reads only the spec's variables, set inline on [data-canvas].
- * ───────────────────────────────────────────────────────────── */
-
-[data-canvas] {
-  container-type: inline-size;
-  background-color: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-body);
-}
-
-[data-canvas][data-mode="light"] {
-  color-scheme: light;
-}
-
-[data-canvas][data-mode="dark"] {
-  color-scheme: dark;
-}

@@ -102,16 +102,29 @@ export async function openStudio(page: Page, hash = ""): Promise<Response> {
   return response;
 }
 
+/**
+ * The canvas frame: the `[data-canvas]` that carries the view's mode (section 7.4). The kitchen
+ * sink adds two more `[data-canvas]` panes inside it, one per mode (section 7.5).
+ */
+export const canvasFrame = (page: Page): Locator => page.locator("[data-canvas][data-frame]");
+
+/** A kitchen-sink pane, the `[data-canvas]` of one mode (section 7.5). */
+export const canvasPane = (page: Page, mode: Mode): Locator =>
+  page.locator(`[data-canvas][data-pane="${mode}"]`);
+
 /** Waits until the studio shows its first design. */
 export async function ready(page: Page): Promise<void> {
-  await expect(page.locator("[data-canvas]")).toBeAttached();
+  await expect(canvasFrame(page)).toBeAttached();
   await expect(lotId(page)).toHaveText(/^[0-9a-f]{4}·[0-9a-f]{4}$/);
   await settled(page);
 }
 
-/** The custom properties set inline on the canvas frame. */
-export function canvasVars(page: Page): Promise<Record<string, string>> {
-  return page.locator("[data-canvas]").evaluate((frame) => {
+/** The custom properties set inline on the canvas frame, or on `target` (a kitchen-sink pane). */
+export function canvasVars(
+  page: Page,
+  target: Locator = canvasFrame(page),
+): Promise<Record<string, string>> {
+  return target.evaluate((frame) => {
     const style = (frame as HTMLElement).style;
     const vars: Record<string, string> = {};
     for (let i = 0; i < style.length; i++) {
