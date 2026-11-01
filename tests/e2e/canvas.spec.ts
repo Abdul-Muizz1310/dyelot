@@ -681,3 +681,124 @@ test("F-CANVAS-16 a family outside the catalog loads nothing and keeps its fallb
   expect(errors).toEqual([]);
   await expect(canvasFrame(page).locator("[data-template-root]")).toBeVisible();
 });
+
+/**
+ * The canvas toolbar's rows and height: its items are its children, and the children of a
+ * `display: contents` group among them; a row is a run of items that share a vertical center.
+ */
+function toolbarRows(page: Page) {
+  return toolbar(page).evaluate((bar) => {
+    const items = [...bar.children].flatMap((child) =>
+      getComputedStyle(child).display === "contents" ? [...child.children] : [child],
+    );
+    const centers = items
+      .map((item) => item.getBoundingClientRect())
+      .filter((box) => box.width > 0 && box.height > 0)
+      .map((box) => box.top + box.height / 2)
+      .sort((a, b) => a - b);
+    let rows = 0;
+    let last = Number.NEGATIVE_INFINITY;
+    for (const center of centers) {
+      if (center - last > 6) rows++;
+      last = center;
+    }
+    return { rows, height: bar.getBoundingClientRect().height };
+  });
+}
+
+/** The toolbar's visible targets narrower than 24 px or shorter than 28 px. */
+function smallTargets(page: Page) {
+  return toolbar(page).evaluate((bar) =>
+    [...bar.querySelectorAll("button, select, input, summary")]
+      .map((target) => ({ target, box: target.getBoundingClientRect() }))
+      .filter(({ box }) => box.width > 0 && box.height > 0)
+      .filter(({ box }) => box.height < 28 || box.width < 24)
+      .map(({ target, box }) => `${target.outerHTML.slice(0, 60)} ${box.width}×${box.height}`),
+  );
+}
+
+test("F-CANVAS-17 at 1280 × 800 the toolbar takes at most 3 rows and 150 px, and the frame group describes its fit", async ({
+  page,
+}) => {
+  await openStudio(page);
+  // The longest template label and a scaled frame: the widest the toolbar gets.
+  await templateSelect(page).selectOption("kitchen-sink");
+  const { rows, height } = await toolbarRows(page);
+  expect(rows).toBeLessThanOrEqual(3);
+  expect(height).toBeLessThanOrEqual(150);
+  const frame = toolbar(page).getByRole("group", { name: "Frame", exact: true });
+  await expect(frame).toHaveAccessibleDescription(/^fit \d+%$/);
+  await expect(page.getByRole("button", { name: "View", exact: true })).toBeHidden();
+});
+
+test("F-CANVAS-18 every toolbar target is at least 28 px tall and 24 px wide", async ({ page }) => {
+  await openStudio(page);
+  expect(await smallTargets(page), "1280 × 800").toEqual([]);
+  await page.setViewportSize(PHONE);
+  await page.getByRole("button", { name: "View", exact: true }).click();
+  await expect(modeSwitch(page)).toBeVisible();
+  expect(await smallTargets(page), "360 × 740, View open").toEqual([]);
+});
+
+test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", async ({ page }) => {
+  await stubSeeds(page);
+  await page.setViewportSize(PHONE);
+  await openStudio(page);
+  const view = page.getByRole("button", { name: "View", exact: true });
+  await expect(view).toHaveAttribute("aria-expanded", "false");
+  const controls = await view.getAttribute("aria-controls");
+  expect(controls).not.toBeNull();
+  const group = page.locator(`[id="${controls}"]`);
+  await expect(group).toBeHidden();
+  await expect(modeSwitch(page)).toBeHidden();
+  expect((await toolbarRows(page)).height).toBeLessThanOrEqual(170);
+  // The closed disclosure keeps Alt+T.
+  await focusBody(page);
+  await page.keyboard.press("Alt+KeyT");
+  await expect(canvasFrame(page)).toHaveAttribute("data-mode", "dark");
+  // The Tab order: Inputs, Inspector, frame, template, View, then Undo, Redo, Copy link.
+  await focusBody(page);
+  const closed = [
+    page.getByRole("button", { name: "Inputs", exact: true }),
+    page.getByRole("button", { name: "Inspector", exact: true }),
+    toolbarRadio(page, "Frame", "1280"),
+    templateSelect(page),
+    view,
+    page.getByRole("button", { name: "Undo", exact: true }),
+  ];
+  await page.getByRole("link", { name: "dyelot", exact: true }).focus();
+  for (const stop of closed) {
+    await page.keyboard.press("Tab");
+    await expect(stop).toBeFocused();
+  }
+  // Enter and Space open and close it, and focus stays on the button.
+  await view.focus();
+  await page.keyboard.press("Enter");
+  await expect(view).toHaveAttribute("aria-expanded", "true");
+  await expect(view).toBeFocused();
+  await expect(group).toBeVisible();
+  await page.keyboard.press("Space");
+  await expect(view).toHaveAttribute("aria-expanded", "false");
+  await expect(view).toBeFocused();
+  await page.keyboard.press("Space");
+  await expect(view).toHaveAttribute("aria-expanded", "true");
+  // Open: the five view controls follow the button, then Undo, Redo and Copy link.
+  for (const stop of [
+    modeSwitch(page),
+    toolbarRadio(page, "Density", "comfortable"),
+    reduceMotion(page),
+    toolbarRadio(page, "Copy", "Real copy"),
+    toolbarRadio(page, "Vision", "none"),
+    page.getByRole("button", { name: "Undo", exact: true }),
+    page.getByRole("button", { name: "Redo", exact: true }),
+    page.getByRole("button", { name: "Copy link", exact: true }),
+  ]) {
+    await page.keyboard.press("Tab");
+    await expect(stop).toBeFocused();
+  }
+  // The open disclosure keeps Alt+T too.
+  await focusBody(page);
+  await page.keyboard.press("Alt+KeyT");
+  await expect(canvasFrame(page)).toHaveAttribute("data-mode", "light");
+  await expect(modeSwitch(page)).toHaveAttribute("aria-checked", "false");
+});

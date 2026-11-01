@@ -158,3 +158,31 @@ body:has(.studio-surround)::before {
 .canvas-fit {
   box-shadow: 0 0 0 1px var(--border-bright);
 }
+
+/* The canvas toolbar's view controls (F-CANVAS-19): inline in the toolbar's own row from 640 px, and
+ * below it in a "View" disclosure that takes the mode switch's place. */
+.studio-view {
+  display: contents;
+}
+
+.studio-view-toggle {
+  display: none;
+}
+
+@media (max-width: 639.98px) {
+  .studio-view-toggle {
+    display: inline-flex;
+  }
+
+  .studio-view {
+    display: none;
+  }
+
+  .studio-view[data-open] {
+    display: flex;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.5rem;
+  }
+}

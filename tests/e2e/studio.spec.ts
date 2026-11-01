@@ -1568,10 +1568,16 @@ test.describe("7.3 Keyboard", () => {
   }) => {
     await page.setViewportSize(PHONE);
     await openStudio(page);
+    // Below 640 px the five view controls sit in the closed "View" disclosure (F-CANVAS-19).
     const toolbar = [
       button(page, "Inputs"),
       button(page, "Inspector"),
-      ...toolbarStops(page),
+      toolbarRadio(page, "Frame", "1280"),
+      select(page, "Template"),
+      button(page, "View"),
+      button(page, "Undo"),
+      button(page, "Redo"),
+      button(page, "Copy link"),
       canvasRegion(page),
     ];
     await focusBody(page);

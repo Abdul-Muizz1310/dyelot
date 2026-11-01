@@ -15,8 +15,11 @@ export const same = <T extends string>(values: readonly T[]): readonly Option<T>
 
 /** A control's visible label. */
 export const LABEL = "block text-fg-muted text-xs";
-const SELECT =
-  "h-9 w-full rounded-md border border-control-edge bg-panel px-2 text-foreground text-sm hover:border-fg-muted";
+const SELECT_EDGE =
+  "rounded-md border border-control-edge bg-panel text-foreground hover:border-fg-muted";
+const SELECT = `${SELECT_EDGE} h-9 w-full px-2 text-sm`;
+/** The toolbar's select: 28 px tall, 13 px text (F-CANVAS-18). */
+const TOOL_SELECT = `${SELECT_EDGE} h-7 w-auto px-1.5 text-[13px]`;
 
 /** A native select with its visible label; `inline` sets the label beside it, for the toolbar. */
 export function Picker({
@@ -36,7 +39,7 @@ export function Picker({
 }) {
   const id = useId();
   return (
-    <div className={inline ? "flex items-center gap-2" : "space-y-1.5"}>
+    <div className={inline ? "flex items-center gap-1.5" : "space-y-1.5"}>
       <label htmlFor={id} className={LABEL}>
         {label}
       </label>
@@ -45,7 +48,7 @@ export function Picker({
         value={value}
         aria-describedby={describedBy}
         onChange={(event) => onChange(event.currentTarget.value)}
-        className={inline ? `${SELECT} h-8 w-auto` : SELECT}
+        className={inline ? TOOL_SELECT : SELECT}
       >
         {options.map((option) => (
           <option key={option.value} value={option.value} disabled={option.disabled}>
@@ -58,9 +61,11 @@ export function Picker({
 }
 
 /**
- * A radio group drawn as a segmented control; the native radios keep the arrow keys. `inline` sets
- * the legend beside the options (a floated legend joins the fieldset's flex row), for the toolbar;
- * `note` follows the options, for a live reading such as the frame's fit.
+ * A radio group drawn as a segmented control; the native radios keep the arrow keys. `inline` is the
+ * toolbar's compact form, so the toolbar keeps to three rows at 1280 × 800 (F-CANVAS-17): the legend
+ * beside the options (a floated legend joins the fieldset's grid), 11 px text, options 28 px tall
+ * (F-CANVAS-18), and `note`, a live reading such as the frame's fit, set under the
+ * legend and tied to the group as its description (review M-5).
  */
 export function Choice<T extends string>({
   legend,
@@ -78,14 +83,28 @@ export function Choice<T extends string>({
   note?: ReactNode;
 }) {
   const name = useId();
+  const noteId = useId();
+  const noted = note !== undefined;
+  const legendClass = inline
+    ? `float-left col-start-1 row-start-1 text-[11px] text-fg-muted ${noted ? "self-end" : "self-center"}`
+    : `${LABEL} mb-1.5`;
   return (
-    <fieldset className={inline ? "flex items-center gap-2" : "min-w-0 space-y-1.5"}>
-      <legend className={inline ? `${LABEL} float-left` : `${LABEL} mb-1.5`}>{legend}</legend>
-      <div className="flex gap-1 rounded-md border border-control-edge p-0.5">
+    <fieldset
+      aria-describedby={noted ? noteId : undefined}
+      className={inline ? "grid grid-cols-[auto_auto] items-center gap-x-1" : "min-w-0 space-y-1.5"}
+    >
+      <legend className={legendClass}>{legend}</legend>
+      <div
+        className={
+          inline
+            ? `col-start-2 row-start-1 flex gap-0.5 rounded-md border border-control-edge p-0.5 ${noted ? "row-span-2" : ""}`
+            : "flex gap-1 rounded-md border border-control-edge p-0.5"
+        }
+      >
         {options.map((option) => (
           <label
             key={option.value}
-            className={`relative flex min-h-8 items-center justify-center rounded-[5px] text-center text-fg-muted text-xs hover:text-foreground has-checked:bg-border has-checked:font-medium has-checked:text-foreground has-checked:shadow-[inset_0_0_0_1px_var(--border-bright)] ${inline ? "flex-none px-2" : "min-w-0 flex-1 px-1.5"}`}
+            className={`relative flex items-center justify-center rounded-[5px] text-center text-fg-muted hover:text-foreground has-checked:bg-border has-checked:font-medium has-checked:text-foreground has-checked:shadow-[inset_0_0_0_1px_var(--border-bright)] ${inline ? "min-h-7 min-w-6 flex-none px-1 text-[11px]" : "min-h-8 min-w-0 flex-1 px-1.5 text-xs"}`}
           >
             <input
               type="radio"
@@ -101,8 +120,17 @@ export function Choice<T extends string>({
           </label>
         ))}
       </div>
-      {note !== undefined && (
-        <span className="font-mono text-fg-muted text-xs tabular-nums">{note}</span>
+      {noted && (
+        <span
+          id={noteId}
+          className={
+            inline
+              ? "col-start-1 row-start-2 self-start font-mono text-[11px] text-fg-muted tabular-nums leading-tight"
+              : "font-mono text-fg-muted text-xs tabular-nums"
+          }
+        >
+          {note}
+        </span>
       )}
     </fieldset>
   );
@@ -133,9 +161,9 @@ export function ChromeSwitch({
     >
       <span
         aria-hidden="true"
-        className="relative h-4 w-7 rounded-full border border-control-edge transition-colors group-aria-checked:bg-border"
+        className="relative h-3.5 w-6 shrink-0 rounded-full border border-control-edge transition-colors group-aria-checked:bg-border"
       >
-        <span className="absolute top-0.5 left-0.5 size-2.5 rounded-full bg-fg-muted transition-transform group-aria-checked:translate-x-3 group-aria-checked:bg-foreground" />
+        <span className="absolute top-[2px] left-[2px] size-2 rounded-full bg-fg-muted transition-transform group-aria-checked:translate-x-2.5 group-aria-checked:bg-foreground" />
       </span>
       {label}
     </button>

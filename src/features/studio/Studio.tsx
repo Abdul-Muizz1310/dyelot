@@ -3,21 +3,15 @@
 import "./studio.css";
 import Link from "next/link";
 import { type RefObject, useEffect, useRef, useState } from "react";
-import { Canvas } from "@/features/preview/Canvas";
-import { useFrameFit } from "@/features/preview/useFrameFit";
+import { createFitStore, FitContext } from "@/features/preview/useFrameFit";
+import { CanvasArea } from "./CanvasArea";
 import { createStudioClient } from "./client";
 import { DraftsAnnouncer } from "./DraftsAnnouncer";
 import { safeStorage } from "./drafts";
 import { InputsPanel } from "./InputsPanel";
 import { LotTag } from "./LotTag";
 import { Notices } from "./Notices";
-import {
-  bindStudioWindow,
-  createStudioStore,
-  randomSeed,
-  type StudioStore,
-  useStudio,
-} from "./store";
+import { bindStudioWindow, createStudioStore, randomSeed, type StudioStore } from "./store";
 import { Toast, type ToastState } from "./Toast";
 import { Toolbar } from "./Toolbar";
 import { linkUrl } from "./url";
@@ -68,10 +62,8 @@ function StudioShell({ store }: { store: StudioStore }) {
   const canvas = useRef<HTMLElement>(null);
   const copyButton = useRef<HTMLButtonElement>(null);
   const [toast, setToast] = useState<ToastState | null>(null);
-  const busy = useStudio(store, (studio) => studio.status.phase === "generating");
-  const spec = useStudio(store, (studio) => studio.spec);
-  const view = useStudio(store, (studio) => studio.view);
-  const { stageRef, fit } = useFrameFit(view.frame);
+  // The canvas area measures the frame's fit and the toolbar's frame switcher shows it (M-8).
+  const [fitStore] = useState(createFitStore);
 
   async function copyLink(): Promise<void> {
     // Where focus goes back to when the visitor closes a toast that took it (F-STUDIO-23).
@@ -100,98 +92,87 @@ function StudioShell({ store }: { store: StudioStore }) {
   const blocked = open !== null;
 
   return (
-    <div className="studio studio-surround">
-      {/* biome-ignore lint/a11y/useValidAnchor: a skip link stays a link; the click focuses the canvas without writing "#canvas" over the share link in the hash. */}
-      <a
-        href="#canvas"
-        inert={blocked}
-        onClick={(event) => {
-          event.preventDefault();
-          focusCanvas();
-        }}
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-panel focus:px-3 focus:py-2 focus:text-sm"
-      >
-        Skip to canvas
-      </a>
-      <header
-        inert={blocked}
-        className="studio-header border-border border-b bg-page px-4 py-2.5 md:px-5"
-      >
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
-          <h1 className="sr-only">dyelot studio</h1>
-          <p className="flex items-baseline gap-2 font-mono text-sm">
-            <Link
-              href="/"
-              className="inline-flex min-h-6 items-center font-semibold text-foreground hover:underline hover:underline-offset-4"
-            >
-              dyelot
-            </Link>
-            <span aria-hidden="true" className="text-fg-muted">
-              / studio
-            </span>
-          </p>
-          <LotTag store={store} />
-        </div>
-        <Notices store={store} onAction={focusCanvas} />
-      </header>
-      <aside
-        id="studio-inputs"
-        aria-label="Inputs"
-        className="studio-panel studio-inputs"
-        {...panelState("inputs")}
-      >
-        <PanelHead
-          title="Inputs"
-          headingRef={headings.inputs}
-          closeLabel="Close inputs"
-          canClose={isDrawer.inputs}
-          onClose={closeDrawer}
+    <FitContext value={fitStore}>
+      <div className="studio studio-surround">
+        {/* biome-ignore lint/a11y/useValidAnchor: a skip link stays a link; the click focuses the canvas without writing "#canvas" over the share link in the hash. */}
+        <a
+          href="#canvas"
+          inert={blocked}
+          onClick={(event) => {
+            event.preventDefault();
+            focusCanvas();
+          }}
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-panel focus:px-3 focus:py-2 focus:text-sm"
+        >
+          Skip to canvas
+        </a>
+        <header
+          inert={blocked}
+          className="studio-header border-border border-b bg-page px-4 py-2.5 md:px-5"
+        >
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <h1 className="sr-only">dyelot studio</h1>
+            <p className="flex items-baseline gap-2 font-mono text-sm">
+              <Link
+                href="/"
+                className="inline-flex min-h-6 items-center font-semibold text-foreground hover:underline hover:underline-offset-4"
+              >
+                dyelot
+              </Link>
+              <span aria-hidden="true" className="text-fg-muted">
+                / studio
+              </span>
+            </p>
+            <LotTag store={store} />
+          </div>
+          <Notices store={store} onAction={focusCanvas} />
+        </header>
+        <aside
+          id="studio-inputs"
+          aria-label="Inputs"
+          className="studio-panel studio-inputs"
+          {...panelState("inputs")}
+        >
+          <PanelHead
+            title="Inputs"
+            headingRef={headings.inputs}
+            closeLabel="Close inputs"
+            canClose={isDrawer.inputs}
+            onClose={closeDrawer}
+          />
+          <InputsPanel store={store} />
+        </aside>
+        <Toolbar
+          store={store}
+          inert={blocked}
+          drawers={isDrawer}
+          open={open}
+          onOpen={openDrawer}
+          onCopyLink={() => void copyLink()}
+          copyButton={copyButton}
         />
-        <InputsPanel store={store} />
-      </aside>
-      <Toolbar
-        store={store}
-        inert={blocked}
-        drawers={isDrawer}
-        open={open}
-        onOpen={openDrawer}
-        onCopyLink={() => void copyLink()}
-        copyButton={copyButton}
-        fit={fit.label}
-      />
-      <main
-        ref={canvas}
-        id="canvas"
-        aria-label="Canvas"
-        aria-busy={busy}
-        // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas region scrolls, so it takes focus for keyboard scrolling (F-KEY-11, F-CANVAS-13).
-        tabIndex={0}
-        data-canvas-region=""
-        inert={blocked}
-        className="studio-canvas p-4 md:p-6"
-      >
-        <Canvas spec={spec} view={view} stageRef={stageRef} scale={fit.scale} />
-      </main>
-      <aside
-        id="studio-inspector"
-        aria-label="Inspector"
-        className="studio-panel studio-inspector"
-        {...panelState("inspector")}
-      >
-        <PanelHead
-          title="Inspector"
-          headingRef={headings.inspector}
-          closeLabel="Close inspector"
-          canClose={isDrawer.inspector}
-          onClose={closeDrawer}
-        />
-      </aside>
-      {open !== null && (
-        <div aria-hidden="true" className="studio-backdrop" onClick={closeDrawer} />
-      )}
-      <Toast state={toast} onClose={() => setToast(null)} fallbackFocus={copyButton} />
-      <DraftsAnnouncer store={store} />
-    </div>
+        <CanvasArea store={store} regionRef={canvas} inert={blocked} />
+        <aside
+          id="studio-inspector"
+          aria-label="Inspector"
+          className="studio-panel studio-inspector"
+          {...panelState("inspector")}
+        >
+          <PanelHead
+            title="Inspector"
+            headingRef={headings.inspector}
+            closeLabel="Close inspector"
+            canClose={isDrawer.inspector}
+            onClose={closeDrawer}
+          />
+        </aside>
+        {open !== null && (
+          <div aria-hidden="true" className="studio-backdrop" onClick={closeDrawer} />
+        )}
+        <Toast state={toast} onClose={() => setToast(null)} fallbackFocus={copyButton} />
+        <DraftsAnnouncer store={store} />
+      </div>
+    </FitContext>
   );
 }
 
