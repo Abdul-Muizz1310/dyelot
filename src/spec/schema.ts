@@ -1,4 +1,3 @@
-import { z } from "zod";
 import { GAMUTS, isHex } from "../engine/color/guards";
 import { HARMONIES } from "../engine/color/harmony";
 import {
@@ -13,11 +12,7 @@ import { ROLE_NAMES } from "../engine/color/roles";
 import { STEPS, type Step } from "../engine/color/scale";
 import { RADIUS_SET_NAMES, type RadiusSet } from "../engine/tokens/shape";
 import { TYPE_CONTEXTS, type TypeContext, type TypeStepName } from "../engine/tokens/type";
-
-// zod 4 compiles object parsers with `new Function` unless told not to. The production CSP has
-// no 'unsafe-eval', and a strict CSP reports even the probe that zod catches, so the spec model
-// parses without it. This line runs before any schema below is built, which is when zod probes.
-z.config({ jitless: true });
+import { z } from "./zod";
 
 /** The version this schema reads and writes. Any other version fails loudly. */
 export const SPEC_VERSION = "dyelot.spec/1";

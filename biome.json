@@ -5,8 +5,27 @@
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "linter": {
     "enabled": true,
-    "rules": { "preset": "recommended", "suspicious": { "noExplicitAny": "error" } }
+    "rules": {
+      "preset": "recommended",
+      "suspicious": { "noExplicitAny": "error" },
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "paths": {
+              "zod": "Import z from src/spec/zod.ts, which turns on jitless mode for the CSP."
+            }
+          }
+        }
+      }
+    }
   },
+  "overrides": [
+    {
+      "includes": ["src/spec/zod.ts"],
+      "linter": { "rules": { "style": { "noRestrictedImports": "off" } } }
+    }
+  ],
   "javascript": { "formatter": { "quoteStyle": "double", "semicolons": "always" } },
   "css": { "parser": { "tailwindDirectives": true } }
 }
