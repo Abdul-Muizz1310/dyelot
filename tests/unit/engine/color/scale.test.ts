@@ -207,6 +207,8 @@ describe("solveScale", () => {
     for (const [palette, index, l] of [
       [{ ...ok, hue: Number.NaN }, 0, 0.5],
       [{ ...ok, peakChroma: Number.POSITIVE_INFINITY }, 0, 0.5],
+      [{ ...ok, peakChroma: -0.01 }, 0, 0.5],
+      [{ ...ok, peakChroma: 0.51 }, 0, 0.5],
       [{ ...ok, mode: "dim" }, 0, 0.5],
       [{ ...ok, gamut: "rec2020" }, 0, 0.5],
       [ok, 11, 0.5],

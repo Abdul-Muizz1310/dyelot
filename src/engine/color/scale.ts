@@ -323,6 +323,11 @@ export function stepChroma(palette: Omit<ScaleInput, "page">, index: number, l: 
   }
   const hue = checkHue(palette.hue, "stepChroma: palette.hue");
   assertFinite(palette.peakChroma, "stepChroma: palette.peakChroma");
+  if (palette.peakChroma < 0 || palette.peakChroma > MAX_PEAK_CHROMA) {
+    throw new RangeError(
+      `stepChroma: palette.peakChroma must be in [0, ${MAX_PEAK_CHROMA}], got ${palette.peakChroma}`,
+    );
+  }
   assertMode(palette.mode, "stepChroma: palette.mode");
   assertGamut(palette.gamut, "stepChroma: palette.gamut");
   assertFinite(index, "stepChroma: index");
