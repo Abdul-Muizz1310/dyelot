@@ -20,28 +20,21 @@ import {
   TYPE_CONTEXTS,
 } from "@/engine";
 import { PRESSED, PRIMARY_BUTTON } from "./chrome";
+import { Choice, LABEL, Picker, same } from "./controls";
 import { isOneOf } from "./guards";
 import { autoPairingLabel, GAMUT_LABELS, SEED_FIELD_MESSAGE, seedHex } from "./inputs";
 import { SEED_SLOT } from "./shortcuts";
 import { type StudioStore, useStudio } from "./store";
+import { DENSITIES } from "./view";
 
 // The inputs panel (spec section 7.2): the controls of the table, in its order. A set of at most
 // four options is a radio group, a larger one a native select; "Regenerate" is the panel's one
 // madder fill. Brief, image and import wait for later milestones.
 
-const DENSITIES = ["comfortable", "compact", "dense"] as const;
 /** The pairing select's value for "Auto": a pairing absent from the params (R2-05). */
 const AUTO = "auto";
 /** The preset select's value while no preset is selected (R2-28). */
 const CUSTOM = "custom";
-
-const LABEL = "block text-fg-muted text-xs";
-const SELECT =
-  "h-9 w-full rounded-md border border-control-edge bg-panel px-2 text-foreground text-sm hover:border-fg-muted";
-
-type Option<T extends string> = { readonly value: T; readonly label: string };
-const same = <T extends string>(values: readonly T[]): readonly Option<T>[] =>
-  values.map((value) => ({ value, label: value }));
 
 export function InputsPanel({ store }: { store: StudioStore }) {
   const params = useStudio(store, (studio) => studio.params);
@@ -205,81 +198,6 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
       </h3>
       {children}
     </section>
-  );
-}
-
-/** A native select with its visible label. */
-function Picker({
-  label,
-  value,
-  options,
-  onChange,
-  describedBy,
-}: {
-  label: string;
-  value: string;
-  options: readonly (Option<string> & { readonly disabled?: boolean })[];
-  onChange(value: string): void;
-  describedBy?: string;
-}) {
-  const id = useId();
-  return (
-    <div className="space-y-1.5">
-      <label htmlFor={id} className={LABEL}>
-        {label}
-      </label>
-      <select
-        id={id}
-        value={value}
-        aria-describedby={describedBy}
-        onChange={(event) => onChange(event.currentTarget.value)}
-        className={SELECT}
-      >
-        {options.map((option) => (
-          <option key={option.value} value={option.value} disabled={option.disabled}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
-/** A radio group drawn as a segmented control; the native radios keep the arrow keys. */
-function Choice<T extends string>({
-  legend,
-  value,
-  options,
-  onChange,
-}: {
-  legend: string;
-  value: T;
-  options: readonly Option<T>[];
-  onChange(value: T): void;
-}) {
-  const name = useId();
-  return (
-    <fieldset className="min-w-0 space-y-1.5">
-      <legend className={`${LABEL} mb-1.5`}>{legend}</legend>
-      <div className="flex gap-1 rounded-md border border-control-edge p-0.5">
-        {options.map((option) => (
-          <label
-            key={option.value}
-            className="relative flex min-h-8 min-w-0 flex-1 items-center justify-center rounded-[5px] px-1.5 text-center text-fg-muted text-xs hover:text-foreground has-checked:bg-border has-checked:font-medium has-checked:text-foreground has-checked:shadow-[inset_0_0_0_1px_var(--border-bright)]"
-          >
-            <input
-              type="radio"
-              name={name}
-              value={option.value}
-              checked={value === option.value}
-              onChange={() => onChange(option.value)}
-              className="absolute inset-0 m-0 cursor-pointer appearance-none rounded-[5px]"
-            />
-            <span className="pointer-events-none truncate">{option.label}</span>
-          </label>
-        ))}
-      </div>
-    </fieldset>
   );
 }
 

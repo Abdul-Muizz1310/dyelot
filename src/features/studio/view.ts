@@ -43,10 +43,12 @@ export const TEMPLATE_IDS: readonly TemplateId[] = Object.freeze([
   "kitchen-sink",
 ]);
 const MODES: readonly Mode[] = ["light", "dark"];
-const DENSITIES: readonly Density[] = ["comfortable", "compact", "dense"];
+/** The densities, in the order the inputs panel and the toolbar list them. */
+export const DENSITIES: readonly Density[] = Object.freeze(["comfortable", "compact", "dense"]);
 const FRAMES: readonly View["frame"][] = [360, 768, 1280];
 const COPIES: readonly View["copy"][] = ["real", "edge"];
-const VISIONS: readonly View["vision"][] = ["none", ...DEFICIENCIES];
+/** The color-vision views: none, then the three deficiencies `simulate` takes. */
+export const VISIONS: readonly View["vision"][] = Object.freeze(["none", ...DEFICIENCIES]);
 
 /** The view of a first load. */
 export const DEFAULT_VIEW: View = Object.freeze({
