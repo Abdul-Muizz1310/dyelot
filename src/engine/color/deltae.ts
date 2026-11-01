@@ -3,7 +3,11 @@ import { DEFICIENCIES, simulate } from "./cvd";
 import { assertOklch, assertRgb, clampedSrgb, describeType } from "./guards";
 import type { Oklab, Oklch, Rgb } from "./types";
 
-/** The Euclidean distance between two OKLab colors. */
+/**
+ * The Euclidean distance between two OKLab colors, as a square root of the sum of squares. The
+ * views compare clamped sRGB colors, whose OKLab components stay near [-0.5, 1], so the squares
+ * cannot overflow; `deltaEOK` takes any finite color and uses `Math.hypot` instead.
+ */
 function distance(p: Oklab, q: Oklab): number {
   const dl = p[0] - q[0];
   const da = p[1] - q[1];
@@ -14,7 +18,7 @@ function distance(p: Oklab, q: Oklab): number {
 /**
  * The OKLab of a color for `deltaEOK`. A null hue has no direction, so the color contributes
  * a = b = 0 whatever its chroma. The engine keeps a null hue to colors with chroma at or below
- * 4e-6 (spec I-04), so the two readings agree on every color it makes.
+ * 4e-6 (spec I-04), so the two readings agree within 4e-6 on every color it makes.
  */
 function labOf(color: Oklch, name: string): Oklab {
   assertOklch(color, name);
@@ -24,11 +28,13 @@ function labOf(color: Oklch, name: string): Oklab {
 /**
  * The color difference ΔEOK of CSS Color 4 section 20.3: the Euclidean distance in OKLab, not the
  * ΔEOK2 variant. Black against white is 1. The result is symmetric, and 0 for a color against
- * itself. Two finite colors so far apart that the distance overflows throw a RangeError, so the
- * result is always finite.
+ * itself. `Math.hypot` keeps a distance whose square would overflow; only two finite colors whose
+ * distance itself exceeds the largest double throw a RangeError, so the result is always finite.
  */
 export function deltaEOK(a: Oklch, b: Oklch): number {
-  const result = distance(labOf(a, "deltaEOK: a"), labOf(b, "deltaEOK: b"));
+  const p = labOf(a, "deltaEOK: a");
+  const q = labOf(b, "deltaEOK: b");
+  const result = Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]);
   if (!Number.isFinite(result)) {
     throw new RangeError("deltaEOK: the colors are too far apart to measure");
   }

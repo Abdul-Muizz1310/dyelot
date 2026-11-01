@@ -175,10 +175,16 @@ describe("deltaEOK", () => {
   });
 
   it("throws a RangeError, never returns Infinity, when the colors are too far apart to measure", () => {
-    const far = { l: 1e200, c: 0, h: null };
-    const farther = { l: -1e200, c: 0, h: null };
+    const far = { l: 1e308, c: 0, h: null };
+    const farther = { l: -1e308, c: 0, h: null };
     expect(() => deltaEOK(far, farther)).toThrow(RangeError);
     expect(() => deltaEOK(far, farther)).toThrow(/too far apart/);
+  });
+
+  it("measures a distance it can represent even when its square overflows", () => {
+    // 2e200 is a finite double, but its square is not: a sum of squares would reject it.
+    expect(deltaEOK({ l: 1e200, c: 0, h: null }, { l: -1e200, c: 0, h: null })).toBe(2e200);
+    expect(deltaEOK({ l: 0.5, c: 1e200, h: 0 }, { l: 0.5, c: 0, h: null })).toBe(1e200);
   });
 
   it("matches the reference implementation in core.py to 1e-9", () => {
@@ -310,7 +316,7 @@ describe("minPairwiseDeltaE", () => {
 // R-25: the views that chart picking shares with minPairwiseDeltaE, so the picker and rule S1
 // measure alike.
 describe("viewsOf and minViewDeltaE", () => {
-  it("gives a color's OKLab under normal vision and each simulated deficiency", () => {
+  it("C-DELTAE-11 gives a color's OKLab under normal vision and each simulated deficiency", () => {
     fc.assert(
       fc.property(anyRgb, (rgb) => {
         const views = viewsOf(rgb);
@@ -324,7 +330,7 @@ describe("viewsOf and minViewDeltaE", () => {
     );
   });
 
-  it("equals the smallest view of minPairwiseDeltaE for two colors, exactly", () => {
+  it("C-DELTAE-12 equals the smallest view of minPairwiseDeltaE for two colors, exactly", () => {
     fc.assert(
       fc.property(anyRgb, anyRgb, (a, b) => {
         const pairwise = minPairwiseDeltaE([a, b]);
@@ -336,7 +342,7 @@ describe("viewsOf and minViewDeltaE", () => {
     expect(minViewDeltaE(viewsOf(WHITE), viewsOf(WHITE))).toBe(0);
   });
 
-  it("throws on a bad color or a malformed set of views", () => {
+  it("C-DELTAE-13 throws on a bad color or a malformed set of views", () => {
     for (const bad of BAD_CHANNELS) {
       expect(() => viewsOf(withChannel([0.5, 0.5, 0.5], 1, bad))).toThrow(RangeError);
     }
