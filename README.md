@@ -1,9 +1,9 @@
 # 🎨 `dyelot`
 
 > 🧾 **A palette becomes a design system your coding agent can build.**
-> M0 is done and M1, the color engine, is in progress. The studio and the export bundle come next.
+> M0 and M1 are done: the shell, and a tested color engine and spec model. The studio and the export bundle come next.
 
-📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
+📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
 
 ![next](https://img.shields.io/badge/Next.js-16.4-black?style=flat-square&logo=next.js)
 ![react](https://img.shields.io/badge/React-19.3-149eca?style=flat-square&logo=react&logoColor=white)
@@ -34,7 +34,8 @@ the full reasoning.
 
 ## 🎯 What it will do
 
-None of this ships yet. The goal comes from the [design spec](docs/specs/00-design.md).
+The goal comes from the [design spec](docs/specs/00-design.md). There is no studio yet, so none of this reaches a
+visitor today. M1 built the engine underneath the second and fifth bullets; the next section says what it does.
 
 - 🎨 **Start from anything** — a color, a few words, an image, a curated system or an existing DESIGN.md
 - 🧮 **Computed, accessible systems** — color roles and scales for light and dark mode, plus type, space, shape, depth and motion, solved for WCAG 2.2 contrast
@@ -45,10 +46,26 @@ None of this ships yet. The goal comes from the [design spec](docs/specs/00-desi
 
 ---
 
+## 🧮 The engine today (M1)
+
+A pure TypeScript core in `src/engine/` and `src/spec/`, with no DOM, no network and no `Math.random`. It has no UI
+yet: you reach it through its functions and its tests. The [engine spec](docs/specs/01-color-engine.md) has every
+rule and case.
+
+- 🎨 **Color math** — parses hex, `rgb()` and `oklch()`, converts between OKLCH, sRGB and Display P3, and maps to a gamut with the CSS Color 4 method
+- 📏 **Contrast-solved scales** — 11 steps per palette, each solved for a WCAG 2.2 contrast target and measured again on the 8-bit hex it emits, in light and dark mode
+- 🧩 **A complete color system** — eight palettes, 46 roles per mode, chart colors picked to stay apart under three kinds of color blindness, and a locked brand color kept verbatim where contrast allows
+- 🔤 **Non-color tokens** — type scales by context, space, radius, shadows and motion
+- 🧾 **A spec with an identity** — the `dyelot.spec/1` schema, a canonical form, a 16-hex spec id and a share link with an integrity check that rejects any one-character change
+- 🔍 **A linter** — 20 measured rules over contrast, color-blind distinguishability, scale order, chroma, gamut and dark mode
+
+---
+
 ## 🔧 Architecture
 
 The planned layers and their rules are in the [design spec](docs/specs/00-design.md#3-architecture).
-Only the shell exists today.
+The shell and the pure core exist today: `generateSystem` and `lintSpec` in the diagram below. The previews, the
+receipt and the export bundle come in later milestones.
 
 ```mermaid
 flowchart LR
@@ -69,23 +86,28 @@ flowchart LR
 src/
 ├── app/                    routes, metadata files and the error boundaries
 ├── components/terminal/    the house shell: nav, window, prompt, status bar
+├── engine/                 the pure core: generateSystem and the linter
+│   ├── color/              parsing, conversion, gamut, contrast, scales, palettes, roles, charts
+│   ├── tokens/             type, space, shape, depth and motion
+│   └── lint/               the 20 color rules
+├── spec/                   the dyelot.spec/1 schema, canonical form, spec id and share-link codec
 └── lib/
     ├── site/               the validated site config and the metadata modules
     └── links.ts            the repository address
 tests/
-├── unit/                   Vitest
+├── unit/                   Vitest; engine and spec tests run in plain Node
 └── e2e/                    Playwright
-docs/specs/00-design.md     the design spec
+docs/specs/
+├── 00-design.md            the design spec (the umbrella)
+└── 01-color-engine.md      the M1 spec: the engine, the spec model and the linter
 scripts/render-icons.mjs    renders the raster icons from src/app/icon.svg
 ```
-
-`src/engine/` and `src/spec/` arrive with M1.
 
 ---
 
 ## 🚀 Usage
 
-You need Node 24 and pnpm 10.
+You need Node 22.22.2 or later and pnpm 10. CI runs Node 24.
 
 ```bash
 pnpm install
@@ -119,9 +141,10 @@ directory to the icon script to write the files there instead of in place.
 |---|---|
 | App | Next.js 16.4 App Router, React 19.3, TypeScript strict |
 | Style | Tailwind 4.3, the portfolio's dark terminal tokens, Geist and Geist Mono, one madder accent |
-| Color | OKLCH and WCAG 2.2 contrast, in a pure TypeScript engine (M1) |
+| Color | OKLCH and WCAG 2.2 contrast, in a pure TypeScript engine |
+| Spec | zod 4 in jitless mode (no `eval` under the CSP), fflate for the share link |
 | Quality | Biome, Vitest with jsdom, fast-check, Playwright with axe |
-| Tooling | pnpm 10, Node 24 |
+| Tooling | pnpm 10, Node 22.22.2 or later (CI runs 24) |
 | CI | GitHub Actions: lint, typecheck, unit tests with coverage and the build, then Playwright on Chromium |
 
 ---
@@ -130,9 +153,12 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | Vitest with jsdom and Testing Library, in `tests/unit/`; property tests with fast-check start with the engine |
+| Unit | 734 Vitest tests in 46 files, in `tests/unit/`. Engine and spec tests run in plain Node; the rest run in jsdom with Testing Library. An exhaustive sweep of all 16,777,216 8-bit seeds runs only with `DYELOT_EXHAUSTIVE=1` |
+| Spec cases | Each case in [`01-color-engine.md`](docs/specs/01-color-engine.md) has a test that carries its id, such as `C-SCALE-02` |
+| Property tests | fast-check over arbitrary color strings, every parameter, random seeds and share-link tampering |
 | End to end | Playwright on Chromium against `next build` and `next start`, with axe accessibility checks on the home and 404 pages and checks on the security headers |
-| Coverage floors | 80% lines and statements, 75% functions and 70% branches; the engine and spec folders get 95% and 90% floors with M1 |
+| Coverage floors | 80% lines and statements, 75% functions and 70% branches overall; 95% lines, statements and functions and 90% branches on `src/engine/` and `src/spec/` |
+| Coverage at the M1 close | 100% statements, functions and lines, 99.7% branches |
 | Static checks | Biome, and `tsc` in strict mode |
 
 ```bash
@@ -140,6 +166,19 @@ pnpm test                        # unit
 pnpm vitest run --coverage       # unit, with the floors
 pnpm test:e2e                    # builds, serves and drives Chromium
 ```
+
+---
+
+## 🏛️ Engineering philosophy
+
+| Principle | How it shows up |
+|---|---|
+| 🔴 **Spec-TDD** | `docs/specs/01-color-engine.md` lists every case, pass and failure, before the code. Each test carries its case id, and each fix starts with a failing test. |
+| 🚫 **Negative-space programming** | Every public function checks its input: a wrong type throws `TypeError`, a value outside its domain `RangeError`, and color, scale and link failures have their own error types. No function returns NaN or Infinity. |
+| 🔒 **Typed everything** | TypeScript strict with no `any`. A `Hex` is a branded string that only `toHex` and the schema make, and the schema is where a decoded link becomes a typed spec. |
+| 🧊 **Pure core, imperative shell** | `src/engine/` and `src/spec/` use no DOM, no Node API, no `Date` and no `Math.random`; their tests run in plain Node to prove it. Randomness comes only from a seeded generator, so a seed gives the same spec on every platform. |
+| 🧾 **Measure what ships** | Contrast is measured on the 8-bit hex the engine emits, never rounded, so a ratio of 4.499 fails 4.5. |
+| 📦 **One responsibility per module** | Parsing, conversion, gamut, contrast, scales, palettes, roles, charts, tokens, the schema, the canonical form, the hash and the link codec each have their own file. |
 
 ---
 
@@ -155,8 +194,8 @@ rest.
 
 - **M0, done.** The repo in the house skeleton: Next 16.4, Biome, Vitest, Playwright, CI, site
   metadata, security headers, the terminal shell and the design spec.
-- **M1, in progress.** The color engine, the spec model and the linter, in `src/engine/` and
-  `src/spec/`.
+- **M1, done.** The color engine, the spec model and the linter, in `src/engine/` and `src/spec/`,
+  built to the [engine spec](docs/specs/01-color-engine.md). It has no UI yet.
 - **Next.** M2 the studio and its six preview pages, M3 the export bundle, M4 the AI layers, M5 motion
   and 3D, M6 the gallery and the launch. The milestone table in the spec has the details.
 

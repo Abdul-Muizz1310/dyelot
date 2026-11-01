@@ -19,8 +19,8 @@ DESIGN.md is the handoff worth targeting. Google Labs open-sourced the format in
 can read a design system as plain text. It is still alpha, and nothing I found generates a checked one
 from your own palette. dyelot will write DESIGN.md with tokens and a ready prompt beside it.
 
-The numbers come from an engine, not a model. The engine will solve each color for a target WCAG
-contrast and measure it again on the value it emits. A model, where one helps, fills a closed schema and
+The numbers come from an engine, not a model. The engine solves each color for a target WCAG
+contrast and measures it again on the value it emits. A model, where one helps, fills a closed schema and
 never writes a color. Every export will carry a receipt of what was measured, so a claim of
 accessibility comes with its proof.
 
@@ -28,4 +28,5 @@ accessibility comes with its proof.
 
 DESIGN.md is alpha, and Google could add a palette studio to Stitch tomorrow. dyelot needs no model and
 no server for its core, so a changed format means a new file writer, not a rewrite. Today the repo
-holds the shell, the CI and the design spec. The engine is in progress.
+holds the shell, the CI, the design spec and that engine, with its spec model and linter. The studio
+comes next.
