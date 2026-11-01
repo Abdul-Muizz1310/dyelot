@@ -45,13 +45,19 @@ export type Finding = {
 };
 
 /**
+ * A palette as the linter reads it. `peakChroma` may be absent: an imported design need not carry
+ * one, and the linter then reads the largest chroma of the light steps as the peak (spec 6.8).
+ */
+export type LintedPalette = Omit<Palette, "peakChroma"> & { readonly peakChroma?: number };
+
+/**
  * What the linter reads from a `DesignSpec`: its color section. The engine never imports the spec
  * model (spec section 5), so this is the structural part of it; every `DesignSpec` is one.
  */
 export type LintedSpec = {
   readonly color: {
     readonly params: Pick<ColorParams, "gamut" | "scaleMode">;
-    readonly palettes: Readonly<Record<PaletteName, Palette>>;
+    readonly palettes: Readonly<Record<PaletteName, LintedPalette>>;
     readonly roles: Readonly<Record<Mode, Readonly<Record<RoleName, Hex>>>>;
   };
 };

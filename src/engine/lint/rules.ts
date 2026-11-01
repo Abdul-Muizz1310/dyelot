@@ -4,9 +4,9 @@ import { minPairwiseDeltaE, VIEWS } from "../color/deltae";
 import { STORED_GAMUT_TOLERANCE } from "../color/guards";
 import { PALETTE_NAMES, type PaletteName } from "../color/palette";
 import type { RoleName } from "../color/roles";
-import { type ScaleStep, STEPS, stepChroma } from "../color/scale";
+import { DARK_CHROMA_FACTOR, type ScaleStep, STEPS, stepChroma } from "../color/scale";
 import type { Gamut, Mode, Oklch } from "../color/types";
-import type { Finding, LintedSpec, RuleId, Severity } from "./types";
+import type { Finding, LintedPalette, LintedSpec, RuleId, Severity } from "./types";
 
 // The rule table of spec section 6.8: thresholds, severities and sources.
 const TEXT = 4.5;
@@ -195,6 +195,14 @@ const K2: Rule = (spec, mode) =>
   });
 
 /**
+ * The palette's peak chroma: its stored `peakChroma`, or for a palette that carries none (an
+ * imported design) the largest chroma of its light steps (spec 6.8).
+ */
+function peakOf(palette: LintedPalette): number {
+  return palette.peakChroma ?? Math.max(...palette.light.map((entry) => entry.oklch.c));
+}
+
+/**
  * The even groups of R-11: the four status palettes, always; primary and accent when their peak
  * chroma is equal; every other palette alone. Standard mode puts every palette alone.
  */
@@ -202,7 +210,7 @@ function groupOf(spec: LintedSpec, name: PaletteName): readonly PaletteName[] {
   if (spec.color.params.scaleMode !== "even") return [name];
   if (STATUS_PALETTES.includes(name)) return STATUS_PALETTES;
   const { primary, accent } = spec.color.palettes;
-  const paired = primary.peakChroma === accent.peakChroma;
+  const paired = peakOf(primary) === peakOf(accent);
   return paired && (name === "primary" || name === "accent") ? ["primary", "accent"] : [name];
 }
 
@@ -213,11 +221,7 @@ function expectedChroma(spec: LintedSpec, name: PaletteName, mode: Mode, index: 
     ...groupOf(spec, name).map((member) => {
       const palette = spec.color.palettes[member];
       const l = palette[mode][index].oklch.l;
-      return stepChroma(
-        { hue: palette.hue, peakChroma: palette.peakChroma, mode, gamut },
-        index,
-        l,
-      );
+      return stepChroma({ hue: palette.hue, peakChroma: peakOf(palette), mode, gamut }, index, l);
     }),
   );
 }
@@ -280,16 +284,22 @@ const D2: Rule = (spec) => {
   return [];
 };
 
+/**
+ * D3: a dark fill may hold the light chroma of its step, or the engine's own dark desaturation of
+ * the peak, whichever is larger. A light step that the gamut limits holds less chroma than its
+ * correctly desaturated dark twin, so comparing with the light chroma alone reports the engine.
+ */
 const D3: Rule = (spec) =>
-  ACCENTED.flatMap((name) =>
-    D3_STEPS.flatMap((step) => {
+  ACCENTED.flatMap((name) => {
+    const palette = spec.color.palettes[name];
+    const desaturated = DARK_CHROMA_FACTOR * peakOf(palette);
+    return D3_STEPS.flatMap((step) => {
       const index = STEPS.indexOf(step);
-      const palette = spec.color.palettes[name];
       const dark = palette.dark[index].oklch.c;
-      const light = palette.light[index].oklch.c;
-      return dark > light ? [finding("D3", "warn", "dark", `${name}-${step}`, dark, light)] : [];
-    }),
-  );
+      const bound = Math.max(palette.light[index].oklch.c, desaturated);
+      return dark > bound ? [finding("D3", "warn", "dark", `${name}-${step}`, dark, bound)] : [];
+    });
+  });
 
 const D4: Rule = (spec) => {
   const card = lightness(spec, "dark", "card");

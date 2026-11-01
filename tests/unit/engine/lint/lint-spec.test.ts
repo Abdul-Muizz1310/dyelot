@@ -79,9 +79,9 @@ function brokenSpec(): DesignSpec {
 }
 
 describe("lintSpec", () => {
-  it("C-LINT-47 is silent on the base spec except N3 info in both modes (D3 may warn)", () => {
+  it("C-LINT-47 is silent on the base spec except N3 info in both modes", () => {
     const findings = lintSpec(defaultSpec());
-    const loud = findings.filter((f) => f.id !== "N3" && f.id !== "D3");
+    const loud = findings.filter((f) => f.id !== "N3");
     expect(loud).toEqual([]);
     expect(findings.filter((f) => f.id === "N3").map((f) => [f.severity, f.mode])).toEqual([
       ["info", "light"],

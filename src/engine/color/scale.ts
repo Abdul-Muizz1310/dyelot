@@ -40,7 +40,8 @@ const THRESHOLD_MARGIN = 0.02;
 
 /** The chroma envelope per step index, times the palette's peak chroma. */
 const ENVELOPE = [0.12, 0.22, 0.4, 0.62, 0.85, 1, 1, 0.9, 0.75, 0.6, 0.45] as const;
-const DARK_CHROMA_FACTOR = 0.85;
+/** Dark mode multiplies the peak chroma by this: the engine's own dark desaturation. */
+export const DARK_CHROMA_FACTOR = 0.85;
 const GAMUT_CAP = 0.97;
 const MAX_PEAK_CHROMA = 0.5;
 
