@@ -913,7 +913,7 @@ function mergeView(view: View, patch: Partial<View>, caller?: string): View; // 
 function lotTag(id: string): string;                    // "0123456789abcdef" -> "0123·4567"
 // shortcuts.ts (Task 2.6): the key rules of R2-15, read from the event and its target
 type KeyPress = { key: string; code: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean;
-                  shiftKey: boolean; isComposing: boolean };
+                  shiftKey: boolean; isComposing: boolean; repeat: boolean };
 type Shortcut = { kind: "close-drawer" | "copy-link" | "toggle-mode" | "regenerate" | "undo" | "redo" }
               | { kind: "toggle-lock"; slot: Lockable };
 const CANVAS_REGION = "[data-canvas-region]";           // on <main aria-label="Canvas">
@@ -1359,22 +1359,23 @@ is a violation.
 ### 6.11 Shortcut and input helpers (Task 2.6)
 
 Tests: `tests/unit/features/studio/{shortcuts,inputs}.test.ts`, in jsdom. A "press" is a `KeyPress`; the target is an element
-built by the test. The flows F-KEY-01 to F-KEY-13 run the same rules in the browser.
+built by the test. The flows F-KEY-01 to F-KEY-14 run the same rules in the browser.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-KEYS-01 | pass | With the body as target (or `null`) and no drawer open, Space gives `regenerate`, ← `undo` and → `redo`; a repeated press gives the same | R2-15 |
+| C-KEYS-01 | pass | With the body as target (or `null`) and no drawer open, Space gives `regenerate`, ← `undo` and → `redo`, and each gives the same with `repeat` set: a held key repeats (R2-15 item 3) | R2-15 |
 | C-KEYS-02 | failure | Each text field ignores Space, L, ←, →, Alt+T and Mod+S: an `input` of type text, email, number, search, url, tel, password and date, a `textarea`, a `select`, an element with `contenteditable` and a child of one | R2-15 item 1 |
 | C-KEYS-03 | pass | `isTextField` is false for `input` of type color, checkbox, radio, range and button, and for `contenteditable="false"` | R2-15 item 1 |
 | C-KEYS-04 | failure | Space, ← and → give `null` on a `button`, a `summary`, a link with `href`, a native checkbox, radio, range or color input, and an element with each role of R2-15 item 2 | R2-15 item 2 |
 | C-KEYS-05 | pass | L (or Shift+L) on an element with `data-seed-slot="primary"` (the color input, the lock toggle) gives `toggle-lock` for that slot; L on the body, on a button without the attribute, on a hex field or with Ctrl, Meta or Alt gives `null`; a slot outside `LOCKABLE` gives `null` | R2-15 item 4 |
 | C-KEYS-06 | pass | Alt with `code` `KeyT` gives `toggle-mode` whatever `key` says (`t`, `†`); Alt with another code, Alt+Shift+T and Ctrl+Alt+T give `null` | R2-15 item 3 |
-| C-KEYS-07 | pass | Ctrl+S and Meta+S give `copy-link` outside a text field and `null` inside one; with Alt or Shift held they give `null`; any other Ctrl or Meta chord gives `null` | R2-15 items 3 and 7 |
+| C-KEYS-07 | pass | Ctrl+S and Meta+S give `copy-link` outside a text field and `null` inside one, matched on the key `s` or the code `KeyS` (a Cyrillic layout types `ы`), also on a repeat so a held chord never opens the save dialog; with Alt or Shift held they give `null`; any other Ctrl or Meta chord gives `null` | R2-15 items 3 and 7 |
 | C-KEYS-08 | pass | Escape gives `close-drawer` when a drawer is open, from any target, a text field included; with no drawer open it gives `null` | R2-15 item 6 |
 | C-KEYS-09 | failure | With the canvas region or any element inside it as target, Space, ←, →, L, Alt+T and Mod+S give `null` | R2-15 item 5 |
 | C-KEYS-10 | failure | With a drawer open, Space, ← and → give `null`, while L, Alt+T and Mod+S still fire | R2-15 item 2 |
 | C-KEYS-11 | failure | A press during IME composition, and any other key, gives `null` | added |
 | C-KEYS-12 | failure | R-05: a press that is not an object, or whose `key` or `code` is not a string, throws `TypeError` naming `shortcutFor`; a target that is neither an `Element` nor `null` throws `TypeError` | added |
+| C-KEYS-13 | failure | A repeated L or Alt+T gives `null`: holding a toggle would flip it on every repeat | added |
 | C-INPUTS-01 | pass | `seedHex` of an unlocked slot is `toHex(gamutMap(lockSeed(spec, slot), "srgb"))` for each of the three slots | R2-17 |
 | C-INPUTS-02 | pass | `seedHex` of a locked slot is its seed mapped into sRGB; a seed set from `#1f6f5b` reads back `#1f6f5b` | decision |
 | C-INPUTS-03 | failure | `seedHex` with a slot outside `LOCKABLE` throws `RangeError`, with a spec or params that are not objects `TypeError`, each naming `seedHex` | added |
@@ -1402,12 +1403,12 @@ Geist Mono. The strip is a group labeled "Primary scale, 11 steps" with 11 swatc
 |---|---|---|---|
 | F-STUDIO-01 | pass | `/studio` answers 200, has one `h1`, a title and a description of its own, a canonical link, and an entry in `sitemap.xml`; the home page keeps its own | plan |
 | F-STUDIO-02 | pass | At 1280 px the three regions are visible side by side: inputs 320 px, inspector 360 px, canvas fluid in between (each ±1 px) | decision, plan |
-| F-STUDIO-03 | pass | At 1100 px the inputs panel is a 320 px column, the inspector is a drawer, and the toolbar shows "Inspector" | ruling |
+| F-STUDIO-03 | pass | At 1100 px the inputs panel is a 320 px column, the inspector is a drawer, and the toolbar shows "Inspector"; the open Inspector drawer makes the inputs column `inert`, and closing it returns focus to "Inspector" | ruling, review |
 | F-STUDIO-04 | pass | At 360 px both panels are drawers, the toolbar shows "Inputs" and "Inspector", and `document.documentElement.scrollWidth` is at most 360 | RF5, plan |
 | F-STUDIO-05 | pass | Opening a drawer moves focus into it (its heading, `tabindex="-1"`), traps focus, sets the rest of the page `inert`, and Escape closes it and returns focus to the button that opened it | RF5, ruling |
 | F-STUDIO-06 | pass | A backdrop click closes a drawer; a closed drawer is `inert`, so no control inside it takes focus | ruling |
 | F-STUDIO-07 | pass | The lot tag shows `LOT` and eight hex characters as `xxxx·xxxx` equal to the first eight of `specId`; after a change it shows the new id | plan |
-| F-STUDIO-08 | pass | The strip has 11 swatches whose colors equal the primary scale's hexes for the current mode, and they follow the mode toggle | decision |
+| F-STUDIO-08 | pass | The strip has 11 swatches whose colors equal the primary scale's hexes for the current mode, and they follow the mode toggle; each swatch is an image (`role="img"`) named "<step> <hex>" | decision, review |
 | F-STUDIO-09 | pass | RF1: loading `/studio#s=<tampered link>` shows the banner with the corrupt sentence, the second sentence, and the buttons "Start fresh" and "Dismiss"; the canvas shows a design (never blank) | RF1, R2-18 |
 | F-STUDIO-10 | pass | RF1: a truncated link shows the corrupt banner; a link with a future version shows the version banner; a link that fails the schema shows the schema banner with the count | RF1, R2-18 |
 | F-STUDIO-11 | pass | RF1: "Start fresh" opens a new design, clears the banner and the hash, and the lot tag changes; "Dismiss" hides the banner and keeps the design | RF1, ruling |
@@ -1422,11 +1423,16 @@ Geist Mono. The strip is a group labeled "Primary scale, 11 steps" with 11 swatc
 | F-STUDIO-20 | pass | No network request goes to a host other than the page's origin; none to `fonts.googleapis.com` or `fonts.gstatic.com` | I-M2-06 |
 | F-STUDIO-21 | pass | The page loads with `worker-src 'self' blob:` allowed by the CSP and generation runs in a worker (the test sees a `Worker` created) | R2-13 |
 | F-STUDIO-22 | pass | A link whose families match no pairing shows the polite notice that editing resets the fonts | R2-14 |
+| F-STUDIO-23 | pass | Focus never falls to the page body when the studio removes the focused control: after "Start fresh", "Dismiss" or "Revert" focus moves to the canvas region; closing the copy-blocked toast returns focus to the element that had it when the toast opened, or to "Copy link" when that was the body; with a drawer open, a copy-blocked toast announces itself (`role="status"`) and focus stays in the drawer | I-M2-03, review |
+| F-STUDIO-24 | pass | "Drafts off" is a disclosure any user can open (keyboard, touch, screen reader) to read why: "This browser does not let the studio save a draft. The link in the address bar still holds the design."; when drafts turn off mid-session (a `setItem` that starts throwing) a polite live region says "Drafts off" | RF2, review |
 
 ### 7.2 The inputs panel (Task 2.6)
 
 Each control has a visible label and an accessible name. A small enum of at most four options is a radio group; larger
-sets are a native `select`. The one primary chrome action of the panel, "Regenerate", is the only madder fill.
+sets are a native `select`. The one primary chrome action of the panel, "Regenerate", is the only madder fill; a selected
+option, a pressed lock toggle and the mode switch show a neutral selected state (foreground text, a lighter neutral fill and a
+`--border-bright` edge), so madder means focus or the primary action. "Regenerate" and the shortcut hint stay in view at 1280 × 800
+as the panel's footer; the hint names Space, ← and →, L, Alt+T and Ctrl+S (⌘S on a Mac).
 
 | Control | Label | Kind | Options | Changes |
 |---|---|---|---|---|
@@ -1463,6 +1469,7 @@ sets are a native `select`. The one primary chrome action of the panel, "Regener
 | F-INPUT-13 | pass | There is no slider in M2; the two rapid inputs are holding Space and dragging in the native color input (F-INPUT-15) | added |
 | F-INPUT-14 | pass | After a preset is chosen, changing any control it owns (for example Radius) makes the Preset select show "Custom" and hides the preset notes; changing a seed color or the mode does not | ruling |
 | F-INPUT-15 | pass | Holding Space is rapid input, as is a drag in the native color input; both coalesce into one undo step each | RF4, ruling |
+| F-INPUT-16 | pass | At 1280 × 800 "Regenerate" is in view without scrolling the panel; it carries `aria-keyshortcuts="Space"`, the mode switch `Alt+T` and "Copy link" `Control+S Meta+S`, and the hint text names Alt+T and Ctrl+S | review |
 
 ### 7.3 Keyboard (Task 2.6)
 
@@ -1481,6 +1488,7 @@ sets are a native `select`. The one primary chrome action of the panel, "Regener
 | F-KEY-11 | pass | Keyboard-only: from a fresh load, Tab follows the DOM order of 7.1 and reaches the skip link, the header, every control of the inputs panel in the order of 7.2, the canvas toolbar in its order, the canvas region, and every inspector control and finding action, with a visible 2 px madder focus ring on each chrome control (inside the canvas the ring is `--ring`, R2-30) | RF5, plan |
 | F-KEY-12 | pass | At 360 px, keyboard-only: the same controls are reachable by opening the drawers with Enter and Space on their buttons, and Escape closes them | RF5, plan |
 | F-KEY-13 | failure | With focus inside `[data-canvas]` (a preview checkbox, the kit's tab list), Space, ←, →, L and Alt+T do not reach the studio shortcuts, and the preview control keeps the key | ruling |
+| F-KEY-14 | failure | A `keydown` that is a plain `Event` (no key or code, as some autofill and extensions send) reaches no shortcut and raises no page error | review |
 
 ### 7.4 The canvas (Task 2.7)
 
@@ -1623,10 +1631,11 @@ top for font failures.
 | F-A11Y-01 | pass | axe finds 0 violations on `/` and on `/studio`, in the default state and with each drawer open at 360 px | decision |
 | F-A11Y-02 | pass | Every interactive element in the chrome has a hit area of at least 24 × 24 px and an accessible name | decision |
 | F-A11Y-03 | pass | Every focusable element outside `[data-canvas]` shows a 2 px madder focus ring (`outline`) with at least a 3:1 change against its neighbor; inside the canvas the ring is the spec's `--ring` | decision, ruling |
-| F-A11Y-04 | pass | The chrome stays achromatic: no computed color outside `[data-canvas]` has a chroma above 0.02 except the house neutral `:root` tokens (`--fg-muted`, `--border`, `--border-bright`, `--panel`, tinted greys of chroma 0.016 to 0.037), madder on focus rings, the active state and the primary action, and the data swatches (elements with `data-swatch`: the lot strip, seed swatches, scale cells), which show spec colors by design | decision, ruling |
+| F-A11Y-04 | pass | The chrome stays achromatic: no computed color outside `[data-canvas]` has a chroma above 0.02 except the house neutral `:root` tokens (`--fg-muted`, `--border`, `--border-bright`, `--panel`, tinted greys of chroma 0.016 to 0.037), madder on focus rings and the primary action (`data-primary`), and the data swatches (elements with `data-swatch`: the lot strip, seed swatches, scale cells), which show spec colors by design; a selected or pressed control is neutral | decision, ruling, review |
 | F-A11Y-05 | pass | At 360 px no route scrolls horizontally | RF5, plan |
 | F-A11Y-06 | pass | With `prefers-reduced-motion: reduce`, the chrome's own transitions (drawers, toasts) run at 0.01 ms or less | decision |
 | F-A11Y-07 | pass | Chrome text meets 4.5:1 and chrome non-text parts meet 3:1 against `#0a0a0a` and `#12121a` (a measured pass over the chrome's own tokens) | decision |
+| F-A11Y-08 | pass | On `/studio` the surround behind the shell is achromatic: every color stop of `body::before`'s background image (the house dot grid) has a chroma of 0.005 or less, so the M0 madder crown does not tint the toolbar or the canvas surround; the home page keeps its crown | decision, review |
 | F-HOME-01 | pass | The home page keeps its single `h1` and gains a link "open the studio" with `href="/studio"`, in the list beside the GitHub link | decision, ruling |
 | F-HOME-02 | pass | Following the link opens `/studio` | decision |
 
