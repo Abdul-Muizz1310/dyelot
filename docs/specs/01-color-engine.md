@@ -427,14 +427,17 @@ plugins and the alias) or with a `// @vitest-environment node` docblock at the t
 folder coverage floors. DOM use in the pure core then fails at run time, because `window` is undefined, and C-REPO-03
 asserts it.
 
-**R-25 · Shared helpers.** The plan's interfaces do not name ten small functions that the tasks share, so this spec
-names them: `round6` and `roundHue` (`src/engine/round.ts`), `pickHex(solution, page, target, threshold?)` (`scale.ts`, the
-picker of R-06), `pageFor(neutral, mode)` and `normalizeSeed(seed)` (`palette.ts`; the second checks a seed's domain and
-applies R-02 and R-03, for `buildPalettes` and for `color.params` in Task 1.8), `minPairwiseDeltaE(colors)` (`deltae.ts`,
-used by rule S1), `viewsOf(rgb)` and `minViewDeltaE(a, b)` (`deltae.ts`: a color's OKLab under each of the four views, and
-the smallest ΔEOK of two colors over those views; `minPairwiseDeltaE` and chart picking both build on them, so the picker
-and S1 measure alike), `selectOnFill(fill, candidates)` (`roles.ts`) and `fnv1a64(input)` (`hash.ts`, used by `specId` and
-the link trailer; it hashes a string as UTF-8 and a `Uint8Array` as given).
+**R-25 · Shared helpers.** The plan's interfaces do not name twelve small functions that the tasks share, so this spec
+names them: `round6` and `roundHue` (`src/engine/round.ts`), `pickHex(solution, page, target, threshold?)` (`scale.ts`,
+the picker of R-06), `pageFor(neutral, mode)` and `normalizeSeed(seed)` (`palette.ts`; the second checks a seed's
+domain and applies R-02 and R-03, for `buildPalettes` and for `color.params` in Task 1.8), `minPairwiseDeltaE(colors)`
+(`deltae.ts`, used by rule S1), `viewsOf(rgb)` and `minViewDeltaE(a, b)` (`deltae.ts`: a color's OKLab under each of
+the four views, and the smallest ΔEOK of two colors over those views; `minPairwiseDeltaE` and chart picking both build
+on them, so the picker and S1 measure alike), `selectOnFill(fill, candidates)` (`roles.ts`), `fnv1a64(input)`
+(`hash.ts`, used by `specId` and the link trailer; it hashes a string as UTF-8 and a `Uint8Array` as given),
+`stepChroma(palette, index, l)` (`scale.ts`: the chroma formula of section 6.4, which the solver and rule K4 share) and
+`seedHex(seed, gamut)` (`palette.ts`: the hex a locked seed takes in its scale, by which rule K4 finds a seeded step
+when `seedStep` is absent).
 
 ## 5. Conventions and invariants
 
@@ -1291,7 +1294,16 @@ type Finding = {
   id: RuleId; severity: "error" | "warn" | "info"; mode: Mode;
   subject: string; measured: number; threshold: number; source: string;
 };
-function lintSpec(spec: DesignSpec): readonly Finding[]; // sorted: severity, id, mode, subject
+// The color section of a DesignSpec that the linter reads. The engine never imports src/spec (section 5),
+// so the linter names this structural type; every DesignSpec is one.
+type LintedSpec = {
+  color: {
+    params: Pick<ColorParams, "gamut" | "scaleMode" | "primary" | "secondary" | "accent">;
+    palettes: Record<PaletteName, Omit<Palette, "peakChroma"> & { peakChroma?: number }>;
+    roles: Record<Mode, Record<RoleName, Hex>>;
+  };
+};
+function lintSpec(spec: LintedSpec): readonly Finding[]; // sorted: severity, id, mode, subject
 ```
 
 Section 6.5 lists the text pairs. Ids, checks and thresholds come from `04-color-science.md` §3.6; the table below fixes
@@ -1311,7 +1323,7 @@ what each rule measures. A rule runs in both modes, except D1 to D4, which run i
 | S2 | `abs(ΔL)` between `destructive` and `success` (OKLCH L of the hexes) | abs(ΔL) < 0.10 | warn | abs(ΔL) / 0.10 | `red and green collapse under protan and deutan (RR-0028)` |
 | K1 | Each adjacent step pair of each palette: the movement of L toward the far end (`L(a) − L(b)` in light mode, `L(b) − L(a)` in dark) | movement ≤ 0 | error | movement / 0 | `invariant` |
 | K2 | Each adjacent step pair: `abs(ΔL)` | abs(ΔL) < 0.008 | warn | abs(ΔL) / 0.008 | `CSS JND; Radix measured` |
-| K4 | Each step: `abs(c − expected)`, where `expected` is the step's expected chroma. In standard mode it is `min(peak × envelope × k, 0.97 × maxChroma(L, drifted hue, gamut))` as in section 6.4. In even mode it is the group cap: the smallest value of that formula over the palettes of the step's even group (R-11), each taken at its own stored L and drifted hue | difference > 0.01 | warn | difference / 0.01 | `computed (RR-0028)` |
+| K4 | Each step: `abs(c − expected)`, where `expected` is the step's expected chroma. In standard mode it is `min(peak × envelope × k, 0.97 × maxChroma(L, drifted hue, gamut))` as in section 6.4. In even mode it is the group cap: the smallest value of that formula over the palettes of the step's even group (R-11), each taken at its own stored L and drifted hue. In even mode K4 skips every palette of a group at a step and mode where any palette of that group holds its locked seed, because the solver took that group's cap from the lightness the seed replaced, which the spec does not keep. The seeded step is `seedStep[mode]`, or, when `seedStep` is absent (R-10), each step whose `hex` equals `seedHex` of the seed in `color.params` | difference > 0.01 | warn | difference / 0.01 | `computed (RR-0028)` |
 | G1 | Each step's `oklch` in the spec's gamut: the largest channel excess outside `[0, 1]`, so each emitted value must lie in `[−2e-4, 1 + 2e-4]` | excess > 2e-4 | error | excess / 2e-4 | `CSS Color 4` |
 | G3 | Each step's `oklch` with `c ≤ 4e-6` | `h` is not `null` | error | c / 4e-6 | `CSS Color 4 (powerless hue)` |
 | D1 | Dark `background`: OKLCH L of the hex | L < 0.15 | warn | L / 0.15 | `Material dark theme guidance` |
@@ -1347,12 +1359,17 @@ Contract:
   (hue 289) raises neither P1 nor any warning. A locked seed can raise K2, K4 and D3 at its own step, because the seed
   keeps its own lightness and chroma (a locked `#f66c6d` puts chroma 0.1701 at dark primary-600, above the bound
   0.14); M1 reports those warnings. The palette's `seedStep` names that step when both modes place the seed. When only
-  one mode places it, `seedStep` is absent (R-10), and the seed's hex in that mode's scale marks the step. A locked
-  seed raises no G1, because R-10 maps every seed whose stored form lies more than 2e-4 outside, the bound G1 checks.
-  Rounding can leave a stored seed outside the gamut by up to 1.347e-4 (a locked `#0000ff` by 1.8e-6, `#00ff00` by
-  4.3e-5, and `#00fd1b`, the worst of all 16,777,216 8-bit colors, by 1.347e-4), and G1 allows 2e-4. Only the 390,152
-  colors with a 00 or ff channel can leave the gamut at all; the other 16,387,064 stay inside. Gamut-mapped seeds
-  behave alike: 20,000 random out-of-gamut seeds reach 1.14e-4 at most.
+  one mode places it, `seedStep` is absent (R-10), and the seed's hex in that mode's scale marks the step. In even
+  mode K4 skips the seeded step, in each mode, for every palette of the seed's group, so a seed raises no K4 there, on
+  its own palette or on a partner: before this rule, a locked `#808000` made accent-500 warn at 0.0172 because the cap
+  came from the seed's lightness, not the one it replaced. Locked as primary, accent or secondary in even mode, the 64
+  hexes with every channel in 20, 60, a0 and e0, and `#808000`, raise no K4 at all. In standard mode the same seeds
+  raise K4 only on their own palette (103 findings as primary or accent, 114 as secondary). A locked seed raises no
+  G1, because R-10 maps every seed whose stored form lies more than 2e-4 outside, the bound G1 checks. Rounding can
+  leave a stored seed outside the gamut by up to 1.347e-4 (a locked `#0000ff` by 1.8e-6, `#00ff00` by 4.3e-5, and
+  `#00fd1b`, the worst of all 16,777,216 8-bit colors, by 1.347e-4), and G1 allows 2e-4. Only the 390,152 colors with
+  a 00 or ff channel can leave the gamut at all; the other 16,387,064 stay inside. Gamut-mapped seeds behave alike:
+  20,000 random out-of-gamut seeds reach 1.14e-4 at most.
 - **Contrast level.** `destructive` stays on danger-600 at every level, so the status set, S1 and S2 do not depend on the
   level. For text that needs 7:1, `destructive-subtle-foreground` on `destructive-subtle` (about 10.9:1) carries it.
 - **Overrides.** Pass fixtures override what their rule measures so that it holds, and assert that no finding has the id.
@@ -1414,6 +1431,11 @@ Contract:
 | C-LINT-50 | pass | **G1 on every 8-bit seed.** Every 8-bit color locked as a seed raises no G1 finding in sRGB mode: for each hex, the stored seed's `oklch` (after `round6`, `roundHue` and the achromatic rule) converted back to sRGB leaves `[0, 1]` by at most 2e-4. The exhaustive run over all 16,777,216 hexes takes about 20 s in plain JavaScript and finds a largest excess of 1.347e-4 (`#00fd1b`). A faster run may check only the 390,152 hexes with a 00 or ff channel, because the exhaustive run found no other color outside the gamut | plan, added |
 | C-LINT-51 | pass | **D3 on an amber palette.** `generateSystem(DEFAULT_PARAMS, "amber-392")` has primary hue 85 (amber). Its light primary 700 is gamut-limited (about 0.106) below its dark twin (0.1071 = 0.14 × 0.9 × 0.85), which the first form of D3 reported. Because the dark chroma stays within `0.85 × 0.14`, no D3 finding appears | ruling |
 | C-LINT-52 | pass | **A palette without a peak.** With `peakChroma` removed from that spec's `primary` and its light step 50 lifted to chroma 0.2, D3 reads the peak as 0.2, the largest light chroma: dark 700 at 0.16 stays silent (bound 0.17), and at 0.18 gives `{ id: "D3", subject: "primary-700", measured: 0.18, threshold: 0.17 }`. `lintSpec` does not throw, and every finding is finite | ruling |
+| C-LINT-53 | pass | **K4 on a locked seed's group in even mode.** With `scaleMode: "even"` and a primary locked to `#808000`, `#606020`, `#20a0a0` or `#60a0a0`, no K4 finding appears. Before the skip, each raised K4 on the seed's group partner (for example `#808000`: accent-500 at 0.01717 light and 0.01835 dark) | ruling, RF5 |
+| C-LINT-54 | failure | **K4 still measures every other step.** On the `#808000` even spec, adding 0.02 to the chroma of accent light 300, primary light 300 or accent dark 600 gives a K4 warning measured against the pair's cap. The skip holds per mode and step: with `#f66c6d` (seed at light 400 and dark 600), a drift at accent light 400 is skipped and one at accent dark 400 warns. With `#7f00ff`, `seedStep` is absent and the light scale holds the seed at 600, which K4 finds by its hex; standard mode still reports that step on primary | ruling |
+| C-LINT-55 | failure | **Every role list is complete.** With every role of both modes set to `#808080`, each pair and role rule reports exactly its listed subjects in both modes: C1 13, C2 5, C4 4, C5 6, N1 2, N2 10, N3 1, F1 3, S1 8 and S2 1 per mode (C2 10, C4 8, C5 12, N1 4, N2 20 and F1 6 over both), and the dark-mode role rules report D2 and D4 | added |
+| C-LINT-56 | failure | **D3 covers 21 pairs.** With every dark chroma set to 0.4, D3 reports exactly the 21 subjects of primary, secondary, accent, success, warning, danger and info at steps 500, 600 and 700 | added |
+| C-LINT-57 | pass | **D1 to D4 run in dark mode only.** Light roles that would fail them (a black light background, a white light foreground, a light card equal to the page) and light chroma of 0 raise no light-mode D finding | added |
 
 ### 6.9 Repository guards
 
