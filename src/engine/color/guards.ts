@@ -26,6 +26,8 @@ export function assertRgb(rgb: Rgb, name: string): void {
   if (!Array.isArray(rgb)) {
     throw new TypeError(`${name} must be an array of three channels, got ${describeType(rgb)}`);
   }
+  const length: number = rgb.length;
+  if (length !== 3) throw new TypeError(`${name} must have three channels, got ${length}`);
   for (let i = 0; i < 3; i++) assertFinite(rgb[i], `${name}[${i}]`);
 }
 
@@ -39,7 +41,11 @@ export function assertOklch(color: Oklch, name: string): void {
   if (color.h !== null) assertFinite(color.h, `${name}.h`);
 }
 
+/** A gamut is the string "srgb" or "p3": another type is a TypeError, another string a RangeError. */
 export function assertGamut(gamut: Gamut, name: string): void {
+  if (typeof gamut !== "string") {
+    throw new TypeError(`${name} must be a string, got ${describeType(gamut)}`);
+  }
   if (gamut !== "srgb" && gamut !== "p3") {
     throw new RangeError(`${name} must be "srgb" or "p3", got ${JSON.stringify(gamut)}`);
   }

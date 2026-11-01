@@ -1,7 +1,7 @@
 import { ACHROMATIC_CHROMA, hexDigitsToRgb, normalizeHue, rgbToOklch } from "./convert";
 import { ColorParseError } from "./errors";
 import { describeType } from "./guards";
-import type { Oklch } from "./types";
+import type { Oklch, Rgb } from "./types";
 
 export { ColorParseError };
 
@@ -48,6 +48,15 @@ function sixDigits(digits: string): string {
   return digits.slice(0, 6);
 }
 
+/**
+ * sRGB to OKLCH with l held in [0, 1]. White converts to l 1.0000000000000002, which `oklch()`
+ * would reject, and the Oklch that `parseColor` returns stays inside the domain it accepts.
+ */
+function fromSrgb(rgb: Rgb): Oklch {
+  const color = rgbToOklch(rgb, "srgb");
+  return { l: Math.min(1, Math.max(0, color.l)), c: color.c, h: color.h };
+}
+
 function parseRgb(input: string, text: string): Oklch {
   const match = RGB_SPACES.exec(text) ?? RGB_COMMAS.exec(text);
   if (match === null) {
@@ -59,7 +68,7 @@ function parseRgb(input: string, text: string): Oklch {
       throw new ColorParseError(input, "rgb channels run from 0 to 255.");
     }
   }
-  return rgbToOklch([r / 255, g / 255, b / 255], "srgb");
+  return fromSrgb([r / 255, g / 255, b / 255]);
 }
 
 function parseOklch(input: string, text: string): Oklch {
@@ -100,7 +109,7 @@ export function parseColor(input: string): Oklch {
   }
   const text = trimWhitespace(input);
   const hex = HEX.exec(text);
-  if (hex !== null) return rgbToOklch(hexDigitsToRgb(sixDigits(hex[1])), "srgb");
+  if (hex !== null) return fromSrgb(hexDigitsToRgb(sixDigits(hex[1])));
   if (text.startsWith("#")) {
     throw new ColorParseError(input, "Hex colors take 3, 4, 6 or 8 digits from 0 to 9 and a to f.");
   }

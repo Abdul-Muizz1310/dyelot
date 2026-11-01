@@ -108,11 +108,13 @@ function wrapHue(degrees: number): number {
   return hue >= 360 || hue === 0 ? 0 : hue;
 }
 
+function allFinite(values: Vec3): boolean {
+  return Number.isFinite(values[0]) && Number.isFinite(values[1]) && Number.isFinite(values[2]);
+}
+
 /** Throws when a conversion overflowed: finite input must never give a non-finite result. */
 function assertConverted(values: Vec3, name: string): void {
-  if (!Number.isFinite(values[0]) || !Number.isFinite(values[1]) || !Number.isFinite(values[2])) {
-    throw new RangeError(`${name} is too large to convert`);
-  }
+  if (!allFinite(values)) throw new RangeError(`${name} is too large to convert`);
 }
 
 function toOklab(rgb: Rgb, gamut: Gamut): Vec3 {
@@ -168,16 +170,33 @@ export function rgbToOklch(rgb: Rgb, gamut: Gamut): Oklch {
   return { l, c, h };
 }
 
+/** The conversion of `oklchToRgb`, or null where it overflows. The caller has checked `color`. */
+function convertOklch(color: Oklch, gamut: Gamut): Rgb | null {
+  const rgb = fromOklab(oklchToLab(color), gamut);
+  return allFinite(rgb) ? rgb : null;
+}
+
 /**
  * OKLCH to RGB in the named gamut. The result is not clamped: a channel outside 0 to 1 marks an
- * out-of-gamut color. A null hue reads as 0.
+ * out-of-gamut color. A null hue reads as 0. A color too large to convert throws a RangeError.
  */
 export function oklchToRgb(color: Oklch, gamut: Gamut): Rgb {
   assertOklch(color, "oklchToRgb: c");
   assertGamut(gamut, "oklchToRgb: gamut");
-  const rgb = fromOklab(oklchToLab(color), gamut);
-  assertConverted(rgb, "oklchToRgb: c");
+  const rgb = convertOklch(color, gamut);
+  if (rgb === null) throw new RangeError("oklchToRgb: c is too large to convert");
   return rgb;
+}
+
+/**
+ * `oklchToRgb` that returns null, not a RangeError, for a color too large to convert. Such a
+ * color is far outside every gamut, which is how `maxChroma` reads it. Other bad input still
+ * throws.
+ */
+export function tryOklchToRgb(color: Oklch, gamut: Gamut): Rgb | null {
+  assertOklch(color, "tryOklchToRgb: c");
+  assertGamut(gamut, "tryOklchToRgb: gamut");
+  return convertOklch(color, gamut);
 }
 
 /**
@@ -190,7 +209,9 @@ export function toHex(rgb: Rgb): Hex {
   for (let i = 0; i < 3; i++) {
     const channel = rgb[i];
     if (channel < -RGB_TOLERANCE || channel > 1 + RGB_TOLERANCE) {
-      throw new RangeError(`toHex: rgb[${i}] must be within [0, 1], got ${channel}`);
+      throw new RangeError(
+        `toHex: rgb[${i}] must be within ${RGB_TOLERANCE.toExponential(0)} of [0, 1], got ${channel}`,
+      );
     }
     hex += Math.round(Math.min(1, Math.max(0, channel)) * 255)
       .toString(16)
@@ -199,8 +220,16 @@ export function toHex(rgb: Rgb): Hex {
   return hex as Hex;
 }
 
-/** Six hex digits, with no `#` and no check: callers match them with a regular expression first. */
+const SIX_HEX_DIGITS = /^[0-9a-f]{6}$/i;
+
+/** Six hex digits with no `#`, in either case, to sRGB channels. Anything else is a ColorParseError. */
 export function hexDigitsToRgb(digits: string): Rgb {
+  if (typeof digits !== "string") {
+    throw new TypeError(`hexDigitsToRgb: digits must be a string, got ${describeType(digits)}`);
+  }
+  if (!SIX_HEX_DIGITS.test(digits)) {
+    throw new ColorParseError(digits, "Write six hex digits, as in f66c6d.");
+  }
   const channel = (at: number) => Number.parseInt(digits.slice(at, at + 2), 16) / 255;
   return [channel(0), channel(2), channel(4)];
 }

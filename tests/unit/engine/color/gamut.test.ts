@@ -84,7 +84,7 @@ describe("gamutMap", () => {
     }
   });
 
-  it("clips a color that sits just outside the gamut, within the 1e-6 tolerance of inGamut", () => {
+  it("clips a color slightly outside the gamut, within the 1e-6 tolerance of inGamut", () => {
     for (const rgb of [
       [1 + 5e-7, 0.5, 0.5],
       [0.5, -5e-7, 0.5],
@@ -105,7 +105,7 @@ describe("gamutMap", () => {
     );
   });
 
-  it("maps a color whose clip is already within the just noticeable difference by clipping", () => {
+  it("maps a color whose clip already lies within the JND of it by clipping", () => {
     // Slightly past the sRGB gamut: the clipped color differs from it by less than 0.02.
     const color: Oklch = { l: 0.444, c: 0.27, h: 292 };
     const mapped = gamutMap(color, "srgb");
@@ -149,7 +149,7 @@ describe("gamutMap", () => {
   });
 
   it("maps the sRGB primaries and secondaries to themselves", () => {
-    // These sit on the gamut boundary, where tolerance 0 can tip a round trip just outside it.
+    // These sit on the gamut boundary, where tolerance 0 can tip a round trip slightly outside it.
     for (const hex of ["#ff0000", "#00ff00", "#0000ff", "#ffff00", "#00ffff", "#ff00ff"]) {
       const rgb = hexToRgb(hex as Hex);
       const mapped = gamutMap(rgbToOklch(rgb, "srgb"), "srgb");
@@ -196,7 +196,7 @@ describe("inGamut", () => {
     expect(inGamut({ l: 1, c: 0, h: null }, "srgb")).toBe(true);
     expect(inGamut({ l: 0, c: 0, h: null }, "srgb")).toBe(true);
     expect(inGamut({ l: 1.0001, c: 0, h: null }, "srgb")).toBe(false);
-    // Just below black, the linear toe of the sRGB curve keeps the channels within 1e-6.
+    // Slightly below black, the linear toe of the sRGB curve keeps the channels within 1e-6.
     expect(inGamut({ l: -0.0001, c: 0, h: null }, "srgb")).toBe(true);
     expect(inGamut({ l: -0.01, c: 0, h: null }, "srgb")).toBe(false);
   });
@@ -254,6 +254,43 @@ describe("maxChroma", () => {
       expect(maxChroma(l, h, "srgb")).toBeCloseTo(srgb, 13);
       expect(maxChroma(l, h, "p3")).toBeCloseTo(p3, 13);
     }
+  });
+
+  it("takes an optional iteration count, 40 by default", () => {
+    expect(maxChroma(0.7, 22, "srgb", 40)).toBe(maxChroma(0.7, 22, "srgb"));
+    expect(maxChroma(0.7, 22, "p3", 40)).toBe(maxChroma(0.7, 22, "p3"));
+    // The 24 iterations of the solver's inner call reach within 0.5 / 2^24 of the same edge.
+    for (const gamut of GAMUTS) {
+      for (const [l, h] of [
+        [0.7, 22],
+        [0.3, 262],
+        [0.9, 95],
+        [0.5, 150],
+        [0.97, 110],
+        [0.2, 30],
+      ]) {
+        const exact = maxChroma(l, h, gamut);
+        const quick = maxChroma(l, h, gamut, 24);
+        expect(quick).toBeLessThanOrEqual(exact);
+        expect(exact - quick).toBeLessThan(1e-6);
+        expect(exact - quick).toBeLessThanOrEqual(0.5 / 2 ** 24);
+      }
+    }
+    // One iteration halves [0, 0.5] once, so the result is 0 below chroma 0.25 and 0.25 above it.
+    expect(maxChroma(0.7, 22, "srgb", 1)).toBe(0);
+    expect(maxChroma(0.7, 22, "p3", 1)).toBe(0);
+    expect(maxChroma(0.85, 145, "srgb", 1)).toBe(0.25);
+    expect(maxChroma(0.85, 145, "p3", 1)).toBe(0.25);
+  });
+
+  it("rejects an iteration count that is not a whole number from 1 to 64", () => {
+    for (const bad of [0, -1, 1.5, 65, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => maxChroma(0.7, 22, "srgb", bad)).toThrow(RangeError);
+    }
+    expect(() => maxChroma(0.7, 22, "srgb", 0)).toThrow(/iterations/);
+    expect(() => maxChroma(0.7, 22, "srgb", "24" as unknown as number)).toThrow(TypeError);
+    expect(Number.isFinite(maxChroma(0.7, 22, "srgb", 64))).toBe(true);
+    expect(Number.isFinite(maxChroma(0.7, 22, "srgb", 1))).toBe(true);
   });
 
   it("takes any finite hue", () => {
@@ -315,8 +352,27 @@ describe("gamut failures", () => {
     expect(() => maxChroma(0.7, nan, "srgb")).toThrow(/maxChroma.*h/);
   });
 
-  it("throws a RangeError for a color too large to convert, as inGamut and maxChroma see it", () => {
+  it("throws a RangeError from inGamut for a color too large to convert", () => {
     expect(() => inGamut({ l: 1e200, c: 0, h: null }, "srgb")).toThrow(RangeError);
-    expect(() => maxChroma(1e200, 90, "srgb")).toThrow(RangeError);
+    expect(() => inGamut({ l: 0.5, c: 1e200, h: 30 }, "p3")).toThrow(RangeError);
+  });
+
+  it("gives maxChroma 0 where the gray at l is out of gamut, even when l overflows a conversion", () => {
+    for (const gamut of GAMUTS) {
+      expect(maxChroma(1e200, 90, gamut)).toBe(0);
+      expect(maxChroma(-1e200, 90, gamut)).toBe(0);
+      expect(maxChroma(Number.MAX_VALUE, 0, gamut)).toBe(0);
+    }
+  });
+
+  it("throws a TypeError for a gamut that is not a string, and a RangeError for a wrong string", () => {
+    const color: Oklch = { l: 0.5, c: 0.1, h: 30 };
+    for (const bad of [undefined, null, 1, {}]) {
+      const gamut = bad as unknown as Gamut;
+      expect(() => gamutMap(color, gamut)).toThrow(TypeError);
+      expect(() => inGamut(color, gamut)).toThrow(TypeError);
+      expect(() => maxChroma(0.5, 30, gamut)).toThrow(TypeError);
+    }
+    expect(() => maxChroma(0.5, 30, "P3" as Gamut)).toThrow(/got "P3"/);
   });
 });

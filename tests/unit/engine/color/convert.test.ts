@@ -3,6 +3,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import {
   formatOklch,
+  hexDigitsToRgb,
   hexToRgb,
   linearToSrgb,
   normalizeHue,
@@ -11,6 +12,7 @@ import {
   rgbToOklch,
   srgbToLinear,
   toHex,
+  tryOklchToRgb,
 } from "@/engine/color/convert";
 import { ColorParseError } from "@/engine/color/parse";
 import type { Gamut, Hex, Oklch, Rgb } from "@/engine/color/types";
@@ -162,7 +164,7 @@ describe("oklchToRgb", () => {
         fc.record({
           l: fc.double({ min: 0.1, max: 0.95, noNaN: true }),
           c: fc.double({ min: 0, max: 0.1, noNaN: true }),
-          h: fc.double({ min: -720, max: 720, noNaN: true }),
+          h: fc.double({ min: -1e6, max: 1e6, noNaN: true }),
         }),
         (color) => {
           const back = rgbToOklch(oklchToRgb(color, "p3"), "p3");
@@ -302,6 +304,31 @@ describe("hexToRgb", () => {
   });
 });
 
+describe("hexDigitsToRgb", () => {
+  it("reads six hex digits in either case", () => {
+    expect(hexDigitsToRgb("f66c6d")).toEqual([246 / 255, 108 / 255, 109 / 255]);
+    expect(hexDigitsToRgb("F66C6D")).toEqual([246 / 255, 108 / 255, 109 / 255]);
+    expect(hexDigitsToRgb("000000")).toEqual([0, 0, 0]);
+  });
+
+  it("throws a ColorParseError for anything but six hex digits, never a NaN", () => {
+    for (const bad of ["zz", "", "f66c6", "f66c6dff", "gggggg", "#f66c6d", " f66c6d", "f66c6d "]) {
+      let error: unknown;
+      try {
+        hexDigitsToRgb(bad);
+      } catch (caught) {
+        error = caught;
+      }
+      expect(error).toBeInstanceOf(ColorParseError);
+      expect((error as ColorParseError).input).toBe(bad);
+    }
+  });
+
+  it("throws a TypeError for an argument that is not a string", () => {
+    expect(() => hexDigitsToRgb(undefined as unknown as string)).toThrow(TypeError);
+  });
+});
+
 describe("formatOklch", () => {
   it("C-CONV-04 writes madder as oklch(0.7003 0.1701 22.06)", () => {
     expect(formatOklch(srgbOf("#f66c6d"))).toBe("oklch(0.7003 0.1701 22.06)");
@@ -321,6 +348,12 @@ describe("transfer function and hue helpers", () => {
     expect(srgbToLinear(1)).toBeCloseTo(1, 15);
     expect(srgbToLinear(-0.5)).toBe(-srgbToLinear(0.5));
     expect(srgbToLinear(-0.01)).toBeCloseTo(-0.01 / 12.92, 15);
+    // From above, so a threshold raised past 0.04045 would read these as linear. Values from
+    // core.py: lin(0.04046), lin(0.05), lin(0.3). The linear branch would give 3.1315789e-3
+    // at 0.04046.
+    expect(srgbToLinear(0.04046)).toBeCloseTo(0.003131594552688991, 13);
+    expect(srgbToLinear(0.05)).toBeCloseTo(0.003935939504088967, 13);
+    expect(srgbToLinear(0.3)).toBeCloseTo(0.07323895587840543, 13);
   });
 
   it("encodes above 0.0031308 by a power, below it linearly, and keeps the sign", () => {
@@ -328,11 +361,17 @@ describe("transfer function and hue helpers", () => {
     expect(linearToSrgb(0.0031308)).toBeCloseTo(12.92 * 0.0031308, 15);
     expect(linearToSrgb(0.21404114048223255)).toBeCloseTo(0.5, 14);
     expect(linearToSrgb(-0.5)).toBe(-linearToSrgb(0.5));
+    // From above, so a threshold raised past 0.0031308 would read these as linear. Values from
+    // core.py: gam(0.0031309), gam(0.004), gam(0.02). The linear branch would give
+    // 0.040451228 at 0.0031309.
+    expect(linearToSrgb(0.0031309)).toBeCloseTo(0.04045117777859802, 13);
+    expect(linearToSrgb(0.004)).toBeCloseTo(0.05070871397734796, 13);
+    expect(linearToSrgb(0.02)).toBeCloseTo(0.15170371931624205, 13);
   });
 
   it("round-trips, and stays continuous at both thresholds", () => {
     // The two published thresholds are not exact inverses of each other, so a value in the
-    // 6e-8 gap just below 0.04045 comes back off by up to that much.
+    // 6e-8 gap below 0.04045 comes back off by up to that much.
     fc.assert(
       fc.property(fc.double({ min: -2, max: 2, noNaN: true }), (value) => {
         expect(linearToSrgb(srgbToLinear(value))).toBeCloseTo(value, 6);
@@ -393,19 +432,42 @@ describe("conversion failures", () => {
     expect(() => toHex([0, 0, 2])).toThrow(/rgb\[2\]/);
   });
 
-  it("throws a RangeError for a gamut that is neither srgb nor p3", () => {
+  it("says toHex accepts the 1e-6 tolerance, not only [0, 1]", () => {
+    expect(() => toHex([0, 0, 2])).toThrow(/within 1e-6 of \[0, 1\], got 2/);
+  });
+
+  it("throws a RangeError for a gamut string that is neither srgb nor p3", () => {
     expect(() => rgbToOklch([0, 0, 0], "rec2020" as Gamut)).toThrow(RangeError);
     expect(() => rgbToOklab([0, 0, 0], "xyz" as Gamut)).toThrow(RangeError);
     expect(() => oklchToRgb({ l: 0.5, c: 0.1, h: 0 }, "" as Gamut)).toThrow(RangeError);
-    expect(() => oklchToRgb({ l: 0.5, c: 0.1, h: 0 }, undefined as unknown as Gamut)).toThrow(
-      RangeError,
+    expect(() => oklchToRgb({ l: 0.5, c: 0.1, h: 0 }, "SRGB" as Gamut)).toThrow(/got "SRGB"/);
+  });
+
+  it("throws a TypeError for a gamut that is not a string", () => {
+    for (const bad of [undefined, null, 3, {}, ["srgb"]]) {
+      const gamut = bad as unknown as Gamut;
+      expect(() => rgbToOklch([0, 0, 0], gamut)).toThrow(TypeError);
+      expect(() => rgbToOklab([0, 0, 0], gamut)).toThrow(TypeError);
+      expect(() => oklchToRgb({ l: 0.5, c: 0.1, h: 0 }, gamut)).toThrow(TypeError);
+    }
+    expect(() => rgbToOklch([0, 0, 0], undefined as unknown as Gamut)).toThrow(
+      /gamut must be a string, got undefined/,
     );
+  });
+
+  it("requires exactly three channels", () => {
+    expect(() => toHex([1, 0, 0, 0.5] as unknown as Rgb)).toThrow(TypeError);
+    expect(() => toHex([1, 0, 0, 0.5] as unknown as Rgb)).toThrow(
+      /must have three channels, got 4/,
+    );
+    expect(() => rgbToOklch([0, 0] as unknown as Rgb, "srgb")).toThrow(/three channels, got 2/);
+    expect(() => rgbToOklab([] as unknown as Rgb, "srgb")).toThrow(/three channels, got 0/);
   });
 
   it("says what it got when the type is wrong", () => {
     expect(() => oklchToRgb(null as unknown as Oklch, "srgb")).toThrow(/got null/);
     expect(() => formatOklch(undefined as unknown as Oklch)).toThrow(/got undefined/);
-    expect(() => toHex([0, 0] as unknown as Rgb)).toThrow(
+    expect(() => toHex([0, 0, undefined] as unknown as Rgb)).toThrow(
       /rgb\[2\] must be a number, got undefined/,
     );
     expect(() => toHex("#fff" as unknown as Rgb)).toThrow(/array of three channels, got string/);
@@ -423,6 +485,18 @@ describe("conversion failures", () => {
     );
     expect(() => rgbToOklch([0, "0", 0] as unknown as Rgb, "srgb")).toThrow(TypeError);
     expect(() => toHex(null as unknown as Rgb)).toThrow(TypeError);
+  });
+
+  it("tryOklchToRgb gives what oklchToRgb gives, or null where oklchToRgb would overflow", () => {
+    for (const gamut of ["srgb", "p3"] as const) {
+      const color: Oklch = { l: 0.6, c: 0.2, h: 40 };
+      expect(tryOklchToRgb(color, gamut)).toEqual(oklchToRgb(color, gamut));
+      expect(tryOklchToRgb({ l: 1e200, c: 0, h: null }, gamut)).toBeNull();
+      expect(tryOklchToRgb({ l: 0.5, c: 1e200, h: 30 }, gamut)).toBeNull();
+    }
+    expect(() => tryOklchToRgb({ l: Number.NaN, c: 0, h: 0 }, "srgb")).toThrow(RangeError);
+    expect(() => tryOklchToRgb({ l: 0.5, c: 0, h: 0 }, "x" as Gamut)).toThrow(RangeError);
+    expect(() => tryOklchToRgb(null as unknown as Oklch, "srgb")).toThrow(TypeError);
   });
 
   it("throws a RangeError instead of returning an overflowed value", () => {

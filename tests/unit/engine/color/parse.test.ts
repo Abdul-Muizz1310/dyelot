@@ -2,7 +2,7 @@ import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { ColorParseError, parseColor } from "@/engine/color/parse";
 import type { Oklch } from "@/engine/color/types";
-import { ACHROMATIC_CHROMA, expectOklchClose } from "./support";
+import { ACHROMATIC_CHROMA, expectOklchClose, hexOf, rgb8 } from "./support";
 
 // Cases are the C-PARSE-nn rows of docs/specs/01-color-engine.md, section 6.1.
 
@@ -118,6 +118,54 @@ describe("parseColor, accepted forms", () => {
     expect(parseColor("oklch(0.6 0.000004 120)").h).toBeNull();
     expect(parseColor("rgb(0 0 0)").h).toBeNull();
     expect(parseColor("oklch(0.6 0.00001 120)").h).toBe(120);
+  });
+
+  it("keeps every color inside the domain that oklch() accepts: white is l 1, not 1.0000000000000002", () => {
+    for (const white of [
+      "#ffffff",
+      "#FFF",
+      "#fff",
+      "#ffffffff",
+      "#ffff",
+      "rgb(255 255 255)",
+      "rgb(255, 255, 255)",
+      "RGB(255.0 255 255)",
+      "  #ffffff  ",
+    ]) {
+      const color = parseColor(white);
+      expect(color.l).toBe(1);
+      expect(color.h).toBeNull();
+      // What the color formats to must parse back, so the domain checks of oklch() accept it.
+      expect(() => parseColor(`oklch(${color.l} ${color.c} none)`)).not.toThrow();
+    }
+    const black = parseColor("#000");
+    expect(black.l).toBe(0);
+    expect(black.h).toBeNull();
+  });
+
+  it("gives every 8-bit color an l in [0, 1] and a c in [0, 0.5]", () => {
+    fc.assert(
+      fc.property(rgb8, (triple) => {
+        for (const text of [
+          hexOf(triple),
+          `rgb(${triple[0]} ${triple[1]} ${triple[2]})`,
+          `rgb(${triple[0]},${triple[1]},${triple[2]})`,
+        ]) {
+          const color = parseColor(text);
+          expect(color.l).toBeGreaterThanOrEqual(0);
+          expect(color.l).toBeLessThanOrEqual(1);
+          expect(color.c).toBeGreaterThanOrEqual(0);
+          expect(color.c).toBeLessThanOrEqual(0.5);
+        }
+      }),
+      { numRuns: 500 },
+    );
+    // #ffffff is the one 8-bit color above l 1, so check the whole gray ramp as well.
+    for (let v = 0; v <= 255; v++) {
+      const color = parseColor(hexOf([v, v, v]));
+      expect(color.l).toBeGreaterThanOrEqual(0);
+      expect(color.l).toBeLessThanOrEqual(1);
+    }
   });
 
   it("writes a negative zero as zero", () => {
@@ -290,6 +338,24 @@ describe("parseColor, rejected input", () => {
     expectParseFailure(input);
   });
 
+  it("quotes the first 80 characters by code point, never half of a surrogate pair", () => {
+    const emoji = "\u{1F600}";
+    const cases = [`a${emoji.repeat(100)}`, emoji.repeat(100), `#${emoji.repeat(90)}`];
+    for (const input of cases) {
+      const error = parseError(input);
+      expect(error.input).toBe(input);
+      expect(error.message.isWellFormed()).toBe(true);
+      const quoted = Array.from(input).slice(0, 80).join("");
+      expect(error.message).toContain(`"${quoted}…"`);
+      expect(error.message).not.toContain(Array.from(input).slice(0, 81).join(""));
+    }
+    // Exactly 80 code points are quoted whole, with no ellipsis.
+    const exact = emoji.repeat(80);
+    expect(parseError(exact).message).toContain(`"${exact}"`);
+    expect(parseError("x".repeat(80)).message).toContain(`"${"x".repeat(80)}"`);
+    expect(parseError("x".repeat(81)).message).toContain(`"${"x".repeat(80)}…"`);
+  });
+
   it("names why a recognized form failed", () => {
     expect(parseError("rgb(256 0 0)").message).toMatch(/0 to 255/);
     expect(parseError("oklch(1.5 0 0)").message).toMatch(/lightness/i);
@@ -428,6 +494,11 @@ describe("parseColor, properties", () => {
   function expectValidColor(color: Oklch): void {
     expect(Number.isFinite(color.l)).toBe(true);
     expect(Number.isFinite(color.c)).toBe(true);
+    // The domain parseColor itself enforces on oklch(): l in [0, 1] and c in [0, 0.5].
+    expect(color.l).toBeGreaterThanOrEqual(0);
+    expect(color.l).toBeLessThanOrEqual(1);
+    expect(color.c).toBeGreaterThanOrEqual(0);
+    expect(color.c).toBeLessThanOrEqual(0.5);
     expect(color.h === null).toBe(color.c <= ACHROMATIC_CHROMA);
     if (color.h !== null) {
       expect(Number.isFinite(color.h)).toBe(true);

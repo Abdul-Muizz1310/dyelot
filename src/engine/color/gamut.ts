@@ -1,15 +1,17 @@
-import { oklchToOklab, oklchToRgb, rgbToOklab } from "./convert";
+import { oklchToOklab, oklchToRgb, rgbToOklab, tryOklchToRgb } from "./convert";
 import { assertFinite, assertGamut, assertOklch, RGB_TOLERANCE, withinUnitCube } from "./guards";
 import type { Gamut, Oklch, Rgb } from "./types";
 
-// CSS Color 4, section 14.2.2: the just noticeable difference in OKLab, and the precision of the
-// chroma search. `css_gamut_map` in core.py uses the same two numbers.
+// CSS Color 4, section 14.2.2: the JND (the smallest difference in OKLab that the eye notices)
+// and the precision of the chroma search. `css_gamut_map` in core.py uses the same two numbers.
 const JND = 0.02;
 const EPSILON = 1e-4;
 
 // `max_chroma` in core.py: bisection on [0, 0.5], 40 iterations.
 const MAX_CHROMA_SEARCH = 0.5;
 const MAX_CHROMA_ITERATIONS = 40;
+// Past 53 halvings of [0, 0.5] a double cannot move, so 64 is more than any caller needs.
+const MAX_ITERATIONS_ALLOWED = 64;
 
 const clamp01 = (channel: number): number => Math.min(1, Math.max(0, channel));
 
@@ -26,8 +28,8 @@ export function inGamut(c: Oklch, gamut: Gamut): boolean {
 
 /**
  * Maps a color into the gamut by the CSS Color 4 algorithm: keep L and H, search for the largest
- * chroma whose clipped color stays within a just noticeable difference of the candidate, and
- * return that clipped color. A color already in gamut comes back as `oklchToRgb` returns it, and
+ * chroma whose clipped color stays within the JND of the candidate, and return that clipped
+ * color. A color already in gamut comes back as `oklchToRgb` returns it, and
  * every channel of the result lies in [0, 1].
  */
 export function gamutMap(c: Oklch, gamut: Gamut): Rgb {
@@ -78,18 +80,33 @@ export function gamutMap(c: Oklch, gamut: Gamut): Rgb {
 
 /**
  * The largest chroma that stays in the gamut at lightness `l` and hue `h` (degrees), found by
- * bisection on [0, 0.5] in 40 iterations. It is 0 when the gray at `l` is already out of gamut.
+ * bisection on [0, 0.5], returning the lower bound. It is 0 when the gray at `l` is out of gamut,
+ * which includes an `l` too large to convert. `iterations` is 40 unless the caller trades
+ * precision for speed: 24 iterations land within 0.5 / 2^24 of the same edge.
  */
-export function maxChroma(l: number, h: number, gamut: Gamut): number {
+export function maxChroma(
+  l: number,
+  h: number,
+  gamut: Gamut,
+  iterations = MAX_CHROMA_ITERATIONS,
+): number {
   assertFinite(l, "maxChroma: l");
   assertFinite(h, "maxChroma: h");
   assertGamut(gamut, "maxChroma: gamut");
-  const fits = (chroma: number): boolean =>
-    withinUnitCube(oklchToRgb({ l, c: chroma, h }, gamut), RGB_TOLERANCE);
+  assertFinite(iterations, "maxChroma: iterations");
+  if (!Number.isInteger(iterations) || iterations < 1 || iterations > MAX_ITERATIONS_ALLOWED) {
+    throw new RangeError(
+      `maxChroma: iterations must be a whole number from 1 to ${MAX_ITERATIONS_ALLOWED}, got ${iterations}`,
+    );
+  }
+  const fits = (chroma: number): boolean => {
+    const rgb = tryOklchToRgb({ l, c: chroma, h }, gamut);
+    return rgb !== null && withinUnitCube(rgb, RGB_TOLERANCE);
+  };
   if (!fits(0)) return 0;
   let low = 0;
   let high = MAX_CHROMA_SEARCH;
-  for (let i = 0; i < MAX_CHROMA_ITERATIONS; i++) {
+  for (let i = 0; i < iterations; i++) {
     const middle = (low + high) / 2;
     if (fits(middle)) low = middle;
     else high = middle;
