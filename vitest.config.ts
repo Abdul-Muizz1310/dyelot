@@ -2,7 +2,7 @@ import path from "node:path";
 import react from "@vitejs/plugin-react";
 import { configDefaults, defineConfig } from "vitest/config";
 
-// The pure core (src/engine and src/spec) runs in plain Node, so a DOM access there fails its
+// The pure core (src/engine, src/spec and src/theme) runs in plain Node, so a DOM access there fails its
 // test (spec R-24). Vitest 4 dropped `environmentMatchGlobs`; two projects replace it.
 const PURE_CORE_TESTS = [
   "tests/unit/engine/**/*.test.{ts,tsx}",

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   applyPreset,
   type DirectionParams,
+  fontStack,
   formatOklch,
   generateSystem,
   type Hex,
@@ -17,7 +18,7 @@ import {
   toHex,
 } from "@/engine";
 import type { DesignSpec } from "@/spec";
-import { feelSpring, themeVars } from "@/theme/vars";
+import { densityVars, feelSpring, themeVars } from "@/theme/vars";
 
 // Cases are the C-THEME-nn rows of docs/specs/02-studio.md, section 6.6 (Task 2.5a). The property
 // names are written out from section 5.6, so the tests do not borrow the implementation's lists.
@@ -37,7 +38,7 @@ const BASE: DirectionParams = {
 
 const cache = new Map<string, DesignSpec>();
 /** One generated spec per key and test file: generation is the slow part of this suite. */
-function spec(key: string, patch: Partial<DirectionParams>, seed = "theme-a"): DesignSpec {
+function spec(key: string, patch: Partial<DirectionParams>, seed = "seed-1"): DesignSpec {
   let hit = cache.get(key);
   if (hit === undefined) {
     hit = generateSystem({ ...BASE, ...patch }, seed);
@@ -181,8 +182,8 @@ describe("C-THEME-06 and C-THEME-28 the fluid display step", () => {
     );
   });
 
-  it("writes every vw as cqi under units cqi", () => {
-    const s = CALM_LAYERED();
+  it.each([CALM_LAYERED, PLAYFUL_FLAT])("writes every vw as cqi under units cqi", (make) => {
+    const s = make();
     const clamp = display(s).clamp as string;
     const value = themeVars(s, "light", { units: "cqi" })["--text-display"] as string;
     expect(clamp).toContain("vw");
@@ -200,8 +201,7 @@ describe("C-THEME-07 and C-THEME-08 font families", () => {
     expect(vars["--font-mono"]).toMatch(/^"[^"]+", .*monospace$/);
   });
 
-  it("matches the catalog entry of each family", async () => {
-    const { fontStack } = await import("@/engine");
+  it("matches the catalog entry of each family", () => {
     const s = SOFT();
     const vars = themeVars(s, "light");
     expect(vars["--font-display"]).toBe(fontStack(s.type.families.display));
@@ -420,7 +420,7 @@ describe("C-THEME-24 to C-THEME-26 and C-THEME-29 failures", () => {
     },
   );
 
-  it.each(["red", "#FFF", "#fff;x", "#ABCDEF", 12])("rejects the role value %j", (bad) => {
+  it.each(["red", "#FFF", "#fff;x", "#ABCDEF"])("rejects the role value %j", (bad) => {
     const s = clone(SOFT());
     (s.color.roles.light as Record<string, unknown>).primary = bad;
     expect(() => themeVars(s, "light")).toThrow(RangeError);
@@ -470,6 +470,72 @@ describe("C-THEME-24 to C-THEME-26 and C-THEME-29 failures", () => {
     expect(() => themeVars(SOFT(), "light", { units: 1 as never })).toThrow(TypeError);
   });
 
+  it("throws TypeError for a role that is not a string and a missing mode or palettes", () => {
+    const s = clone(SOFT());
+    (s.color.roles.light as Record<string, unknown>).primary = 12;
+    expect(() => themeVars(s, "light")).toThrow(TypeError);
+    expect(() => themeVars(s, "light")).toThrow(/primary/);
+    const noMode = clone(SOFT());
+    (noMode.color.roles as Record<string, unknown>).dark = undefined;
+    expect(() => themeVars(noMode, "dark")).toThrow(TypeError);
+    expect(() => themeVars(noMode, "dark")).toThrow(/themeVars/);
+    const noPalettes = clone(SOFT());
+    (noPalettes.color as Record<string, unknown>).palettes = null;
+    expect(() => themeVars(noPalettes, "light")).toThrow(TypeError);
+    expect(() => themeVars(noPalettes, "light")).toThrow(/themeVars/);
+    const noPalette = clone(SOFT());
+    (noPalette.color.palettes as Record<string, unknown>).info = undefined;
+    expect(() => themeVars(noPalette, "light")).toThrow(TypeError);
+  });
+
+  it("throws TypeError for a number written as text and RangeError for Infinity", () => {
+    const s = clone(SOFT());
+    (s.type.steps[3] as Record<string, unknown>).sizePx = "16";
+    expect(() => themeVars(s, "light")).toThrow(TypeError);
+    const t = clone(SOFT());
+    t.type.steps[3].sizePx = Number.POSITIVE_INFINITY;
+    expect(() => themeVars(t, "light")).toThrow(RangeError);
+  });
+
+  it("does not trust the names of the type steps or the scale entries", () => {
+    const nine = clone(SOFT());
+    (nine.type.steps as unknown[]).pop();
+    expect(() => themeVars(nine, "light")).toThrow(/themeVars/);
+    const renamed = clone(SOFT());
+    (renamed.type.steps[2] as { name: string }).name = "x:red";
+    expect(() => themeVars(renamed, "light")).toThrow(/themeVars/);
+    const twelve = clone(SOFT());
+    (twelve.color.palettes.primary.light as unknown[]).push(
+      twelve.color.palettes.primary.light[10],
+    );
+    expect(() => themeVars(twelve, "light")).toThrow(/themeVars/);
+    const wrongStep = clone(SOFT());
+    (wrongStep.color.palettes.accent.dark[4] as { step: number }).step = 500;
+    expect(() => themeVars(wrongStep, "dark")).toThrow(/themeVars/);
+  });
+
+  it("checks shadow layers before it scales them", () => {
+    const text = clone(SOFT());
+    (text.depth.shadows[1][0] as Record<string, unknown>).offsetY = "2";
+    expect(() => themeVars(text, "light")).toThrow(TypeError);
+    const huge = clone(CALM_LAYERED());
+    huge.depth.shadows[1][0].offsetY = 1.7e308;
+    expect(() => themeVars(huge, "light")).toThrow(RangeError);
+  });
+
+  it("caps alpha for layered only", () => {
+    const soft = clone(SOFT());
+    soft.depth.shadows[1][0].alpha = 1.2;
+    expect(themeVars(soft, "light")["--shadow-1"]).toMatch(/ \/ 1\.2\), /);
+  });
+
+  it("rejects prototype keys as a motion feel", () => {
+    for (const feel of ["constructor", "toString", "__proto__"]) {
+      expect(() => feelSpring({ ...SOFT().motion, feel: feel as never })).toThrow(RangeError);
+    }
+    expect(() => feelSpring({ ...SOFT().motion, feel: 3 as never })).toThrow(TypeError);
+  });
+
   it("rejects a motion that is not an object in feelSpring", () => {
     expect(() => feelSpring(null as never)).toThrow(TypeError);
     expect(() => feelSpring(null as never)).toThrow(/feelSpring/);
@@ -483,11 +549,47 @@ describe("C-THEME-24 to C-THEME-26 and C-THEME-29 failures", () => {
   });
 });
 
+describe("C-DENSITY densityVars", () => {
+  it("C-DENSITY-01 writes the offset and the control height", () => {
+    expect(densityVars("comfortable")).toEqual({
+      "--density-offset": "0px",
+      "--control-height": "40px",
+    });
+    expect(densityVars("compact")).toEqual({
+      "--density-offset": "-4px",
+      "--control-height": "36px",
+    });
+    expect(densityVars("dense")).toEqual({
+      "--density-offset": "-8px",
+      "--control-height": "32px",
+    });
+    expect(Object.isFrozen(densityVars("dense"))).toBe(true);
+  });
+
+  it("C-DENSITY-02 keeps every control at 24 px or more", () => {
+    for (const density of ["comfortable", "compact", "dense"] as const) {
+      expect(
+        Number.parseFloat(densityVars(density)["--control-height"] as string),
+      ).toBeGreaterThanOrEqual(24);
+    }
+  });
+
+  it("C-DENSITY-03 throws RangeError for an unknown density and TypeError for a non-string", () => {
+    expect(() => densityVars("tight" as never)).toThrow(RangeError);
+    expect(() => densityVars("constructor" as never)).toThrow(/densityVars/);
+    expect(() => densityVars(1 as never)).toThrow(TypeError);
+    expect(() => densityVars(1 as never)).toThrow(/densityVars/);
+  });
+});
+
 describe("C-THEME-27 the bridge is pure", () => {
   const source = readFileSync(path.join(import.meta.dirname, "../../../src/theme/vars.ts"), "utf8");
 
   it("imports only @/engine and @/spec", () => {
-    const specifiers = [...source.matchAll(/from\s+"([^"]+)"/g)].map((m) => m[1]);
+    const specifiers = [
+      ...source.matchAll(/(?:from|import)\s*\(?\s*"([^"]+)"/g),
+      ...source.matchAll(/\brequire\(\s*"([^"]+)"/g),
+    ].map((m) => m[1]);
     expect(specifiers.length).toBeGreaterThan(0);
     for (const specifier of specifiers) expect(["@/engine", "@/spec"]).toContain(specifier);
   });

@@ -1,11 +1,15 @@
 import {
   DEFICIENCIES,
+  DEPTH_STYLES,
   type Deficiency,
+  type Density,
   FONT_CATALOG,
   fontStack,
   formatOklch,
   type Hex,
   hexToRgb,
+  MOTION_FEELS,
+  type Mode,
   PALETTE_NAMES,
   ROLE_NAMES,
   STEPS,
@@ -17,17 +21,32 @@ import type { DesignSpec } from "@/spec";
 // The theme bridge (spec section 5.6, R2-08, R2-12): a design spec as CSS custom properties. Pure:
 // no DOM, no storage, no network. M3's `theme.css` export reuses `themeVars`.
 
-export type Mode = "light" | "dark";
 export type ThemeVars = Readonly<Record<string, string>>;
-export type ThemeOptions = { vision?: Deficiency; units?: "vw" | "cqi" };
 
 const MODES: readonly Mode[] = ["light", "dark"];
 const UNITS: readonly string[] = ["vw", "cqi"];
+const STEP_NAMES = [
+  "caption",
+  "label",
+  "body-sm",
+  "body",
+  "lead",
+  "h4",
+  "h3",
+  "h2",
+  "h1",
+  "display",
+] as const;
 const SPACE_UNITS = [0, 1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 32] as const;
 const RADII = ["sm", "md", "lg", "xl", "2xl"] as const;
 const DURATIONS = ["instant", "fast", "quick", "base", "slow", "slower", "slowest"] as const;
 const EASINGS = ["standard", "decelerate", "accelerate", "emphasized"] as const;
 const ELEVATIONS = [1, 2, 3, 4, 5] as const;
+const DENSITIES: Readonly<Record<Density, ThemeVars>> = Object.freeze({
+  comfortable: Object.freeze({ "--density-offset": "0px", "--control-height": "40px" }),
+  compact: Object.freeze({ "--density-offset": "-4px", "--control-height": "36px" }),
+  dense: Object.freeze({ "--density-offset": "-8px", "--control-height": "32px" }),
+});
 const HEX = /^#[0-9a-f]{6}$/;
 const FAMILY_ID = /^[a-z0-9-]{1,64}$/;
 const FORBIDDEN = /[;{}<]/;
@@ -36,6 +55,16 @@ const CALM_FACTOR = 1.25;
 const LAYERED_FACTOR = 1.5;
 
 const SPRING_OF_FEEL = { calm: "smooth", brisk: "snappy", playful: "bouncy" } as const;
+
+/** The fallback stack of a category, read once from the catalog (C-THEME-08). */
+function fallbackOf(category: "sans" | "mono"): string {
+  const donor = FONT_CATALOG.find((font) => font.category === category);
+  if (donor === undefined) {
+    throw new RangeError(`themeVars: the font catalog has no ${category} entry`);
+  }
+  return donor.fallback;
+}
+const FALLBACK = Object.freeze({ sans: fallbackOf("sans"), mono: fallbackOf("mono") });
 
 type Motion = DesignSpec["motion"];
 type Layer = DesignSpec["depth"]["shadows"][1][0];
@@ -49,16 +78,34 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+function need(value: unknown, label: string): Record<string, unknown> {
+  if (!isRecord(value)) {
+    throw new TypeError(`themeVars: ${label} must be an object, got ${kind(value)}`);
+  }
+  return value;
+}
+
+/** A finite number: a wrong type is a TypeError, NaN and Infinity a RangeError. */
+function finite(value: unknown, label: string): number {
+  if (typeof value !== "number") {
+    throw new TypeError(`themeVars: ${label} must be a number, got ${kind(value)}`);
+  }
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`themeVars: ${label} must be finite, got ${value}`);
+  }
+  return value;
+}
+
 /** A finite number as CSS text: `String`, so `0.1` stays `0.1`. */
 function num(value: unknown, label: string): string {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new RangeError(`themeVars: ${label} must be a finite number, got ${String(value)}`);
-  }
-  return String(value);
+  return String(finite(value, label));
 }
 
 /** Six significant digits, as the generator rounds (`round6`), so a scaled layer stays tidy. */
 function round6(value: number): number {
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`themeVars: a scaled value must be finite, got ${value}`);
+  }
   const rounded = Number(value.toPrecision(6));
   return rounded === 0 ? 0 : rounded;
 }
@@ -68,16 +115,32 @@ export function feelSpring(motion: Motion): { visualDuration: number; bounce: nu
   if (!isRecord(motion)) {
     throw new TypeError(`feelSpring: motion must be an object, got ${kind(motion)}`);
   }
-  const name = SPRING_OF_FEEL[motion.feel];
-  if (name === undefined) {
+  if (typeof motion.feel !== "string") {
+    throw new TypeError(`feelSpring: motion.feel must be a string, got ${kind(motion.feel)}`);
+  }
+  if (!MOTION_FEELS.includes(motion.feel)) {
     throw new RangeError(`feelSpring: unknown motion feel ${JSON.stringify(motion.feel)}`);
   }
-  const { visualDuration, bounce } = motion.springs[name];
+  const { visualDuration, bounce } = motion.springs[SPRING_OF_FEEL[motion.feel]];
   return { visualDuration, bounce };
 }
 
-function hexOf(value: unknown, label: string): string {
-  if (typeof value !== "string" || !HEX.test(value)) {
+/** The view variables of a density (R2-07): the offset on spacing and the control height. */
+export function densityVars(density: Density): ThemeVars {
+  if (typeof density !== "string") {
+    throw new TypeError(`densityVars: density must be a string, got ${kind(density)}`);
+  }
+  if (!Object.hasOwn(DENSITIES, density)) {
+    throw new RangeError(`densityVars: unknown density ${JSON.stringify(density)}`);
+  }
+  return DENSITIES[density];
+}
+
+function hexOf(value: Hex | undefined, label: string): Hex {
+  if (typeof value !== "string") {
+    throw new TypeError(`themeVars: ${label} must be a string, got ${kind(value)}`);
+  }
+  if (!HEX.test(value)) {
     throw new RangeError(
       `themeVars: ${label} must be a lowercase #rrggbb hex, got ${JSON.stringify(value)}`,
     );
@@ -92,35 +155,38 @@ function familyStack(id: unknown, label: string, category: "sans" | "mono"): str
   if (!FAMILY_ID.test(id)) {
     throw new RangeError(`themeVars: ${label} must match ${FAMILY_ID}, got ${JSON.stringify(id)}`);
   }
-  if (FONT_CATALOG.some((font) => font.id === id)) return fontStack(id);
   // A valid id outside the catalog (a custom font): the category's fallback stack (C-THEME-08).
-  const donor = FONT_CATALOG.find((font) => font.category === category);
-  return (donor as (typeof FONT_CATALOG)[number]).fallback;
+  return FONT_CATALOG.some((font) => font.id === id) ? fontStack(id) : FALLBACK[category];
 }
 
-function layerCss(layer: Layer, factor: number): string {
-  const offsetY = num(round6(layer.offsetY * factor), "shadow offsetY");
-  const blur = num(round6(layer.blur * factor), "shadow blur");
-  const alpha = num(Math.min(1, round6(layer.alpha * factor)), "shadow alpha");
-  const color = formatOklch(layer.color).replace(/\)$/, ` / ${alpha})`);
-  return `0 ${offsetY}px ${blur}px 0 ${color}`;
+function layerCss(layer: Layer, factor: number, capAlpha: boolean): string {
+  const offsetY = finite(layer.offsetY, "shadow offsetY");
+  const blur = finite(layer.blur, "shadow blur");
+  const alpha = finite(layer.alpha, "shadow alpha");
+  const scaledAlpha = round6(alpha * factor);
+  const written = num(capAlpha ? Math.min(1, scaledAlpha) : scaledAlpha, "shadow alpha");
+  const color = formatOklch(layer.color).replace(/\)$/, ` / ${written})`);
+  return `0 ${num(round6(offsetY * factor), "shadow offsetY")}px ${num(round6(blur * factor), "shadow blur")}px 0 ${color}`;
 }
 
 function shadowVars(depth: DesignSpec["depth"], out: Record<string, string>): void {
-  if (!["flat", "soft", "layered"].includes(depth.style)) {
+  if (!DEPTH_STYLES.includes(depth.style)) {
     throw new RangeError(`themeVars: unknown depth style ${JSON.stringify(depth.style)}`);
   }
-  const factor = depth.style === "layered" ? LAYERED_FACTOR : 1;
+  const layered = depth.style === "layered";
+  const factor = layered ? LAYERED_FACTOR : 1;
   for (const level of ELEVATIONS) {
     const [key, ambient] = depth.shadows[level];
     out[`--shadow-${level}`] =
-      depth.style === "flat" ? "none" : `${layerCss(key, factor)}, ${layerCss(ambient, factor)}`;
+      depth.style === "flat"
+        ? "none"
+        : `${layerCss(key, factor, layered)}, ${layerCss(ambient, factor, layered)}`;
   }
 }
 
-function durationMs(stored: number, feel: Motion["feel"], label: string): string {
-  num(stored, label);
-  const scaled = feel === "calm" ? stored * CALM_FACTOR : stored;
+function durationMs(stored: unknown, feel: Motion["feel"], label: string): string {
+  const base = finite(stored, label);
+  const scaled = feel === "calm" ? base * CALM_FACTOR : base;
   // `Math.round` sends a tie up, as R2-08 asks.
   return `${Math.min(MOTION_CAP_MS, Math.round(scaled))}ms`;
 }
@@ -156,12 +222,7 @@ function checkInputs(
       `themeVars: options.units must be vw or cqi, got ${JSON.stringify(units)}`,
     );
   }
-  if (!isRecord(spec) || !isRecord((spec as { color?: unknown }).color)) {
-    throw new TypeError(`themeVars: spec must be an object with color.roles, got ${kind(spec)}`);
-  }
-  if (!isRecord((spec as DesignSpec).color.roles)) {
-    throw new TypeError("themeVars: spec must be an object with color.roles");
-  }
+  need(need(need(spec, "spec").color, "spec.color").roles, "spec.color.roles");
   return {
     mode: mode as Mode,
     vision: vision as Deficiency | undefined,
@@ -183,35 +244,61 @@ export function themeVars(
 ): ThemeVars {
   const checked = checkInputs(spec, mode, options);
   const out: Record<string, string> = {};
-  const color = (hex: unknown, label: string): string => {
+  const color = (hex: Hex | undefined, label: string): string => {
     const stored = hexOf(hex, label);
     return checked.vision === undefined
       ? stored
-      : toHex(simulate(hexToRgb(stored as Hex), checked.vision));
+      : toHex(simulate(hexToRgb(stored), checked.vision));
   };
 
-  const roles = spec.color.roles[mode] as Record<string, unknown>;
+  const roles = spec.color.roles[mode];
+  need(roles, `spec.color.roles.${mode}`);
   for (const role of ROLE_NAMES) out[`--${role}`] = color(roles[role], `role ${role}`);
 
+  need(spec.color.palettes, "spec.color.palettes");
   for (const palette of PALETTE_NAMES) {
+    need(spec.color.palettes[palette], `palette ${palette}`);
     const scale = spec.color.palettes[palette][mode];
+    if (!Array.isArray(scale) || scale.length !== STEPS.length) {
+      throw new TypeError(
+        `themeVars: palette ${palette} ${mode} must hold ${STEPS.length} steps, got ${kind(scale)}`,
+      );
+    }
     STEPS.forEach((step, index) => {
-      out[`--${palette}-${step}`] = color(scale[index]?.hex, `scale step ${palette}-${step}`);
+      const entry = scale[index];
+      need(entry, `palette ${palette} step ${step}`);
+      if (entry?.step !== step) {
+        throw new RangeError(
+          `themeVars: palette ${palette} ${mode} entry ${index} must be step ${step}, got ${JSON.stringify(entry.step)}`,
+        );
+      }
+      out[`--${palette}-${step}`] = color(entry?.hex, `scale step ${palette}-${step}`);
     });
   }
 
-  for (const step of spec.type.steps) {
+  const steps = spec.type.steps as readonly DesignSpec["type"]["steps"][number][];
+  if (!Array.isArray(steps) || steps.length !== STEP_NAMES.length) {
+    throw new TypeError(
+      `themeVars: spec.type.steps must hold ${STEP_NAMES.length} steps, got ${kind(steps)}`,
+    );
+  }
+  STEP_NAMES.forEach((name, index) => {
+    const step = need(steps[index], `type step ${name}`) as DesignSpec["type"]["steps"][number];
+    if (step.name !== name) {
+      throw new RangeError(
+        `themeVars: type step ${index} must be ${name}, got ${JSON.stringify(step.name)}`,
+      );
+    }
     const size =
-      step.name === "display" && step.clamp !== undefined
+      name === "display" && step.clamp !== undefined
         ? checked.units === "cqi"
           ? step.clamp.replaceAll("vw", "cqi")
           : step.clamp
-        : `${num(step.sizePx, `type step ${step.name} size`)}px`;
-    out[`--text-${step.name}`] = size;
-    out[`--leading-${step.name}`] =
-      `${num(step.lineHeightPx, `type step ${step.name} line height`)}px`;
-    out[`--tracking-${step.name}`] = `${num(step.trackingEm, `type step ${step.name} tracking`)}em`;
-  }
+        : `${num(step.sizePx, `type step ${name} size`)}px`;
+    out[`--text-${name}`] = size;
+    out[`--leading-${name}`] = `${num(step.lineHeightPx, `type step ${name} line height`)}px`;
+    out[`--tracking-${name}`] = `${num(step.trackingEm, `type step ${name} tracking`)}em`;
+  });
 
   const { families } = spec.type;
   out["--font-display"] = familyStack(families.display, "type.families.display", "sans");

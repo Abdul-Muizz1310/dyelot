@@ -13,6 +13,7 @@ import config from "../../../vitest.config";
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const ENGINE_DIR = path.join(ROOT, "src/engine");
 const SPEC_DIR = path.join(ROOT, "src/spec");
+const THEME_DIR = path.join(ROOT, "src/theme");
 const CODE_FILE = /\.[cm]?[jt]sx?$/;
 
 /** Every code file under `directory`, or none when the folder does not exist yet. */
@@ -281,7 +282,11 @@ describe("C-REPO-05 only toHex and the Hex guards make a Hex", () => {
   const MAKES_HEX = /\bas\s+Hex\b|(?<![\w$>])<Hex>|\bis\s+Hex\b/g;
 
   it("finds a Hex made only by toHex (a cast) and by isHex and assertHex (predicates)", () => {
-    const found = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)].flatMap((file) =>
+    const found = [
+      ...codeFiles(ENGINE_DIR),
+      ...codeFiles(SPEC_DIR),
+      ...codeFiles(THEME_DIR),
+    ].flatMap((file) =>
       Array.from(
         stripComments(readFileSync(file, "utf8")).matchAll(MAKES_HEX),
         (match) => `${path.relative(ROOT, file)}: ${match[0].replace(/\s+/g, " ")}`,
