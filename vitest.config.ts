@@ -22,6 +22,10 @@ export default defineConfig({
   test: {
     globals: true,
     testTimeout: 30_000,
+    // The engine's property and measurement tests are CPU-bound. One worker per logical core lets
+    // hyperthread siblings and coverage slow each test past its timeout; half the logical cores
+    // (one per physical core on SMT machines) keeps every test near its solo time.
+    maxWorkers: "50%",
     projects: [
       {
         extends: true,
