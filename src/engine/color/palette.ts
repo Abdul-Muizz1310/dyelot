@@ -1,8 +1,8 @@
 import { round6, roundHue } from "../round";
 import { meets, wcagRatio } from "./contrast";
-import { ACHROMATIC_CHROMA, hexToRgb, rgbToOklch, toHex } from "./convert";
+import { ACHROMATIC_CHROMA, hexToRgb, oklchToRgb, rgbToOklch, toHex } from "./convert";
 import { deltaEOK } from "./deltae";
-import { gamutMap, inGamut } from "./gamut";
+import { gamutMap } from "./gamut";
 import {
   assertFinite,
   assertGamut,
@@ -10,6 +10,8 @@ import {
   assertOklch,
   assertOneOf,
   describeType,
+  STORED_GAMUT_TOLERANCE,
+  withinUnitCube,
 } from "./guards";
 import { HARMONIES, type Harmony, harmonyHues } from "./harmony";
 import { type ScaleStep, STEPS, type Step, solveEvenScales, solveScale, THRESHOLDS } from "./scale";
@@ -279,13 +281,16 @@ type Seed = {
 };
 
 /**
- * R-10: the seed counts as gamut-mapped only when the seed as passed fails `inGamut`, so rounding
- * alone never moves it. A mapped seed is the rounded seed mapped into the gamut, rounded again.
- * Its hex is `toHex(gamutMap(placed, "srgb"))` of the stored color (R-01).
+ * R-10: the seed counts as gamut-mapped only when its stored form, the rounded seed, lies more
+ * than 2e-4 outside the gamut in some channel: the tolerance of lint rule G1, not the 1e-6 of
+ * `inGamut`. Rounding alone moves a seed at most 1.347e-4, so it never counts. The test reads the
+ * stored seed, so passing that seed back in (from a spec's `color.params`) gives the same
+ * palettes. A mapped seed is the rounded seed mapped into the gamut, rounded again. Its hex is
+ * `toHex(gamutMap(placed, "srgb"))` of the stored color (R-01).
  */
 function prepareSeed(raw: Oklch, gamut: Gamut): Seed {
   const original = roundSeed(raw);
-  const mapped = !inGamut(raw, gamut);
+  const mapped = !withinUnitCube(oklchToRgb(original, gamut), STORED_GAMUT_TOLERANCE);
   // A mapped color is in gamut: its l is at most a rounding error above 1, which round6 writes as 1.
   const placed = mapped ? roundSeed(rgbToOklch(gamutMap(original, gamut), gamut)) : original;
   return { original, placed, hex: toHex(gamutMap(placed, "srgb")), mapped };

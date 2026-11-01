@@ -233,42 +233,78 @@ const anyRatio = fc.oneof(
   fc.double({ min: 1.00001, max: 2, noNaN: true }),
 );
 
-/** Any valid `DirectionParams`: every enum, optional locked seeds, an optional ratio and name. */
-export const anyDirection: fc.Arbitrary<DirectionParams> = fc.record(
-  {
-    primary: anySeedColor,
-    secondary: anySeedColor,
-    accent: anySeedColor,
-    harmony: fc.constantFrom(...HARMONIES),
-    chroma: fc.constantFrom(...CHROMAS),
-    neutralTint: fc.constantFrom(...TINTS),
-    gamut: fc.constantFrom(...GAMUTS),
-    scaleMode: fc.constantFrom(...SCALE_MODES),
-    contrastLevel: fc.constantFrom(...LEVELS),
-    type: fc.record(
-      { context: fc.constantFrom(...CONTEXTS), ratio: anyRatio },
-      { requiredKeys: ["context"] },
-    ),
-    radius: fc.constantFrom(...RADII),
-    depth: fc.constantFrom(...DEPTHS),
-    motion: fc.constantFrom(...FEELS),
-    name: fc.string({ minLength: 1, maxLength: 80 }),
-  },
-  {
-    requiredKeys: [
-      "harmony",
-      "chroma",
-      "neutralTint",
-      "gamut",
-      "scaleMode",
-      "contrastLevel",
-      "type",
-      "radius",
-      "depth",
-      "motion",
-    ],
-  },
+/**
+ * The seeds at the edge of sRGB: `round6` leaves the first three about 1.8e-6 to 4.3e-5 outside
+ * [0, 1], inside the 2e-4 that R-10 allows, so they count as in gamut (C-PAL-20, C-GEN-13).
+ */
+export const EDGE_SEEDS = ["#0000ff", "#00ff00", "#ff00ff", "#ffffff", "#000000"] as const;
+
+/** C-GEN-13: a locked seed from EDGE_SEEDS or any seed of `anySeedColor`. */
+export const edgeOrAnySeedColor: fc.Arbitrary<Oklch> = fc.oneof(
+  fc.constantFrom(...EDGE_SEEDS.map((text) => parseColor(text))),
+  anySeedColor,
 );
+
+/** Valid `DirectionParams` with locked seeds drawn from `seedColor`. */
+function directionWith(seedColor: fc.Arbitrary<Oklch>): fc.Arbitrary<DirectionParams> {
+  return fc.record(
+    {
+      primary: seedColor,
+      secondary: seedColor,
+      accent: seedColor,
+      harmony: fc.constantFrom(...HARMONIES),
+      chroma: fc.constantFrom(...CHROMAS),
+      neutralTint: fc.constantFrom(...TINTS),
+      gamut: fc.constantFrom(...GAMUTS),
+      scaleMode: fc.constantFrom(...SCALE_MODES),
+      contrastLevel: fc.constantFrom(...LEVELS),
+      type: fc.record(
+        { context: fc.constantFrom(...CONTEXTS), ratio: anyRatio },
+        { requiredKeys: ["context"] },
+      ),
+      radius: fc.constantFrom(...RADII),
+      depth: fc.constantFrom(...DEPTHS),
+      motion: fc.constantFrom(...FEELS),
+      name: fc.string({ minLength: 1, maxLength: 80 }),
+    },
+    {
+      requiredKeys: [
+        "harmony",
+        "chroma",
+        "neutralTint",
+        "gamut",
+        "scaleMode",
+        "contrastLevel",
+        "type",
+        "radius",
+        "depth",
+        "motion",
+      ],
+    },
+  );
+}
+
+/** Any valid `DirectionParams`: every enum, optional locked seeds, an optional ratio and name. */
+export const anyDirection: fc.Arbitrary<DirectionParams> = directionWith(anySeedColor);
+
+/** Like `anyDirection`, with locked seeds drawn from EDGE_SEEDS as well (C-GEN-13). */
+export const edgeDirection: fc.Arbitrary<DirectionParams> = directionWith(edgeOrAnySeedColor);
+
+/**
+ * The parameters a spec records, read back from it: `color.params`, the type context and ratio,
+ * the radius set, the depth style, the motion feel and the name (C-GEN-13).
+ */
+export function paramsOf(spec: DesignSpec): DirectionParams {
+  const { context, ratio } = spec.type;
+  return {
+    ...spec.color.params,
+    type: ratio === undefined ? { context } : { context, ratio },
+    radius: spec.shape.radiusSet,
+    depth: spec.depth.style,
+    motion: spec.motion.feel,
+    name: spec.meta.name,
+  };
+}
 
 /** Any seed string of 1 to 128 UTF-16 code units, ASCII or any code point. */
 export const anySeedText: fc.Arbitrary<string> = fc.oneof(

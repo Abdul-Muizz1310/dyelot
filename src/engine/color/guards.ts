@@ -6,6 +6,13 @@ import type { Gamut, Hex, Mode, Oklch, Rgb } from "./types";
  */
 export const RGB_TOLERANCE = 1e-6;
 
+/**
+ * How far outside 0 to 1 a stored color's channel may sit (spec R-10, lint rule G1). `round6`
+ * moves a stored seed at most 1.347e-4 outside (`#00fd1b`, the worst 8-bit color), so a locked
+ * seed counts as gamut-mapped only when its stored form lies further out than this.
+ */
+export const STORED_GAMUT_TOLERANCE = 2e-4;
+
 /** The type of `value` as an error message names it: `null` is not "object". */
 export function describeType(value: unknown): string {
   return value === null ? "null" : typeof value;

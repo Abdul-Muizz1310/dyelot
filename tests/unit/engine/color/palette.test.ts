@@ -1,7 +1,7 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { meets, wcagRatio } from "@/engine/color/contrast";
-import { rgbToOklch, toHex } from "@/engine/color/convert";
+import { oklchToRgb, rgbToOklch, toHex } from "@/engine/color/convert";
 import { deltaEOK, minPairwiseDeltaE } from "@/engine/color/deltae";
 import { gamutMap, inGamut, maxChroma } from "@/engine/color/gamut";
 import { type Harmony, harmonyHues } from "@/engine/color/harmony";
@@ -70,10 +70,18 @@ function rounded(color: Oklch): Oklch {
   return { l: round6(color.l), c, h: c <= 4e-6 ? null : roundHue(color.h ?? 0) };
 }
 
+/** How far the color lies outside the gamut: its largest channel excess beyond [0, 1]. */
+function excessOf(color: Oklch, gamut: Gamut): number {
+  return Math.max(...oklchToRgb(color, gamut).map((channel) => Math.max(-channel, channel - 1)));
+}
+
+/** R-10: a seed counts as gamut-mapped when its stored form lies more than 2e-4 outside. */
+const SEED_GAMUT_TOLERANCE = 2e-4;
+
 /** R-10 and R-01: the color that stands in for a seed, and its hex. */
 function expectedSeed(raw: Oklch, gamut: Gamut): { oklch: Oklch; hex: Hex; mapped: boolean } {
   const original = rounded(raw);
-  const mapped = !inGamut(raw, gamut);
+  const mapped = excessOf(original, gamut) > SEED_GAMUT_TOLERANCE;
   const oklch = mapped ? rounded(rgbToOklch(gamutMap(original, gamut), gamut)) : original;
   return { oklch, hex: toHex(gamutMap(oklch, "srgb")), mapped };
 }
@@ -540,6 +548,51 @@ describe("buildPalettes: seeds", () => {
     expect(primary.seedStep).toEqual({ light: 700, dark: 400 });
     expect(primary.light[indexOf(700)].hex).toBe("#0000ff");
     expect(primary.dark[indexOf(400)].hex).toBe("#0000ff");
+  });
+
+  it("C-PAL-20 keeps every edge seed in gamut, and passing the stored seed back changes nothing", () => {
+    // round6 leaves these 1.8e-6, 4.3e-5 and 4.9e-6 outside [0, 1]: past inGamut's 1e-6, inside
+    // the 2e-4 of R-10. The stored seed (color.params) must give the palettes the seed gave.
+    for (const hex of ["#0000ff", "#00ff00", "#ff00ff"]) {
+      const seed = parseColor(hex);
+      const stored = normalizeSeed(seed);
+      expect(inGamut(stored, "srgb"), hex).toBe(false);
+      expect(excessOf(stored, "srgb"), hex).toBeLessThan(SEED_GAMUT_TOLERANCE);
+      const first = build({ primary: seed });
+      expect("seedDeviation" in first.primary, hex).toBe(false);
+      expect(first.primary.seedStep, hex).toBeDefined();
+      expect(build({ primary: stored }), hex).toEqual(first);
+    }
+  });
+
+  it("R-10 counts a seed as gamut-mapped only beyond 2e-4, the tolerance of lint rule G1", () => {
+    // A green just past the sRGB edge: the chroma whose stored form lies `target` outside.
+    const at = (c: number): Oklch => ({ l: 0.7, c, h: 145 });
+    const chromaFor = (target: number): number => {
+      let low = maxChroma(0.7, 145, "srgb");
+      let high = low + 0.01;
+      for (let i = 0; i < 50; i++) {
+        const middle = (low + high) / 2;
+        if (excessOf(rounded(at(middle)), "srgb") < target) low = middle;
+        else high = middle;
+      }
+      return low;
+    };
+    const near = at(chromaFor(1e-4));
+    expect(excessOf(rounded(near), "srgb")).toBeGreaterThan(5e-5);
+    expect(excessOf(rounded(near), "srgb")).toBeLessThan(SEED_GAMUT_TOLERANCE);
+    expect(inGamut(near, "srgb")).toBe(false);
+    const placed = build({ primary: near }).primary;
+    expect(placed.seedStep).toBeDefined();
+    expect("seedDeviation" in placed).toBe(false);
+    expect(placed.light[indexOf(placed.seedStep?.light ?? 50)].oklch).toEqual(rounded(near));
+
+    const far = at(chromaFor(3e-4));
+    expect(excessOf(rounded(far), "srgb")).toBeGreaterThan(SEED_GAMUT_TOLERANCE);
+    const mapped = build({ primary: far }).primary;
+    expect(mapped.seedDeviation?.deltaEOK).toBeGreaterThan(0);
+    expect(seedIndexes(mapped.light, rounded(far))).toEqual([]);
+    expectPalette(build({ primary: far }), "primary", "srgb", far);
   });
 });
 

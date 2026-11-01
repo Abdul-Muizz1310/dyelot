@@ -49,10 +49,12 @@ type Seeds = Partial<Record<(typeof LOCKABLE)[number], Oklch>>;
 
 /** The parameters, read once and checked: what the generator builds from. */
 type Parsed = {
-  /** The color parameters with the seeds as passed: `buildPalettes` tests those for gamut (R-10). */
+  /**
+   * The color parameters with the seeds as stored: rounded, achromatic rule applied (R-02, R-03).
+   * The palettes are built from these same values, so a spec regenerated from what it records is
+   * identical (C-GEN-13): R-10 tests the stored seed for gamut mapping.
+   */
   readonly color: ColorParams;
-  /** The same parameters with the seeds as stored: rounded, achromatic rule applied (R-02, R-03). */
-  readonly stored: ColorParams;
   readonly context: TypeContext;
   readonly ratio: number | undefined;
   readonly radius: RadiusSet;
@@ -114,18 +116,14 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   assertOneOf(radius, RADIUS_SET_NAMES, "generateSystem: params.radius");
   assertOneOf(depth, DEPTH_STYLES, "generateSystem: params.depth");
   assertOneOf(motion, MOTION_FEELS, "generateSystem: params.motion");
-  const passed: Seeds = {};
-  const stored: Seeds = {};
+  const seeds: Seeds = {};
   for (const slot of LOCKABLE) {
     const color = params[slot];
     if (color === undefined) continue;
-    stored[slot] = normalizeSeed(color, `generateSystem: params.${slot}`);
-    passed[slot] = color;
+    seeds[slot] = normalizeSeed(color, `generateSystem: params.${slot}`);
   }
-  const rest = { harmony, chroma, neutralTint, gamut, scaleMode, contrastLevel };
   return {
-    color: { ...passed, ...rest },
-    stored: { ...stored, ...rest },
+    color: { ...seeds, harmony, chroma, neutralTint, gamut, scaleMode, contrastLevel },
     context,
     ratio: checkRatio(ratio),
     radius,
@@ -146,7 +144,8 @@ function rolesFor(palettes: Record<PaletteName, Palette>, mode: Mode, color: Col
  * colors and resolves its roles at `params.contrastLevel`, then builds the type, space, shape,
  * depth and motion tokens. `color.params` stores the seeds as the engine stored them: rounded,
  * with the achromatic rule applied (R-02, R-03). Every number is stored through `round6`, and
- * the result always passes `DesignSpecSchema`.
+ * the result always passes `DesignSpecSchema`. Generating again from what a spec records (its
+ * color parameters, type, shape, depth and motion choices, name and seed) gives the same spec.
  */
 export function generateSystem(params: DirectionParams, seed: string): DesignSpec {
   const parsed = parseParams(params, seed);
@@ -156,7 +155,7 @@ export function generateSystem(params: DirectionParams, seed: string): DesignSpe
     version: SPEC_VERSION,
     meta: { name: parsed.name, seed, engineVersion: ENGINE_VERSION, createdWith: "controls" },
     color: {
-      params: parsed.stored,
+      params: parsed.color,
       palettes,
       roles: {
         light: rolesFor(palettes, "light", parsed.color),
