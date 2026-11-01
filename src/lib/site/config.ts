@@ -24,5 +24,5 @@ export const SITE = defineSite({
     highlight: "receipt",
   },
   // No machine endpoints yet, so robots.txt disallows nothing.
-  routes: { sitemap: ["/"], disallow: [] },
+  routes: { sitemap: ["/", "/studio"], disallow: [] },
 });

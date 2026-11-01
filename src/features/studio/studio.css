@@ -1,0 +1,160 @@
+/* ─────────────────────────────────────────────────────────────
+ * The studio shell (spec section 7.1, R2-16). One DOM order for
+ * every width: skip link, header, inputs, toolbar, canvas,
+ * inspector. Three columns at 1280 px and up (320 | fluid | 360);
+ * from 1024 to 1279 px the inspector is a drawer; below 1024 px
+ * both panels are. A panel is a drawer when the page marks it
+ * `data-drawer`, from the same breakpoints, so the CSS and the
+ * `inert` state always agree.
+ * ───────────────────────────────────────────────────────────── */
+
+.studio {
+  display: grid;
+  height: 100dvh;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto auto minmax(0, 1fr);
+  grid-template-areas:
+    "header"
+    "toolbar"
+    "canvas";
+}
+
+.studio-header {
+  grid-area: header;
+}
+
+.studio-toolbar {
+  grid-area: toolbar;
+}
+
+.studio-canvas {
+  grid-area: canvas;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+
+/* The canvas region is large: an inset ring stays inside the column. */
+.studio-canvas:focus-visible {
+  outline-offset: -2px;
+}
+
+.studio-panel {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  background-color: var(--panel);
+}
+
+.studio-inputs {
+  --drawer-width: 320px;
+}
+
+.studio-inspector {
+  --drawer-width: 360px;
+}
+
+/* A drawer is off screen and hidden until it opens; the page makes it inert while closed. */
+.studio-panel[data-drawer] {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 40;
+  width: min(var(--drawer-width), calc(100vw - 40px));
+  visibility: hidden;
+  overscroll-behavior: contain;
+  box-shadow: var(--window-shadow);
+  transition:
+    transform 220ms cubic-bezier(0.2, 0, 0, 1),
+    visibility 0s linear 220ms;
+}
+
+.studio-inputs[data-drawer] {
+  left: 0;
+  border-right: 1px solid var(--border-bright);
+  transform: translateX(-100%);
+}
+
+.studio-inspector[data-drawer] {
+  right: 0;
+  border-left: 1px solid var(--border-bright);
+  transform: translateX(100%);
+}
+
+.studio-panel[data-drawer][data-open] {
+  visibility: visible;
+  transform: none;
+  transition:
+    transform 220ms cubic-bezier(0.2, 0, 0, 1),
+    visibility 0s;
+}
+
+.studio-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  background-color: rgb(0 0 0 / 0.6);
+}
+
+@media (min-width: 1024px) {
+  .studio {
+    grid-template-columns: 320px minmax(0, 1fr);
+    grid-template-areas:
+      "header header"
+      "inputs toolbar"
+      "inputs canvas";
+  }
+
+  .studio-inputs {
+    grid-area: inputs;
+    border-right: 1px solid var(--border);
+  }
+}
+
+@media (min-width: 1280px) {
+  .studio {
+    grid-template-columns: 320px minmax(0, 1fr) 360px;
+    grid-template-areas:
+      "header header header"
+      "inputs toolbar inspector"
+      "inputs canvas inspector";
+  }
+
+  .studio-inspector {
+    grid-area: inspector;
+    border-left: 1px solid var(--border);
+  }
+}
+
+/* The toast slides up from the bottom edge. */
+.studio-toast {
+  transition:
+    opacity 160ms ease-out,
+    transform 160ms ease-out;
+}
+
+.studio-toast[data-empty] {
+  opacity: 0;
+  transform: translateY(8px);
+  pointer-events: none;
+}
+
+/* ─────────────────────────────────────────────────────────────
+ * The canvas frame until the preview kit arrives (Task 2.7): it
+ * reads only the spec's variables, set inline on [data-canvas].
+ * ───────────────────────────────────────────────────────────── */
+
+[data-canvas] {
+  container-type: inline-size;
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+}
+
+[data-canvas][data-mode="light"] {
+  color-scheme: light;
+}
+
+[data-canvas][data-mode="dark"] {
+  color-scheme: dark;
+}

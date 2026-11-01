@@ -44,7 +44,7 @@ describe("defineSite (T-FE-20)", () => {
         headline: "one palette, every screen, a receipt for each color",
         highlight: "receipt",
       },
-      routes: { sitemap: ["/"], disallow: [] },
+      routes: { sitemap: ["/", "/studio"], disallow: [] },
     });
   });
 
