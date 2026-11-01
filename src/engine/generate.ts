@@ -30,6 +30,7 @@ import {
 import { resolveRoles } from "./color/roles";
 import { STEPS } from "./color/scale";
 import type { Mode, Oklch } from "./color/types";
+import { PAIRING_IDS, PAIRINGS, type Pairing } from "./fonts/pairings";
 import { seededRandom } from "./random";
 import { round6 } from "./round";
 import { shadows } from "./tokens/depth";
@@ -60,7 +61,12 @@ type Parsed = {
   readonly depth: DepthStyle;
   readonly motion: MotionFeel;
   readonly name: string;
+  /** The three font ids: the pairing's, or M1's default when `pairing` is absent. */
+  readonly families: { readonly display: string; readonly body: string; readonly mono: string };
 };
+
+/** M1's families, written when `params.pairing` is absent (R2-05): the `host-grotesk` pairing. */
+const DEFAULT_FAMILIES = { display: "host-grotesk", body: "host-grotesk", mono: "fragment-mono" };
 
 function checkText(value: unknown, max: number, name: string): string {
   if (typeof value !== "string") {
@@ -117,6 +123,13 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   assertOneOf(radius, RADIUS_SET_NAMES, "generateSystem: params.radius");
   assertOneOf(depth, DEPTH_STYLES, "generateSystem: params.depth");
   assertOneOf(motion, MOTION_FEELS, "generateSystem: params.motion");
+  const pairing: unknown = params.pairing;
+  let families = DEFAULT_FAMILIES;
+  if (pairing !== undefined) {
+    assertOneOf(pairing, PAIRING_IDS, "generateSystem: params.pairing");
+    const { display, body, mono } = PAIRINGS.find((item) => item.id === pairing) as Pairing;
+    families = { display, body, mono };
+  }
   const seeds: Seeds = {};
   for (const slot of LOCKABLE) {
     const color = params[slot];
@@ -131,6 +144,7 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
     depth,
     motion,
     name: name === undefined ? UNTITLED : checkText(name, NAME_MAX, "generateSystem: params.name"),
+    families,
   };
 }
 
@@ -164,8 +178,7 @@ export function generateSystem(params: DirectionParams, seed: string): DesignSpe
       },
     },
     type: {
-      // M1 values for the fields M2 owns (spec section 6.7).
-      families: { display: "host-grotesk", body: "host-grotesk", mono: "fragment-mono" },
+      families: parsed.families,
       context,
       ...(ratio === undefined ? {} : { ratio }),
       steps: typeScale(ratio === undefined ? { context } : { context, ratio }),

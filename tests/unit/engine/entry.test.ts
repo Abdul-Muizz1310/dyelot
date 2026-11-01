@@ -13,6 +13,7 @@ import { ColorParseError } from "@/engine/color/errors";
 import { gamutMap } from "@/engine/color/gamut";
 import { GAMUTS } from "@/engine/color/guards";
 import { HARMONIES } from "@/engine/color/harmony";
+import { indexNames, nearestName } from "@/engine/color/names";
 import {
   CHROMA_LEVELS,
   CONTRAST_LEVELS,
@@ -32,10 +33,11 @@ import {
   genericness,
   HIGH_GENERICNESS_FAMILIES,
 } from "@/engine/fonts/catalog";
-import { PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
+import { choosePairing, PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
 import { ENGINE_VERSION, generateSystem } from "@/engine/generate";
 import { lintSpec } from "@/engine/lint";
 import { RULE_IDS } from "@/engine/lint/types";
+import { applyPreset, PRESET_IDS, PRESETS } from "@/engine/presets";
 import { shadows } from "@/engine/tokens/depth";
 import { motionTokens } from "@/engine/tokens/motion";
 import { nestedRadius, RADIUS_SET_NAMES, radiusScale } from "@/engine/tokens/shape";
@@ -113,19 +115,11 @@ const ENGINE_KEYS = [
 ];
 
 /**
- * Keys whose module a later task of M2 creates (presets 2.4, taste rules and names
- * 2.4 to 2.5). Until then the entry holds the set without them; each task deletes its names from
- * this list and the test then demands them. The list only shrinks: no key joins the entry that
- * the full set above does not name.
+ * Keys whose module a later task of M2 creates. Task 2.4 landed the last of them (presets, pairing
+ * choice and color names), so the list is empty and the entry holds the whole set. A key joins the
+ * entry only when the full set above names it.
  */
-const PENDING_KEYS = [
-  "PRESETS",
-  "PRESET_IDS",
-  "applyPreset",
-  "choosePairing",
-  "indexNames",
-  "nearestName",
-];
+const PENDING_KEYS: readonly string[] = [];
 
 const SPEC_KEYS = [
   "DesignSpecSchema",
@@ -164,6 +158,8 @@ describe("the engine entry", () => {
       PAIRINGS,
       PAIRING_IDS,
       PALETTE_NAMES,
+      PRESETS,
+      PRESET_IDS,
       RADIUS_SET_NAMES,
       ROLE_NAMES,
       RULE_IDS,
@@ -173,6 +169,8 @@ describe("the engine entry", () => {
       UnsatisfiableTargetError,
       CHROMA_LEVELS,
       CONTRAST_LEVELS,
+      applyPreset,
+      choosePairing,
       deltaEOK,
       fontFiles,
       fontStack,
@@ -181,9 +179,11 @@ describe("the engine entry", () => {
       generateSystem,
       genericness,
       hexToRgb,
+      indexNames,
       lintSpec,
       meets,
       motionTokens,
+      nearestName,
       nestedRadius,
       normalizeSeed,
       oklchToRgb,
@@ -326,6 +326,14 @@ describe("the entry points keep their behavior", () => {
     nan.color.palettes.primary.hue = Number.NaN;
     expect(() => encodeSpec(nan)).toThrow(/^encodeSpec: spec\.color/);
     expect(() => generateSystem(DEFAULT_PARAMS, "")).toThrow(/^generateSystem:/);
+    // lintSpec (Task 2.4): the R-05 checks name the public function.
+    expect(() => lintSpec(null as never)).toThrow(/^lintSpec:/);
+    const noPalette = structuredClone(defaultSpec()) as unknown as { color: { palettes: object } };
+    noPalette.color.palettes = {};
+    expect(() => lintSpec(noPalette as never)).toThrow(/^lintSpec:/);
+    const badRole = structuredClone(defaultSpec());
+    (badRole.color.roles.light as Record<string, string>).primary = "red";
+    expect(() => lintSpec(badRole)).toThrow(/^lintSpec:/);
   });
 });
 

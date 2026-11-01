@@ -17,6 +17,7 @@ export { ColorParseError } from "./color/errors";
 export { gamutMap } from "./color/gamut";
 export { GAMUTS } from "./color/guards";
 export { HARMONIES, type Harmony } from "./color/harmony";
+export { indexNames, type NameEntry, type NameIndex, nearestName } from "./color/names";
 export {
   CHROMA_LEVELS,
   CONTRAST_LEVELS,
@@ -42,11 +43,26 @@ export {
   genericness,
   HIGH_GENERICNESS_FAMILIES,
 } from "./fonts/catalog";
-export { PAIRING_IDS, PAIRINGS, type Pairing, type PairingId } from "./fonts/pairings";
+export {
+  choosePairing,
+  PAIRING_IDS,
+  PAIRINGS,
+  type Pairing,
+  type PairingId,
+} from "./fonts/pairings";
 export { ENGINE_VERSION, generateSystem } from "./generate";
 export { lintSpec } from "./lint";
-export type { Finding, LintedSpec, RuleId, Severity } from "./lint/types";
+export type { Finding, LintedSpec, LintOptions, RuleId, Severity } from "./lint/types";
 export { RULE_IDS } from "./lint/types";
+export {
+  applyPreset,
+  type Density,
+  PRESET_IDS,
+  PRESETS,
+  type Preset,
+  type PresetId,
+  type PresetParams,
+} from "./presets";
 export { type ShadowLayer, shadows } from "./tokens/depth";
 export { type MotionTokens, motionTokens } from "./tokens/motion";
 export {

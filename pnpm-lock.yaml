@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      color-name-list:
+        specifier: ^14.85.1
+        version: 14.85.1
       fflate:
         specifier: ^0.8.3
         version: 0.8.3
@@ -1076,6 +1079,10 @@ packages:
 
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
+
+  color-name-list@14.85.1:
+    resolution: {integrity: sha512-JsAdV/4W8XXxR+D+NWGGQSZ9/TUzZ7uaibFosNORcGJyMSL+hvqZsLYYEUdFrwfoFUtfmVuQXGnFQclfCDRh0A==}
+    engines: {node: ^22.14.0 || >=24.10.0, npm: '>=10.2.0'}
 
   colorjs.io@0.7.1:
     resolution: {integrity: sha512-LY7OHnJZxHwT5UlzNa9bbhHHDbzB6yE5+3MIPwJEQKRvSCt/T4G7epsj+9j2BExUIIfXFIJGsIXUKdfrK9Q5tA==}
@@ -2331,6 +2338,8 @@ snapshots:
   chai@6.3.0: {}
 
   client-only@0.0.1: {}
+
+  color-name-list@14.85.1: {}
 
   colorjs.io@0.7.1: {}
 

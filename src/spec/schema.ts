@@ -10,6 +10,7 @@ import {
 } from "../engine/color/palette";
 import { ROLE_NAMES } from "../engine/color/roles";
 import { STEPS, type Step } from "../engine/color/scale";
+import type { PairingId } from "../engine/fonts/pairings";
 import { RADIUS_SET_NAMES, type RadiusSet } from "../engine/tokens/shape";
 import { TYPE_CONTEXTS, type TypeContext, type TypeStepName } from "../engine/tokens/type";
 import { z } from "./zod";
@@ -28,6 +29,8 @@ export type DirectionParams = ColorParams & {
   readonly radius: RadiusSet;
   readonly depth: DepthStyle;
   readonly motion: MotionFeel;
+  /** A font pairing of `PAIRINGS`; absent means M1's default pairing, so every M1 golden holds (R2-05). */
+  readonly pairing?: PairingId;
   readonly name?: string;
 };
 

@@ -1,8 +1,13 @@
 import type { ColorParams, Palette, PaletteName } from "../color/palette";
 import type { RoleName } from "../color/roles";
 import type { Hex, Mode } from "../color/types";
+import type { FontEntry } from "../fonts/catalog";
+import type { TypeContext } from "../tokens/type";
 
-/** The 20 rules of the M1 linter (spec section 6.8), in the order the spec lists them. */
+/**
+ * The 20 rules of the M1 linter (M1 spec section 6.8), in the order that spec lists them, then the
+ * four taste rules T1 to T4 of M2 (spec section 5.4).
+ */
 export const RULE_IDS = Object.freeze([
   "C1",
   "C2",
@@ -24,6 +29,10 @@ export const RULE_IDS = Object.freeze([
   "D3",
   "D4",
   "P1",
+  "T1",
+  "T2",
+  "T3",
+  "T4",
 ] as const);
 
 export type RuleId = (typeof RULE_IDS)[number];
@@ -50,9 +59,13 @@ export type Finding = {
  */
 export type LintedPalette = Omit<Palette, "peakChroma"> & { readonly peakChroma?: number };
 
+/** The options of `lintSpec`: `catalog` replaces `FONT_CATALOG`, for tests (R2-09). */
+export type LintOptions = { readonly catalog?: readonly FontEntry[] };
+
 /**
- * What the linter reads from a `DesignSpec`: its color section. The linter never imports the spec
- * model (spec section 5), so this is the structural part of it; every `DesignSpec` is one.
+ * What the linter reads from a `DesignSpec`: its color section and, for the taste rules T1 and T4,
+ * its type section. A rule whose input is absent does not run (R2-09). The linter never imports
+ * the spec model, so this is the structural part of it; every `DesignSpec` is one.
  */
 export type LintedSpec = {
   readonly color: {
@@ -60,5 +73,10 @@ export type LintedSpec = {
     readonly params: Pick<ColorParams, "gamut" | "scaleMode" | "primary" | "secondary" | "accent">;
     readonly palettes: Readonly<Record<PaletteName, LintedPalette>>;
     readonly roles: Readonly<Record<Mode, Readonly<Record<RoleName, Hex>>>>;
+  };
+  readonly type?: {
+    readonly families: { readonly display: string };
+    readonly context: TypeContext;
+    readonly steps: readonly { readonly name: string; readonly sizePx: number }[];
   };
 };
