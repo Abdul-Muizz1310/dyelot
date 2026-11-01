@@ -10,6 +10,15 @@ import { DEFAULT_PARAMS, PROPERTY_TIMEOUT } from "../spec/support";
 
 const SEEDS = Array.from({ length: 50 }, (_, i) => `s${i}`);
 
+/** The five groups of presets-lint-{1..5}.test.ts; presets.test.ts asserts they cover `PRESET_IDS`. */
+export const PRESET_LINT_GROUPS: readonly (readonly PresetId[])[] = [
+  ["default", "minimal-swiss", "editorial"],
+  ["neo-brutalism", "glass", "dark-dev-tool"],
+  ["bento", "aurora", "retro-futurism"],
+  ["tactile", "maximalism", "organic"],
+  ["dithering-pixel", "m3-expressive"],
+];
+
 export function describePresetLint(ids: readonly PresetId[]): void {
   const memo = new Map<PresetId, ReturnType<typeof lintSpec>[]>();
   const findingsOf = (id: PresetId): ReturnType<typeof lintSpec>[] => {
@@ -32,10 +41,14 @@ export function describePresetLint(ids: readonly PresetId[]): void {
       PROPERTY_TIMEOUT,
     );
 
-    it("C-PRESET-12 raises no T1, T3 or T4", () => {
-      for (const findings of findingsOf(id)) {
-        expect(findings.filter((f) => ["T1", "T3", "T4"].includes(f.id))).toEqual([]);
-      }
-    });
+    it(
+      "C-PRESET-12 raises no T1, T3 or T4",
+      () => {
+        for (const findings of findingsOf(id)) {
+          expect(findings.filter((f) => ["T1", "T3", "T4"].includes(f.id))).toEqual([]);
+        }
+      },
+      PROPERTY_TIMEOUT,
+    );
   });
 }

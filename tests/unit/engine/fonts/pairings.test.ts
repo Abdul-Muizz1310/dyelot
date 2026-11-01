@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { FONT_CATALOG } from "@/engine/fonts/catalog";
-import { PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
+import { PAIRING_IDS, PAIRINGS, pairingById } from "@/engine/fonts/pairings";
 
 // Cases are the C-PAIR-nn rows of docs/specs/02-studio.md, section 6.2, that Task 2.3 owns:
 // C-PAIR-01 to C-PAIR-03 and C-PAIR-15. C-PAIR-04 to C-PAIR-14 (the generator's pairing
@@ -94,5 +94,13 @@ describe("PAIRINGS", () => {
     expect(PAIRINGS[18]?.id).toBe("anybody-albert");
     expect(PAIRINGS[18]?.mono).toBe("spline-sans-mono");
     expect(FONT_CATALOG.some((font) => font.id === "recursive")).toBe(false);
+  });
+});
+
+describe("pairingById", () => {
+  it("returns the very object of PAIRINGS for every id, and undefined for an unknown id", () => {
+    for (const item of PAIRINGS) expect(pairingById(item.id)).toBe(item);
+    expect(pairingById("nope")).toBeUndefined();
+    expect(pairingById("toString")).toBeUndefined();
   });
 });

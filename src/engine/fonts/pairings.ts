@@ -215,10 +215,12 @@ export const PAIRINGS: readonly Pairing[] = Object.freeze([
 /** The pairing ids, in order. */
 export const PAIRING_IDS: readonly PairingId[] = Object.freeze(PAIRINGS.map((p) => p.id));
 
-/** The pairings by id, for lookups that already hold a checked id (not exported from the entry). */
-export const PAIRING_BY_ID: ReadonlyMap<PairingId, Pairing> = new Map(
-  PAIRINGS.map((item) => [item.id, item]),
-);
+const BY_ID: ReadonlyMap<PairingId, Pairing> = new Map(PAIRINGS.map((item) => [item.id, item]));
+
+/** The pairing with this id, or `undefined`. The table behind it is private and cannot be written. */
+export function pairingById(id: PairingId): Pairing | undefined {
+  return BY_ID.get(id);
+}
 
 /** How strongly a generic display face is weighted down: `w = 1 - OVERUSE_PENALTY * genericness`. */
 const OVERUSE_PENALTY = 0.7;

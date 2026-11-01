@@ -15,6 +15,7 @@ import {
   SCALE_MODES,
   TINTS,
 } from "../spec/support";
+import { PRESET_LINT_GROUPS } from "./presets-support";
 
 // Cases are the C-PRESET-nn rows of docs/specs/02-studio.md, section 6.3 (Task 2.4). The table is
 // written out from section 5.3, so the tests do not borrow the implementation's values.
@@ -253,6 +254,12 @@ const IDS = TABLE.map((row) => row[0]);
 const locked = { l: 0.6, c: 0.12, h: 200 };
 
 describe("PRESETS", () => {
+  it("C-PRESET-04 the five 50-seed groups cover PRESET_IDS exactly, with no duplicate", () => {
+    const union = PRESET_LINT_GROUPS.flat();
+    expect(new Set(union).size).toBe(union.length);
+    expect([...union].sort()).toEqual([...PRESET_IDS].sort());
+  });
+
   it("C-PRESET-01 lists the 14 ids in the table's order, frozen, as the keys of PRESETS", () => {
     expect([...PRESET_IDS]).toEqual(IDS);
     expect(Object.isFrozen(PRESET_IDS)).toBe(true);
