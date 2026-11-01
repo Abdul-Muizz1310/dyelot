@@ -421,11 +421,14 @@ plugins and the alias) or with a `// @vitest-environment node` docblock at the t
 folder coverage floors. DOM use in the pure core then fails at run time, because `window` is undefined, and C-REPO-03
 asserts it.
 
-**R-25 · Shared helpers.** The plan's interfaces do not name seven small functions that the tasks share, so this spec
+**R-25 · Shared helpers.** The plan's interfaces do not name ten small functions that the tasks share, so this spec
 names them: `round6` and `roundHue` (`src/engine/round.ts`), `pickHex(solution, page, target, threshold?)` (`scale.ts`, the
-picker of R-06), `pageFor(neutral, mode)` (`palette.ts`), `minPairwiseDeltaE(colors)` (`deltae.ts`, used by chart picking
-and rule S1), `selectOnFill(fill, candidates)` (`roles.ts`) and `fnv1a64(input)` (`hash.ts`, used by `specId` and the link
-trailer; it hashes a string as UTF-8 and a `Uint8Array` as given).
+picker of R-06), `pageFor(neutral, mode)` and `normalizeSeed(seed)` (`palette.ts`; the second checks a seed's domain and
+applies R-02 and R-03, for `buildPalettes` and for `color.params` in Task 1.8), `minPairwiseDeltaE(colors)` (`deltae.ts`,
+used by rule S1), `viewsOf(rgb)` and `minViewDeltaE(a, b)` (`deltae.ts`: a color's OKLab under each of the four views, and
+the smallest ΔEOK of two colors over those views; `minPairwiseDeltaE` and chart picking both build on them, so the picker
+and S1 measure alike), `selectOnFill(fill, candidates)` (`roles.ts`) and `fnv1a64(input)` (`hash.ts`, used by `specId` and
+the link trailer; it hashes a string as UTF-8 and a `Uint8Array` as given).
 
 ## 5. Conventions and invariants
 
@@ -641,6 +644,9 @@ function perceptualLc(text: Rgb, background: Rgb): number; // signed
 // deltae.ts
 function deltaEOK(a: Oklch, b: Oklch): number;
 function minPairwiseDeltaE(colors: readonly Rgb[]): Record<"none" | Deficiency, number>; // R-25
+type Views = Readonly<Record<"none" | Deficiency, Oklab>>; // a color's OKLab under each view
+function viewsOf(rgb: Rgb): Views; // R-25
+function minViewDeltaE(a: Views, b: Views): number; // R-25: the smallest ΔEOK of the two over the views
 
 // cvd.ts
 type Deficiency = "protan" | "deutan" | "tritan";
@@ -883,6 +889,7 @@ type ColorParams = {
 };
 function buildPalettes(input: ColorParams, random: () => number): Record<PaletteName, Palette>;
 function pageFor(neutral: Palette, mode: Mode): Hex; // R-25
+function normalizeSeed(seed: Oklch): Oklch; // R-25: checks the domain, then R-02 and R-03
 
 // roles.ts (RoleName is the union of the 46 names in the table below)
 function resolveRoles(
@@ -920,10 +927,12 @@ Contract:
   the primary's hue. The status palettes use success 150, warning 70, danger 25 and info 250. `buildPalettes` calls `random` once when `primary` is
   missing and never otherwise, and `random` must return a finite number in `[0, 1)`.
 - **Checks.** `buildPalettes` checks every parameter itself, before it draws or solves anything, so each failure names
-  its field (C-PAL-17). An enum field's domain is its list of strings, so any other value, of any type, throws
-  `RangeError`, even when all three colors are locked and no harmony is needed. It does not rely on `harmonyHues`, whose
-  `TypeError` for a value of the wrong type would name another function. `resolveRoles` and `pickChartColors` check
-  `mode`, `level` and `gamut` the same way (C-ROLE-07, C-CHART-07).
+  its field (C-PAL-17), even when all three colors are locked and no harmony is needed. It does not rely on
+  `harmonyHues`, whose errors would name another function. Each check follows R-05: a value of the wrong type, such as
+  `42` or `null` for an enum field, throws `TypeError`, and a string outside the field's list throws `RangeError`.
+  `resolveRoles` and `pickChartColors` check `mode`, `level`, `gamut` and the chart list the same way: a `chart` that is
+  not an array, or an entry that is not a string, throws `TypeError`, and a list of the wrong length, or a string that
+  is not a `Hex`, throws `RangeError` (C-ROLE-07, C-CHART-07).
 - **Chroma and pages.** R-08 gives each palette's `peakChroma`. `pageFor` returns `#ffffff` in light mode. In dark mode it
   returns `toHex(gamutMap({ l: 0.18, c: min(0.012, neutral.peakChroma), h: neutral.hue }, "srgb"))`, with `h: null` when
   the chroma is at most 4e-6. Each mode's scales solve against that page with `solveScale`, or with `solveEvenScales`
@@ -957,7 +966,7 @@ Contract:
 | C-PAL-14 | pass | Even mode (R-11): primary and accent, when their `peakChroma` is equal, have a per-step chroma spread of at most 0.005 (seed steps excepted); the four status palettes have a spread of at most 0.005 among themselves; secondary and neutral equal their standard-mode scales | ruling |
 | C-PAL-15 | pass | P3: with `gamut: "p3"` every non-seed `oklch` is in the P3 gamut, every `hex` is an sRGB hex, and the contrast checks of C-SCALE-02 hold on the hex | decision |
 | C-PAL-16 | pass | The same parameters and the same `random` stream give deep-equal palettes, and the input is not mutated | I-01 |
-| C-PAL-17 | failure | Invalid input throws `RangeError` naming the field: an unknown `harmony`, `chroma`, `neutralTint`, `gamut`, `scaleMode` or `contrastLevel`; a seed with a non-finite field, `l` outside `[0, 1]`, `c` outside `[0, 0.5]` or `h` outside `[0, 360)`; a `random` that returns NaN or a value outside `[0, 1)` | RF3, added |
+| C-PAL-17 | failure | Invalid input throws `RangeError` naming the field: an unknown `harmony`, `chroma`, `neutralTint`, `gamut`, `scaleMode` or `contrastLevel`; a seed with a non-finite field, `l` outside `[0, 1]`, `c` outside `[0, 0.5]` or `h` outside `[0, 360)`; a `random` that returns NaN or a value outside `[0, 1)`. A value of the wrong type (a number or `null` for an enum field, a seed that is not an object) throws `TypeError` naming the field (R-05) | RF3, added |
 | C-PAL-18 | pass | A hue that rounds to 360. A locked primary with hue `359.99999999999994` gives `palettes.primary.hue === 0`, and every step's `oklch.h`, and the seed step's, is below 360 (R-02) | ruling |
 | C-PAL-19 | pass | The achromatic test runs after rounding. A locked primary `{ l: 0.6, c: 0.0000040000004, h: 120 }` becomes `c: 4e-6` and `h: null` in `color.params`, and gives an achromatic primary: `peakChroma` 0, `hue` 0 (R-03, R-09) | ruling |
 | C-PAL-20 | pass | Rounding alone does not count as gamut mapping (R-10). A locked `#0000ff` primary in sRGB, whose stored seed `round6` leaves about 1.8e-6 outside `[0, 1]`, records no `seedDeviation`, and both modes hold it verbatim: `light[seedStep.light].hex` and `dark[seedStep.dark].hex` are `#0000ff` (steps 700 and 400 with `DEFAULT_PARAMS`) | ruling, RF5 |
@@ -967,7 +976,7 @@ Contract:
 | C-ROLE-04 | pass | Property (200 seeds, both modes, AA, AA+ and AAA; palettes and charts built once per seed and mode): every pair in the C1 and C5 lists has WCAG ≥ 4.5; `muted-foreground` on `background` is ≥ 7 at AA+ and AAA; `input` and `ring` against `background`, `card` and `muted` are ≥ 3 | plan |
 | C-ROLE-05 | pass | `muted-foreground` on `muted` is ≥ 7 at AA+ and AAA (step 800 against step 100 gives about 8.3) | added |
 | C-ROLE-06 | pass | Status sources: `warning` is warning-500, `destructive` danger-600, `info` info-700 and `success` success-800, with `onFill` foregrounds; the `-subtle` and `-subtle-foreground` roles stay on steps 100 and 900 | decision |
-| C-ROLE-07 | failure | A `chart` list with fewer or more than five entries, or an entry that is not a `Hex`, throws `RangeError`; so does an unknown mode or level | added |
+| C-ROLE-07 | failure | A `chart` list with fewer or more than five entries, or an entry that is a string but not a `Hex`, throws `RangeError`; so does an unknown mode or level. A `chart` that is not an array, or an entry, mode or level that is not a string, throws `TypeError` (R-05) | added |
 | C-ROLE-08 | pass | The same input gives a deep-equal output, and the palettes are not mutated | I-01 |
 | C-ROLE-09 | pass | `input` and `ring` keep 3:1 beyond the page. With `buildPalettes` given `random` stubbed to `() => 262.5 / 360` (a missing primary takes hue 262), balanced chroma and tint `brand`, at AA and AA+, `input` is neutral-600 and `ring` and `sidebar-ring` are primary-600. In light mode they measure about 4.24 against the card and 3.91 against the muted fill (within 0.05); in dark mode about 4.25 and 3.91 to 3.93. At AAA all three sit on step 700 and measure at least 6.5 against the card and 6.0 against the muted fill | decision |
 | C-ROLE-10 | pass | `destructive-subtle` is danger-100 and `destructive-subtle-foreground` is danger-900 in both modes and at every level, and the pair reaches WCAG 7 (about 10.9, from 12.5 / 1.15). `destructive` is danger-600 at AA, AA+ and AAA | decision |
@@ -987,7 +996,7 @@ Contract:
 | C-CHART-04 | pass | The same palettes give the same array, and the order of keys in the palette record does not matter | plan |
 | C-CHART-05 | pass | Every chosen color after the first equals the `hex` of a candidate step (hue a multiple of 15, step 600 to 900) of a scale solved at peak chroma 0.14 on that page | decision, ruling |
 | C-CHART-06 | pass | P3: candidates solve in the P3 gamut and the hexes are sRGB; C-CHART-02 and 03 hold on the hexes | decision |
-| C-CHART-07 | failure | An unknown mode or gamut throws `RangeError`; so does a palette record that lacks `primary` or `neutral` | added |
+| C-CHART-07 | failure | An unknown mode or gamut throws `RangeError`; so does a palette record that lacks `primary` or `neutral`. A mode or gamut that is not a string throws `TypeError` (R-05) | added |
 
 ### 6.6 Type, space, shape, depth and motion tokens (Task 1.7)
 
