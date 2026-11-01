@@ -27,8 +27,9 @@ updates:
           - "playwright"
           - "@playwright/test"
     ignore:
-      # TypeScript 7 ships no compiler API, and `next build` 16.2 needs one:
-      # "TypeScript 7.0.2 does not provide the compiler API required by
-      # Next.js" (checked 2026-10-20). Lift this when Next.js supports it.
+      # TypeScript 7 ships no JavaScript compiler API. Next 16.2 needed one;
+      # Next 16.4 type-checks with the project's tsc CLI by default
+      # (experimental.useTypeScriptCli), which its docs say enables TypeScript
+      # 7 (checked 2026-11-01). Lift this ignore in a deliberate upgrade PR.
       - dependency-name: "typescript"
         versions: [">=7"]
