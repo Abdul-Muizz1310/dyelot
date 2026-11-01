@@ -391,6 +391,17 @@ describe("the name of the perceptual score", () => {
   // The brand of the published formula. The spec forbids it in code, comments and copy, in any case.
   const FORBIDDEN = /apca/i;
 
+  const TEXT_EXTENSIONS = new Set([
+    ".ts",
+    ".tsx",
+    ".js",
+    ".mjs",
+    ".css",
+    ".svg",
+    ".md",
+    ".txt",
+    ".json",
+  ]);
   const filesUnder = (directory: string): string[] =>
     readdirSync(directory, { recursive: true, withFileTypes: true })
       .filter((entry) => entry.isFile())
@@ -401,9 +412,12 @@ describe("the name of the perceptual score", () => {
     // The scan must reach real files, or it would pass by looking at nothing.
     expect(files.length).toBeGreaterThan(0);
     expect(files).toContain(path.join(SRC, "engine/color/contrast.ts"));
-    // latin1 reads every byte, so a binary asset is searched too.
-    const offenders = files
-      .filter((file) => FORBIDDEN.test(readFileSync(file, "latin1")))
+    // Text files only: a font or an image could hold the four letters by chance.
+    const texts = files.filter((file) => TEXT_EXTENSIONS.has(path.extname(file)));
+    expect(texts).toContain(path.join(SRC, "app/globals.css"));
+    expect(texts).not.toContain(path.join(SRC, "app/favicon.ico"));
+    const offenders = texts
+      .filter((file) => FORBIDDEN.test(readFileSync(file, "utf8")))
       .map((file) => path.relative(ROOT, file));
     expect(offenders).toEqual([]);
   });
