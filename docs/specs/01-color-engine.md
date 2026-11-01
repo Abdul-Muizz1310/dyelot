@@ -7,8 +7,9 @@ Status: written 2026-11-01 as Task 1.1 of the M0–M1 plan, and revised twice th
 conflicts, and after a spec review. Section 2 copies the plan's decisions word for word, and they include those rulings.
 Section 3 keeps the evidence behind the four rulings. Section 4 lists rulings that close gaps in the decisions; the
 owner can overturn any of them by editing this file before the task that uses it starts. Tasks 1.2 to 1.9 implement
-against the cases in section 6. Task 1.10 closed M1: it synced this file with the rulings of the task reviews (each
-marked where it applies) and copied the refinement table below into the umbrella.
+against the cases in section 6. Task 1.10 closed M1. It brought this file up to date with the rulings of the task
+reviews. It also added an in-place note to the umbrella, `00-design.md`, at each place this spec refines it; each note
+starts "Refined in M1".
 
 ## 1. Purpose and scope
 
@@ -319,9 +320,10 @@ smaller hex. Hexes one code off gray fill the gaps between gray levels, which is
 a neutral step's `hex` can differ from gray by one code per channel while its `oklch` stays achromatic. A step is
 unsatisfiable when the extreme color (black on a light page, white on a dark page) falls short of the step's nominal
 target. `UnsatisfiableTargetError` reports the first such step in `STEPS` order, the input hue and the nominal target
-(`7.0`, not `7.02`). A satisfiable scale never needs the extreme itself: the extreme then reaches 15.5 (step 950), above
-every solved target (the largest is 7.02), so the first draft's "the step takes the extreme" branch could not run, and
-Task 1.10 removed it.
+(`7.0`, not `7.02`). A satisfiable scale never needs the extreme itself. The extreme then reaches at least 15.5, the
+target of step 950 and the largest target the solver aims for: the threshold steps aim at 3.02, 4.52 and 7.02, and every
+other step at its nominal target. So the first draft's "the step takes the extreme" branch could not run, and Task 1.10
+removed it.
 
 **R-07 · Hue drift arithmetic.** The formula in section 2 binds. `drift(95) = 40 × (1 − 5 / 35) = 34.286` (the plan's 34.29), so step
 950 of hue 95 has hue 60.714 (the plan's 60.71). The first draft of Task 1.5 said "≈ 59 (95 − 36)". That was wrong arithmetic, and the plan now agrees with the formula.
@@ -874,10 +876,11 @@ Contract, for step index `i` from 0 to 10 in `STEPS` order:
   `0.12 0.22 0.40 0.62 0.85 1 1 0.90 0.75 0.60 0.45` and `k` is 0.85 in dark mode and 1 in light mode. The achromatic
   rule of R-03 runs on the rounded chroma.
 - **Search and pick.** Bisection on L with 50 iterations inside the bracket of R-06, on the contrast of the unquantized,
-  gamut-mapped color. The search returns the end of its bracket that meets the solved target (the dark end in light mode,
-  the light end in dark mode), which holds by construction, because `UnsatisfiableTargetError` has already made the
-  extreme color reach 15.5, above every solved target. `pickHex` then chooses the hex (R-06). Rounding the solution to one hex misses the band at
-  the high steps (section 3, X-1); the nearest of the surrounding hexes does not.
+  gamut-mapped color. The search returns the end of its bracket that meets the solved target: the dark end in light mode
+  and the light end in dark mode. That end passes from the start, because `UnsatisfiableTargetError` has already made the
+  extreme color reach at least 15.5, the largest target the solver aims for (R-06). `pickHex` then chooses the hex
+  (R-06). Rounding the solution to one hex misses the band at the high steps (section 3, X-1); the nearest of the
+  surrounding hexes does not.
 - **`pickHex`.** It forms the floor and the ceiling of 255 times each channel of `solution`, clamped to 0–255, which gives
   up to eight hexes. A channel within 1e-9 of a whole code (in code units) counts as that code alone, because 255 × 0.4 is
   not exactly 102 in floating point, and C-PICK-04 expects `#666666`. It returns the one whose `wcagRatio` against `page`
@@ -1332,10 +1335,10 @@ Contract:
 | C-URL-11 | pass | `SpecDecodeError` is an `Error` with `name === "SpecDecodeError"` and a `reason` from the three; its message names the reason and never echoes the payload | RF4 |
 | C-URL-12 | pass | Property (500 runs): for any string, and for any single-character mutation of a valid link, `decodeSpec` returns a `DesignSpec` or throws `SpecDecodeError`; no other error type | RF3, RF4 |
 | C-URL-13 | pass | The decoded value passes `DesignSpecSchema.parse` | added |
+| C-URL-14 | failure | A change that flips only padding bits of the final deflate byte throws `corrupt`. The test takes the payload length `d` (decoded bytes minus 8) and changes each character from index `floor(8 × (d − 1) / 6)` to index `floor((8 × d − 1) / 6)` to each of the 63 other alphabet characters. A trailer over the inflated text would accept some of these changes (R-22) | RF4, ruling |
 | C-URL-15 | pass | A valid payload that is not canonical (shuffled keys, a contrast 1e-9 off its stored value, a palette hue of 359.99999) decodes to the canonical spec: the contrast comes back as stored, the hue as 0, and `specId` and `canonicalize` equal those of the tidy spec. A payload whose `type.ratio` is 1.0000001 throws `schema` with `issues` `["type.ratio"]` | ruling |
 | C-URL-16 | pass | Order and failure modes, seen through a spy on fflate: a link with a matching trailer inflates once; a link whose trailer does not match throws `corrupt` before any `Inflate` exists; a UTF-8 decoder that throws gives `corrupt`, never another error type | RF4, ruling |
 | C-URL-17 | pass | `DesignSpecSchema.parse` of a whole spec, and a schema built after import, make zero calls to the `Function` constructor. With jitless mode off, the same probe sees at least one. `biome.json` restricts the import path `zod` at error level | ruling |
-| C-URL-14 | failure | A change that flips only padding bits of the final deflate byte throws `corrupt`. The test takes the payload length `d` (decoded bytes minus 8) and changes each character from index `floor(8 × (d − 1) / 6)` to index `floor((8 × d − 1) / 6)` to each of the 63 other alphabet characters. A trailer over the inflated text would accept some of these changes (R-22) | RF4, ruling |
 | C-GEN-01 | pass | `generateSystem(DEFAULT_PARAMS, "seed-1")` called twice gives the same `canonicalize` output | plan |
 | C-GEN-02 | pass | `"seed-1"` and `"seed-2"` give different specs when the caller passes no color (primary hue 289 against 69) | plan |
 | C-GEN-03 | pass | When the caller passes `primary`, `"seed-1"` and `"seed-2"` give the same `color.palettes.primary`, and the same `color` section; only `meta.seed` and the spec id differ | plan |

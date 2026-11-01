@@ -71,8 +71,8 @@ byte-identical exports, and a golden-file test enforces it.
 **State.** A zustand store holds the spec and an undo history. The URL hash carries the canonical spec,
 deflated with `fflate` and base64url-encoded (`/studio#s=…`). The hash never reaches the server. Drafts
 persist in `localStorage` inside try/catch; a design never depends on it. *Refined in M1: the link also carries an
-8-byte integrity trailer (FNV-1a 64 of the deflate bytes) and size guards, because raw deflate cannot detect tampering;
-a valid payload that is not in canonical form opens normalized, with an unchanged spec id.*
+8-byte integrity trailer, the FNV-1a 64 of the deflate bytes, and size guards. Raw deflate cannot detect tampering.
+A valid payload that is not in canonical form opens normalized, with an unchanged spec id.*
 
 ## 4. The spec: `dyelot.spec/1`
 
@@ -90,10 +90,10 @@ A zod schema, versioned, exported as JSON Schema for the docs. Top-level fields:
 | `rules` | Do and don't lists (generated from the preset and the anti-slop rules, editable) |
 
 Values are stored once, in OKLCH. Hex and P3 values are derived on export. *Refined in M1: a solved step also stores
-the hex the solver picked and measured, and exporters emit that hex instead of re-deriving it, because a re-derived hex
-can differ by one code per channel and drop a threshold step under its ratio. The M1 schema leaves out the fields that
-have no M1 source (`direction`, the one-liner, type weights, the nesting rule, the dark surface ladder, the motion
-budget and reduced-motion policy); M2 and M3 add them.*
+the hex that the solver picked and measured. Exporters emit that hex and never re-derive it, because a re-derived
+hex can differ by one code per channel and drop a threshold step under its ratio. The M1 schema leaves out the
+fields that have no M1 source: `direction`, the one-liner, type weights, the nesting rule, the dark surface ladder,
+and the motion budget and reduced-motion policy. M2 and M3 add them.*
 
 ## 5. The color engine (RR-0028)
 
@@ -106,34 +106,34 @@ budget and reduced-motion policy); M2 and M3 add them.*
   and amber drift 30–50° toward orange as they darken. `even` mode caps each step's chroma at the weakest
   hue, giving equal contrast and equal chroma across hues. An unsatisfiable target fails loudly with the
   step and hue named; it is never silently clamped. *Refined in M1: a non-threshold step lands within
-  `max(0.05, 0.01 × target)` of its target; threshold steps 500, 600 and 700 are solved for target + 0.02, must
-  meet 3.0, 4.5 and 7.0 on the emitted hex and overshoot by at most 0.12, and the solver picks the nearest of the
-  8-bit hexes around its solution. The dark page is the neutral hue at `oklch(0.18, min(0.012, Cneutral), h)`,
-  and dark chroma takes a factor of 0.85. Drift is `40 × clamp(1 − |h − 90| / 35, 0, 1)` degrees over the 11
-  steps. Even mode works in groups: the four status palettes always form their own group, primary and accent
-  share one when their peak chroma is equal, and secondary and neutral stand alone.*
+  `max(0.05, 0.01 × target)` of its target. Threshold steps 500, 600 and 700 are solved for target + 0.02. They must
+  meet 3.0, 4.5 and 7.0 on the emitted hex, and they overshoot by at most 0.12. The solver picks the nearest of the
+  8-bit hexes around its solution. The dark page is the neutral hue at `oklch(0.18, min(0.012, Cneutral), h)`, and
+  dark chroma takes a factor of 0.85. Drift is `40 × clamp(1 − |h − 90| / 35, 0, 1)` degrees over the 11 steps. Even
+  mode works in groups. The four status palettes always form their own group. Primary and accent share one when
+  their peak chroma is equal. Secondary and neutral stand alone.*
 - **Roles.** Steps map to jobs (Radix-style: backgrounds, states, borders, solids, text) and then to the
   shadcn role set. Text on a fill takes whichever of white or black wins on WCAG; when the perceptual score
-  disagrees, the inspector says so. *Refined in M1: when both white and black reach WCAG 4.5 on a fill, `onFill` takes
-  the one with the larger absolute perceptual score; one passing candidate decides alone. On `#4775ca` white scores
-  4.501 and black 4.665, but the perceptual scores are 76.5 and 33.1, so white wins. Ring and input sit on step 600
-  (700 at AAA) to keep 3:1 against card and muted surfaces. The status fills are warning-500, danger-600, info-700
-  and success-800 at a fixed peak chroma of 0.14, so lightness separates them for color-blind readers. Destructive
-  stays on danger-600 at every contrast level, and a `destructive-subtle` pair (danger-100 and danger-900) carries
-  7:1 text: 46 roles in all.*
+  disagrees, the inspector says so. *Refined in M1: when both white and black reach WCAG 4.5 on a fill, `onFill`
+  takes the one with the larger absolute perceptual score. One passing candidate decides alone. On `#4775ca` white
+  scores 4.501 and black 4.665, but the perceptual scores are 76.5 and 33.1, so white wins. Ring and input sit on
+  step 600 (700 at AAA) to keep 3:1 against card and muted surfaces. The status fills are warning-500, danger-600,
+  info-700 and success-800 at a fixed peak chroma of 0.14, so lightness separates them for color-blind readers.
+  Destructive stays on danger-600 at every contrast level. A `destructive-subtle` pair (danger-100 and danger-900)
+  carries 7:1 text. That makes 46 roles.*
 - **Contrast.** WCAG 2.2 is the only pass/fail gate, computed without rounding (4.499 fails). Next to it,
   an advisory perceptual score from our own MIT implementation of the published formula, labeled
   "perceptual contrast (advisory)" with its polarity sign, never the APCA name or logo (DR-0038).
 - **Color blindness.** Viénot and Brettel for protan and deutan, Brettel for tritan, Machado for anomalous
-  severities, all in linear RGB. *Refined in M1: severity 1 only, Viénot for protan and deutan and Brettel for tritan;
-  Machado and the anomalous severities are not scheduled.* Status and chart sets need pairwise ΔEOK ≥ 0.08 under every simulation
-  (warn below 0.08, error below 0.05) and a lightness gap between danger and success.
+  severities, all in linear RGB. *Refined in M1: severity 1 only, with Viénot for protan and deutan and Brettel for
+  tritan. Machado and the anomalous severities are not scheduled.* Status and chart sets need pairwise ΔEOK ≥ 0.08
+  under every simulation (warn below 0.08, error below 0.05) and a lightness gap between danger and success.
 - **Generators.** OKLCH harmony rotations (analogous, complementary, split, triadic, tetradic, monochrome),
   cosine palettes, Poline-style anchor interpolation, and the Sanzo Wada combinations. Neutrals take the
   brand hue at chroma 0.005–0.02. Status hues start at success 150°, warning 70°, danger 25°, info 250°.
-  *Refined in M1: M1 ships the OKLCH harmonies only; cosine and Poline-style generators move to M5 and the Sanzo Wada
-  combinations to M6. Neutrals follow a tint table: none 0, warm 0.012 at hue 60, cool 0.012 at hue 250, brand
-  0.010 at the primary hue.*
+*Refined in M1: M1 ships the OKLCH harmonies only. Cosine and Poline-style generators move to M5, and the Sanzo Wada
+  combinations to M6. Neutrals follow a tint table: none 0, warm 0.012 at hue 60, cool 0.012 at hue 250, brand 0.010
+  at the primary hue.*
 - **Image to palette.** In a Web Worker: downscale, quantize with `colorthief` 3.5 in OKLCH, score with the
   Material-style rule (share and chroma, hue diversity), assign heuristic roles. The exact extracted colors
   become locked seeds.
@@ -141,9 +141,9 @@ budget and reduced-motion policy); M2 and M3 add them.*
 - **Linter.** The 20 color rules from RR-0028 (contrast, non-text, focus, links, distinguishability,
   monotonic scales, step gaps, chroma consistency, gamut, achromatic hue, dark-mode surfaces and text,
   elevation) plus the taste rules in §6. Each finding has an id, a severity, the measured value, the
-  threshold, its source, and a fix the engine can apply. *Refined in M1: the 20 rules are C1, C2, C4, C5, N1 to N3, F1,
-  S1, S2, K1, K2, K4, G1, G3, D1 to D4 and P1; research rules C3, K3, U1, S3 and G2 are not scheduled. A finding has
-  no fix yet; the studio inspector is the natural home for one. G1 allows 2e-4 outside the gamut, and a locked seed
+  threshold, its source, and a fix the engine can apply. *Refined in M1: the 20 rules are C1, C2, C4, C5, N1 to N3,
+  F1, S1, S2, K1, K2, K4, G1, G3, D1 to D4 and P1. Research rules C3, K3, U1, S3 and G2 are not scheduled. A finding
+  has no fix yet. The studio inspector is the natural home for one. G1 allows 2e-4 outside the gamut. A locked seed
   counts as gamut-mapped only beyond that 2e-4, because rounding to six digits leaves valid 8-bit seeds up to
   1.347e-4 outside. The taste rules move to M2.*
 
@@ -298,7 +298,7 @@ export ≥ 90%.
 
 | Area | Cases (pass and failure) |
 |---|---|
-| Engine | sRGB ↔ OKLCH round trip within 1/510; gamut mapping idempotent and in gamut; WCAG matches the spec's worked examples and never rounds; the perceptual score matches the published test vectors; every solved step hits its target within 0.01 with monotonic lightness (*refined in M1: within `max(0.05, 0.01 × target)`, and threshold steps meet 3.0, 4.5 or 7.0 with an overshoot of at most 0.12, because one 8-bit code moves a high step's ratio by up to about 0.1*); an impossible target throws with step and hue; CVD outputs match the DaltonLens reference values; every text role pair ≥ 4.5 in both modes for every preset (property test over random seeds); achromatic hues are `none`; each linter rule has a passing and a failing fixture |
+| Engine | sRGB ↔ OKLCH round trip within 1/510; gamut mapping idempotent and in gamut; WCAG matches the spec's worked examples and never rounds; the perceptual score matches the published test vectors; every solved step hits its target within 0.01 with monotonic lightness (*refined in M1: within `max(0.05, 0.01 × target)`. Threshold steps meet 3.0, 4.5 or 7.0 and overshoot by at most 0.12, because one 8-bit code moves a high step's ratio by up to about 0.1*); an impossible target throws with step and hue; CVD outputs match the DaltonLens reference values; every text role pair ≥ 4.5 in both modes for every preset (property test over random seeds); achromatic hues are `none`; each linter rule has a passing and a failing fixture |
 | Spec | Rejects unknown versions, out-of-range values and missing roles; canonical serialization is stable; URL codec round-trips; a tampered or truncated hash fails with a message, never a blank studio |
 | Export | Golden files per preset; byte-identical output for the same spec; DTCG validates against the 2025.10 schemas; DESIGN.md lints with 0 errors; TOON round-trips; the registry item validates against shadcn's schema; `dyelot-check.mjs` passes on a clean fixture app and fails on raw hex, `bg-blue-500` and a tampered `theme.css` |
 | AI | Out-of-range model output is rejected; provider order; labeled fallback on every failure; the guard refuses below the reserve; a schema failure never retries; PKCE state mismatch is rejected; the visitor key never appears in a request to our origin; on-device unavailable falls through |
