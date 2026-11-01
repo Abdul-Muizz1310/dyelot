@@ -111,7 +111,8 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   if (typeof type !== "object" || type === null) {
     throw new TypeError(`generateSystem: params.type must be an object, got ${describeType(type)}`);
   }
-  const { context, ratio } = type as DirectionParams["type"];
+  // Not yet checked: each field is unknown until assertOneOf and checkRatio parse it.
+  const { context, ratio } = type as { readonly context?: unknown; readonly ratio?: unknown };
   assertOneOf(context, TYPE_CONTEXTS, "generateSystem: params.type.context");
   const { radius, depth, motion, name } = params;
   assertOneOf(radius, RADIUS_SET_NAMES, "generateSystem: params.radius");
