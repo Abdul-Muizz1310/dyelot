@@ -432,6 +432,16 @@ test.describe("7.4 The canvas on the kitchen sink", () => {
     }
     for (const frame of [360, 768, 1280] as const) {
       await toolbarRadio(page, "Frame", String(frame)).check();
+      // A figure never breaks: each numeric cell holds its number on one line.
+      const lines = await canvasFrame(page).evaluate((element) =>
+        [...element.querySelectorAll("td.kit-num")].map((cell) => {
+          const range = document.createRange();
+          range.selectNodeContents(cell);
+          return new Set([...range.getClientRects()].map((rect) => Math.round(rect.top))).size;
+        }),
+      );
+      expect(lines.length, `${frame}`).toBeGreaterThan(0);
+      expect(new Set(lines), `${frame}`).toEqual(new Set([1]));
       const overflow = await page.evaluate(() =>
         [...document.querySelectorAll<HTMLElement>("[data-canvas]")].map((element) => [
           element.scrollWidth,
@@ -551,6 +561,31 @@ test.describe("7.4 Motion on the canvas", () => {
     const entrance = canvasFrame(page).locator("[data-entrance]");
     await expect(canvasFrame(page).locator("[data-entrance]")).toHaveCount(1);
     expect(await entrance.evaluate((element) => getComputedStyle(element).transform)).toBe("none");
+    // An indeterminate bar that stops still reads as indeterminate: a pattern, not a 40 % fill.
+    const sweep = canvasPane(page, "light").locator(
+      '[data-kit="progress"][data-state="indeterminate"] > *',
+    );
+    expect(await sweep.evaluate((fill) => getComputedStyle(fill).backgroundImage)).not.toBe("none");
+    // The switch is a view setting: it keeps the preview's own state and never replays the entrance.
+    const box = canvasPane(page, "light").locator('[data-kit="checkbox"][data-state="default"]');
+    await box.check();
+    await reduceMotion(page).click();
+    await expect(reduceMotion(page)).toHaveAttribute("aria-checked", "false");
+    const opacities = await entrance.evaluate(
+      (element) =>
+        new Promise<number[]>((resolve) => {
+          const seen: number[] = [];
+          const start = performance.now();
+          const tick = () => {
+            seen.push(Number(getComputedStyle(element).opacity));
+            if (performance.now() - start < 300) requestAnimationFrame(tick);
+            else resolve(seen);
+          };
+          tick();
+        }),
+    );
+    expect(new Set(opacities)).toEqual(new Set([1]));
+    await expect(box).toBeChecked();
   });
 
   test("F-CANVAS-08 prefers-reduced-motion does the same without the switch", async ({ page }) => {

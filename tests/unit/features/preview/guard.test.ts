@@ -2,8 +2,17 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { generateSystem } from "@/engine";
+import { freshParams, resolveParams } from "@/features/studio/params";
+import { densityVars, themeVars } from "@/theme/vars";
 import { deriveTailwind } from "../../engine/lint/tailwind-source";
-import { findViolations, houseColors, madderFiles, previewFiles } from "./guard-rules";
+import {
+  bridgeVariables,
+  findViolations,
+  houseColors,
+  madderFiles,
+  previewFiles,
+} from "./guard-rules";
 
 // The preview source guard of docs/specs/02-studio.md, section 6.10: C-GUARD-01 to C-GUARD-05. The
 // canvas is styled only by the spec's custom properties (I-M2-04), so no file under
@@ -12,45 +21,73 @@ import { findViolations, houseColors, madderFiles, previewFiles } from "./guard-
 const ROOT = path.resolve(import.meta.dirname, "../../../..");
 const PREVIEW = path.join(ROOT, "src/features/preview");
 
+const PALETTE = "palette class";
+const WHITE_BLACK = "white or black utility";
+const HOUSE = "house color utility";
+const ARBITRARY = "named color in an arbitrary value";
+const DARK = "dark variant";
+const HEX = "hex literal";
+const FUNCTION = "color function";
+const MIX = "color-mix over";
+const NAMED = "named color";
+const OUTSIDE = "variable outside the bridge";
+
 describe("C-GUARD-01 findViolations flags every color that is not a spec variable", () => {
   it.each([
-    "bg-indigo-500",
-    "bg-mauve-500",
-    "text-slate-700",
-    "border-red-200",
-    "ring-blue-500/50",
-    "dark:bg-black",
-    "bg-white",
-    "bg-[#fff]",
-    "color: #fff",
-    "fill: rgb(0 0 0 / 0.1)",
-    "stroke: oklch(0.6 0.1 20)",
-    "color: rebeccapurple",
-    "color-mix(in oklab, #fff 20%, transparent)",
-    'style={{ color: "red" }}',
-  ])("flags %s", (source) => {
-    expect(findViolations(source)).not.toEqual([]);
+    ["bg-indigo-500", PALETTE],
+    ["bg-mauve-500", PALETTE],
+    ["text-slate-700", PALETTE],
+    ["border-red-200", PALETTE],
+    ["ring-blue-500/50", PALETTE],
+    ["dark:bg-black", DARK],
+    ["bg-white", WHITE_BLACK],
+    ["bg-[#fff]", HEX],
+    ["color: #fff", HEX],
+    ["fill: rgb(0 0 0 / 0.1)", FUNCTION],
+    ["stroke: oklch(0.6 0.1 20)", FUNCTION],
+    ["color: rebeccapurple", NAMED],
+    ["color-mix(in oklab, #fff 20%, transparent)", MIX],
+    ['style={{ color: "red" }}', NAMED],
+    ["[data-canvas] { --kit-scrim: white; }", NAMED],
+    ['style={{ "--kit-value": "red" }}', NAMED],
+    ["color: var(--primary, red);", NAMED],
+    ["background-color: Canvas;", NAMED],
+    ["color: CanvasText;", NAMED],
+    ["border: 1px solid ButtonBorder;", NAMED],
+    ["color: AccentColor;", NAMED],
+    ["-webkit-text-fill-color: white;", NAMED],
+    ["-webkit-tap-highlight-color: red;", NAMED],
+    ["color: var(--panel)", OUTSIDE],
+    ["background: var(--page)", OUTSIDE],
+    ["bg-(--panel)", OUTSIDE],
+    ["text-[var(--fg-muted)]", OUTSIDE],
+  ])("flags %s as a %s", (source, rule) => {
+    expect(findViolations(source)).toContainEqual(expect.stringContaining(rule));
   });
 
   it.each([
-    'className="hover:text-white"',
-    "background: hsl(20 50% 50%)",
-    "outline-color: lab(50 20 20)",
-    "fill: color(display-p3 1 0 0)",
-    "background: color-mix(in srgb, red 20%, transparent)",
-    "background: color-mix(in oklab, currentColor 20%, transparent)",
-    "background: color-mix(in oklab, var(--primary, #fff) 20%, transparent)",
-    'fill="black"',
-    "text-[navy]",
-    "bg-panel",
-    "text-fg-muted",
-    "border-control-edge",
-    "bg-accent-madder",
-    "border-border-bright",
-    "shadow-[0_0_0_1px_#000]",
-    "from-emerald-400 to-sky-500",
-  ])("also flags %s", (source) => {
-    expect(findViolations(source)).not.toEqual([]);
+    ['className="hover:text-white"', WHITE_BLACK],
+    ["background: hsl(20 50% 50%)", FUNCTION],
+    ["outline-color: lab(50 20 20)", FUNCTION],
+    ["fill: color(display-p3 1 0 0)", FUNCTION],
+    ["background: color-mix(in srgb, red 20%, transparent)", MIX],
+    ["background: color-mix(in oklab, currentColor 20%, transparent)", MIX],
+    ["background: color-mix(in oklab, var(--primary, #fff) 20%, transparent)", MIX],
+    ['fill="black"', NAMED],
+    ["text-[navy]", ARBITRARY],
+    ["bg-panel", HOUSE],
+    ["text-fg-muted", HOUSE],
+    ["border-control-edge", HOUSE],
+    ["bg-accent-madder", HOUSE],
+    ["border-border-bright", HOUSE],
+    ["shadow-[0_0_0_1px_#000]", HEX],
+    ["from-emerald-400 to-sky-500", PALETTE],
+    ["color: var(--accent-madder)", OUTSIDE],
+    ["box-shadow: 0 0 0 1px var(--border-bright)", OUTSIDE],
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
+    ["`var(--chrome-${name})`", OUTSIDE],
+  ])("also flags %s as a %s", (source, rule) => {
+    expect(findViolations(source)).toContainEqual(expect.stringContaining(rule));
   });
 
   it("names what it flags, once per hit", () => {
@@ -62,7 +99,9 @@ describe("C-GUARD-01 findViolations flags every color that is not a spec variabl
     const { palettes } = deriveTailwind();
     expect(palettes).toHaveLength(26);
     for (const palette of palettes) {
-      expect(findViolations(`bg-${palette}-500`), palette).not.toEqual([]);
+      expect(findViolations(`bg-${palette}-500`), palette).toContainEqual(
+        expect.stringContaining(PALETTE),
+      );
     }
   });
 });
@@ -85,6 +124,16 @@ describe("C-GUARD-02 findViolations passes the spec's variables and the color ke
     "data-mode={mode} roles.dark",
     "const view = { light: 1, dark: 2 };",
     "text-sm text-center border-2 shadow-none ring-2 fill-none",
+    "[data-canvas] { --kit-fill: var(--primary); }",
+    "height: var(--control-height); padding-inline: calc(var(--space-4) + var(--density-offset));",
+    "background-color: var(--kit-scrim);",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
+    'style={{ "--kit-value": `${value}%` }}',
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
+    "`var(--text-${step})`",
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
+    "`var(--${role})`",
+    "font-family: var(--font-display); stroke-width: var(--icon-stroke);",
   ])("passes %s", (source) => {
     expect(findViolations(source)).toEqual([]);
   });
@@ -96,6 +145,16 @@ describe("C-GUARD-02 findViolations passes the spec's variables and the color ke
     expect([...theme.keys()]).toEqual(
       expect.arrayContaining(["panel", "fg-muted", "control-edge", "accent-madder"]),
     );
+  });
+
+  it("derives the variables it allows from themeVars and densityVars, not from a typed list", () => {
+    const spec = generateSystem(resolveParams(freshParams(), "seed-1"), "seed-1");
+    const written = [
+      ...Object.keys(themeVars(spec, "light")),
+      ...Object.keys(densityVars("dense")),
+    ];
+    expect([...bridgeVariables()].sort()).toEqual(written.sort());
+    expect(written).toHaveLength(206);
   });
 });
 

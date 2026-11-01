@@ -368,7 +368,11 @@ function Specimen({
 }) {
   return (
     <figure data-specimen="" data-wide={wide ? "" : undefined} className="sink-specimen">
-      {children}
+      {/* A forced state is a picture of the part: it takes no focus and no pointer, so the
+          kitchen sink keeps a short Tab order. The default specimen stays live. */}
+      <div className="sink-specimen-part" inert={state !== "default"}>
+        {children}
+      </div>
       <figcaption data-state-label="" className="kit-mono kit-t-caption">
         {state}
       </figcaption>
@@ -406,7 +410,13 @@ function specimensOf(id: KitComponentId, states: readonly KitState[], copy: Canv
       return (
         <div className="sink-specimens" data-fill="">
           {each((state) => (
-            <Input label="Observer" state={state} value={copy.person} placeholder="Your name" />
+            <Input
+              label="Observer"
+              state={state}
+              value={copy.person}
+              placeholder="Your name"
+              messages={{ invalid: "Enter the observer's name.", success: "Observer saved." }}
+            />
           ))}
         </div>
       );
@@ -419,6 +429,7 @@ function specimensOf(id: KitComponentId, states: readonly KitState[], copy: Canv
               state={state}
               value={`Sample: the ${copy.word} flooded at dawn.`}
               placeholder="What did the water do?"
+              messages={{ invalid: "Write a note about the water.", success: "Note saved." }}
             />
           ))}
         </div>
@@ -427,7 +438,12 @@ function specimensOf(id: KitComponentId, states: readonly KitState[], copy: Canv
       return (
         <div className="sink-specimens" data-fill="">
           {each((state) => (
-            <Select label="Place" state={state} options={PLACES} />
+            <Select
+              label="Place"
+              state={state}
+              options={PLACES}
+              invalid="Choose a place for the reading."
+            />
           ))}
         </div>
       );

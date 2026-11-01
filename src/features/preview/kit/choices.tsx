@@ -3,6 +3,7 @@
 import { Check, Minus } from "lucide-react";
 import { m } from "motion/react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
+import { useKitTransition } from "./motion";
 import type { KitState } from "./states";
 
 // The kit's checkbox, radio, switch and segmented control (section 7.5). Each is a native control or
@@ -63,6 +64,7 @@ export function Radio({ label, state }: { label: string; state: KitState }) {
  */
 export function Switch({ label, state }: { label: string; state?: KitState }) {
   const [on, setOn] = useState(state === "selected");
+  const transition = useKitTransition();
   return (
     <button
       type="button"
@@ -82,6 +84,7 @@ export function Switch({ label, state }: { label: string; state?: KitState }) {
           className="kit-switch-thumb"
           initial={false}
           animate={{ x: on ? "100%" : "0%" }}
+          transition={transition}
         />
       </span>
       {label}

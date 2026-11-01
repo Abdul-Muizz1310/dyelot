@@ -1,7 +1,14 @@
 "use client";
 
-import { domAnimation, LazyMotion, MotionConfig, m, useReducedMotionConfig } from "motion/react";
-import type { ReactNode } from "react";
+import {
+  domAnimation,
+  LazyMotion,
+  MotionConfig,
+  m,
+  type Transition,
+  useReducedMotionConfig,
+} from "motion/react";
+import { type ReactNode, useState } from "react";
 
 // The kit's motion (R2-08, R2-21): every Motion part springs with the spec's spring, the one that
 // `feelSpring(spec.motion)` reads. The canvas's "Reduce motion" switch passes `reducedMotion="always"`;
@@ -34,25 +41,32 @@ export function MotionScope({
 
 /**
  * A template's one orchestrated entrance (research D4): the block rises into place once, on the
- * spec's spring. Under reduced motion it is in place from the start and nothing runs.
+ * spec's spring. Reduced motion is read once, at mount: under it the block starts in place and
+ * nothing runs, and a later toggle changes nothing. The element is always the same `m.div`, so a
+ * view toggle never remounts the template and the preview keeps its own state (R2-20).
  */
 export function Entrance({ className, children }: { className: string; children: ReactNode }) {
   const reduced = useReducedMotionConfig() === true;
-  if (reduced) {
-    return (
-      <div data-entrance="" className={className}>
-        {children}
-      </div>
-    );
-  }
+  const [reducedAtMount] = useState(reduced);
   return (
     <m.div
       data-entrance=""
       className={className}
-      initial={{ opacity: 0, y: 16 }}
+      initial={reducedAtMount ? false : { opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
     >
       {children}
     </m.div>
   );
+}
+
+const INSTANT: Transition = { duration: 0 };
+
+/**
+ * The transition of a live kit part: instant while motion is reduced, otherwise the spec's spring
+ * from MotionConfig. Motion reads `reducedMotion` when a part mounts, so a part that stays mounted
+ * across the canvas switch reads it here, on every render.
+ */
+export function useKitTransition(): Transition | undefined {
+  return useReducedMotionConfig() === true ? INSTANT : undefined;
 }

@@ -70,6 +70,34 @@ describe("canvasStyle (section 7.4, R2-12, F-CANVAS-01, F-CANVAS-06)", () => {
     });
   });
 
+  it("R-05: canvasStyle names itself for a spec, mode, view, vision or density outside its domain", () => {
+    const view = { vision: "none", density: "dense" } as const;
+    expect(() => canvasStyle(null as never, "light", view)).toThrow(TypeError);
+    expect(() => canvasStyle(null as never, "light", view)).toThrow(/^canvasStyle: spec/);
+    expect(() => canvasStyle(SPEC, "light", null as never)).toThrow(TypeError);
+    expect(() => canvasStyle(SPEC, "light", null as never)).toThrow(/^canvasStyle: view/);
+    expect(() => canvasStyle(SPEC, "dim" as never, view)).toThrow(RangeError);
+    expect(() => canvasStyle(SPEC, "dim" as never, view)).toThrow(/^canvasStyle: mode/);
+    expect(() => canvasStyle(SPEC, 1 as never, view)).toThrow(TypeError);
+    expect(() => canvasStyle(SPEC, "light", { ...view, vision: "mono" as never })).toThrow(
+      /^canvasStyle: view.vision/,
+    );
+    expect(() => canvasStyle(SPEC, "light", { ...view, vision: "mono" as never })).toThrow(
+      RangeError,
+    );
+    expect(() => canvasStyle(SPEC, "light", { ...view, density: "huge" as never })).toThrow(
+      /^canvasStyle: view.density/,
+    );
+    expect(() => canvasStyle(SPEC, "light", { ...view, density: 2 as never })).toThrow(TypeError);
+  });
+
+  it("R-05: cssVariables names itself for a group that is not a record or a value that is not a string", () => {
+    expect(() => cssVariables(null as never)).toThrow(TypeError);
+    expect(() => cssVariables(null as never)).toThrow(/^cssVariables: group/);
+    expect(() => cssVariables({ "--a": 1 } as never)).toThrow(TypeError);
+    expect(() => cssVariables({ "--a": 1 } as never)).toThrow(/^cssVariables: --a/);
+  });
+
   it("cssVariables merges groups and rejects a name that is not a custom property", () => {
     expect(cssVariables({ "--a": "1" }, { "--b": "2" })).toEqual({ "--a": "1", "--b": "2" });
     expect(() => cssVariables({ color: "inherit" })).toThrow(RangeError);

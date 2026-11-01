@@ -3,6 +3,7 @@
 import { Bookmark, Check } from "lucide-react";
 import { m } from "motion/react";
 import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from "react";
+import { useKitTransition } from "./motion";
 import type { KitState } from "./states";
 
 // The kit's tabs and menu (section 7.5). A specimen shows one tab or one menu item in a forced
@@ -49,6 +50,7 @@ export function TabsDemo() {
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const [selected, setSelected] = useState(0);
   const [bar, setBar] = useState({ x: 0, width: 0 });
+  const transition = useKitTransition();
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -106,6 +108,7 @@ export function TabsDemo() {
           className="kit-tabs-indicator"
           initial={false}
           animate={{ x: bar.x, width: bar.width }}
+          transition={transition}
         />
       </div>
       <div

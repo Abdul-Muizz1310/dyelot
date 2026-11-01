@@ -100,6 +100,11 @@
   border-bottom: 1px solid var(--border);
 }
 
+/* A sample keeps a reading measure, whatever the pane's width. */
+.sink-type-row > [data-token] {
+  max-width: 65ch;
+}
+
 .sink-type-meta {
   display: flex;
   flex-wrap: wrap;
@@ -262,8 +267,18 @@
   gap: var(--space-2);
 }
 
+/* The part spans its figure, so a width in percent reads the figure; the part itself sits at start. */
+.sink-specimen-part {
+  display: grid;
+  min-width: 0;
+  justify-self: stretch;
+  justify-items: start;
+}
+
 .sink-specimens[data-fill] > .sink-specimen,
-.sink-specimen[data-wide] {
+.sink-specimens[data-fill] .sink-specimen-part,
+.sink-specimen[data-wide],
+.sink-specimen[data-wide] > .sink-specimen-part {
   justify-items: stretch;
 }
 

@@ -8,22 +8,15 @@ import type { KitState } from "./states";
 // invalid and success states, a message tied to it with `aria-describedby`. Values are the
 // control's own state (R2-20): typing changes the field and nothing else.
 
+/** What a field says when it is invalid and when it is saved, in its own words (M-3). */
+export type FieldMessages = { readonly invalid: string; readonly success: string };
+
 type FieldProps = {
   label: string;
   state: KitState;
   value: string;
   placeholder: string;
-};
-
-type Messages = { readonly invalid: string; readonly success: string };
-
-const FIELD_MESSAGES: Messages = {
-  invalid: "Enter a reading in meters.",
-  success: "Reading saved.",
-};
-const SELECT_MESSAGES: Messages = {
-  invalid: "Choose a place for the reading.",
-  success: "Place saved.",
+  messages: FieldMessages;
 };
 
 /** The attributes a field state sets on its control. */
@@ -46,13 +39,14 @@ function controlState(state: KitState, describedBy: string) {
 function Message({
   id,
   state,
-  messages = FIELD_MESSAGES,
+  messages,
 }: {
   id: string;
   state: KitState;
-  messages?: Messages;
+  messages: Partial<FieldMessages>;
 }) {
-  if (state !== "invalid" && state !== "success") return null;
+  const text = state === "invalid" || state === "success" ? messages[state] : undefined;
+  if (text === undefined) return null;
   return (
     <p id={id} className="kit-message" data-tone={state}>
       {state === "invalid" ? (
@@ -60,12 +54,12 @@ function Message({
       ) : (
         <CircleCheck aria-hidden="true" />
       )}
-      {messages[state]}
+      {text}
     </p>
   );
 }
 
-export function Input({ label, state, value, placeholder }: FieldProps) {
+export function Input({ label, state, value, placeholder, messages }: FieldProps) {
   const id = useId();
   return (
     <div className="kit-field">
@@ -82,12 +76,12 @@ export function Input({ label, state, value, placeholder }: FieldProps) {
         readOnly={state === "read-only"}
         {...controlState(state, `${id}-message`)}
       />
-      <Message id={`${id}-message`} state={state} />
+      <Message id={`${id}-message`} state={state} messages={messages} />
     </div>
   );
 }
 
-export function Textarea({ label, state, value, placeholder }: FieldProps) {
+export function Textarea({ label, state, value, placeholder, messages }: FieldProps) {
   const id = useId();
   return (
     <div className="kit-field">
@@ -104,19 +98,22 @@ export function Textarea({ label, state, value, placeholder }: FieldProps) {
         readOnly={state === "read-only"}
         {...controlState(state, `${id}-message`)}
       />
-      <Message id={`${id}-message`} state={state} />
+      <Message id={`${id}-message`} state={state} messages={messages} />
     </div>
   );
 }
 
+/** A native select. Section 7.5 gives it no success state, so it has one message: `invalid`. */
 export function Select({
   label,
   state,
   options,
+  invalid,
 }: {
   label: string;
   state: KitState;
   options: readonly string[];
+  invalid: string;
 }) {
   const id = useId();
   const placeholder = state === "placeholder";
@@ -146,7 +143,7 @@ export function Select({
         </select>
         <ChevronDown aria-hidden="true" />
       </span>
-      <Message id={`${id}-message`} state={state} messages={SELECT_MESSAGES} />
+      <Message id={`${id}-message`} state={state} messages={{ invalid }} />
     </div>
   );
 }

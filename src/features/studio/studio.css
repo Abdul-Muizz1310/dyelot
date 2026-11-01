@@ -153,3 +153,8 @@ body:has(.studio-surround)::before {
   transform: translateY(8px);
   pointer-events: none;
 }
+
+/* The canvas frame's edge on the surround (the frame itself is styled in src/features/preview). */
+.canvas-fit {
+  box-shadow: 0 0 0 1px var(--border-bright);
+}

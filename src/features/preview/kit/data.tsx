@@ -13,7 +13,9 @@ function Head() {
   return (
     <thead>
       <tr>
-        <th scope="col">State</th>
+        <th scope="col" className="kit-table-state">
+          State
+        </th>
         <th scope="col">Place</th>
         <th scope="col">Observer</th>
         <th scope="col" className="kit-num">
@@ -48,7 +50,7 @@ export function ReadingsTables({
               data-specimen=""
               data-roles={state === "selected" ? "accent accent-foreground" : "muted border"}
             >
-              <td>
+              <td className="kit-table-state">
                 <span data-state-label="" className="kit-mono kit-t-caption">
                   {state}
                 </span>

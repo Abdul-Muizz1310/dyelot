@@ -120,7 +120,7 @@ export function DialogStage({ title }: { title: string }) {
         className="kit-dialog"
         data-kit="dialog"
         data-state="default"
-        data-roles="popover popover-foreground"
+        data-roles="popover popover-foreground border"
       >
         <p id={`${id}-title`} className="kit-dialog-title">
           {title}

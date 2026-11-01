@@ -74,6 +74,122 @@ function computed(scope: Locator, selector: string, properties: readonly string[
   );
 }
 
+/**
+ * The forced states of every kit component that do not paint differently from the component's
+ * `default` specimen (F-TPL-03). Hover, pressed and selected must change a fill, an edge or a shadow
+ * somewhere in the part (pressed may move it instead); focus-visible must draw the 2 px `--ring`
+ * outline; disabled must dim or disable the part; any other state must change what the part shows.
+ */
+function stateDifferences(pane: Locator): Promise<string[]> {
+  return pane.evaluate((element) => {
+    const ring = (() => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--ring)";
+      element.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    })();
+    const paints = (part: Element, withTransform: boolean) => {
+      const values = new Set<string>();
+      for (const node of [part, ...part.querySelectorAll("*")]) {
+        const style = getComputedStyle(node);
+        const after = getComputedStyle(node, "::after");
+        values.add(`bg ${style.backgroundColor}`);
+        values.add(
+          `edge ${style.borderTopColor} ${style.borderRightColor} ${style.borderBottomColor} ${style.borderLeftColor}`,
+        );
+        values.add(`shadow ${style.boxShadow}`);
+        values.add(`underline ${style.textDecorationLine} ${style.textDecorationThickness}`);
+        if (after.content !== "none") values.add(`after ${after.backgroundColor}`);
+        if (withTransform) values.add(`move ${style.transform}`);
+      }
+      return values;
+    };
+    const shows = (part: Element) =>
+      [part, ...part.querySelectorAll("*")]
+        .map((node) => {
+          const style = getComputedStyle(node);
+          const field = node as HTMLInputElement;
+          return [
+            node.tagName,
+            style.backgroundColor,
+            style.backgroundImage,
+            style.borderTopColor,
+            style.borderTopStyle,
+            style.boxShadow,
+            style.color,
+            style.opacity,
+            style.animationName,
+            node.getAttribute("aria-busy"),
+            node.getAttribute("aria-invalid"),
+            "value" in field ? field.value : "",
+            "indeterminate" in field ? String(field.indeterminate) : "",
+            node.children.length === 0 ? node.textContent : "",
+            Math.round(node.getBoundingClientRect().width),
+          ].join("|");
+        })
+        .join("\n");
+    const differs = (a: Set<string>, b: Set<string>) =>
+      [...a].some((value) => !b.has(value)) || [...b].some((value) => !a.has(value));
+    const problems: string[] = [];
+    const parts = [...element.querySelectorAll<HTMLElement>("[data-kit][data-state]")];
+    const key = (part: HTMLElement) => `${part.dataset.kit}|${part.dataset.variant ?? ""}`;
+    const defaults = new Map<string, HTMLElement>();
+    for (const part of parts) {
+      if (part.dataset.state === "default" && !defaults.has(key(part)))
+        defaults.set(key(part), part);
+    }
+    for (const part of parts) {
+      const state = part.dataset.state ?? "";
+      const base = defaults.get(key(part));
+      if (state === "default" || base === undefined) continue;
+      const name = `${key(part)} ${state}`;
+      const style = getComputedStyle(part);
+      if (state === "focus-visible") {
+        const ok =
+          style.outlineStyle === "solid" &&
+          style.outlineWidth === "2px" &&
+          style.outlineColor === ring;
+        if (!ok) problems.push(name);
+      } else if (state === "disabled") {
+        const ok = Number.parseFloat(style.opacity) < 1 || part.matches(":disabled");
+        if (!ok) problems.push(name);
+      } else if (state === "hover" || state === "pressed" || state === "selected") {
+        if (!differs(paints(part, state === "pressed"), paints(base, state === "pressed"))) {
+          problems.push(name);
+        }
+      } else if (shows(part) === shows(base)) {
+        problems.push(name);
+      }
+    }
+    return problems;
+  });
+}
+
+/** The Tab stops inside the canvas frame: focusable, not inert, one per radio group. */
+function tabStops(page: Page): Promise<number> {
+  return canvasFrame(page).evaluate((frame) => {
+    const groups = new Set<string>();
+    let stops = 0;
+    for (const node of frame.querySelectorAll<HTMLElement>(
+      "a[href], button, input, select, textarea, [tabindex]",
+    )) {
+      if (node.closest("[inert]") !== null || node.tabIndex < 0) continue;
+      if ((node as HTMLInputElement).disabled) continue;
+      const box = node.getBoundingClientRect();
+      if (box.width === 0 && box.height === 0) continue;
+      const radio = node instanceof HTMLInputElement && node.type === "radio";
+      if (radio && node.name !== "") {
+        if (groups.has(node.name)) continue;
+        groups.add(node.name);
+      }
+      stops++;
+    }
+    return stops;
+  });
+}
+
 test.describe("7.5 The kitchen sink", () => {
   test.describe.configure({ mode: "serial" });
   test.use({ viewport: { width: 1280, height: 800 } });
@@ -121,7 +237,24 @@ test.describe("7.5 The kitchen sink", () => {
 
       const shadows = await computed(pane, '[data-token^="shadow-"]', ["box-shadow"]);
       expect(shadows.map((row) => row.token)).toEqual([1, 2, 3, 4, 5].map((n) => `shadow-${n}`));
-      for (const row of shadows) expect(row["box-shadow"], row.token).not.toBe("none");
+      // Each tile paints its own elevation: the shadow a probe styled with that variable gets.
+      const probes = await pane.evaluate((element) =>
+        [1, 2, 3, 4, 5].map((level) => {
+          const probe = document.createElement("span");
+          probe.style.boxShadow = `var(--shadow-${level})`;
+          element.append(probe);
+          const shadow = getComputedStyle(probe).boxShadow;
+          probe.remove();
+          return shadow;
+        }),
+      );
+      expect(
+        shadows.map((row) => row["box-shadow"]),
+        mode,
+      ).toEqual(probes);
+      if (first().depth.style !== "flat") {
+        expect(new Set(probes).size, `${mode} distinct elevations`).toBe(5);
+      }
 
       const motion = await computed(pane, "[data-token^='duration-'], [data-token^='ease-']", []);
       expect(motion.map((row) => row.token)).toEqual([
@@ -208,7 +341,45 @@ test.describe("7.5 The kitchen sink", () => {
       expect(fills.length, mode).toBe(3);
       for (const [value = 0, share = 0] of fills)
         expect(share, `${mode} ${value}`).toBeCloseTo(value / 100, 2);
+      // Each forced state paints differently from its component's default specimen.
+      expect(await stateDifferences(canvasPane(page, mode)), mode).toEqual([]);
+      // A field's messages speak of that field.
+      const messages = await canvasPane(page, mode).evaluate((pane) =>
+        [...pane.querySelectorAll(".kit-message")].map((message) => [
+          message.closest(".kit-field")?.querySelector("label")?.textContent ?? "",
+          message.getAttribute("data-tone") ?? "",
+          message.textContent ?? "",
+        ]),
+      );
+      expect(messages, mode).toEqual([
+        ["Observer", "invalid", "Enter the observer's name."],
+        ["Observer", "success", "Observer saved."],
+        ["Notes", "invalid", "Write a note about the water."],
+        ["Notes", "success", "Note saved."],
+        ["Place", "invalid", "Choose a place for the reading."],
+      ]);
+      // The dialog and the sheet keep an edge on any stage, and name it.
+      const edges = await canvasPane(page, mode).evaluate((pane) =>
+        [".kit-dialog", ".kit-sheet"].map((selector) => {
+          const surface = pane.querySelector(selector);
+          return [
+            surface === null ? "" : getComputedStyle(surface).borderTopWidth,
+            surface?.getAttribute("data-roles")?.split(" ").includes("border") ?? false,
+          ];
+        }),
+      );
+      expect(edges, mode).toEqual([
+        ["1px", true],
+        ["1px", true],
+      ]);
+      // A switch's focus ring follows its rounded shape.
+      const switchRadius = await canvasPane(page, mode)
+        .locator('[data-kit="switch"][data-state="focus-visible"]')
+        .evaluate((element) => Number.parseFloat(getComputedStyle(element).borderTopLeftRadius));
+      expect(switchRadius, mode).toBeGreaterThan(0);
+      // Only the default specimens and the live demos take focus: at most 60 Tab stops per frame.
     }
+    expect(await tabStops(page)).toBeLessThanOrEqual(60);
   });
 
   test("F-TPL-04 the five button variants paint with their roles and name them", async () => {
@@ -309,6 +480,12 @@ test.describe("7.5 The kitchen sink", () => {
     expect(icons.length).toBeGreaterThan(20);
     expect(icons.filter((icon) => !icon.lucide)).toEqual([]);
     expect(new Set(icons.map((icon) => icon.stroke))).toEqual(new Set([`${stroke}px`]));
+    // A part's own icon size wins over the default icon size: 1.75rem in the card media.
+    const media = await canvasPane(page, "light")
+      .locator(".kit-card-media svg")
+      .first()
+      .evaluate((svg) => getComputedStyle(svg).width);
+    expect(media).toBe("28px");
   });
 
   test("F-TPL-08 concentric radii hold for an image in a card and a segmented control", async () => {
@@ -335,6 +512,37 @@ test.describe("7.5 The kitchen sink", () => {
       if (radii === null) continue;
       expect(radii.media, mode).toBe(Math.max(0, radii.card - radii.padding));
       expect(radii.outer, mode).toBe(radii.inner + radii.gap);
+      // The segmented control hugs its segments: its track ends at the last segment plus padding.
+      const slack = await canvasPane(page, mode).evaluate((pane) => {
+        const outer = pane.querySelector<HTMLElement>('[data-concentric="segmented"]');
+        const last = outer?.querySelector<HTMLElement>('[data-concentric="segment"]:last-child');
+        if (!outer || !last) return null;
+        // The frame may be scaled to fit: boxes are scaled, padding is not.
+        const box = outer.getBoundingClientRect();
+        const scale = box.width / outer.offsetWidth;
+        const style = getComputedStyle(outer);
+        const end =
+          last.getBoundingClientRect().right +
+          (Number.parseFloat(style.paddingRight) + Number.parseFloat(style.borderRightWidth)) *
+            scale;
+        return (box.right - end) / scale;
+      });
+      expect(slack, mode).not.toBeNull();
+      expect(Math.abs(slack ?? 99), mode).toBeLessThanOrEqual(1);
+      // Type samples keep a reading measure of at most 65 characters.
+      const measures = await canvasPane(page, mode).evaluate((pane) =>
+        [...pane.querySelectorAll<HTMLElement>('[data-token^="text-"]')].map((sample) => {
+          // The sample's own `ch`, read as a computed length (layout px, unscaled, exact).
+          const probe = document.createElement("span");
+          probe.style.position = "absolute";
+          probe.style.width = "100ch";
+          sample.append(probe);
+          const ch = Number.parseFloat(getComputedStyle(probe).width) / 100;
+          probe.remove();
+          return Number.parseFloat(getComputedStyle(sample).maxWidth) / ch;
+        }),
+      );
+      for (const measure of measures) expect(measure, mode).toBeLessThanOrEqual(65.5);
     }
   });
 

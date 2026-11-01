@@ -13,11 +13,11 @@
   width: 100%;
 }
 
+/* The fit box's edge is chrome: studio.css draws it. */
 .canvas-fit {
   margin-inline: auto;
   overflow: clip;
   border-radius: 12px;
-  box-shadow: 0 0 0 1px var(--border-bright);
 }
 
 .canvas-scale {

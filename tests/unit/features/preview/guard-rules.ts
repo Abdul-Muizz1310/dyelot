@@ -1,14 +1,17 @@
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { ROLE_NAMES } from "@/engine";
+import { generateSystem, ROLE_NAMES } from "@/engine";
+import { freshParams, resolveParams } from "@/features/studio/params";
+import { densityVars, themeVars } from "@/theme/vars";
 import { deriveTailwind } from "../../engine/lint/tailwind-source";
 
 // The preview source guard of docs/specs/02-studio.md, section 6.10. `findViolations` reads a file's
 // text and names every color that is not one of the spec's custom properties: a Tailwind palette
 // class (palette names derived from tailwindcss/theme.css, as T3's table is, R2-09), white and black
 // utilities, a house theme color that is not a role, the `dark:` variant, a hex literal, a color
-// function, a `color-mix()` over anything but `var(--x)` and `transparent`, and a CSS named color
-// used as a value.
+// function, a `color-mix()` over anything but `var(--x)` and `transparent`, a CSS named or system color
+// used as a value (custom properties, vendor-prefixed properties and `var()` fallbacks included),
+// and a `var(--x)` whose name the theme bridge does not write and that is not a `--kit-*` local.
 
 const ROOT = path.resolve(import.meta.dirname, "../../../..");
 const GLOBALS = path.join(ROOT, "src/app/globals.css");
@@ -34,7 +37,10 @@ const NAMED_COLORS: ReadonlySet<string> = new Set(
   paleturquoise palevioletred papayawhip peachpuff peru pink plum powderblue purple rebeccapurple red
   rosybrown royalblue saddlebrown salmon sandybrown seagreen seashell sienna silver skyblue slateblue
   slategray slategrey snow springgreen steelblue tan teal thistle tomato turquoise violet wheat white
-  whitesmoke yellow yellowgreen`.split(/\s+/),
+  whitesmoke yellow yellowgreen
+  canvas canvastext linktext visitedtext activetext buttonface buttontext buttonborder field fieldtext
+  highlight highlighttext selecteditem selecteditemtext mark marktext graytext accentcolor
+  accentcolortext`.split(/\s+/),
 );
 
 /** A property, attribute or key whose value is a color, or holds one. */
@@ -83,7 +89,13 @@ function isRole(name: string): boolean {
 const HEX = /(?<![&0-9a-zA-Z])#(?:[0-9a-f]{8}|[0-9a-f]{6}|[0-9a-f]{3,4})(?![\w-])/gi;
 const COLOR_FUNCTION = /(?<![\w-])(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\(/gi;
 const DARK_VARIANT = /(?<![\w-])dark:(?=[\w[(!-])/g;
-const DECLARATION = /(?<![\w-])([A-Za-z][\w-]*)\s*(:|=)(?!=)/g;
+/** A declaration, attribute or key: a property (vendor-prefixed too) or a custom property, quoted or not. */
+const DECLARATION = /(?<![\w-])(["']?)(--[\w-]+|-?[A-Za-z][\w-]*)\1\s*(:|=)(?!=)/g;
+/** A `var()` without a fallback: the only form a value may drop before it is read for colors. */
+const PLAIN_VAR = /var\(--[\w-]+\)/g;
+/** The name read by a `var()` or a Tailwind `(--x)` shorthand, a template part included. */
+const VARIABLE = /(?:var\(\s*|(?<=[\w])-\()--((?:[\w-]|\$\{[^}]*\})*)/g;
+const KIT_LOCAL = "kit-";
 const VAR_ONLY = /^var\(--[a-z0-9-]+\)$/i;
 
 /** The text inside the parentheses that open at `open`, or the rest of the source. */
@@ -133,24 +145,64 @@ function valueAfter(source: string, at: number, separator: string): string {
   if (separator === "=") {
     return rest.match(/^\s*("[^"]*"|'[^']*'|\{[^}]*\})/)?.[1] ?? "";
   }
-  return rest.match(/^[^;\n,}]*/)?.[0] ?? "";
+  // A declaration ends at `;`, a line end, `}`, or a comma outside parentheses (the next key).
+  let depth = 0;
+  for (let i = 0; i < rest.length; i++) {
+    const char = rest[i];
+    if (char === "(") depth++;
+    else if (char === ")") depth--;
+    else if (char === ";" || char === "\n" || char === "}" || (char === "," && depth <= 0)) {
+      return rest.slice(0, i);
+    }
+  }
+  return rest;
 }
 
-/** Every named color written as the value of a color property, attribute or style key. */
+/**
+ * Every named or system color written as the value of a color property, attribute or style key, or
+ * of a custom property, whose value may land in any color property. A `var()` with a fallback stays
+ * in the value, so the fallback is read.
+ */
 function namedColorHits(source: string): string[] {
   const hits: string[] = [];
   for (const match of source.matchAll(DECLARATION)) {
-    const [whole, name = "", separator = ":"] = match;
-    if (!COLOR_PROPERTY.test(name.toLowerCase().replaceAll("-", ""))) continue;
+    const [whole, , name = "", separator = ":"] = match;
+    const custom = name.startsWith("--");
+    if (!custom && !COLOR_PROPERTY.test(name.toLowerCase().replaceAll("-", ""))) continue;
     const value = valueAfter(source, (match.index ?? 0) + whole.length, separator);
     const words =
       value
-        .replace(/var\([^)]*\)/g, " ")
+        .replace(PLAIN_VAR, " ")
         .toLowerCase()
         .match(/[a-z]+/g) ?? [];
-    for (const word of words) if (NAMED_COLORS.has(word)) hits.push(`${name} ${word}`);
+    for (const word of words) if (NAMED_COLORS.has(word)) hits.push(`named color ${name} ${word}`);
   }
   return hits;
+}
+
+/** The custom properties the theme bridge writes: `themeVars` and `densityVars`, read off their output. */
+export function bridgeVariables(): ReadonlySet<string> {
+  const spec = generateSystem(resolveParams(freshParams(), "seed-1"), "seed-1");
+  return new Set([...Object.keys(themeVars(spec, "light")), ...Object.keys(densityVars("dense"))]);
+}
+
+const BRIDGE = bridgeVariables();
+
+/** Whether `name` (after `--`) is the bridge's or a kit local; a template part reads as a prefix. */
+function allowedVariable(name: string): boolean {
+  const template = name.indexOf("${");
+  if (template === -1) return name.startsWith(KIT_LOCAL) || BRIDGE.has(`--${name}`);
+  const prefix = name.slice(0, template);
+  return (
+    prefix.startsWith(KIT_LOCAL) || [...BRIDGE].some((known) => known.startsWith(`--${prefix}`))
+  );
+}
+
+/** Every `var(--x)` or `(--x)` whose name the bridge does not write. */
+function variableHits(source: string): string[] {
+  return [...source.matchAll(VARIABLE)]
+    .filter((match) => !allowedVariable(match[1] ?? ""))
+    .map((match) => `variable outside the bridge --${match[1] ?? ""}`);
 }
 
 /** The colors in `source` that are not spec variables, one entry per hit. */
@@ -168,7 +220,7 @@ export function findViolations(source: string): readonly string[] {
   each(DARK_VARIANT, "dark variant");
   each(HEX, "hex literal");
   each(COLOR_FUNCTION, "color function");
-  hits.push(...colorMixHits(source), ...namedColorHits(source));
+  hits.push(...colorMixHits(source), ...namedColorHits(source), ...variableHits(source));
   return hits;
 }
 
