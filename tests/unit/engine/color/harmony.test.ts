@@ -56,6 +56,21 @@ describe("harmonyHues", () => {
     }
   });
 
+  it("C-HARM-07 gives the same hues for h0 and h0 plus any whole number of turns", () => {
+    // h0 is a multiple of 1/1024, so h0 + 360k is exact and the property can ask for equality.
+    fc.assert(
+      fc.property(
+        fc.integer({ min: 0, max: 360 * 1024 - 1 }).map((n) => n / 1024),
+        fc.integer({ min: -1000, max: 1000 }),
+        fc.constantFrom(...HARMONIES),
+        (h0, turns, harmony) => {
+          expect(harmonyHues(h0 + 360 * turns, harmony)).toEqual(harmonyHues(h0, harmony));
+        },
+      ),
+      { numRuns: 500 },
+    );
+  });
+
   it("C-HARM-05 normalizes the hue of a monochrome pair", () => {
     expect(harmonyHues(370, "monochrome")).toEqual({ secondary: 10, accent: 10 });
   });
@@ -67,6 +82,12 @@ describe("harmonyHues", () => {
       }
     }
     expect(() => harmonyHues(Number.NaN, "split")).toThrow(/harmonyHues: h0/);
+  });
+
+  it("C-HARM-06 quotes the allowed harmonies in its RangeError, as the other enum checks do", () => {
+    expect(() => harmonyHues(10, "pastel" as Harmony)).toThrow(
+      'harmonyHues: harmony must be one of "monochrome", "analogous", "complementary", "split", "triadic", "tetradic", got "pastel"',
+    );
   });
 
   it("C-HARM-06 throws a RangeError for a harmony outside the union", () => {

@@ -1,7 +1,7 @@
 import { normalizeHue } from "./convert";
-import { assertFinite, describeType } from "./guards";
+import { assertFinite, assertOneOf } from "./guards";
 
-/** The harmonies of the spec's hue table, in the order the studio lists them. */
+/** The harmonies of the spec's hue table, in the order of the spec's `Harmony` union. */
 export const HARMONIES = [
   "monochrome",
   "analogous",
@@ -26,25 +26,15 @@ const OFFSETS: Readonly<Record<Harmony, readonly [secondary: number, accent: num
   tetradic: [60, 180],
 };
 
-function assertHarmony(harmony: Harmony): void {
-  if (typeof harmony !== "string") {
-    throw new TypeError(`harmonyHues: harmony must be a string, got ${describeType(harmony)}`);
-  }
-  if (!HARMONIES.includes(harmony)) {
-    throw new RangeError(
-      `harmonyHues: harmony must be one of ${HARMONIES.join(", ")}, got ${JSON.stringify(harmony)}`,
-    );
-  }
-}
-
 /**
  * The secondary and accent hues for a primary OKLCH hue `h0`, in degrees. Both lie in [0, 360)
  * whatever finite `h0` is, and monochrome returns `h0` (normalized) for both slots. A hue that is
- * not finite, or a harmony outside the union, throws.
+ * not finite, or a harmony string outside the union, throws a RangeError; an `h0` that is not a
+ * number, or a harmony that is not a string, throws a TypeError (R-05).
  */
 export function harmonyHues(h0: number, harmony: Harmony): { secondary: number; accent: number } {
   assertFinite(h0, "harmonyHues: h0");
-  assertHarmony(harmony);
+  assertOneOf(harmony, HARMONIES, "harmonyHues: harmony");
   const [secondary, accent] = OFFSETS[harmony];
   return { secondary: normalizeHue(h0 + secondary), accent: normalizeHue(h0 + accent) };
 }
