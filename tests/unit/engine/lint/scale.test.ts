@@ -1,11 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { stepChroma } from "@/engine/color/scale";
+import { parseColor } from "@/engine/color/parse";
+import { STEPS, stepChroma } from "@/engine/color/scale";
+import type { Mode } from "@/engine/color/types";
 import { generateSystem } from "@/engine/generate";
 import { lintSpec } from "@/engine/lint";
+import type { DesignSpec } from "@/spec/schema";
 import { DEFAULT_PARAMS, defaultSpec } from "../../spec/support";
 import { copyOf, expectFinding, expectSilent, loose, withId } from "./support";
 
-// K1, K2 and K4: the scale rules (C-LINT-22 to 27).
+// K1, K2 and K4: the scale rules (C-LINT-22 to 27, 53 and 54).
+
+const specs = new Map<string, DesignSpec>();
+
+/** DEFAULT_PARAMS with `primary` locked to `text`, in even or standard scale mode, cached. */
+function lockedSpec(text: string, scaleMode: "even" | "standard" = "even"): DesignSpec {
+  const key = `${scaleMode} ${text}`;
+  let spec = specs.get(key);
+  if (spec === undefined) {
+    spec = generateSystem({ ...DEFAULT_PARAMS, scaleMode, primary: parseColor(text) }, "seed-1");
+    specs.set(key, spec);
+  }
+  return spec;
+}
+
+/** The even group cap of primary and accent at one step: the formula's minimum over the pair. */
+function pairCap(spec: DesignSpec, mode: Mode, index: number): number {
+  return Math.min(
+    ...(["primary", "accent"] as const).map((name) => {
+      const palette = spec.color.palettes[name];
+      return stepChroma(
+        { hue: palette.hue, peakChroma: palette.peakChroma, mode, gamut: "srgb" },
+        index,
+        palette[mode][index].oklch.l,
+      );
+    }),
+  );
+}
 
 describe("K1 lightness moves away from the page", () => {
   it("C-LINT-22 stays silent on the base spec", () => {
@@ -107,5 +137,66 @@ describe("K4 chroma follows the expected chroma", () => {
     ]);
     expect(found[0].measured).toBeCloseTo(0.015, 4);
     expect(found[0].threshold).toBe(0.01);
+  });
+});
+
+describe("K4 in even mode skips a seeded step for every palette of the seed's group", () => {
+  it.each(["#808000", "#606020", "#20a0a0", "#60a0a0"])(
+    "C-LINT-53 raises no K4 for a locked %s in even mode",
+    (text) => {
+      const spec = lockedSpec(text);
+      expect(spec.color.palettes.primary.peakChroma).toBe(spec.color.palettes.accent.peakChroma);
+      expect(withId(lintSpec(spec), "K4")).toEqual([]);
+    },
+    60_000,
+  );
+
+  it("C-LINT-54 still warns on a real drift at a step that holds no seed", () => {
+    const base = lockedSpec("#808000");
+    expect(base.color.palettes.primary.seedStep).toEqual({ light: 500, dark: 500 });
+    for (const [name, mode, index] of [
+      ["accent", "light", 3],
+      ["primary", "light", 3],
+      ["accent", "dark", 6],
+    ] as const) {
+      const spec = copyOf(base);
+      const step = loose(spec).color.palettes[name][mode][index];
+      step.oklch.c += 0.02;
+      expectFinding(spec, {
+        id: "K4",
+        severity: "warn",
+        mode,
+        subject: `${name}-${STEPS[index]}`,
+        measured: Math.abs(step.oklch.c - pairCap(spec, mode, index)),
+        threshold: 0.01,
+      });
+    }
+  });
+
+  it("C-LINT-54 skips per mode and step: a seed at light 400 does not cover dark 400", () => {
+    const base = lockedSpec("#f66c6d");
+    expect(base.color.palettes.primary.seedStep).toEqual({ light: 400, dark: 600 });
+    const light = copyOf(base);
+    loose(light).color.palettes.accent.light[4].oklch.c += 0.02;
+    expectSilent(light, "K4");
+    const dark = copyOf(base);
+    loose(dark).color.palettes.accent.dark[4].oklch.c += 0.02;
+    expect(withId(lintSpec(dark), "K4").map((f) => `${f.mode} ${f.subject}`)).toEqual([
+      "dark accent-400",
+    ]);
+  });
+
+  it("C-LINT-54 finds the seeded step by its hex when seedStep is absent (R-10)", () => {
+    const even = lockedSpec("#7f00ff");
+    const primary = even.color.palettes.primary;
+    expect(primary.seedStep).toBeUndefined();
+    expect(primary.light[6].hex).toBe("#7f00ff");
+    expectSilent(even, "K4");
+    const drifted = copyOf(even);
+    loose(drifted).color.palettes.accent.light[6].oklch.c += 0.02;
+    expectSilent(drifted, "K4");
+    // Standard mode solves each palette alone, so the seed's own step is measured and reported.
+    const standard = withId(lintSpec(lockedSpec("#7f00ff", "standard")), "K4");
+    expect(standard.map((f) => `${f.mode} ${f.subject}`)).toEqual(["light primary-600"]);
   });
 });

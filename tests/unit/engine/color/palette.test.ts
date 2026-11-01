@@ -13,6 +13,7 @@ import {
   type Palette,
   type PaletteName,
   pageFor,
+  seedHex,
 } from "@/engine/color/palette";
 import { parseColor } from "@/engine/color/parse";
 import { type ScaleStep, STEPS, solveScale } from "@/engine/color/scale";
@@ -641,6 +642,32 @@ describe("buildPalettes: modes, gamut and purity", () => {
     const second = buildPalettes(params, seededRandom("seed-1"));
     expect(second).toEqual(first);
     expect(params.accent).toEqual(parseColor("#f66c6d"));
+  });
+});
+
+describe("seedHex", () => {
+  it("gives the hex a locked seed takes in its scale, verbatim when it sits in gamut", () => {
+    const seed = normalizeSeed(parseColor("#f66c6d"));
+    expect(seedHex(seed, "srgb")).toBe("#f66c6d");
+    const palettes = buildPalettes({ ...DEFAULTS, primary: seed }, () => 0);
+    const { seedStep } = palettes.primary;
+    expect(seedStep).toBeDefined();
+    const at = STEPS.indexOf(seedStep?.light ?? 50);
+    expect(palettes.primary.light[at].hex).toBe(seedHex(seed, "srgb"));
+  });
+
+  it("gives the gamut-mapped seed's hex for a seed outside the gamut (C-PAL-08)", () => {
+    const seed = normalizeSeed(parseColor("oklch(0.7 0.3 145)"));
+    const palettes = buildPalettes({ ...DEFAULTS, primary: seed }, () => 0);
+    const at = STEPS.indexOf(palettes.primary.seedStep?.light ?? 50);
+    expect(palettes.primary.light[at].hex).toBe(seedHex(seed, "srgb"));
+    expect(seedHex(seed, "srgb")).toBe(toHex(gamutMap(palettes.primary.light[at].oklch, "srgb")));
+  });
+
+  it("rejects a seed outside its domain and an unknown gamut", () => {
+    expect(() => seedHex({ l: 1.5, c: 0.1, h: 20 }, "srgb")).toThrow(RangeError);
+    expect(() => seedHex({ l: 0.5, c: 0.1, h: 20 }, "rec2020" as Gamut)).toThrow(RangeError);
+    expect(() => seedHex(null as unknown as Oklch, "srgb")).toThrow(TypeError);
   });
 });
 

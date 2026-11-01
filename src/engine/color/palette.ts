@@ -296,6 +296,17 @@ function prepareSeed(raw: Oklch, gamut: Gamut): Seed {
   return { original, placed, hex: toHex(gamutMap(placed, "srgb")), mapped };
 }
 
+/**
+ * The hex a locked seed takes in its scale (R-01, R-10): the stored seed, gamut-mapped first when
+ * it lies more than 2e-4 outside `gamut`. A step whose hex equals it holds the seed, which is how
+ * the linter finds a seeded step when `seedStep` is absent. The seed must be in its domain.
+ */
+export function seedHex(seed: Oklch, gamut: Gamut): Hex {
+  checkSeed(seed, "seedHex: seed");
+  assertGamut(gamut, "seedHex: gamut");
+  return prepareSeed(seed, gamut).hex;
+}
+
 /** Whether L at `index` keeps the scale strictly ordered away from the page. */
 function keepsOrder(scale: readonly ScaleStep[], index: number, l: number, mode: Mode): boolean {
   const before = scale[index - 1]?.oklch.l;

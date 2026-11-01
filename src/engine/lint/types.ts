@@ -56,7 +56,8 @@ export type LintedPalette = Omit<Palette, "peakChroma"> & { readonly peakChroma?
  */
 export type LintedSpec = {
   readonly color: {
-    readonly params: Pick<ColorParams, "gamut" | "scaleMode">;
+    /** The gamut, the scale mode, and the locked seeds, which K4 needs to find seeded steps. */
+    readonly params: Pick<ColorParams, "gamut" | "scaleMode" | "primary" | "secondary" | "accent">;
     readonly palettes: Readonly<Record<PaletteName, LintedPalette>>;
     readonly roles: Readonly<Record<Mode, Readonly<Record<RoleName, Hex>>>>;
   };

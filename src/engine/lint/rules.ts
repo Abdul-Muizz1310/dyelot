@@ -2,7 +2,7 @@ import { perceptualLc, wcagRatio } from "../color/contrast";
 import { ACHROMATIC_CHROMA, hexToRgb, oklchToRgb, rgbToOklch } from "../color/convert";
 import { minPairwiseDeltaE, VIEWS } from "../color/deltae";
 import { STORED_GAMUT_TOLERANCE } from "../color/guards";
-import { PALETTE_NAMES, type PaletteName } from "../color/palette";
+import { PALETTE_NAMES, type PaletteName, seedHex } from "../color/palette";
 import type { RoleName } from "../color/roles";
 import { DARK_CHROMA_FACTOR, type ScaleStep, STEPS, stepChroma } from "../color/scale";
 import type { Gamut, Mode, Oklch } from "../color/types";
@@ -226,15 +226,48 @@ function expectedChroma(spec: LintedSpec, name: PaletteName, mode: Mode, index: 
   );
 }
 
-const K4: Rule = (spec, mode) =>
-  PALETTE_NAMES.flatMap((name) =>
-    spec.color.palettes[name][mode].flatMap((entry, index) => {
+const LOCKABLE = ["primary", "secondary", "accent"] as const;
+
+/**
+ * The step indexes of `mode` that hold each palette's locked seed (R-10): `seedStep[mode]` when
+ * both modes placed the seed, and otherwise every step whose hex is the seed's hex.
+ */
+function seededSteps(spec: LintedSpec, mode: Mode): ReadonlyMap<PaletteName, ReadonlySet<number>> {
+  const seeded = new Map<PaletteName, ReadonlySet<number>>();
+  for (const name of LOCKABLE) {
+    const seed = spec.color.params[name];
+    if (seed === undefined) continue;
+    const palette = spec.color.palettes[name];
+    if (palette.seedStep !== undefined) {
+      seeded.set(name, new Set([STEPS.indexOf(palette.seedStep[mode])]));
+      continue;
+    }
+    const hex = seedHex(seed, spec.color.params.gamut);
+    const holding = palette[mode].flatMap((entry, index) => (entry.hex === hex ? [index] : []));
+    seeded.set(name, new Set(holding));
+  }
+  return seeded;
+}
+
+/**
+ * K4. In even mode a group's cap at a step comes from every member's lightness before a seed
+ * replaced one of them, which the spec does not keep, so K4 skips every member of a group at a
+ * step and mode where any member holds its locked seed (spec 6.8).
+ */
+const K4: Rule = (spec, mode) => {
+  const even = spec.color.params.scaleMode === "even";
+  const seeded = seededSteps(spec, mode);
+  return PALETTE_NAMES.flatMap((name) => {
+    const group = groupOf(spec, name);
+    return spec.color.palettes[name][mode].flatMap((entry, index) => {
+      if (even && group.some((member) => seeded.get(member)?.has(index) === true)) return [];
       const drift = Math.abs(entry.oklch.c - expectedChroma(spec, name, mode, index));
       return drift > CHROMA_DRIFT
         ? [finding("K4", "warn", mode, `${name}-${entry.step}`, drift, CHROMA_DRIFT)]
         : [];
-    }),
-  );
+    });
+  });
+};
 
 /**
  * G1's measure: how far the color's largest channel in `gamut` lies outside [0, 1], or 0 inside.
