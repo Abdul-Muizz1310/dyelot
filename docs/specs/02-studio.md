@@ -311,8 +311,10 @@ then has every `vw` of the `clamp` string written as `cqi`, so the fluid size fo
 2. The first load takes the hash if it decodes, else the draft, else a fresh design. When a draft exists and its
    `specId` equals the decoded hash's, the first load takes the draft's `params`, `seed` and `preset` with the spec, so an
    explicit pairing stays explicit and the preset survives a reload. A draft whose `specId` differs from the hash's is not used
-   for that load; the hash wins and `preset` is `null`. A draft's `params` that fail the domain check (every enum in its
-   set) are dropped and `paramsOfSpec` supplies them. When a hash fails, the studio opens
+   for that load; the hash wins and `preset` is `null`. A draft's `params` are used only when they pass
+   `generateSystem`'s parameter checks (every enum in its set, every number and string in its domain, a known pairing id)
+   and agree with `paramsOfSpec(spec)` on every field except `pairing`; otherwise they are dropped and `paramsOfSpec`
+   supplies them, so the store never holds a `spec` that its `params` and `seed` do not regenerate. When a hash fails, the studio opens
    the draft or a fresh design and shows the banner, so the page is never blank.
 3. The banner (`role="alert"`) has two sentences and two buttons. Its first sentence per reason is in section 6.8, C-HASH-10.
    The second sentence is "The studio opened your last draft instead." or "The studio opened a fresh design instead."
@@ -327,13 +329,14 @@ the gaps:
    `button`), a `textarea`, a `select`, or any element with `contenteditable`. The `color` input is not one.
 2. Space, ← and → also do nothing when focus sits on a control that uses the key itself: a `button`, a `summary`, a link, an
    element with role `button`, `switch`, `checkbox`, `radio`, `tab`, `slider`, `menuitem` or `option`, or inside an open
-   drawer's focus trap. Space on the page body or the header regenerates; inside `[data-canvas]` Space and the arrow keys scroll the canvas natively.
+   drawer's focus trap. Space on the page body or the header regenerates; on the canvas region or inside it (item 5) Space and the arrow keys scroll the canvas natively.
 3. A chord with Ctrl or Meta fires only for Mod+S, and Alt only for Alt+T, matched on `event.code` (`KeyT`), because Alt changes the character on some layouts. A held key repeats: Space regenerates on every
    repeat, and the worker's stale rule (R2-13) keeps the canvas current.
 4. `L` fires only when focus is on a seed row's swatch button, native color input or lock toggle. It never fires from the
    hex field, which is a text field.
-5. A global shortcut is also ignored when the event target is inside `[data-canvas]`, so a preview control that uses a key
-   keeps it.
+5. A global shortcut is also ignored when the event target is the canvas region (`<main aria-label="Canvas">`) or inside
+   it, `[data-canvas]` included, so the scrollable region keeps Space and the arrow keys and a preview control that uses a
+   key keeps it.
 6. Escape is exempt from the text-field rule. A modal drawer must close from every control inside it.
 7. Mod+S always calls `preventDefault` when it fires, so the browser's save dialog does not open. In a text field it does
    not fire, and the browser's own behavior stands.
@@ -432,7 +435,8 @@ parameter the preset owns (`harmony`, `chroma`, `neutralTint`, `contrastLevel`, 
 `motion`, `pairing`) to a different value, and any change of `view.density`, sets it to `null`; changing a seed color, the mode,
 the frame or another view setting does not. The preset select shows "Custom" when it is `null`, and the preset notes show
 only for a non-null preset. The draft stores the preset id. `DesignSpec` has no preset or `direction` field, so the share
-link does not carry it: a design opened from a link has `preset: null`.
+link does not carry it: a design opened from a link has `preset: null`, unless a draft with the same `specId` supplies it
+(R2-14 item 2).
 
 **R2-29 · One request in flight.** Generation takes about 0.2 s, and a worker queues messages in order, so holding Space would
 line stale work behind the newest request. `createGenerateClient(post)` posts a request only when none is in flight. While one
@@ -484,7 +488,7 @@ so native controls follow the spec's mode and not the chrome's dark scheme; the 
   records no request to either. The chrome's `next/font` self-hosts at build time (R2-23).
 - **I-M2-07 · The pure core stays pure.** `src/engine`, `src/spec` and `src/theme` read no DOM, storage or network and import
   nothing from `src/features`, `src/app` or `src/components`.
-- **I-M2-08 · M1 is unchanged except three cases.** Every M1 case passes unmodified except the six that R2-25 lists (C-LINT-43,
+- **I-M2-08 · M1 is unchanged except six cases.** Every M1 case passes unmodified except the six that R2-25 lists (C-LINT-43,
   C-LINT-47, C-REPO-02, C-REPO-05, C-CHART-07, C-ROLE-07), and every M1 golden (spec ids, share links) holds, because the generator's output is the same when
   `pairing` is absent.
 
@@ -846,7 +850,8 @@ try/catch, because in some browsers the accessor itself throws.
 
 ### 5.8 Inspector helpers (Task 2.10)
 
-File: `src/features/studio/inspect.ts`, pure.
+File: `src/features/studio/inspect.ts`, pure, except `fixFor`, which lives in `src/features/studio/fixes.ts` (R2-22)
+and is tested with the store in Task 2.5 (section 6.8).
 
 ```ts
 type PassLevel = "AAA" | "AA" | "AA large" | "fail";   // text pairs
@@ -1124,7 +1129,7 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-STORE-38 | pass | An auto pairing stays auto through a reload: after a committed change the link `loadFromHash(writeHash(spec))` gives `params.pairing` absent, and a following `regenerate` picks a new automatic pairing for the new seed; an explicit pairing stays explicit and `regenerate` keeps it | ruling |
 | C-STORE-39 | pass | A draft restore with no hash gives the draft's `params`, `seed` and `preset`; a link load gives `params` from `paramsOfSpec` and `preset: null` (the spec has no preset field) unless the draft matches (C-HASH-16) | ruling |
 | C-STORE-40 | pass | `startFresh` sets `lastApplied` before it issues its own request: a reply for a request issued before `startFresh` and arriving after it is dropped, and the reply for the `startFresh` request applies | ruling |
-| C-STORE-41 | pass | Later regenerations keep the locked color: after `toggleLock("primary")`, each of three `regenerate` calls over `s0` to `s39` leaves `params.primary` unchanged, and the new spec holds the seed's hex in a scale with no `seedDeviation` in at least 99 of 120 runs at `AA` and 105 of 120 at `AAA`; in every other run the spec records a `seedDeviation` (largest ΔEOK 0.0191), and in none is the seed dropped | ruling, measured |
+| C-STORE-41 | pass | Later regenerations keep the locked color: after `toggleLock("primary")`, each of three `regenerate` calls over `s0` to `s39`, with `newSeed` stubbed to return `${seed}-r1`, `${seed}-r2` and `${seed}-r3` in turn, leaves `params.primary` unchanged, and the new spec holds the seed's hex in a scale with no `seedDeviation` in at least 99 of 120 runs at `AA` and 105 of 120 at `AAA`; in every other run the spec records a `seedDeviation` (largest ΔEOK 0.0191), and in none is the seed dropped | ruling, measured |
 | C-WORK-01 | pass | `runGenerate({ id: 7, params, seed })` returns `{ id: 7, ok: true, spec }`, `spec` deep-equals `generateSystem(params, seed)`, and `structuredClone(spec)` deep-equals it | plan |
 | C-WORK-02 | failure | `runGenerate` with bad params returns `{ id, ok: false, error: { name, message } }` and never throws | I-M2-03 |
 | C-WORK-03 | pass | RF4: requests 1, 2 and 3 are posted; replies arrive 2, 3, 1; the final `spec` is request 3's, reply 1 changes nothing, and two replies applied | RF4, plan |
@@ -1160,7 +1165,7 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-HASH-17 | pass | A first load with a valid hash writes nothing to the draft until the first commit | added |
 | C-DRAFT-01 | pass | `writeDraft` stores JSON `{ "v": 1, "link": "<encodeSpec>", "params": <DirectionParams>, "preset": <id or null> }` under `dyelot:draft`; `readDraft` returns `{ spec, params, seed, preset }` with a spec deep-equal to the one written and `params` equal to the written ones (an absent pairing stays absent) | decision, ruling |
 | C-DRAFT-02 | pass | An empty storage gives `readDraft` `null` | added |
-| C-DRAFT-03 | failure | RF2: `safeStorage(win)` returns `null` when reading `win.localStorage` throws `SecurityError` (the accessor itself throws before `readDraft` gets a storage); `readDraft(null)` gives `null` and `writeDraft(null, spec, null)` gives `{ ok: false }`, never a throw | RF2, plan |
+| C-DRAFT-03 | failure | RF2: `safeStorage(win)` returns `null` when reading `win.localStorage` throws `SecurityError` (the accessor itself throws before `readDraft` gets a storage); `readDraft(null)` gives `null` and `writeDraft(null, snapshot)` gives `{ ok: false }`, never a throw | RF2, plan |
 | C-DRAFT-04 | failure | RF2: `setItem` that throws `QuotaExceededError` gives `{ ok: false }` and the store sets `status.draft` to `off`; a later successful write sets it to `on` | RF2, plan |
 | C-DRAFT-05 | failure | A stored value that is not JSON gives `null` and removes the key (inside try/catch) | added |
 | C-DRAFT-06 | failure | A stored `v: 2`, a tampered link, or a link that fails the schema gives `null`, removes the key and shows no banner | added |
@@ -1170,6 +1175,7 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-DRAFT-10 | pass | RF2: a store built with a storage whose every method throws still commits, undoes, redoes, regenerates and updates the hash; `status.draft` is `off` | RF2, plan |
 | C-DRAFT-11 | pass | A draft is written after the same debounce as the hash, once per burst | decision |
 | C-DRAFT-12 | failure | A stored `params` with a value outside its set (`chroma: "loud"`) reads back as `params: null`, and the first load falls back to `paramsOfSpec` | ruling |
+| C-DRAFT-13 | failure | On a first load whose draft `specId` matches the hash, draft `params` with valid enums but an out-of-domain value (`type.ratio: 9`, an unknown pairing id) or a field that disagrees with `paramsOfSpec(spec)` (other than `pairing`) are not used: the store takes `paramsOfSpec(spec)`, keeps the draft's `preset` only when the params were used, and `generateSystem(resolveParams(params, seed), seed)` deep-equals the held `spec` | R2-14 |
 
 ### 6.8 Fix mapping (Task 2.10 helpers, tested with the store in Task 2.5)
 
@@ -1476,7 +1482,7 @@ top for font failures.
 | F-INSP-07 | pass | "Show me" on a pair finding outlines the elements with those roles on the canvas; on a step finding it outlines the scale cells in the inspector and scrolls them into view | plan, decision |
 | F-INSP-08 | pass | A taste finding appears: a spec opened through a link with display family `geist` shows a T1 warning titled "Overused display font", and a locked-seed-free purple primary shows T2 | decision |
 | F-INSP-09 | pass | A fix action regenerates the design at the fix's contrast level and clears the finding it fixes (the tampered-link F1 fixture of C-INSPECT-04: "Raise contrast to AAA"); the button label names the level and the inspector note says the colors are regenerated | plan, ruling |
-| F-INSP-10 | pass | At contrast level AAA the fix button is disabled and says "Contrast is already AAA" | ruling |
+| F-INSP-10 | pass | At contrast level AAA a C5, N1 or F1 finding (from a tampered link) shows the note "Contrast is already AAA." and no fix button, because `fixFor` returns `null` (R2-10) | ruling |
 | F-INSP-11 | pass | RF3: when a family fails to load (the font request is aborted by the test), the inspector shows "<Family> did not load. The canvas uses <first fallback font> instead." with `role="status"`; the canvas keeps rendering with the fallback stack and does not overflow its frame | RF3, plan |
 | F-INSP-12 | pass | RF3: the same font failure leaves `document.documentElement.scrollWidth` at most the viewport width and the canvas's layout shift (CLS measured through the Layout Instability API) at most 0.1 | RF3 |
 | F-INSP-13 | pass | The preset notes list the selected preset's guards and unexpressed items, and the section is absent for `default` | ruling |
