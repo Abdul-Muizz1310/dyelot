@@ -67,8 +67,8 @@ describe("seededRandom", () => {
   });
 
   it("C-RAND-08 applies no Unicode normalization", () => {
-    const composed = "é";
-    const decomposed = "é";
+    const composed = "\u00e9";
+    const decomposed = "e\u0301";
     expect(composed).not.toBe(decomposed);
     expect(composed.normalize("NFD")).toBe(decomposed);
     expect(seededRandom(composed)()).not.toBe(seededRandom(decomposed)());

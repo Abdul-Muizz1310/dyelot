@@ -34,7 +34,8 @@ function mulberry32(seed32: number): () => number {
 /**
  * The engine's only source of randomness. Any string is a seed, including "". The seed goes
  * through cyrb53 into the 32-bit state of mulberry32, so the same seed draws the same stream on
- * every platform. Each call returns an independent generator whose values lie in [0, 1).
+ * every platform. Each call returns an independent generator whose values lie in [0, 1). A seed
+ * that is not a string throws a TypeError (R-05).
  */
 export function seededRandom(seed: string): () => number {
   if (typeof seed !== "string") {

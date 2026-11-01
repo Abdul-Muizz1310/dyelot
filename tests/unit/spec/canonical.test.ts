@@ -97,7 +97,7 @@ describe("canonicalize", () => {
   it("C-CANON-03 JSON-escapes strings, and they read back unchanged", () => {
     // U+2028 is built from its code so no invisible character sits in the source.
     const lineSeparator = String.fromCharCode(0x2028);
-    const name = `Quote " backslash \\ newline \n tab \t ${lineSeparator} é \u0000 lone \ud800`;
+    const name = `Quote " backslash \\ newline \n tab \t ${lineSeparator} \u00e9 \u0000 lone \ud800`;
     const canonical = canonicalize(as(withValue(defaultSpec(), ["meta", "name"], name)));
     expect(canonical).toContain(`"name":${JSON.stringify(name)}`);
     expect((reparsed(canonical) as DesignSpec).meta.name).toBe(name);

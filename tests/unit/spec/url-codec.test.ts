@@ -96,7 +96,11 @@ describe("encodeSpec and decodeSpec", () => {
   );
 
   it("C-URL-01 round-trips names and seeds in any script, lone surrogates included", () => {
-    for (const name of ["Café ∑ 色 🎨", "lone \ud800 high", 'quote " and \\ slash']) {
+    for (const name of [
+      "Caf\u00e9 \u2211 \u8272 \u{1f3a8}",
+      "lone \ud800 high",
+      'quote " and \\ slash',
+    ]) {
       const spec = as(withValue(defaultSpec(), ["meta", "name"], name));
       expect(decodeSpec(encodeSpec(spec))).toEqual(spec);
     }

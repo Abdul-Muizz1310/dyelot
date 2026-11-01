@@ -34,8 +34,8 @@ describe("fnv1a64", () => {
   });
 
   it("C-HASH-03 hashes a string as UTF-8", () => {
-    expect(fnv1a64("é")).toBe("0ac21707b7181e01");
-    expect(fnv1a64("é")).toBe(fnv1a64(new Uint8Array([0xc3, 0xa9])));
+    expect(fnv1a64("\u00e9")).toBe("0ac21707b7181e01");
+    expect(fnv1a64("\u00e9")).toBe(fnv1a64(new Uint8Array([0xc3, 0xa9])));
   });
 
   it("C-HASH-06 hashes a Uint8Array as given", () => {
