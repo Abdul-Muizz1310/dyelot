@@ -1526,7 +1526,7 @@ every toolbar target is at least 28 px tall and 24 px wide. The canvas passes `{
 | F-CANVAS-06 | pass | The vision group recomputes the canvas colors: with `protan`, `--destructive` equals `toHex(simulate(hexToRgb(<stored hex>), "protan"))`; `none` restores the stored hexes | decision, plan |
 | F-CANVAS-07 | pass | With "Reduce motion" on, kit animations and transitions stop (computed `animation-name` is `none` and transition durations are at most 0.01 ms) and Motion springs do not run | plan |
 | F-CANVAS-08 | pass | With the operating-system preference `prefers-reduced-motion: reduce`, the same holds without the switch | decision |
-| F-CANVAS-09 | pass | "Edge-case copy" swaps in the long word, the long title, the diacritics, the large number, the empty list and the one-character label, and no template overflows its frame | ruling |
+| F-CANVAS-09 | pass | "Edge-case copy" swaps in the long word, the long title, the diacritics, the large number, the empty list and the one-character label, and no template overflows its frame; in the 360, 768 and 1280 frames each reading on screen keeps its number on one line, and the place and observer text of the readings breaks only at spaces and hyphens (every word of 20 characters or fewer has one client rect; only the 40-character word may break anywhere) | ruling, review |
 | F-CANVAS-10 | pass | The template switcher shows each of the six templates; the choice is kept across edits and view changes | decision |
 | F-CANVAS-11 | pass | "Show me" (section 7.8) outlines the elements whose `data-roles` hold the role, in madder, 2 px dashed with a 2 px offset, and clears when another is chosen or the finding is dismissed | decision |
 | F-CANVAS-12 | pass | Inside the canvas `color-scheme` is `light` or `dark` by the mode (so native controls follow the spec), the focus ring is `--ring`, `::selection` uses `--primary` and `--primary-foreground`, the caret uses `--primary`, the scrollbar uses `--border` and `--muted`, and `text-underline-offset` and tabular numerals are set | research D1 rule 25, R2-30 |
@@ -1553,7 +1553,7 @@ invalid, success, placeholder, empty, as the component supports them. A forced s
 |---|---|---|---|
 | F-TPL-01 | pass | The kitchen sink renders every role, every type step, every radius, every shadow and every motion token, in both modes | plan |
 | F-TPL-02 | pass | Every swatch's printed hex equals the spec's stored hex; every printed ratio equals `wcagRatio` of its pair to two decimals | plan |
-| F-TPL-03 | pass | Every kit component renders in every state it supports, each marked with its `data-state` and a visible label | plan |
+| F-TPL-03 | pass | Every kit component renders in every state it supports, each marked with its `data-state` and a visible label, and each forced state paints differently from the component's `default`; under 480 px of frame the readings table renders as stacked records (the place, then Observer, Reading and State as labeled pairs) and leaves the accessibility tree, and every row's state label stays on screen | plan, review |
 | F-TPL-04 | pass | The five button variants use `primary`, `secondary`, ghost (transparent fill, `foreground` text, `muted` on hover), `destructive` and link (`primary` text with an underline); each carries `data-roles` | R2-20 |
 | F-TPL-05 | pass | Motion demos run at the printed duration and easing, and stop under reduced motion | plan |
 | F-TPL-06 | pass | The kitchen sink fits the 360, 768 and 1280 px frames without horizontal overflow | plan |
