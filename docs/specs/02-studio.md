@@ -1342,7 +1342,11 @@ followed by one of the Tailwind palette names and a step; the names come from th
 literal, any of `rgb(`, `rgba(`, `hsl(`, `hsla(`, `hwb(`, `lab(`, `lch(`, `oklab(`, `oklch(`, `color(`, and a CSS named color used
 as a value. `transparent`, `currentColor` and `inherit` pass. `var(--x)` passes only when `x` is a name that `themeVars` or
 `densityVars` writes (the guard derives the list from their output) or a `--kit-*` local of the preview kit; a chrome token such
-as `var(--panel)` or `bg-(--panel)` is a violation. The value of a custom property (`--kit-scrim: white`, the quoted key
+as `var(--panel)`, `VAR(--panel)` (CSS function names ignore case), `bg-(--panel)` or the typed shorthand `text-(color:--panel)`
+is a violation. A name built in a template passes only when its fixed prefix ends in `-` and starts a bridge name
+(`` `var(--text-${step})` ``); `` `var(--${role})` `` and `` `var(--p${x})` `` could name anything and are violations. A role's
+variable comes from `roleVar(role)` in `src/features/preview/vars.ts`, which throws `RangeError` for a name outside
+`ROLE_NAMES`; the guard allows that function's body by name. The value of a custom property (`--kit-scrim: white`, the quoted key
 `"--kit-value": "red"`) and of a vendor-prefixed property (`-webkit-text-fill-color`) is checked like any color value, the
 fallback of `var(--x, red)` is checked, and the CSS Color 4 system colors (`Canvas`, `CanvasText`, `ButtonBorder`,
 `AccentColor` and the rest) count as named colors. `color-mix(...)` passes only when every color argument is `var(--x)` or
@@ -1351,7 +1355,7 @@ names the rule that fired.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-GUARD-01 | failure | `findViolations` flags `bg-indigo-500`, `bg-mauve-500` (a palette Tailwind added after 4.0), `text-slate-700`, `border-red-200`, `ring-blue-500/50`, `dark:bg-black`, `bg-white`, `bg-[#fff]`, `color: #fff`, `fill: rgb(0 0 0 / 0.1)`, `stroke: oklch(0.6 0.1 20)`, `color: rebeccapurple`, `color-mix(in oklab, #fff 20%, transparent)`, and `style={{ color: "red" }}`; also `[data-canvas] { --kit-scrim: white; }`, `style={{ "--kit-value": "red" }}`, `color: var(--primary, red)`, `background-color: Canvas`, `color: CanvasText`, `border: 1px solid ButtonBorder`, `color: AccentColor`, `-webkit-text-fill-color: white`, `-webkit-tap-highlight-color: red`, `color: var(--panel)`, `background: var(--page)`, `bg-(--panel)` and `text-[var(--fg-muted)]`; the test names the rule each sample fires | plan, review |
+| C-GUARD-01 | failure | `findViolations` flags `bg-indigo-500`, `bg-mauve-500` (a palette Tailwind added after 4.0), `text-slate-700`, `border-red-200`, `ring-blue-500/50`, `dark:bg-black`, `bg-white`, `bg-[#fff]`, `color: #fff`, `fill: rgb(0 0 0 / 0.1)`, `stroke: oklch(0.6 0.1 20)`, `color: rebeccapurple`, `color-mix(in oklab, #fff 20%, transparent)`, and `style={{ color: "red" }}`; also `[data-canvas] { --kit-scrim: white; }`, `style={{ "--kit-value": "red" }}`, `color: var(--primary, red)`, `background-color: Canvas`, `color: CanvasText`, `border: 1px solid ButtonBorder`, `color: AccentColor`, `-webkit-text-fill-color: white`, `-webkit-tap-highlight-color: red`, `color: var(--panel)`, `background: var(--page)`, `bg-(--panel)` and `text-[var(--fg-muted)]`, and the templates `` `var(--${role})` `` and `` `var(--p${x})` ``, `text-(color:--panel)` and `color: VAR(--panel)`; the test names the rule each sample fires | plan, review |
 | C-GUARD-02 | pass | `findViolations` passes `bg-(--primary)`, `text-[var(--foreground)]`, `fill="currentColor"`, `background: transparent`, `color-mix(in oklab, var(--primary) 20%, transparent)`, and `border-border` only when the Tailwind theme maps `border` to a variable (the guard lists the utility names it allows: the role names of `ROLE_NAMES`) | plan |
 | C-GUARD-03 | pass | No file under `src/features/preview/` has a violation | plan |
 | C-GUARD-04 | pass | Every `.css`, `.ts` and `.tsx` file under `src/features/preview/` is scanned, including `kit/` and `templates/`; the test fails when the folder is empty or unreadable | added |
@@ -1524,7 +1528,7 @@ every toolbar target is at least 28 px tall and 24 px wide. The canvas passes `{
 | F-CANVAS-04 | pass | The mode toggle switches the canvas variables between the light and dark `themeVars`, and Alt+T does the same | decision |
 | F-CANVAS-05 | pass | The density group changes `--control-height` and the kit's control heights (40, 36 and 32 px) | decision |
 | F-CANVAS-06 | pass | The vision group recomputes the canvas colors: with `protan`, `--destructive` equals `toHex(simulate(hexToRgb(<stored hex>), "protan"))`; `none` restores the stored hexes | decision, plan |
-| F-CANVAS-07 | pass | With "Reduce motion" on, kit animations and transitions stop (computed `animation-name` is `none` and transition durations are at most 0.01 ms) and Motion springs do not run | plan |
+| F-CANVAS-07 | pass | With "Reduce motion" on, kit animations and transitions stop (computed `animation-name` is `none` and transition durations are at most 0.01 ms) and Motion springs do not run; the switch keeps the preview's own state and never replays the entrance, and once it is off the springs run again, also in parts that mounted while it was on | plan, review |
 | F-CANVAS-08 | pass | With the operating-system preference `prefers-reduced-motion: reduce`, the same holds without the switch | decision |
 | F-CANVAS-09 | pass | "Edge-case copy" swaps in the long word, the long title, the diacritics, the large number, the empty list and the one-character label, and no template overflows its frame; in the 360, 768 and 1280 frames each reading on screen keeps its number on one line, and the place and observer text of the readings breaks only at spaces and hyphens (every word of 20 characters or fewer has one client rect; only the 40-character word may break anywhere) | ruling, review |
 | F-CANVAS-10 | pass | The template switcher shows each of the six templates; the choice is kept across edits and view changes | decision |
@@ -1553,12 +1557,13 @@ invalid, success, placeholder, empty, as the component supports them. A forced s
 |---|---|---|---|
 | F-TPL-01 | pass | The kitchen sink renders every role, every type step, every radius, every shadow and every motion token, in both modes | plan |
 | F-TPL-02 | pass | Every swatch's printed hex equals the spec's stored hex; every printed ratio equals `wcagRatio` of its pair to two decimals | plan |
-| F-TPL-03 | pass | Every kit component renders in every state it supports, each marked with its `data-state` and a visible label, and each forced state paints differently from the component's `default`; under 480 px of frame the readings table renders as stacked records (the place, then Observer, Reading and State as labeled pairs) and leaves the accessibility tree, and every row's state label stays on screen | plan, review |
+| F-TPL-03 | pass | Every kit component renders in every state it supports, each marked with its `data-state` and a visible label, and each forced state paints differently from the component's `default`; under 480 px of frame the readings table renders as stacked records (the place, then Observer, Reading and State as labeled pairs) and leaves the accessibility tree, and every row's state label stays on screen; the two readings tables share their columns (each header within 1 px of the other's), and a stacked empty record shows its label and its sentence on two lines with no separator | plan, review |
 | F-TPL-04 | pass | The five button variants use `primary`, `secondary`, ghost (transparent fill, `foreground` text, `muted` on hover), `destructive` and link (`primary` text with an underline); each carries `data-roles` | R2-20 |
 | F-TPL-05 | pass | Motion demos run at the printed duration and easing, and stop under reduced motion | plan |
 | F-TPL-06 | pass | The kitchen sink fits the 360, 768 and 1280 px frames without horizontal overflow | plan |
 | F-TPL-07 | pass | The kit uses icons from `lucide-react` only, each with `stroke-width` equal to `--icon-stroke` | decision |
 | F-TPL-08 | pass | Concentric radii hold: an image inside a card with padding `p` has radius `max(0, card radius − p)` (computed), and a segmented control's outer radius equals its inner radius plus its padding | research D5 |
+| F-TPL-38 | pass | Type triples: in both panes at the 1280 and 360 frames, every element on screen with its own text (outside an inert specimen) has the computed `font-size`, `line-height` and `letter-spacing` of one type step, resolved from a probe set from that step's three variables in the same pane; each `.kit-t-<step>` class sets exactly that triple, and no preview stylesheet or style object sets a step's size anywhere else (the `[data-canvas]` root keeps the body triple). Numbered after F-TPL-37 because F-TPL-09 is the landing page's | review |
 
 ### 7.6 The landing and editorial templates (Task 2.8)
 
