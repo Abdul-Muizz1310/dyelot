@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type { DirectionParams, Finding, LintedSpec } from "@/engine";
@@ -333,13 +333,23 @@ describe("the Biome deep-import rule", () => {
         cwd: ROOT,
         encoding: "utf8",
       });
-      // A failed spawn or a crash must not read as "no diagnostic" (status 0 clean, 1 findings).
+      // A failed spawn, a crash or a file Biome never linted must not read as "no diagnostic"
+      // (status 0 clean, 1 findings; a missing or ignored path also exits 1 but checks no file).
       expect(run.error).toBeUndefined();
       expect([0, 1]).toContain(run.status);
-      return `${run.stdout}${run.stderr}`.includes("noRestrictedImports");
+      const output = `${run.stdout}${run.stderr}`;
+      expect(output).toMatch(/Checked 1 file/);
+      return output.includes("noRestrictedImports");
     } finally {
       rmSync(dir, { recursive: true, force: true });
-      if (!parentExisted) rmSync(parent, { recursive: true, force: true });
+      // Non-recursive: never delete source files another process wrote meanwhile.
+      if (!parentExisted) {
+        try {
+          rmdirSync(parent);
+        } catch {
+          // Not empty: leave it.
+        }
+      }
     }
   }
   const use = (specifier: string): string =>
