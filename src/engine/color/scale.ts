@@ -92,14 +92,17 @@ function drift(hue: number): number {
   return 40 * clamp01(1 - Math.abs(hue - 90) / 35);
 }
 
-/** The floor and the ceiling of 255 times the channel, clamped to 0 to 255, ascending. */
+/**
+ * The floor and the ceiling of 255 times the channel, ascending, or the code alone when the value
+ * lies within WHOLE_CODE of it. `pick` passes a channel that clampedSrgb has clamped to [0, 1], and
+ * a value that is not a whole code lies strictly between two codes, so both lie in 0 to 255 and
+ * differ: no clamp or equality arm is needed.
+ */
 function codesAround(channel: number): readonly number[] {
   const value = channel * 255;
   const nearest = Math.round(value);
   if (Math.abs(value - nearest) <= WHOLE_CODE) return [nearest];
-  const floor = Math.max(0, Math.min(255, Math.floor(value)));
-  const ceiling = Math.max(0, Math.min(255, Math.ceil(value)));
-  return floor === ceiling ? [floor] : [floor, ceiling];
+  return [Math.floor(value), Math.ceil(value)];
 }
 
 function assertThreshold(threshold: Threshold | undefined): void {
