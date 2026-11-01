@@ -531,12 +531,20 @@ describe("C-REPO-M2-03 the new pure folders and helpers keep the pure-core floor
     expect(thresholds()?.["src/engine/**"]).toEqual(FLOORS);
   });
 
-  it.each(["protocol", "url", "drafts", "params", "lot", "inspect", "fixes", "client", "guards"])(
-    "measures src/features/studio/%s.ts by name and holds it to 95 and 90",
-    (name) => {
-      const file = `src/features/studio/${name}.ts`;
-      expect(include()).toContain(file);
-      expect(thresholds()?.[file]).toEqual(FLOORS);
-    },
-  );
+  it.each([
+    "protocol",
+    "url",
+    "drafts",
+    "params",
+    "lot",
+    "inspect",
+    "fixes",
+    "client",
+    "guards",
+    "view",
+  ])("measures src/features/studio/%s.ts by name and holds it to 95 and 90", (name) => {
+    const file = `src/features/studio/${name}.ts`;
+    expect(include()).toContain(file);
+    expect(thresholds()?.[file]).toEqual(FLOORS);
+  });
 });

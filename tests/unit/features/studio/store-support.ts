@@ -41,6 +41,7 @@ export function stubClient() {
   const posted: GenerateRequest[] = [];
   const listeners = new Set<(reply: GenerateReply) => void>();
   let disposed = 0;
+  let drops = 0;
   const fresh = () => generate(resolvedFresh(), "seed-1");
   const client: StudioClient = {
     generateNow: (params, seed) => generate(params, seed),
@@ -52,6 +53,9 @@ export function stubClient() {
       return () => {
         listeners.delete(listener);
       };
+    },
+    drop: () => {
+      drops++;
     },
     dispose: () => {
       disposed++;
@@ -70,6 +74,7 @@ export function stubClient() {
     posted,
     listeners: () => listeners.size,
     disposals: () => disposed,
+    drops: () => drops,
     deliver,
     /** Replies to request `id` with `spec`, or with a spec made from the request. */
     reply(id: number, spec?: DesignSpec) {

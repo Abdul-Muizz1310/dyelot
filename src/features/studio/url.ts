@@ -53,7 +53,7 @@ export function readHash(hash: string): HashResult {
 }
 
 /** `encodeSpec`, with a failure renamed for the public function that called it. */
-function linkOf(spec: DesignSpec, caller: string): string {
+export function encodeLink(spec: DesignSpec, caller: string): string {
   assertRecord(spec, `${caller}: spec`);
   try {
     return encodeSpec(spec);
@@ -66,7 +66,7 @@ function linkOf(spec: DesignSpec, caller: string): string {
 
 /** The hash that holds a spec: `#s=<encodeSpec(spec)>`. */
 export function writeHash(spec: DesignSpec): string {
-  return `${PREFIX}${linkOf(spec, "writeHash")}`;
+  return `${PREFIX}${encodeLink(spec, "writeHash")}`;
 }
 
 /** The share link of a spec: `<origin>/studio#s=...`. `origin` is a bare origin, no path. */
@@ -81,7 +81,7 @@ export function linkUrl(origin: string, spec: DesignSpec): string {
   if (parsed.origin !== origin) {
     throw new RangeError(`linkUrl: origin must have no path, got ${JSON.stringify(origin)}`);
   }
-  return `${origin}/studio${PREFIX}${linkOf(spec, "linkUrl")}`;
+  return `${origin}/studio${PREFIX}${encodeLink(spec, "linkUrl")}`;
 }
 
 const LINK_MESSAGES: Readonly<Record<Exclude<LinkReason, "schema">, string>> = {

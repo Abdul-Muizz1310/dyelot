@@ -2,22 +2,16 @@ import { useStore } from "zustand";
 import { createStore, type StoreApi } from "zustand/vanilla";
 import {
   ColorParseError,
-  DEFICIENCIES,
-  type Deficiency,
-  type Density,
   type DirectionParams,
   LOCKABLE,
   type Lockable,
-  type Mode,
   normalizeSeed,
   type Oklch,
-  type PaletteName,
   PRESET_IDS,
   PRESETS,
   type PresetId,
   parseColor,
   applyPreset as presetParams,
-  type Step,
 } from "@/engine";
 import { type DesignSpec, normalizeSpec, specId } from "@/spec";
 import type { StudioClient } from "./client";
@@ -25,24 +19,27 @@ import {
   clearDraft,
   type Draft,
   isStorage,
+  loadDraft,
   readDraft,
   type Snapshot,
   type StorageLike,
   writeDraft,
 } from "./drafts";
-import { assertOneOf, assertRecord, assertString, describeType, isRecord } from "./guards";
+import { assertOneOf, assertRecord, assertString, describeType } from "./guards";
 import {
-  type DeepPartial,
   freshParams,
   lockSeed,
+  mergeParams,
   type ParamsPatch,
   paramsOfSpec,
   resolveParams,
   sameParams,
   touchesPreset,
+  withSeed,
 } from "./params";
 import type { GenerateReply } from "./protocol";
 import { type HashResult, type Notice, readHash, writeHash } from "./url";
+import { DEFAULT_VIEW, mergeView, type View } from "./view";
 
 // The studio store (spec section 5.7, R2-13, R2-14, R2-17, R2-28, R2-29). Every change is a
 // numbered request to the generator through `deps.client`; a reply applies only when its id is
@@ -53,28 +50,8 @@ import { type HashResult, type Notice, readHash, writeHash } from "./url";
 export type { Snapshot, StorageLike } from "./drafts";
 export type { DeepPartial, ParamsPatch } from "./params";
 export type { Notice } from "./url";
+export type { Highlight, TemplateId, View } from "./view";
 
-export type TemplateId =
-  | "landing"
-  | "dashboard"
-  | "settings"
-  | "mobile"
-  | "editorial"
-  | "kitchen-sink";
-export type Highlight = {
-  readonly roles: readonly string[];
-  readonly cells: readonly { readonly palette: PaletteName; readonly step: Step }[];
-};
-export type View = {
-  readonly mode: Mode;
-  readonly density: Density;
-  readonly frame: 360 | 768 | 1280;
-  readonly template: TemplateId;
-  readonly reducedMotion: boolean;
-  readonly copy: "real" | "edge";
-  readonly vision: "none" | Deficiency;
-  readonly highlight: Highlight | null;
-};
 export type Status = {
   readonly phase: "idle" | "generating" | "failed";
   readonly notice: Notice | null;
@@ -131,31 +108,6 @@ const COALESCE_MS = 1_000;
 /** The hash and the draft are written this long after the last commit of a burst. */
 const PERSIST_DELAY_MS = 300;
 
-const TEMPLATE_IDS: readonly TemplateId[] = [
-  "landing",
-  "dashboard",
-  "settings",
-  "mobile",
-  "editorial",
-  "kitchen-sink",
-];
-const MODES: readonly Mode[] = ["light", "dark"];
-const DENSITIES: readonly Density[] = ["comfortable", "compact", "dense"];
-const FRAMES: readonly View["frame"][] = [360, 768, 1280];
-const COPIES: readonly View["copy"][] = ["real", "edge"];
-const VISIONS: readonly View["vision"][] = ["none", ...DEFICIENCIES];
-
-const DEFAULT_VIEW: View = {
-  mode: "light",
-  density: "comfortable",
-  frame: 1280,
-  template: "landing",
-  reducedMotion: false,
-  copy: "real",
-  vision: "none",
-  highlight: null,
-};
-
 /** Notices that a successful commit answers: the failure is over, the fonts are reset. */
 const CLEARED_BY_COMMIT: ReadonlySet<Notice["kind"]> = new Set(["generation", "custom-fonts"]);
 
@@ -166,115 +118,6 @@ type Intent = {
   readonly preset: PresetId | null;
 };
 type Issued = Intent & { readonly coalesce: string | undefined; readonly at: number };
-
-const PATCH_KEYS: ReadonlySet<string> = new Set([
-  ...LOCKABLE,
-  "harmony",
-  "chroma",
-  "neutralTint",
-  "gamut",
-  "scaleMode",
-  "contrastLevel",
-  "type",
-  "radius",
-  "depth",
-  "motion",
-  "pairing",
-  "name",
-]);
-
-/** Whether `value` has a whole color's shape; `normalizeSeed` checks its domain later. */
-const isColor = (value: unknown): value is Oklch =>
-  isRecord(value) &&
-  typeof value.l === "number" &&
-  typeof value.c === "number" &&
-  (value.h === null || typeof value.h === "number");
-
-/** A seed of a patch: undefined removes it (unlocks), a whole color sets it. */
-function seedOfPatch(value: DeepPartial<Oklch> | undefined, slot: Lockable): Oklch | undefined {
-  if (value === undefined) return undefined;
-  if (!isColor(value)) {
-    throw new TypeError(
-      `setParams: patch.${slot} must be a whole color with l, c and h, got ${describeType(value)}`,
-    );
-  }
-  return value;
-}
-
-/** The parameters with the seed of `slot` set, or removed when `seed` is undefined. */
-function withSeed(
-  params: DirectionParams,
-  slot: Lockable,
-  seed: Oklch | undefined,
-): DirectionParams {
-  const { primary, secondary, accent, ...rest } = params;
-  const seeds: Partial<Record<Lockable, Oklch>> = { primary, secondary, accent, [slot]: seed };
-  return {
-    ...rest,
-    ...(seeds.primary === undefined ? {} : { primary: seeds.primary }),
-    ...(seeds.secondary === undefined ? {} : { secondary: seeds.secondary }),
-    ...(seeds.accent === undefined ? {} : { accent: seeds.accent }),
-  };
-}
-
-function mergeType(
-  current: DirectionParams["type"],
-  patch: DeepPartial<DirectionParams["type"]>,
-): DirectionParams["type"] {
-  assertRecord(patch, "setParams: patch.type");
-  for (const key of Object.keys(patch)) {
-    if (key !== "context" && key !== "ratio") {
-      throw new RangeError(`setParams: patch.type.${key} is not a type parameter`);
-    }
-  }
-  if (Object.hasOwn(patch, "context") && patch.context === undefined) {
-    throw new TypeError("setParams: patch.type.context cannot be removed");
-  }
-  const context = patch.context ?? current.context;
-  const ratio = Object.hasOwn(patch, "ratio") ? patch.ratio : current.ratio;
-  return ratio === undefined ? { context } : { context, ratio };
-}
-
-/**
- * The parameters after a patch (spec section 5.7): `type` merges by key, a whole seed color
- * replaces a seed, and an optional key set to undefined is removed (`pairing: undefined` is auto).
- * Values are not checked here: the generator checks them, and a bad one ends in a `generation`
- * notice (C-STORE-20). Keys and shapes are checked, so the result always has the parameters' form.
- */
-function mergeParams(params: DirectionParams, patch: ParamsPatch): DirectionParams {
-  for (const key of Object.keys(patch)) {
-    if (!PATCH_KEYS.has(key))
-      throw new RangeError(`setParams: patch.${key} is not a direction parameter`);
-  }
-  const { primary, secondary, accent, pairing, name, type, ...choices } = patch;
-  for (const [key, value] of Object.entries(choices)) {
-    if (value === undefined) throw new TypeError(`setParams: patch.${key} cannot be removed`);
-  }
-  if (Object.hasOwn(patch, "type") && type === undefined) {
-    throw new TypeError("setParams: patch.type cannot be removed");
-  }
-  let next: DirectionParams = {
-    ...params,
-    ...choices,
-    type: type === undefined ? params.type : mergeType(params.type, type),
-  };
-  for (const [slot, value] of [
-    ["primary", primary],
-    ["secondary", secondary],
-    ["accent", accent],
-  ] as const) {
-    if (Object.hasOwn(patch, slot)) next = withSeed(next, slot, seedOfPatch(value, slot));
-  }
-  if (Object.hasOwn(patch, "pairing")) {
-    const { pairing: _old, ...rest } = next;
-    next = pairing === undefined ? rest : { ...rest, pairing };
-  }
-  if (Object.hasOwn(patch, "name")) {
-    const { name: _old, ...rest } = next;
-    next = name === undefined ? rest : { ...rest, name };
-  }
-  return next;
-}
 
 function coalesceOf(
   options: { coalesce?: string } | undefined,
@@ -287,60 +130,11 @@ function coalesceOf(
   return options.coalesce;
 }
 
-function checkHighlight(value: unknown): void {
-  if (value === null) return;
-  assertRecord(value, "setView: patch.highlight");
-  if (!Array.isArray(value.roles) || !Array.isArray(value.cells)) {
-    throw new TypeError("setView: patch.highlight must hold roles and cells arrays");
-  }
-}
-
-/** The view after a patch, every value checked (R-05). */
-function mergeView(view: View, patch: Partial<View>): View {
-  assertRecord(patch, "setView: patch");
-  for (const [key, value] of Object.entries(patch)) {
-    const name = `setView: patch.${key}`;
-    switch (key) {
-      case "mode":
-        assertOneOf(value, MODES, name);
-        break;
-      case "density":
-        assertOneOf(value, DENSITIES, name);
-        break;
-      case "template":
-        assertOneOf(value, TEMPLATE_IDS, name);
-        break;
-      case "copy":
-        assertOneOf(value, COPIES, name);
-        break;
-      case "vision":
-        assertOneOf(value, VISIONS, name);
-        break;
-      case "frame":
-        if (!FRAMES.includes(value as View["frame"])) {
-          throw new RangeError(`${name} must be one of ${FRAMES.join(", ")}, got ${String(value)}`);
-        }
-        break;
-      case "reducedMotion":
-        if (typeof value !== "boolean") {
-          throw new TypeError(`${name} must be a boolean, got ${describeType(value)}`);
-        }
-        break;
-      case "highlight":
-        checkHighlight(value);
-        break;
-      default:
-        throw new RangeError(`${name} is not a view setting`);
-    }
-  }
-  return { ...view, ...patch };
-}
-
 function checkDeps(deps: StudioDeps): void {
   assertRecord(deps, "createStudioStore: deps");
   const { client, storage, clock, newSeed, location, history } = deps;
   assertRecord(client, "createStudioStore: deps.client");
-  for (const method of ["generateNow", "request", "subscribe", "dispose"] as const) {
+  for (const method of ["generateNow", "request", "subscribe", "drop", "dispose"] as const) {
     if (typeof client[method] !== "function") {
       throw new TypeError(
         `createStudioStore: deps.client.${method} must be a function, got ${describeType(client[method])}`,
@@ -428,24 +222,26 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     return { params, seed, spec, preset: "default" };
   }
 
-  function firstLoad(): { snapshot: Snapshot; notice: Notice | null } {
+  function firstLoad(draft: Draft | null): { snapshot: Snapshot; notice: Notice | null } {
     const link = readHash(location.hash);
-    const draft = readDraft(storage);
     if (link.kind === "spec") {
       const { snapshot, customFonts } = snapshotOf(link.spec, draft);
       return { snapshot, notice: customFonts ? { kind: "custom-fonts" } : null };
     }
     if (draft !== null) {
-      const { snapshot } = snapshotOf(draft.spec, draft);
-      return {
-        snapshot,
-        notice: link.kind === "error" ? linkNotice(link, "draft") : { kind: "draft-restored" },
-      };
+      const { snapshot, customFonts } = snapshotOf(draft.spec, draft);
+      // A failed link outranks everything (Review Focus 1); custom fonts outrank the restore
+      // notice, because they warn about what editing does (R2-14 item 4).
+      let notice: Notice = { kind: "draft-restored" };
+      if (customFonts) notice = { kind: "custom-fonts" };
+      if (link.kind === "error") notice = linkNotice(link, "draft");
+      return { snapshot, notice };
     }
     return { snapshot: fresh(), notice: link.kind === "error" ? linkNotice(link, "fresh") : null };
   }
 
-  const first = firstLoad();
+  const stored = loadDraft(storage);
+  const first = firstLoad(stored.draft);
   /** The last committed snapshot: what `spec` shows, what undo pushes and the draft saves. */
   let committed: Snapshot = first.snapshot;
 
@@ -453,7 +249,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     ...committed,
     history: [],
     future: [],
-    status: { phase: "idle", notice: first.notice, draft: storage === null ? "off" : "on" },
+    status: { phase: "idle", notice: first.notice, draft: stored.readable ? "on" : "off" },
     view: DEFAULT_VIEW,
     setParams,
     applyPreset,
@@ -511,6 +307,8 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     lastApplied = lastIssued;
     issued.clear();
     lastCommit = null;
+    // The pending request is stale too: posting it would only delay the next one (M2).
+    client.drop();
   }
 
   function settle(id: number): void {
@@ -597,7 +395,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     assertRecord(change, "setParams: patch");
     const key = coalesceOf(options, "setParams");
     const { params, seed, preset } = state();
-    const next = mergeParams(params, change);
+    const next = mergeParams(params, change, "setParams");
     if (sameParams(next, params)) return;
     issue({ params: next, seed, preset: touchesPreset(params, next) ? null : preset }, key);
   }
@@ -681,7 +479,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
 
   function setView(change: Partial<View>): void {
     const { view, preset } = state();
-    const next = mergeView(view, change);
+    const next = mergeView(view, change, "setView");
     if (next.density === view.density || preset === null) {
       patch({ view: next });
       return;

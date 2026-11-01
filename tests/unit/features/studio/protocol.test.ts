@@ -107,13 +107,23 @@ describe("parseReply", () => {
     expect(parseReply({ id: 3, ok: false, error })).toEqual({ id: 3, ok: false, error });
   });
 
-  it("turns a spec that fails the schema into an error reply with the same id", () => {
+  it("passes a spec through unchecked: the store's normalizeSpec is the one schema check (M4)", () => {
     const broken = withValue(freshSpec(), ["color", "roles", "light", "ring"], "#FFF");
     expect(parseReply({ id: 2, ok: true, spec: broken })).toEqual({
       id: 2,
-      ok: false,
-      error: { name: "TypeError", message: expect.stringMatching(/^parseReply: /) },
+      ok: true,
+      spec: broken,
     });
+  });
+
+  it("turns a spec that is not a record into an error reply with the same id", () => {
+    for (const spec of [null, "spec", [], 3]) {
+      expect(parseReply({ id: 2, ok: true, spec })).toEqual({
+        id: 2,
+        ok: false,
+        error: { name: "TypeError", message: expect.stringMatching(/^parseReply: /) },
+      });
+    }
   });
 
   it.each([

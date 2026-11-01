@@ -11,13 +11,16 @@ import {
   rgbToOklch,
 } from "@/engine";
 import {
+  DIRECTION_PARAM_KEYS,
   freshParams,
   lockSeed,
+  mergeParams,
   paramsMatchSpec,
   paramsOfSpec,
   parseParams,
   resolveParams,
   touchesPreset,
+  withSeed,
 } from "@/features/studio/params";
 import type { DesignSpec } from "@/spec";
 import { DEFAULT_PARAMS, withValue } from "../../spec/support";
@@ -284,4 +287,100 @@ describe("touchesPreset (R2-28)", () => {
 it("every pairing has its own three families, so paramsOfSpec finds at most one", () => {
   const triples = PAIRINGS.map((p) => `${p.display}/${p.body}/${p.mono}`);
   expect(new Set(triples).size).toBe(PAIRINGS.length);
+});
+
+describe("DIRECTION_PARAM_KEYS (I2)", () => {
+  it("lists the 15 keys of DirectionParams, frozen", () => {
+    expect([...DIRECTION_PARAM_KEYS].sort()).toEqual(
+      [
+        "primary",
+        "secondary",
+        "accent",
+        "harmony",
+        "chroma",
+        "neutralTint",
+        "gamut",
+        "scaleMode",
+        "contrastLevel",
+        "type",
+        "radius",
+        "depth",
+        "motion",
+        "pairing",
+        "name",
+      ].sort(),
+    );
+    expect(Object.isFrozen(DIRECTION_PARAM_KEYS)).toBe(true);
+  });
+});
+
+describe("mergeParams (spec section 5.7, ParamsPatch)", () => {
+  const seed = normalizeSeed(parseColor("#1f6f5b"));
+
+  it("merges type by key and replaces every other field", () => {
+    const ratio = mergeParams(FRESH_PARAMS, { type: { ratio: 1.25 } });
+    expect(ratio.type).toEqual({ context: "product", ratio: 1.25 });
+    expect(mergeParams(ratio, { type: { context: "dense" }, chroma: "vivid" })).toEqual({
+      ...FRESH_PARAMS,
+      chroma: "vivid",
+      type: { context: "dense", ratio: 1.25 },
+    });
+  });
+
+  it("removes an optional key set to undefined and sets a whole seed", () => {
+    const set = mergeParams(FRESH_PARAMS, { pairing: "funnel", primary: seed, name: "x" });
+    expect(set).toEqual({ ...FRESH_PARAMS, pairing: "funnel", primary: seed, name: "x" });
+    const cleared = mergeParams(set, { pairing: undefined, primary: undefined, name: undefined });
+    expect(cleared).toEqual(FRESH_PARAMS);
+    expect(
+      mergeParams(
+        { ...FRESH_PARAMS, type: { context: "product", ratio: 1.2 } },
+        { type: { ratio: undefined } },
+      ).type,
+    ).toEqual({ context: "product" });
+  });
+
+  it("does not check values: the generator does, and a bad one ends in a notice (C-STORE-20)", () => {
+    expect(mergeParams(FRESH_PARAMS, { chroma: "loud" as never }).chroma).toBe("loud");
+  });
+
+  it("does not mutate its inputs", () => {
+    const params = structuredClone(FRESH_PARAMS);
+    const patch = { type: { context: "dense" as const } };
+    mergeParams(params, patch);
+    expect(params).toEqual(FRESH_PARAMS);
+    expect(patch).toEqual({ type: { context: "dense" } });
+  });
+
+  it("rejects an unknown key, a removed required key and a partial seed, naming the caller", () => {
+    expect(() => mergeParams(FRESH_PARAMS, { density: "dense" } as never)).toThrow(RangeError);
+    expect(() => mergeParams(FRESH_PARAMS, { density: "dense" } as never)).toThrow(
+      /^mergeParams: patch.density/,
+    );
+    expect(() => mergeParams(FRESH_PARAMS, { density: "x" } as never, "setParams")).toThrow(
+      /^setParams: patch.density/,
+    );
+    expect(() => mergeParams(FRESH_PARAMS, { harmony: undefined })).toThrow(TypeError);
+    expect(() => mergeParams(FRESH_PARAMS, { type: undefined })).toThrow(TypeError);
+    expect(() => mergeParams(FRESH_PARAMS, { type: { context: undefined } })).toThrow(TypeError);
+    expect(() => mergeParams(FRESH_PARAMS, { type: "dense" } as never)).toThrow(TypeError);
+    expect(() => mergeParams(FRESH_PARAMS, { type: { size: 1 } } as never)).toThrow(RangeError);
+    expect(() => mergeParams(FRESH_PARAMS, { primary: { l: 0.5 } } as never)).toThrow(
+      /^mergeParams: patch.primary/,
+    );
+    expect(() =>
+      mergeParams(FRESH_PARAMS, { primary: { l: 0.5, c: 0.1, h: 30, a: 1 } } as never),
+    ).toThrow(TypeError);
+    expect(() => mergeParams(FRESH_PARAMS, null as never)).toThrow(TypeError);
+  });
+});
+
+describe("withSeed", () => {
+  it("sets a slot's seed and removes it with undefined, leaving the others", () => {
+    const seed = normalizeSeed(parseColor("#1f6f5b"));
+    const locked = withSeed({ ...FRESH_PARAMS, accent: seed }, "primary", seed);
+    expect(locked).toEqual({ ...FRESH_PARAMS, primary: seed, accent: seed });
+    expect(withSeed(locked, "primary", undefined)).toEqual({ ...FRESH_PARAMS, accent: seed });
+    expect("primary" in withSeed(locked, "primary", undefined)).toBe(false);
+  });
 });

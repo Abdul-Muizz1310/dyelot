@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { clientOver, type StudioClient } from "@/features/studio/client";
 import type { GenerateReply, GenerateRequest } from "@/features/studio/protocol";
+import type { Studio } from "@/features/studio/store";
 import { writeHash } from "@/features/studio/url";
 import { type DesignSpec, normalizeSpec } from "@/spec";
 import { without } from "../../spec/support";
@@ -10,6 +11,12 @@ import { fakeLocation, freshSpec, seedSequence } from "./support";
 // Cases are C-WORK-03 to C-WORK-09, C-WORK-15, C-WORK-16, C-STORE-14, C-STORE-24 and C-STORE-40 of
 // docs/specs/02-studio.md, section 6.7 (Review Focus 4, R2-13 item 3, R2-29): replies in any order
 // never leave the canvas on a stale spec.
+
+/** A link to a design other than FRESH's, built from a fake reply. */
+const roundOther = () =>
+  normalizeSpec(
+    fakeSpec({ id: 70, params: freshSpec().color.params as never, seed: "seed-70" }, freshSpec),
+  );
 
 /** The id a fake reply wrote into `meta.name`: which request the held spec came from. */
 const sourceOf = (spec: DesignSpec): string => spec.meta.name;
@@ -188,6 +195,27 @@ describe("superseded in-flight replies", () => {
     expect(store.getState().status.phase).toBe("idle");
   });
 
+  it.each([
+    ["undo", (studio: Studio) => studio.undo()],
+    ["redo", (studio: Studio) => studio.redo()],
+    ["loadFromHash", (studio: Studio) => studio.loadFromHash(writeHash(roundOther()))],
+    ["startFresh", (studio: Studio) => studio.startFresh()],
+    ["revert", (studio: Studio) => studio.revert()],
+  ])("%s drops the client's pending request (M2)", (_, action) => {
+    const { store, stub } = makeStore();
+    store.getState().setParams({ radius: "round" });
+    stub.reply(1);
+    store.getState().setParams({ radius: "soft" });
+    stub.reply(2);
+    store.getState().undo();
+    store.getState().setParams({ radius: "sharp" });
+    expect(store.getState().history).toHaveLength(1);
+    expect(store.getState().future).toHaveLength(1);
+    const before = stub.drops();
+    action(store.getState());
+    expect(stub.drops()).toBe(before + 1);
+  });
+
   it("C-STORE-24 is generating while the newest request is pending, idle once its reply applies", () => {
     const { store, stub } = makeStore();
     expect(store.getState().status.phase).toBe("idle");
@@ -222,6 +250,7 @@ describe("superseded in-flight replies", () => {
           listener = undefined;
         };
       },
+      drop: () => {},
       dispose: () => {},
     };
     let listener: ((reply: GenerateReply) => void) | undefined;
@@ -270,6 +299,38 @@ describe("the store behind createGenerateClient (R2-29)", () => {
     expect(sourceOf(store.getState().spec)).toBe("r6");
     expect(store.getState().history).toHaveLength(3);
     expect(store.getState().status.phase).toBe("idle");
+  });
+
+  it("applies the latest request when the transport replies inside send (I1)", () => {
+    const sent: number[] = [];
+    const client = clientOver((deliver) => ({
+      send(request) {
+        sent.push(request.id);
+        deliver({ id: request.id, ok: true, spec: fakeSpec(request, freshSpec) });
+      },
+      close() {},
+    }));
+    const { store } = makeStore({ client, location: linked() });
+    for (const radius of ["round", "sharp", "soft"] as const)
+      store.getState().setParams({ radius });
+    expect(sent).toEqual([1, 2, 3]);
+    expect(sourceOf(store.getState().spec)).toBe("r3");
+    expect(store.getState().status.phase).toBe("idle");
+  });
+
+  it("undo drops the pending request, so the reply in flight posts nothing more (M2)", () => {
+    vi.useFakeTimers();
+    const { client, sent } = slowClient(200);
+    const { store } = makeStore({ client, location: linked() });
+    store.getState().setParams({ radius: "round" });
+    vi.advanceTimersByTime(200);
+    for (const radius of ["sharp", "soft", "round"] as const)
+      store.getState().setParams({ radius });
+    expect(sent.map((request) => request.id)).toEqual([1, 2]);
+    store.getState().undo();
+    vi.advanceTimersByTime(1_000);
+    expect(sent.map((request) => request.id)).toEqual([1, 2]);
+    expect(store.getState().spec).toEqual(freshSpec());
   });
 
   it("C-WORK-16 30 requests in 1 s against a 200 ms worker post at most 6, and request 30's reply lands last", () => {

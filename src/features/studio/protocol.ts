@@ -1,5 +1,5 @@
 import { type DirectionParams, generateSystem } from "@/engine";
-import { type DesignSpec, DesignSpecSchema } from "@/spec";
+import type { DesignSpec } from "@/spec";
 import { describeType, isRecord } from "./guards";
 
 // The worker protocol (spec R2-13 item 2): a request carries an id, the resolved parameters and a
@@ -74,18 +74,20 @@ const malformed = (id: number, detail: string): GenerateReply => ({
 });
 
 /**
- * A message from the worker, parsed (it arrives as `unknown`). A reply whose id cannot be read
- * gives null. A readable id with a spec that fails `DesignSpecSchema`, or with neither a spec nor
- * an error, becomes an error reply with that id, so the request it answers still ends.
+ * A message from the worker, read as an envelope (it arrives as `unknown`): the id, `ok`, the
+ * error's shape, and a spec that is a record. A reply whose id cannot be read gives null. A
+ * readable id with a spec that is not a record, or with neither a spec nor an error, becomes an
+ * error reply with that id, so the request it answers still ends. The spec's contents are not
+ * checked here: the store's `normalizeSpec` is the one schema check of every reply (R2-13 item 4),
+ * and a spec that fails it ends in a failed status (C-WORK-08).
  */
 export function parseReply(data: unknown): GenerateReply | null {
   if (!isRecord(data) || !isRequestId(data.id)) return null;
   const { id, ok, spec, error } = data;
   if (ok === true) {
-    const parsed = DesignSpecSchema.safeParse(spec);
-    return parsed.success
-      ? { id, ok: true, spec: parsed.data }
-      : malformed(id, "the reply's spec does not match dyelot.spec/1");
+    if (!isRecord(spec)) return malformed(id, "the reply's spec is not an object");
+    // Unchecked until the store's normalizeSpec reads it; see above.
+    return { id, ok: true, spec: spec as DesignSpec };
   }
   if (
     ok === false &&

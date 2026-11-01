@@ -12,7 +12,7 @@ import {
   parseColor,
   rgbToOklch,
 } from "@/engine";
-import { resolveParams } from "@/features/studio/params";
+import { DIRECTION_PARAM_KEYS, parseParams, resolveParams } from "@/features/studio/params";
 import { runGenerate } from "@/features/studio/protocol";
 import {
   createStudioStore,
@@ -165,6 +165,48 @@ describe("setParams", () => {
     expect(() => setParams({ chroma: "vivid" }, { coalesce: 3 } as never)).toThrow(TypeError);
     expect(stub.posted).toEqual([]);
     expect(store.getState().params).toEqual(FRESH_PARAMS);
+  });
+
+  it("accepts exactly the keys parseParams accepts: one list, DIRECTION_PARAM_KEYS (I2)", () => {
+    const valid: Record<string, unknown> = {
+      primary: { l: 0.5, c: 0.1, h: 30 },
+      secondary: { l: 0.5, c: 0.1, h: 30 },
+      accent: { l: 0.5, c: 0.1, h: 30 },
+      harmony: "triadic",
+      chroma: "vivid",
+      neutralTint: "warm",
+      gamut: "p3",
+      scaleMode: "even",
+      contrastLevel: "AAA",
+      type: { context: "dense" },
+      radius: "round",
+      depth: "flat",
+      motion: "calm",
+      pairing: "funnel",
+      name: "Saltmarsh",
+      density: "dense",
+      seed: "seed-2",
+      preset: "bento",
+      mode: "dark",
+      view: {},
+    };
+    const storeAccepts = (key: string): boolean => {
+      const { store } = makeStore();
+      try {
+        store.getState().setParams({ [key]: valid[key] } as never);
+        return true;
+      } catch (error) {
+        if (error instanceof RangeError && /is not a direction parameter/.test(error.message)) {
+          return false;
+        }
+        throw error;
+      }
+    };
+    const parseAccepts = (key: string): boolean =>
+      parseParams({ ...FRESH_PARAMS, [key]: valid[key] }) !== null;
+    const keys = Object.keys(valid);
+    expect(keys.filter(storeAccepts)).toEqual(keys.filter(parseAccepts));
+    expect(keys.filter(storeAccepts).sort()).toEqual([...DIRECTION_PARAM_KEYS].sort());
   });
 
   it("C-STORE-35 sets preset to null when a preset-owned field changes value", () => {

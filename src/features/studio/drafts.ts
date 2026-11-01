@@ -1,7 +1,8 @@
 import { type DirectionParams, PRESET_IDS, type PresetId } from "@/engine";
-import { type DesignSpec, decodeSpec, encodeSpec, SpecDecodeError } from "@/spec";
+import { type DesignSpec, decodeSpec, SpecDecodeError } from "@/spec";
 import { assertRecord, describeType, isOneOf, isRecord } from "./guards";
 import { paramsMatchSpec, parseParams } from "./params";
+import { encodeLink } from "./url";
 
 // The draft in `localStorage` (spec section 5.7, R2-14, Review Focus 2). Every storage call sits
 // inside try/catch: private modes, quotas and sandboxes make `localStorage` throw, and the studio
@@ -92,24 +93,31 @@ function parseDraft(text: string): Draft | null {
 }
 
 /**
- * The draft under `dyelot:draft`, or null. A value that is not a draft (not JSON, another
- * version, a link that does not open, the wrong shape) gives null and is removed; it never shows a
- * banner. Stored params that fail `parseParams` or do not regenerate the stored spec read back as
- * `params: null` (C-DRAFT-12, R2-14 item 2).
+ * The draft under `dyelot:draft`, and whether the storage could be read at all (M5): a storage
+ * whose read throws is off from the start, so the studio says "Drafts off" before the first
+ * write fails. A value that is not a draft (not JSON, another version, a link that does not open,
+ * the wrong shape) gives a null draft and is removed; it never shows a banner. Stored params that
+ * fail `parseParams` or do not regenerate the stored spec read back as `params: null`
+ * (C-DRAFT-12, R2-14 item 2).
  */
-export function readDraft(storage: StorageLike | null): Draft | null {
-  if (storage === null) return null;
+export function loadDraft(storage: StorageLike | null): { draft: Draft | null; readable: boolean } {
+  if (storage === null) return { draft: null, readable: false };
   assertStorage(storage, "readDraft: storage");
   let text: unknown;
   try {
     text = storage.getItem(DRAFT_KEY);
   } catch {
-    return null;
+    return { draft: null, readable: false };
   }
-  if (typeof text !== "string") return null;
+  if (typeof text !== "string") return { draft: null, readable: true };
   const draft = parseDraft(text);
   if (draft === null) clearDraft(storage);
-  return draft;
+  return { draft, readable: true };
+}
+
+/** The draft under `dyelot:draft`, or null (section 5.7): `loadDraft`'s draft. */
+export function readDraft(storage: StorageLike | null): Draft | null {
+  return loadDraft(storage).draft;
 }
 
 /**
@@ -124,7 +132,7 @@ export function writeDraft(storage: StorageLike | null, snapshot: Snapshot): { o
   assertStorage(storage, "writeDraft: storage");
   const text = JSON.stringify({
     v: DRAFT_VERSION,
-    link: encodeSpec(snapshot.spec),
+    link: encodeLink(snapshot.spec, "writeDraft"),
     params: snapshot.params,
     preset: snapshot.preset,
   });

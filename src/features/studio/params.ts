@@ -23,7 +23,7 @@ import {
   TYPE_CONTEXTS,
 } from "@/engine";
 import type { DesignSpec } from "@/spec";
-import { assertOneOf, assertRecord, assertString, isOneOf, isRecord } from "./guards";
+import { assertOneOf, assertRecord, assertString, describeType, isOneOf, isRecord } from "./guards";
 
 // The studio's parameters (spec section 5.7): the fresh design, the automatic pairing (R2-05), the
 // parameters a spec records (`paramsOfSpec`), the check a draft's parameters pass (R2-14 item 2),
@@ -113,7 +113,11 @@ export function paramsOfSpec(spec: DesignSpec): { params: DirectionParams; custo
   return { params, customFonts: match === undefined };
 }
 
-const PARAM_KEYS: ReadonlySet<string> = new Set([
+/**
+ * The keys of `DirectionParams`: the one list that `parseParams` and `mergeParams` (the store's
+ * `setParams`) accept, so a draft and a patch can never disagree on what a parameter is (I2).
+ */
+export const DIRECTION_PARAM_KEYS: readonly (keyof DirectionParams)[] = Object.freeze([
   ...LOCKABLE,
   "harmony",
   "chroma",
@@ -129,19 +133,27 @@ const PARAM_KEYS: ReadonlySet<string> = new Set([
   "name",
 ]);
 
+const PARAM_KEYS: ReadonlySet<string> = new Set(DIRECTION_PARAM_KEYS);
+
 const hasOnly = (value: Record<string, unknown>, keys: ReadonlySet<string>): boolean =>
   Object.keys(value).every((key) => keys.has(key));
 
 const SEED_KEYS: ReadonlySet<string> = new Set(["l", "c", "h"]);
 const TYPE_KEYS: ReadonlySet<string> = new Set(["context", "ratio"]);
 
-/** A seed as stored, when `normalizeSeed` accepts it (its domain), else null. */
-function parseSeed(value: unknown): Oklch | null {
+/** A color's shape: `l`, `c` and `h` and nothing else, numbers, `h` possibly null; else null. */
+function seedShape(value: unknown): Oklch | null {
   if (!isRecord(value) || !hasOnly(value, SEED_KEYS)) return null;
   const { l, c, h } = value;
   if (typeof l !== "number" || typeof c !== "number") return null;
   if (h !== null && typeof h !== "number") return null;
-  const seed: Oklch = { l, c, h };
+  return { l, c, h };
+}
+
+/** A seed as stored, when it has a color's shape and `normalizeSeed` accepts it (its domain). */
+function parseSeed(value: unknown): Oklch | null {
+  const seed = seedShape(value);
+  if (seed === null) return null;
   try {
     normalizeSeed(seed);
   } catch {
@@ -266,6 +278,104 @@ export function lockSeed(spec: DesignSpec, slot: Lockable): Oklch {
     throw new TypeError(`lockSeed: spec.color.palettes.${slot}.light has no step 500`);
   }
   return normalizeSeed({ l: step.oklch.l, c: step.oklch.c, h: palette.hue }, "lockSeed: seed");
+}
+
+/** The parameters with the seed of `slot` set, or removed (unlocked) when `seed` is undefined. */
+export function withSeed(
+  params: DirectionParams,
+  slot: Lockable,
+  seed: Oklch | undefined,
+): DirectionParams {
+  const { primary, secondary, accent, ...rest } = params;
+  const seeds: Partial<Record<Lockable, Oklch>> = { primary, secondary, accent, [slot]: seed };
+  return {
+    ...rest,
+    ...(seeds.primary === undefined ? {} : { primary: seeds.primary }),
+    ...(seeds.secondary === undefined ? {} : { secondary: seeds.secondary }),
+    ...(seeds.accent === undefined ? {} : { accent: seeds.accent }),
+  };
+}
+
+/** A seed of a patch: undefined removes it, a whole color sets it, anything else is a TypeError. */
+function seedOfPatch(value: unknown, name: string): Oklch | undefined {
+  if (value === undefined) return undefined;
+  const seed = seedShape(value);
+  if (seed === null) {
+    throw new TypeError(
+      `${name} must be a whole color with only l, c and h, got ${describeType(value)}`,
+    );
+  }
+  return seed;
+}
+
+function mergeType(
+  current: DirectionParams["type"],
+  patch: DeepPartial<DirectionParams["type"]>,
+  caller: string,
+): DirectionParams["type"] {
+  assertRecord(patch, `${caller}: patch.type`);
+  for (const key of Object.keys(patch)) {
+    if (!TYPE_KEYS.has(key)) {
+      throw new RangeError(`${caller}: patch.type.${key} is not a type parameter`);
+    }
+  }
+  if (Object.hasOwn(patch, "context") && patch.context === undefined) {
+    throw new TypeError(`${caller}: patch.type.context cannot be removed`);
+  }
+  const context = patch.context ?? current.context;
+  const ratio = Object.hasOwn(patch, "ratio") ? patch.ratio : current.ratio;
+  return ratio === undefined ? { context } : { context, ratio };
+}
+
+/**
+ * The parameters after a patch (spec section 5.7, `ParamsPatch`), a new object: `type` merges by
+ * key, a whole seed color replaces a seed, and an optional key set to undefined is removed
+ * (`pairing: undefined` is auto). Values are not checked: the generator checks them, and a bad one
+ * ends in a `generation` notice (C-STORE-20). Keys and shapes are checked, so the result has the
+ * parameters' form: an unknown key is a RangeError, a removed required key or a partial seed a
+ * TypeError. Errors name `caller` (the store's `setParams`).
+ */
+export function mergeParams(
+  params: DirectionParams,
+  patch: ParamsPatch,
+  caller = "mergeParams",
+): DirectionParams {
+  assertRecord(patch, `${caller}: patch`);
+  for (const key of Object.keys(patch)) {
+    if (!PARAM_KEYS.has(key)) {
+      throw new RangeError(`${caller}: patch.${key} is not a direction parameter`);
+    }
+  }
+  const { primary, secondary, accent, pairing, name, type, ...choices } = patch;
+  for (const [key, value] of Object.entries(choices)) {
+    if (value === undefined) throw new TypeError(`${caller}: patch.${key} cannot be removed`);
+  }
+  if (Object.hasOwn(patch, "type") && type === undefined) {
+    throw new TypeError(`${caller}: patch.type cannot be removed`);
+  }
+  let next: DirectionParams = {
+    ...params,
+    ...choices,
+    type: type === undefined ? params.type : mergeType(params.type, type, caller),
+  };
+  for (const [slot, value] of [
+    ["primary", primary],
+    ["secondary", secondary],
+    ["accent", accent],
+  ] as const) {
+    if (Object.hasOwn(patch, slot)) {
+      next = withSeed(next, slot, seedOfPatch(value, `${caller}: patch.${slot}`));
+    }
+  }
+  if (Object.hasOwn(patch, "pairing")) {
+    const { pairing: _old, ...rest } = next;
+    next = pairing === undefined ? rest : { ...rest, pairing };
+  }
+  if (Object.hasOwn(patch, "name")) {
+    const { name: _old, ...rest } = next;
+    next = name === undefined ? rest : { ...rest, name };
+  }
+  return next;
 }
 
 /**

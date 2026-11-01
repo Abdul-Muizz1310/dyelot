@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   clearDraft,
   DRAFT_KEY,
+  loadDraft,
   readDraft,
   safeStorage,
   writeDraft,
@@ -163,11 +164,32 @@ describe("writeDraft and readDraft", () => {
     expect(() => clearDraft(storage)).not.toThrow();
   });
 
+  it("throws RangeError naming writeDraft for a spec that fails the schema (M9)", () => {
+    const broken = withValue(freshSpec(), ["color", "roles", "light", "ring"], "#FFF");
+    const storage = memoryStorage();
+    expect(() => writeDraft(storage, { ...snapshot(), spec: broken as never })).toThrow(RangeError);
+    expect(() => writeDraft(storage, { ...snapshot(), spec: broken as never })).toThrow(
+      /^writeDraft: .*color\.roles\.light\.ring/,
+    );
+    expect(storage.setItem).not.toHaveBeenCalled();
+  });
+
   it("throws TypeError for a storage that is not one, or a snapshot that is not one", () => {
     expect(() => readDraft({} as never)).toThrow(TypeError);
     expect(() => readDraft({} as never)).toThrow(/^readDraft: /);
     expect(() => writeDraft(memoryStorage(), null as never)).toThrow(/^writeDraft: /);
     expect(() => clearDraft(3 as never)).toThrow(/^clearDraft: /);
+  });
+});
+
+describe("loadDraft (M5)", () => {
+  it("says whether the storage could be read, beside the draft readDraft gives", () => {
+    const storage = memoryStorage();
+    writeDraft(storage, snapshot());
+    expect(loadDraft(storage)).toEqual({ draft: readDraft(storage), readable: true });
+    expect(loadDraft(memoryStorage())).toEqual({ draft: null, readable: true });
+    expect(loadDraft(throwingStorage())).toEqual({ draft: null, readable: false });
+    expect(loadDraft(null)).toEqual({ draft: null, readable: false });
   });
 });
 

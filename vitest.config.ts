@@ -26,6 +26,7 @@ const STUDIO_HELPERS = [
   "fixes",
   "client",
   "guards",
+  "view",
 ].map((name) => `src/features/studio/${name}.ts`);
 
 export default defineConfig({

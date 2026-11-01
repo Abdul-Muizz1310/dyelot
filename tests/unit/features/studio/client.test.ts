@@ -8,7 +8,10 @@ import {
   type WorkerLike,
 } from "@/features/studio/client";
 import type { GenerateReply, GenerateRequest } from "@/features/studio/protocol";
-import { FRESH_PARAMS, freshSpec, resolvedFresh } from "./support";
+import { writeHash } from "@/features/studio/url";
+import { withValue } from "../../spec/support";
+import { makeStore } from "./store-support";
+import { FRESH_PARAMS, fakeLocation, freshSpec, resolvedFresh } from "./support";
 
 // Cases are C-WORK-10, C-WORK-13 and C-WORK-14 of docs/specs/02-studio.md, section 6.7 (R2-13 item
 // 2, R2-29): one request in flight, at most one pending, the latest wins. C-WORK-15 and C-WORK-16
@@ -87,6 +90,30 @@ describe("createGenerateClient", () => {
     expect(posted).toEqual([2]);
   });
 
+  it("frees the slot when post replies at once, before post returns (I1)", () => {
+    const posted: number[] = [];
+    let client: ReturnType<typeof createGenerateClient> | undefined;
+    client = createGenerateClient((request) => {
+      posted.push(request.id);
+      client?.reply(ok(request.id));
+    });
+    for (let id = 1; id <= 3; id++) client.request(cheap(id));
+    expect(posted).toEqual([1, 2, 3]);
+  });
+
+  it("drop clears the pending request and leaves the one in flight (M2)", () => {
+    const posted: number[] = [];
+    const client = createGenerateClient((request) => posted.push(request.id));
+    client.request(cheap(1));
+    client.request(cheap(2));
+    client.drop();
+    client.reply(ok(1));
+    expect(posted).toEqual([1]);
+    client.drop();
+    client.request(cheap(3));
+    expect(posted).toEqual([1, 3]);
+  });
+
   it("rejects ids that do not increase, a request that is not one, and a post that is not a function", () => {
     const client = createGenerateClient(() => {});
     client.request(cheap(2));
@@ -117,6 +144,56 @@ describe("clientOver", () => {
       closed: () => closed,
     };
   }
+
+  it("keeps the queue moving when the transport replies inside send (I1)", () => {
+    const sent: number[] = [];
+    const heard: number[] = [];
+    const client = clientOver((deliver) => ({
+      send: (request) => {
+        sent.push(request.id);
+        deliver(ok(request.id));
+      },
+      close() {},
+    }));
+    client.subscribe((reply) => heard.push(reply.id));
+    for (let id = 1; id <= 3; id++) client.request(cheap(id));
+    expect(sent).toEqual([1, 2, 3]);
+    expect(heard).toEqual([1, 2, 3]);
+  });
+
+  it("hands a reply to the subscribers even when posting the pending request throws (M3)", () => {
+    const sent: number[] = [];
+    let deliver: (reply: GenerateReply) => void = () => {};
+    const client = clientOver((onReply) => {
+      deliver = onReply;
+      return {
+        send: (request) => {
+          if (request.id === 2) throw new Error("DataCloneError");
+          sent.push(request.id);
+        },
+        close() {},
+      };
+    });
+    const heard: number[] = [];
+    client.subscribe((reply) => heard.push(reply.id));
+    client.request(cheap(1));
+    client.request(cheap(2));
+    expect(() => deliver(ok(1))).toThrow("DataCloneError");
+    expect(heard).toEqual([1]);
+    client.request(cheap(3));
+    expect(sent).toEqual([1, 3]);
+  });
+
+  it("drop forgets the pending request, so the reply in flight posts nothing (M2)", () => {
+    const { client, sent, deliver } = manual();
+    client.request(cheap(1));
+    client.request(cheap(2));
+    client.drop();
+    deliver(ok(1));
+    expect(sent.map((r) => r.id)).toEqual([1]);
+    client.request(cheap(3));
+    expect(sent.map((r) => r.id)).toEqual([1, 3]);
+  });
 
   it("hands every reply to the subscribers and posts the pending request", () => {
     const { client, sent, deliver } = manual();
@@ -250,20 +327,24 @@ describe("createStudioClient", () => {
     expect(heard).toEqual([ok(1)]);
   });
 
-  it("turns a worker reply whose spec fails the schema into an error reply for that id", () => {
+  it("hands a worker reply whose spec fails the schema on; the store rejects it (M4, C-WORK-08)", () => {
     const worker = new FakeWorker();
     const client = createStudioClient(() => worker as WorkerLike);
-    const heard: GenerateReply[] = [];
-    client.subscribe((reply) => heard.push(reply));
-    client.request(cheap(1));
-    worker.emit("message", { data: { id: 1, ok: true, spec: { version: "x" } } });
-    expect(heard).toEqual([
-      {
-        id: 1,
-        ok: false,
-        error: { name: "TypeError", message: expect.stringMatching(/^parseReply/) },
-      },
-    ]);
+    const { store } = makeStore({
+      client,
+      location: fakeLocation(writeHash(freshSpec())).location,
+    });
+    store.getState().setParams({ radius: "round" });
+    expect(worker.posted).toHaveLength(1);
+    const broken = withValue(freshSpec(), ["color", "roles", "light", "ring"], "#FFF");
+    worker.emit("message", { data: { id: 1, ok: true, spec: broken } });
+    const { spec, status } = store.getState();
+    expect(spec).toEqual(freshSpec());
+    expect(status.phase).toBe("failed");
+    expect(status.notice).toEqual({
+      kind: "generation",
+      message: expect.stringContaining("color.roles.light.ring"),
+    });
   });
 
   it.each([

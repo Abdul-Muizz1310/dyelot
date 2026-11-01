@@ -14,13 +14,17 @@ export type GenerateFlow = {
   request(request: GenerateRequest): void;
   /** Call when a reply arrives: it frees the slot and posts the pending request, if any. */
   reply(reply: GenerateReply): void;
+  /** Forgets the pending request; the one in flight stays in flight. */
+  drop(): void;
 };
 
 /**
  * Flow control in front of `post`. A request is posted only when none is in flight; while one is,
  * a new request replaces the pending one, so a superseded request is never posted. The reply for
  * the request in flight posts the pending request. A reply for any other id changes nothing: a
- * duplicate never frees the slot twice. Ids must increase (the store numbers them 1, 2, 3).
+ * duplicate never frees the slot twice. Ids must increase (the store numbers them 1, 2, 3). The
+ * slot is taken before `post` runs, so a transport that replies inside `post` frees it at once; a
+ * `post` that throws leaves the slot free.
  */
 export function createGenerateClient(post: (request: GenerateRequest) => void): GenerateFlow {
   if (typeof post !== "function") {
@@ -30,8 +34,13 @@ export function createGenerateClient(post: (request: GenerateRequest) => void): 
   let pending: GenerateRequest | null = null;
   let lastId = 0;
   const send = (request: GenerateRequest) => {
-    post(request);
     inFlight = request.id;
+    try {
+      post(request);
+    } catch (error) {
+      if (inFlight === request.id) inFlight = null;
+      throw error;
+    }
   };
   return {
     request(request) {
@@ -54,6 +63,9 @@ export function createGenerateClient(post: (request: GenerateRequest) => void): 
       pending = null;
       if (next !== null) send(next);
     },
+    drop() {
+      pending = null;
+    },
   };
 }
 
@@ -68,6 +80,8 @@ export type StudioClient = {
   request(request: GenerateRequest): void;
   /** Hears every reply; returns the unsubscribe. */
   subscribe(listener: (reply: GenerateReply) => void): () => void;
+  /** Forgets the pending request: undo, redo, a load, start fresh and revert supersede it. */
+  drop(): void;
   /** Stops the client: nothing is posted or delivered afterwards. */
   dispose(): void;
 };
@@ -87,14 +101,21 @@ export function clientOver(
   let closed = false;
   const transport = open((reply) => {
     if (closed) return;
-    flow.reply(reply);
-    for (const listener of [...listeners]) listener(reply);
+    try {
+      flow.reply(reply);
+    } finally {
+      // A pending request that cannot be posted must not hide the reply that arrived.
+      for (const listener of [...listeners]) listener(reply);
+    }
   });
   const flow = createGenerateClient((request) => transport.send(request));
   return {
     generateNow: (params, seed) => generateSystem(params, seed),
     request(request) {
       if (!closed) flow.request(request);
+    },
+    drop() {
+      flow.drop();
     },
     subscribe(listener) {
       if (typeof listener !== "function") {

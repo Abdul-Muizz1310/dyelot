@@ -4,7 +4,8 @@ import { DRAFT_KEY, readDraft, writeDraft } from "@/features/studio/drafts";
 import { paramsOfSpec, resolveParams } from "@/features/studio/params";
 import { bindStudioWindow } from "@/features/studio/store";
 import { readHash, writeHash } from "@/features/studio/url";
-import { encodeSpec } from "@/spec";
+import { type DesignSpec, encodeSpec } from "@/spec";
+import { withValue } from "../../spec/support";
 import { lastPosted, makeStore } from "./store-support";
 import {
   FRESH_PARAMS,
@@ -269,6 +270,42 @@ describe("the first load (R2-14 item 2)", () => {
     expect(generate(resolveParams(state.params, state.seed), state.seed)).toEqual(state.spec);
   });
 
+  it("a restored draft whose fonts match no pairing shows custom-fonts, not draft-restored (M6)", () => {
+    const custom = withValue(roundSpec(), ["type", "families", "display"], "inter") as DesignSpec;
+    const { store } = makeStore({ storage: draftOf(custom) });
+    expect(store.getState().spec).toEqual(custom);
+    expect(store.getState().status.notice).toEqual({ kind: "custom-fonts" });
+    const { location } = fakeLocation("#s=AAAA");
+    const linked = makeStore({ location, storage: draftOf(custom) });
+    expect(linked.store.getState().status.notice).toMatchObject({
+      kind: "link",
+      fallback: "draft",
+    });
+  });
+
+  it.each([
+    ["a stored v: 2", () => ({ v: 2, link: encodeSpec(roundSpec()), params: null, preset: null })],
+    [
+      "a tampered link",
+      () => ({
+        v: 1,
+        link: `${encodeSpec(roundSpec()).slice(0, -8)}AAAAAAAA`,
+        params: null,
+        preset: null,
+      }),
+    ],
+  ])(
+    "C-DRAFT-06 with %s opens a fresh design with no notice, and removes the key (M7)",
+    (_, value) => {
+      const storage = memoryStorage({ [DRAFT_KEY]: JSON.stringify(value()) });
+      const { store } = makeStore({ storage });
+      expect(store.getState().spec).toEqual(freshSpec());
+      expect(store.getState().preset).toBe("default");
+      expect(store.getState().status.notice).toBeNull();
+      expect(storage.items.has(DRAFT_KEY)).toBe(false);
+    },
+  );
+
   it("a draft restore whose params fail falls back to paramsOfSpec and drops the preset", () => {
     const spec = roundSpec();
     const { store } = makeStore({ storage: draftOf(spec, { ...FRESH_PARAMS, chroma: "loud" }) });
@@ -317,6 +354,7 @@ describe("drafts from the store (RF2)", () => {
   it("C-DRAFT-10 with a storage whose every method throws, the studio still works and drafts are off", () => {
     const storage = throwingStorage();
     const { store, stub, location } = makeStore({ storage });
+    expect(store.getState().status.draft).toBe("off");
     store.getState().setParams({ radius: "round" });
     stub.reply(1);
     store.getState().regenerate();
