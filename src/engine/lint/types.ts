@@ -51,7 +51,7 @@ export type Finding = {
 export type LintedPalette = Omit<Palette, "peakChroma"> & { readonly peakChroma?: number };
 
 /**
- * What the linter reads from a `DesignSpec`: its color section. The engine never imports the spec
+ * What the linter reads from a `DesignSpec`: its color section. The linter never imports the spec
  * model (spec section 5), so this is the structural part of it; every `DesignSpec` is one.
  */
 export type LintedSpec = {
