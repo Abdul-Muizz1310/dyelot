@@ -7,7 +7,8 @@ Status: written 2026-11-01 as Task 1.1 of the M0–M1 plan, and revised twice th
 conflicts, and after a spec review. Section 2 copies the plan's decisions word for word, and they include those rulings.
 Section 3 keeps the evidence behind the four rulings. Section 4 lists rulings that close gaps in the decisions; the
 owner can overturn any of them by editing this file before the task that uses it starts. Tasks 1.2 to 1.9 implement
-against the cases in section 6.
+against the cases in section 6. Task 1.10 closed M1: it synced this file with the rulings of the task reviews (each
+marked where it applies) and copied the refinement table below into the umbrella.
 
 ## 1. Purpose and scope
 
@@ -58,6 +59,10 @@ The umbrella says a milestone spec may refine it but must say where. These are t
 | §5 Scales: `even` mode equalizes chroma across hues | Even mode works in groups: the four status palettes always form their own group; primary and accent share one when their peak chroma is equal; secondary and neutral stand alone (R-11) | Status chroma stays independent of the `chroma` parameter, and the 0.6× secondary and the neutral cannot drag the other hues down |
 | §5 Generators: neutrals take the brand hue at chroma 0.005–0.02 | A tint table: none 0, warm 0.012 at hue 60, cool 0.012 at hue 250, brand 0.010 at the primary hue | The plan fixes four tints |
 | §6 Type: all caps +0.05 to +0.12 em | Not generated in M1 (section 8) | Deferred to M2 |
+| §6 Type: line heights snap to 4 px | The snapped line height never falls below the next multiple of 4 at or above the size: `max(snapped, 4 × ceil(size / 4))` (R-16) | At some legal ratios the snap undercut the font (281 of 100,000 sampled cells); no default table cell changes |
+| §5 Roles: the shadcn role set | Ring and input sit on step 600 (700 at AAA); the status fills are warning-500, danger-600, info-700 and success-800 at a fixed peak chroma of 0.14; `destructive` stays on danger-600 at every level, with a `destructive-subtle` pair for 7:1 text (X-2, X-3, R-14) | 3:1 against card and muted surfaces, a lightness ladder for color-blind readers, and status colors that do not move with the brand |
+| §5 Linter: gamut on emitted values | G1 allows 2e-4 outside `[0, 1]`, and a locked seed counts as gamut-mapped only beyond that 2e-4 (R-10) | Rounding to 6 digits leaves valid 8-bit seeds up to 1.347e-4 outside |
+| §3 State: a tampered hash fails | `decodeSpec` returns a valid payload that is not in canonical form normalized, as `canonicalize` writes it; the spec id is unchanged (section 6.7) | A link from another engine version opens instead of failing |
 
 ## 2. Decisions M1 implements
 
@@ -172,10 +177,12 @@ its threshold. Neutral (zero-chroma) scales pass the same checks. The band does 
 the threshold forces a choice between two hexes and the nearer one may sit below it.
 
 **Result.** With the picker of R-06 (the floor and the ceiling of each channel, up to eight hexes), a sweep of 656 scales
-covers 164 hues (every 6°, plus every 0.5° across 134–150, 158–170, 186–198 and 210–222, where the green channel is most
-sensitive), peak chroma 0.14 and 0.35, and both modes:
+covers 164 hue entries (every 6° from 0 to 354, plus every 0.5° from 134 to 149.5, 158 to 169.5, 186 to 197.5 and 210 to
+221.5, where the green channel is most sensitive; eight hues sit in both lists and run twice, so 156 distinct hues), peak
+chroma 0.14 and 0.35, and both modes:
 - Every threshold step has a hex that meets its threshold. The worst overshoot is 0.0372 at step 500, 0.0510 at step 600
-  and 0.0867 at step 700 (light, hue 144). That worst case is a grid effect: the solution sits at green code 103.74,
+  and 0.0867 at step 700 (light, hue 144). The Task 1.5 review swept about 25,000 scales of the TypeScript solver and found
+  a worst of 0.0903 at step 700 (P3, light page `#e0e0e0`, hue 145), still inside 0.12. That worst case is a grid effect: the solution sits at green code 103.74,
   the hexes with green 104 give 6.992 to 6.997 and fail 7.0, and the hexes with green 103 give 7.087 to 7.092 (the cap
   fixes the chroma at 0.1414 for every peak from 0.22 up). Applying the band to this step would fail it, which is why the
   ruling exempts the threshold steps.
@@ -186,7 +193,11 @@ sensitive), peak chroma 0.14 and 0.35, and both modes:
 - P3 scales (peaks 0.20 to 0.35) use at most 0.538 of the band and overshoot by at most 0.052. Even scales for
   `[27, 150, 262]`, the four status hues and all eight test hues use at most 0.511 and overshoot by at most 0.065.
 
-The off-gray hexes matter: gray hexes alone cannot reach the dark step-600 band, and hexes one code away from gray can.
+Gray hexes alone now pass as well. Before this ruling the band applied to step 600, and the nearest gray that meets 4.5
+on the dark page missed it (0.061 against 0.05); as a threshold step it overshoots by 0.061, inside 0.12, and every other
+gray step stays inside its band (at most 0.647 of it, step 800 on white). The picker still takes the hexes one code off
+gray where they land nearer the target: 8 to 10 of the 11 steps of a zero-chroma scale on `#ffffff`, `#0f1216` and
+`#121212` (measured at Task 1.10).
 
 ### X-2 · `input` and `ring` against the card and the muted fill (ruled)
 
@@ -242,7 +253,10 @@ the page, so step 500 reaches only 2.85 against the card.
 
 **Result.** Every pick keeps at least 4.50:1 against the page and 4.24:1 against the card. The greedy pick reaches a
 smallest ΔEOK of 0.1059 (light) and 0.1132 (dark) for primary hue 270 at balanced chroma, and 0.0888 or more over 12 primary
-hues, three `chroma` settings and both modes (R-13 fixes the candidate chroma at 0.14).
+hues, three `chroma` settings and both modes (R-13 fixes the candidate chroma at 0.14). Over all 360 integer primary hues
+the minimum is 0.0833 (Task 1.6), lower than the 12-hue figure and still above 0.08; the owner ruled that it stands.
+`pickChartColors` does not check the 0.08 floor at run time: a set below it reaches lint rule S1, as `onFill` leaves a
+failing pair to C5.
 
 ## 4. Rulings that close gaps in the decisions
 
@@ -285,12 +299,13 @@ carriage return and line feed, and `ws?` means zero or more:
 
 The parser ignores `ws` around the whole input. Function names are case-insensitive. Numbers use CSS number syntax.
 Everything else throws `ColorParseError`: `/ alpha` parts, commas inside `oklch()`, percentages in `rgb()` or in chroma,
-named colors, `hsl()` and `color()`. The error message quotes at most the first 80 characters of the input; `.input`
-keeps the whole string.
+named colors, `hsl()` and `color()`. The error message quotes at most the first 80 code points of the input (an astral
+character counts once and is never split); `.input` keeps the whole string.
 
 **R-05 · Errors.** `parse.ts` exports `ColorParseError`, `scale.ts` exports `UnsatisfiableTargetError` and
 `url-codec.ts` exports `SpecDecodeError`. Every other domain failure is a `RangeError` (a value outside its domain) or a
-`TypeError` (a value of the wrong type), and the message names the argument. `Hex` values come from `toHex` and from
+`TypeError` (a value of the wrong type), and the message names the argument. Enum checks share one helper, so a string
+outside a list fails with `<name> must be one of "a", "b", got "c"`: the allowed values quoted, in list order. `Hex` values come from `toHex` and from
 the schema only; tests may cast a literal with `as Hex`.
 
 **R-06 · Solver bracket, hex picker and unsatisfiable steps.** The search on L runs on the reachable side of the page:
@@ -304,7 +319,9 @@ smaller hex. Hexes one code off gray fill the gaps between gray levels, which is
 a neutral step's `hex` can differ from gray by one code per channel while its `oklch` stays achromatic. A step is
 unsatisfiable when the extreme color (black on a light page, white on a dark page) falls short of the step's nominal
 target. `UnsatisfiableTargetError` reports the first such step in `STEPS` order, the input hue and the nominal target
-(`7.0`, not `7.02`). When the extreme meets the nominal target but not the solved value, the step takes the extreme.
+(`7.0`, not `7.02`). A satisfiable scale never needs the extreme itself: the extreme then reaches 15.5 (step 950), above
+every solved target (the largest is 7.02), so the first draft's "the step takes the extreme" branch could not run, and
+Task 1.10 removed it.
 
 **R-07 · Hue drift arithmetic.** The formula in section 2 binds. `drift(95) = 40 × (1 − 5 / 35) = 34.286` (the plan's 34.29), so step
 950 of hue 95 has hue 60.714 (the plan's 60.71). The first draft of Task 1.5 said "≈ 59 (95 − 36)". That was wrong arithmetic, and the plan now agrees with the formula.
@@ -343,7 +360,8 @@ no slot in M1. Every other row follows section 2.
 at steps 600, 700, 800 and 900 (section 2). The first pick, primary-600, keeps the brand's own chroma. Steps from 600 up
 keep every mark at 4.5:1 against the page and 4.24:1 against the card. At the brand's own chroma a `muted` palette with
 a green primary separated the pick less (0.066 to 0.077, measured on steps 500 to 800). At 0.14 and steps 600 to 900 the
-pick reaches 0.0888 or more for 12 primary hues, three chroma settings and both modes.
+pick reaches 0.0888 or more for 12 primary hues, three chroma settings and both modes, and 0.0833 or more over all 360
+integer primary hues (X-4).
 
 **R-14 · Roles.** The role table in section 2 yields 46 role names. Section 6.5 lists them. The `<status>` placeholder
 means `success`, `warning` and `info`. The danger family is `destructive`, and it has its own subtle pair,
@@ -356,8 +374,11 @@ white. With these two candidates the "none passes" branch cannot run: white pass
 through `selectOnFill`, which takes the candidates as an argument.
 
 **R-16 · Line heights.** Section 2 gives the multipliers: caption 1.4, label 1.4, body-sm 1.45, body 1.5, lead 1.5, h4
-1.4, h3 1.33, h2 1.25, h1 1.2 and display 1.1. `lineHeightPx` is `4 × floor(size × multiplier / 4 + 0.5)`: the product,
-snapped to the nearest multiple of 4 and rounded up on a tie. `size` is `sizePx`, or `maxSizePx` for a fluid step, so a
+1.4, h3 1.33, h2 1.25, h1 1.2 and display 1.1. `lineHeightPx` is `max(4 × floor(size × multiplier / 4 + 0.5), 4 ×
+ceil(size / 4))`: the product, snapped to the nearest multiple of 4 and rounded up on a tie, and never below the next
+multiple of 4 at or above the size. The floor (ruled at Task 1.7) changes no cell of the table in section 6.6; it engages
+only at odd `ratio` arguments, where the snap undercut the font in 281 of 100,000 sampled cells (dense at ratio 1.03:
+display is 16.23 px and 17.85 snaps to 16, so the floor gives 20). `size` is `sizePx`, or `maxSizePx` for a fluid step, so a
 line height never falls below the font size at any viewport. Section 6.6 lists the results.
 
 **R-17 · Type steps.** Only `display` is fluid, in the marketing and editorial contexts. Every other step of those two
@@ -366,8 +387,8 @@ rounded. A `ratio` argument replaces the context's ratio at both viewport ends a
 string writes each number with `toFixed(4)`, trailing zeros kept.
 
 **R-18 · Depth and motion tokens.** `shadows` returns six entries: index 0 is empty and indexes 1 to 5 are the
-elevations. Each elevation holds `[key, ambient]` in that order. Every layer's `color` is the `neutral950` argument,
-unchanged. `generateSystem` stores the full token sets whatever `depth` and `motion` say; it records the choice in
+elevations. Each elevation holds `[key, ambient]` in that order. Every layer's `color` equals the `neutral950` argument and is its
+own copy, so changing one layer's color changes no other layer and not the argument (I-01). `generateSystem` stores the full token sets whatever `depth` and `motion` say; it records the choice in
 `depth.style` and `motion.feel`, and M2 and M3 decide what to emit.
 
 **R-19 · Spec shape.** Section 6.7 gives the M1 shape. The schema leaves out the fields from umbrella §4 that have no M1 source:
@@ -404,8 +425,8 @@ Every one-character change to a link throws `SpecDecodeError("corrupt")`. The de
 - **Any other change inside the payload.** A character carries six bits, so such a change alters one byte or two adjacent
   bytes of the decoded stream. FNV-1a 64 then differs from the stored trailer. One changed byte always changes the hash,
   because each step maps the state one-to-one. Two adjacent changed bytes cannot cancel: after the first the states differ
-  by `δ × p` for the prime `p = 2^40 + 0x1b3` and a nonzero `δ` below 256, a gap far above the 2^8 that the next byte's
-  XOR can close.
+  by `δ × p` for the prime `p = 2^40 + 0x1b3` and a nonzero `δ` with `abs(δ)` below 256 (the difference of two XORed
+  bytes, which can be negative), a gap far above the 2^8 that the next byte's XOR can close.
 - **A change in the trailer, or across the join.** The trailer alone changes, so the recomputed hash no longer matches
   it. When the character spans the last payload byte and the first trailer byte, the recomputed hash differs from the
   original in its low 40 bits (the difference is `δ × p`, whose low 40 bits are `δ × 0x1b3`, nonzero), and the changed
@@ -555,6 +576,7 @@ class ColorParseError extends Error { readonly input: string }
 // convert.ts
 function rgbToOklch(rgb: Rgb, gamut: Gamut): Oklch;
 function oklchToRgb(c: Oklch, gamut: Gamut): Rgb; // unclamped
+function tryOklchToRgb(c: Oklch, gamut: Gamut): Rgb | null; // null where oklchToRgb throws on overflow
 function toHex(rgb: Rgb): Hex; // RangeError unless every channel is in [−1e-6, 1 + 1e-6]
 function hexToRgb(hex: Hex): Rgb;
 function formatOklch(c: Oklch): string; // oklch(0.7003 0.1701 22.06)
@@ -562,7 +584,7 @@ function formatOklch(c: Oklch): string; // oklch(0.7003 0.1701 22.06)
 // gamut.ts
 function inGamut(c: Oklch, gamut: Gamut): boolean;
 function gamutMap(c: Oklch, gamut: Gamut): Rgb;
-function maxChroma(l: number, h: number, gamut: Gamut): number;
+function maxChroma(l: number, h: number, gamut: Gamut, iterations?: number): number; // iterations 1–64, default 40
 ```
 
 Contract:
@@ -584,9 +606,15 @@ Contract:
   below 0 gives black. A color already in gamut (tolerance 0) comes back as `oklchToRgb` returns it. Otherwise a binary
   search on chroma over `[0, C]` uses local MINDE with JND 0.02 and ε 1e-4, and returns the clipped candidate. Every
   channel of the result lies in `[0, 1]`.
-- **`maxChroma`.** Bisection on `[0, 0.5]` with 40 iterations, returning the lower bound. It returns 0 when the gray at
-  `l` is out of gamut.
-- **Failure.** A non-finite `l`, `c`, `h` or channel throws `RangeError` (I-03).
+- **`maxChroma`.** Bisection on `[0, 0.5]` with `iterations` steps (a whole number from 1 to 64, default 40; the solver
+  passes 24), returning the lower bound. It returns 0 when the gray at `l` is out of gamut, and when `l` is so large that
+  converting it overflows (it reads the gray through `tryOklchToRgb`).
+- **`tryOklchToRgb`.** `oklchToRgb`, except that it returns `null` where `oklchToRgb` would throw because a finite input
+  converts to a non-finite channel (an `l` of 1e200).
+- **Failure.** A non-finite `l`, `c`, `h` or channel throws `RangeError` (I-03). An `Rgb` must hold exactly three channels;
+  any other length, or a value that is not an array, throws `TypeError`. A `gamut` that is not a string throws `TypeError`,
+  and a string other than `"srgb"` or `"p3"` throws `RangeError` (R-05). An `iterations` outside 1 to 64 or not a whole
+  number throws `RangeError`, and one that is not a number `TypeError`.
 
 | ID | Kind | Case | Origin |
 |---|---|---|---|
@@ -617,7 +645,7 @@ Contract:
 | C-PARSE-25 | failure | Each of these throws `ColorParseError` with `.input` equal to the input: `oklch(1.5 0 0)`, `oklch(101% 0 0)`, `oklch(-0.1 0 0)`, `oklch(0.5 -0.1 20)`, `oklch(0.5 0.6 20)`, `oklch(0.5 50% 20)` | RF1, added |
 | C-PARSE-26 | failure | Each of these throws `ColorParseError` with `.input` equal to the input: `oklch(0.5 0.1 abc)`, `oklch(NaN 0 0)`, `oklch(0.5 0.1 Infinity)`, `oklch(1e999 0 0)`, `oklch(0.5, 0.1, 20)`, `oklch(0.5 0.1 22 / 50%)` | RF1, RF3, added |
 | C-PARSE-27 | failure | Each of these throws `ColorParseError` with `.input` equal to the input: `red`, `transparent`, `hsl(0 100% 50%)`, `color(display-p3 1 0 0)` | added |
-| C-PARSE-28 | failure | `ColorParseError` is an `Error` with `name === "ColorParseError"`. `.input` is the untrimmed argument. A 10,000-character input gives a message under 200 characters | RF1, ruling |
+| C-PARSE-28 | failure | `ColorParseError` is an `Error` with `name === "ColorParseError"`. `.input` is the untrimmed argument. A 10,000-character input gives a message under 200 characters. "Characters" means code points: the message quotes the first 80 code points and stays well-formed UTF-16 for an input of astral characters | RF1, ruling |
 | C-PARSE-29 | pass | The parser allows whitespace inside the parentheses (R-04): `rgb( 246 108 109 )`, `rgb(246 , 108 , 109)` and `oklch(  0.7   0.17   22  )` parse to the colors of C-PARSE-01 and C-PARSE-09 | RF1, ruling |
 | C-CONV-01 | pass | `#808080` gives l ≈ 0.599871, c below 4e-6, `h === null` | plan |
 | C-CONV-02 | pass | Property (500 runs): any 8-bit sRGB triple goes hex → OKLCH → hex and returns the same hex | plan |
@@ -640,7 +668,7 @@ Contract:
 | C-GAMUT-05 | pass | `gamutMap` gives `[1, 1, 1]` for l ≥ 1 and `[0, 0, 0]` for l ≤ 0, at any chroma and hue (`oklch(1.2 0.3 40)`, `oklch(-0.1 0.3 40)`, `oklch(1 0.2 100)`, `oklch(0 0.2 100)`) | plan |
 | C-GAMUT-06 | pass | A color in gamut comes back unchanged: `gamutMap(oklch(0.7 0.05 145), g)` equals `oklchToRgb(...)` channel for channel | added |
 | C-GAMUT-07 | pass | `inGamut`: `oklch(0.7 0.05 145)` is in both gamuts, `oklch(0.7 0.4 145)` in neither, `oklch(0.7 0.25 145)` in P3 only. For `"srgb"`, `inGamut(c)` equals "`toHex(oklchToRgb(c, "srgb"))` does not throw" (property, 500 runs) | added |
-| C-GAMUT-08 | pass | `maxChroma`: for l 0.2–0.9, `oklch(l, maxChroma, h)` is in gamut and `maxChroma + 0.001` is not (property, 200 runs). P3 is at least sRGB at every (l, h). `maxChroma(0.7, 22, "p3")` ≈ 0.2435. `maxChroma(1, 90, g)` and `maxChroma(0, 90, g)` are below 1e-3. `maxChroma(1.2, 90, g) === 0` | added |
+| C-GAMUT-08 | pass | `maxChroma`: for l 0.2–0.9, `oklch(l, maxChroma, h)` is in gamut and `maxChroma + 0.001` is not (property, 200 runs). P3 is at least sRGB at every (l, h). `maxChroma(0.7, 22, "p3")` ≈ 0.2435. `maxChroma(1, 90, g)` is below 1e-3 and `maxChroma(0, 90, g)` below 0.005 (measured 0.00276 in sRGB and 0.00286 in P3: the linear toe of the sRGB curve keeps a cubed chroma inside the 1e-6 tolerance; the first draft's 1e-3 was wrong, ruled at Task 1.2). `maxChroma(1.2, 90, g) === 0` | added |
 | C-GAMUT-09 | failure | A non-finite `l`, `c` or `h` throws `RangeError` in `gamutMap`, `inGamut` and `maxChroma` | RF3, added |
 | C-GAMUT-10 | pass | The same input gives the same output, and the input object is not mutated | I-01, added |
 
@@ -681,9 +709,17 @@ Contract:
   lighter background is positive and light text on a darker background is negative. The result is `+0` when the two
   luminances differ by less than 0.0005 or the score falls under the low clip. The name stays out of code, UI and
   exports (DR-0038, I-10).
-- **`deltaEOK`.** The Euclidean distance in OKLab (CSS Color 4 §20.3, not ΔEOK2). A `null` hue contributes `a = b = 0`.
+- **`deltaEOK`.** The Euclidean distance in OKLab (CSS Color 4 §20.3, not ΔEOK2). A `null` hue contributes `a = b = 0`; the
+  engine keeps a `null` hue to chroma at or below 4e-6 (I-04), so this reading and `oklchToOklab`'s agree within 4e-6.
+  It measures with `Math.hypot`, so a distance whose square would overflow (2e200) still comes back; only a distance that
+  itself exceeds the largest double throws `RangeError`.
 - **`minPairwiseDeltaE`.** For each view (`none`, `protan`, `deutan`, `tritan`) it simulates every color, converts to
   OKLab, and returns the smallest ΔEOK over all unordered pairs. It needs at least two colors.
+- **`viewsOf` and `minViewDeltaE`.** `viewsOf(rgb)` checks the color like `simulate` and returns its OKLab under each of the
+  four views: `none` is `rgbToOklab` of the clamped color, and each deficiency is `rgbToOklab` of `simulate`.
+  `minViewDeltaE(a, b)` is the smallest Euclidean distance between the two sets of views, view by view. It throws
+  `TypeError` for a value that is not a set of four views and `RangeError` for a non-finite component.
+  `minPairwiseDeltaE` and chart picking both build on the two, so rule S1 and the picker measure alike (R-25).
 - **`simulate`.** Severity 1 only, in linear RGB: decode, multiply, clamp to `[0, 1]`, encode. Protan and deutan use the
   Viénot matrices (`VIENOT` in `cvd.py`). Tritan uses the Brettel pair (`BRETTEL`): matrix 1 when the dot product of the
   linear color with the plane normal is at least 0, matrix 2 otherwise. `#0000ff` and `#ffff00` fall on opposite
@@ -704,7 +740,7 @@ In the cases, `white` and `black` are the `Rgb` values of `#ffffff` and `#000000
 | C-CONTRAST-09 | pass | `perceptualLc(#112233, #ddeeff)` ≈ 91.668 (within 0.001) | plan |
 | C-CONTRAST-10 | pass | Property (500 runs): `perceptualLc(x, x)` is `+0` for any color | plan, RF3 |
 | C-CONTRAST-11 | pass | Property (500 runs): dark text on a lighter background gives Lc ≥ 0; light text on a darker background gives Lc ≤ 0 | added |
-| C-CONTRAST-12 | pass | Repo-wide grep: no file under `src/` contains "APCA", compared case-insensitively | plan, decision |
+| C-CONTRAST-12 | pass | Repo-wide grep: no text file under `src/` (`.ts`, `.tsx`, `.js`, `.mjs`, `.css`, `.svg`, `.md`, `.txt`, `.json`) contains "APCA", compared case-insensitively. Fonts and images are skipped, because their bytes could spell the name by chance | plan, decision |
 | C-CONTRAST-13 | pass | `relativeLuminance`: white ≈ 1, black = 0, `#808080` ≈ 0.2159 (within 0.0001); continuous at the transfer threshold (the luminances of a gray at 0.04045 and at 0.04046 differ by under 1e-5); `wcagRatio(black, white)` ≈ 21 (within 1e-9) | added |
 | C-CONTRAST-14 | failure | A channel outside `[−1e-6, 1 + 1e-6]`, or NaN or Infinity, throws `RangeError` in `relativeLuminance`, `wcagRatio` and `perceptualLc` | RF3, added |
 | C-CONTRAST-15 | failure | `meets(NaN, 4.5)` and `meets(Infinity, 4.5)` throw `RangeError`; so does a threshold other than 3, 4.5 or 7, cast through `as` | RF3, added |
@@ -720,6 +756,10 @@ In the cases, `white` and `black` are the `Rgb` values of `#ffffff` and `#000000
 | C-DELTAE-08 | pass | For `[#ff0000, #fe0000, #0000ff]` the `none` value equals `deltaEOK` of the first two colors, the closest pair, within 1e-12 | added |
 | C-DELTAE-09 | pass | Identical colors give 0 in every view. Property (200 runs): adding a color never raises any view's minimum | RF3, added |
 | C-DELTAE-10 | failure | Fewer than two colors throws `RangeError` | added |
+| C-DELTAE-11 | pass | Property (200 runs): `viewsOf(rgb)` has the keys `none`, `protan`, `deutan` and `tritan` in that order; `none` equals `rgbToOklab(rgb, "srgb")` and each deficiency equals `rgbToOklab(simulate(rgb, d), "srgb")` | ruling |
+| C-DELTAE-12 | pass | Property (200 runs): `minViewDeltaE(viewsOf(a), viewsOf(b))` equals the smallest value of `minPairwiseDeltaE([a, b])`, exactly; black against white gives 1 (within 1e-3) and a color against itself 0 | ruling |
+| C-DELTAE-13 | failure | `viewsOf` of a channel outside `[−1e-6, 1 + 1e-6]` or NaN throws `RangeError`; `minViewDeltaE` of `null` or of views missing one key throws `TypeError`, and of a NaN component `RangeError` | RF3, added |
+| C-DELTAE-14 | pass | `deltaEOK` returns a distance whose square overflows: `{ l: 1e200, c: 0, h: null }` against `{ l: -1e200, c: 0, h: null }` gives 2e200. Two colors at `l` 1e308 and −1e308 throw `RangeError` | RF3, added |
 | C-CVD-01 | pass | Deutan `#ff0000` gives `#939300` (within 1 per channel) | plan |
 | C-CVD-02 | pass | Deutan `#00ff00` gives `#dbdb29` (within 1 per channel) | plan |
 | C-CVD-03 | pass | Protan `#ff0000` gives `#5e5e0d` (within 1 per channel) | plan |
@@ -771,9 +811,12 @@ const mulberry32 = (a: number) => (): number => {
 
 Contract:
 - **`seededRandom`.** Any string is a seed, including `""`. The hash reads UTF-16 code units and applies no Unicode
-  normalization. A seed that is not a string throws `TypeError`. Each call returns an independent generator.
+  normalization. A seed that is not a string throws `TypeError`. Tests write accented strings as escapes (`"\u00e9"`,
+  `"e\u0301"`), so an editor or formatter cannot normalize them. Each call returns an independent generator.
 - **`harmonyHues`.** The hue table is in section 2 and R-12. The function normalizes its output with `((x % 360) + 360) % 360`.
-  Monochrome returns `h0` for both slots. A non-finite `h0`, or a harmony name outside the union, throws `RangeError`.
+  Monochrome returns `h0` for both slots. A non-finite `h0`, or a harmony name outside the union, throws `RangeError`; an
+  `h0` that is not a number, or a harmony that is not a string, throws `TypeError` (R-05). Whole turns do not matter:
+  `h0 + 360k` gives the same hues as `h0`.
 
 | ID | Kind | Case | Origin |
 |---|---|---|---|
@@ -790,7 +833,8 @@ Contract:
 | C-HARM-03 | pass | Property (500 runs): every output is in `[0, 360)` for all six harmonies, for `h0` in `[0, 360)` and for `h0` outside it (−30, 720, 1e6) | plan, added |
 | C-HARM-04 | pass | For `h0 = 100`, as (secondary, accent): monochrome (100, 100), analogous (70, 130), complementary (100, 280), split (310, 250), triadic (220, 340), tetradic (160, 280) | decision, ruling |
 | C-HARM-05 | pass | `harmonyHues(370, "monochrome")` gives 10 for both slots | added |
-| C-HARM-06 | failure | A NaN or infinite `h0`, or a harmony name outside the union cast through `as`, throws `RangeError` | RF3, added |
+| C-HARM-06 | failure | A NaN or infinite `h0`, or a harmony name outside the union cast through `as`, throws `RangeError`, and the message quotes the six allowed names | RF3, added |
+| C-HARM-07 | pass | Property (500 runs; `h0` a multiple of 1/1024 in `[0, 360)`, so the sums are exact; `k` from −1,000 to 1,000; every harmony): `harmonyHues(h0 + 360k, harmony)` deep-equals `harmonyHues(h0, harmony)` | added |
 
 ### 6.4 The contrast-solved scale (Task 1.5)
 
@@ -820,7 +864,9 @@ function roundHue(h: number): number; // R-02: round6, and a result of 360 becom
 Contract, for step index `i` from 0 to 10 in `STEPS` order:
 - **Target and band.** The nominal target is `TARGETS[step]`. Steps 500, 600 and 700 solve for `target + 0.02`. Their
   emitted hex must meet 3.0, 4.5 and 7.0, and it may overshoot the nominal target by at most 0.12; the 8-bit grid can
-  force 0.087 at step 700. Every other step lands within `max(0.05, 0.01 × target)` of its target: 0.05 at steps 50 to
+  force 0.087 at step 700 (0.0903 in the Task 1.5 review's sweep of about 25,000 scales: P3, light page `#e0e0e0`, hue
+  145). The 0.02 margin keeps the unquantized solution of a threshold step above `target + 0.01` in sRGB, so a hex around
+  it meets the threshold. Every other step lands within `max(0.05, 0.01 × target)` of its target: 0.05 at steps 50 to
   400, then 0.095, 0.125 and 0.155 at steps 800, 900 and 950. The band does not apply to a threshold step.
 - **Hue.** The step's drifted hue is `hue − drift(hue) × i / 10`, normalized into `[0, 360)`. The stored `oklch.h` is
   that hue passed through `roundHue` (R-02).
@@ -828,19 +874,25 @@ Contract, for step index `i` from 0 to 10 in `STEPS` order:
   `0.12 0.22 0.40 0.62 0.85 1 1 0.90 0.75 0.60 0.45` and `k` is 0.85 in dark mode and 1 in light mode. The achromatic
   rule of R-03 runs on the rounded chroma.
 - **Search and pick.** Bisection on L with 50 iterations inside the bracket of R-06, on the contrast of the unquantized,
-  gamut-mapped color. `pickHex` then chooses the hex (R-06). Rounding the solution to one hex misses the band at
+  gamut-mapped color. The search returns the end of its bracket that meets the solved target (the dark end in light mode,
+  the light end in dark mode), which holds by construction, because `UnsatisfiableTargetError` has already made the
+  extreme color reach 15.5, above every solved target. `pickHex` then chooses the hex (R-06). Rounding the solution to one hex misses the band at
   the high steps (section 3, X-1); the nearest of the surrounding hexes does not.
 - **`pickHex`.** It forms the floor and the ceiling of 255 times each channel of `solution`, clamped to 0–255, which gives
-  up to eight hexes. It returns the one whose `wcagRatio` against `page` is nearest `target`. With `threshold` it
-  considers only hexes that meet the threshold, and it throws `RangeError` when none does. A tie goes to the
-  lexicographically smaller hex. A non-finite `target` or channel, or a channel outside `[−1e-6, 1 + 1e-6]`, throws
-  `RangeError`.
+  up to eight hexes. A channel within 1e-9 of a whole code (in code units) counts as that code alone, because 255 × 0.4 is
+  not exactly 102 in floating point, and C-PICK-04 expects `#666666`. It returns the one whose `wcagRatio` against `page`
+  is nearest `target`, building each hex with `toHex` (R-05). With `threshold` it considers only hexes that meet the
+  threshold, and it throws `RangeError` when none does. A tie goes to the lexicographically smaller hex. A non-finite
+  `target` or channel, or a channel outside `[−1e-6, 1 + 1e-6]`, throws `RangeError`. A `threshold` that is not a number
+  throws `TypeError`, and a number other than 3, 4.5 or 7 `RangeError`.
 - **Output.** `oklch`, `hex` and `contrast` follow R-01 and R-02. For `gamut: "p3"` the chroma cap uses the P3 gamut and
   the hex comes from the sRGB mapping, so the solver solves and measures contrast on the sRGB hex.
 - **Even scales.** For each step, every hue uses the same chroma: the smallest chroma that any of the hues reaches at that
   step, after its own cap. Lightness is then solved again with that chroma. The scales come back in the order of
-  `hues`. One hue gives the same scale as `solveScale`.
-- **Errors.** `UnsatisfiableTargetError` follows R-06; its message names the step, the hue and the target. Invalid
+  `hues`. One hue gives the same scale as `solveScale` within the tolerances of section 5, not bit for bit: where the
+  gamut cap binds, the second pass solves with the capped chroma as its ceiling.
+- **Errors.** `UnsatisfiableTargetError` follows R-06; its message names the step, the hue and the target (`7:1`). The
+  failure depends on the page only, so `solveEvenScales` reports the first hue of its list. Invalid
   input throws `RangeError`: a non-finite `hue`; a `peakChroma` outside `[0, 0.5]`; a `page` channel outside
   `[−1e-6, 1 + 1e-6]`; an unknown `mode` or `gamut`; an empty `hues` list.
 
@@ -872,15 +924,16 @@ Contract, for step index `i` from 0 to 10 in `STEPS` order:
 | C-PICK-02 | pass | For the solution `[0.338, 0.426, 0.879]` on white with target 4.5, `pickHex` returns `#576de0` (4.4977). With threshold 4.5 it returns `#566de0` (4.5069), the nearest hex that meets 4.5 | decision, added |
 | C-PICK-03 | pass | Property (200 runs over random solutions, the pages `#ffffff` and `#0f1216`, and targets): the result equals the best of the up to eight hexes found by brute force, and no channel leaves 0–255. When the hex made by rounding each channel qualifies (it meets the threshold, or the call has no threshold), the result's error `abs(ratio − target)` is at most that hex's | decision, added |
 | C-PICK-04 | pass | A solution whose channels are whole codes gives that hex: `pickHex([0.4, 0.4, 0.4], white, 4.5)` is `#666666` | added |
-| C-PICK-05 | pass | Channels at the edges, and within the 1e-6 tolerance (`[-1e-7, 0.5, 1 + 1e-7]`), give codes inside 0–255 | added |
+| C-PICK-05 | pass | Channels at the edges, and within the 1e-6 tolerance (`[-1e-7, 0.5, 1 + 1e-7]`, which gives `#007fff` or `#0080ff`), give codes inside 0–255 | added |
 | C-PICK-06 | failure | `pickHex([0.2, 0.5, 0.7], white, 4.5, 4.5)` throws `RangeError`: no hex around a solution of 4.33:1 meets 4.5 | decision, added |
-| C-PICK-07 | failure | A non-finite channel or target, and a channel outside `[−1e-6, 1 + 1e-6]`, throw `RangeError` | RF3, added |
+| C-PICK-07 | failure | A non-finite channel or target, and a channel outside `[−1e-6, 1 + 1e-6]`, throw `RangeError`. A threshold of the wrong type (`"4.5"`, `null`, `true`) throws `TypeError`, and 5 throws `RangeError` | RF3, added |
+| C-PICK-08 | pass | The margin: for each hue in `HUES` at `PEAK`, light on white and dark on `DARK_PAGE`, every threshold step's unquantized solution, `wcagRatio(gamutMap(oklch, "srgb"), page)`, exceeds `threshold + 0.01`. Solving for the bare target fails it (2.99999 at light step 500 of hue 27) | ruling |
 | C-ROUND-01 | pass | `round6(0.7002508346689501) === 0.700251`, `round6(22.0638415289496) === 22.0638`, `round6(1234567) === 1234570`, `round6(4e-7) === 4e-7` | ruling |
 | C-ROUND-02 | pass | `round6(0) === 0` and `Object.is(round6(-0), 0)` | ruling |
 | C-ROUND-03 | pass | Property (500 runs): `round6(round6(x)) === round6(x)` | ruling |
 | C-ROUND-04 | failure | `round6(NaN)` and `round6(Infinity)` throw `RangeError` | RF3, added |
 | C-ROUND-05 | pass | `round6(359.99999999999994) === 360`, so a stored hue needs `roundHue`: `roundHue(359.99999999999994) === 0` and `roundHue(359.9995) === 0`, `roundHue(359.9994999) === 359.999` and `roundHue(262.3456789) === 262.346` | ruling |
-| C-ROUND-06 | failure | `roundHue(NaN)` and `roundHue(Infinity)` throw `RangeError` | RF3, added |
+| C-ROUND-06 | failure | `roundHue(NaN)` and `roundHue(Infinity)` throw `RangeError`, and the message names `roundHue: h` | RF3, added |
 
 ### 6.5 Palettes, roles, seeds and chart colors (Task 1.6)
 
@@ -904,6 +957,7 @@ type ColorParams = {
 function buildPalettes(input: ColorParams, random: () => number): Record<PaletteName, Palette>;
 function pageFor(neutral: Palette, mode: Mode): Hex; // R-25
 function normalizeSeed(seed: Oklch, name?: string): Oklch; // R-25: checks the domain, then R-02 and R-03; `name` starts its error messages
+const LOCKABLE: readonly ["primary", "secondary", "accent"]; // the palettes a seed can lock; the linter and generateSystem share it
 
 // roles.ts (RoleName is the union of the 46 names in the table below)
 function resolveRoles(
@@ -982,7 +1036,7 @@ Contract:
 | C-PAL-14 | pass | Even mode (R-11): primary and accent, when their `peakChroma` is equal, have a per-step chroma spread of at most 0.005 (seed steps excepted); the four status palettes have a spread of at most 0.005 among themselves; secondary and neutral equal their standard-mode scales | ruling |
 | C-PAL-15 | pass | P3: with `gamut: "p3"` every non-seed `oklch` is in the P3 gamut, every `hex` is an sRGB hex, and the contrast checks of C-SCALE-02 hold on the hex | decision |
 | C-PAL-16 | pass | The same parameters and the same `random` stream give deep-equal palettes, and the input is not mutated | I-01 |
-| C-PAL-17 | failure | Invalid input throws `RangeError` naming the field: an unknown `harmony`, `chroma`, `neutralTint`, `gamut`, `scaleMode` or `contrastLevel`; a seed with a non-finite field, `l` outside `[0, 1]`, `c` outside `[0, 0.5]` or `h` outside `[0, 360)`; a `random` that returns NaN or a value outside `[0, 1)`. A value of the wrong type (a number or `null` for an enum field, a seed that is not an object) throws `TypeError` naming the field (R-05) | RF3, added |
+| C-PAL-17 | failure | Invalid input throws `RangeError` naming the field: an unknown `harmony`, `chroma`, `neutralTint`, `gamut`, `scaleMode` or `contrastLevel`; a seed with a non-finite field, `l` outside `[0, 1]`, `c` outside `[0, 0.5]` or `h` outside `[0, 360)`; a `random` that returns NaN or a value outside `[0, 1)`. A value of the wrong type (a number or `null` for an enum field, a seed that is not an object) throws `TypeError` naming the field (R-05). `normalizeSeed` applies the same seed checks, with its `name` argument (or `normalizeSeed: seed`) starting the message | RF3, added |
 | C-PAL-18 | pass | A hue that rounds to 360. A locked primary with hue `359.99999999999994` gives `palettes.primary.hue === 0`, and every step's `oklch.h`, and the seed step's, is below 360 (R-02) | ruling |
 | C-PAL-19 | pass | The achromatic test runs after rounding. A locked primary `{ l: 0.6, c: 0.0000040000004, h: 120 }` becomes `c: 4e-6` and `h: null` in `color.params`, and gives an achromatic primary: `peakChroma` 0, `hue` 0 (R-03, R-09) | ruling |
 | C-PAL-20 | pass | Rounding alone does not count as gamut mapping (R-10). A locked `#0000ff` primary in sRGB, whose stored seed `round6` leaves about 1.8e-6 outside `[0, 1]`, records no `seedDeviation`, and both modes hold it verbatim: `light[seedStep.light].hex` and `dark[seedStep.dark].hex` are `#0000ff` (steps 700 and 400 with `DEFAULT_PARAMS`). `#00ff00` (4.3e-5 outside after rounding) and `#ff00ff` (4.9e-6) also record no `seedDeviation`, because each stays within the 2e-4 of R-10, and passing the stored seed (`normalizeSeed` of the color) back in gives deep-equal palettes. A seed whose stored form lies 1e-4 outside is placed as rounded, and one 3e-4 outside is mapped and records a `seedDeviation` | ruling, RF5 |
@@ -1060,18 +1114,19 @@ Contract:
 - **Tracking.** `−0.0223 + 0.185 × e^(−0.1745 × px)` em for the step's `sizePx`, clamped to `[−0.04, 0.05]`. The curve
   never falls below −0.0223, so only the upper clamp engages, below about 5.4 px.
 - **Line heights.** R-16: the multiplier of section 2 times the size (`maxSizePx` for a fluid step), snapped to the nearest
-  multiple of 4 px with ties rounded up. The table after this list gives the results.
+  multiple of 4 px with ties rounded up, and never below `4 × ceil(size / 4)`. The table after this list gives the results.
 - **Space.** `spaceScale(4)` returns `0 1 2 3 4 6 8 12 16 20 24 32` times 4.
 - **Shape.** Radius sets are sharp `0 2 4 6 8`, soft `4 8 12 16 24` and round `8 12 16 24 32` px for `sm`, `md`, `lg`, `xl` and
   `2xl`, plus `full: 9999`. `nestedRadius(outer, padding)` is `max(0, outer − padding)`.
 - **Depth.** For elevation `L` from 1 to 5 the key layer is `offsetY 2L, blur 4L, alpha 0.10` and the ambient layer is
-  `offsetY L, blur 2L, alpha 0.06`; both have `spread: 0`.
+  `offsetY L, blur 2L, alpha 0.06`; both have `spread: 0`. Each layer holds its own copy of the color (R-18).
 - **Motion.** Durations 50, 100, 150, 200, 300, 400 and 500 ms, in the order of the seven names. Easings, as cubic-bezier
   control points `[x1, y1, x2, y2]`: standard `[0.2, 0, 0, 1]`, decelerate `[0, 0, 0, 1]`, accelerate `[0.3, 0, 1, 1]`,
   emphasized `[0.05, 0.7, 0.1, 1]`. Springs, as seconds of visual duration and bounce: snappy `0.25 s, 0.1`,
   smooth `0.4 s, 0`, bouncy `0.5 s, 0.35`.
 - **Failure.** An unknown context, set or base, a `ratio` that is not finite or lies outside `(1, 2]`, and a negative or
-  non-finite pixel argument throw `RangeError`.
+  non-finite pixel argument throw `RangeError`. A `typeScale` input that is not an object (`null`, a number, a string)
+  throws `TypeError`.
 
 Line heights in px (R-16). Sizes come from the type scale; the marketing and editorial `display` line height comes from
 `maxSizePx` (61.0352 × 1.1 = 67.14, snapped to 68).
@@ -1096,13 +1151,13 @@ Line heights in px (R-16). Sizes come from the type scale; the marketing and edi
 | C-TYPE-03 | pass | Every `lineHeightPx` is a positive multiple of 4, for every context and for ratios 1.067, 1.2, 1.5 and 2 | plan, ruling |
 | C-TYPE-04 | pass | Tracking at 16 px (product `body`) ≈ −0.01096 (within 0.0001; the plan writes −0.0109). At 48.83 px (product `display`) it is ≈ −0.02226: the curve nears −0.0223 and the clamp does not engage | plan |
 | C-TYPE-05 | pass | `typeScale({ context: "dense", ratio: 2 })` gives the 3.5 px caption `trackingEm === 0.05`. Property: every `trackingEm`, over all contexts and ratios, lies in `[−0.04, 0.05]` | decision, added |
-| C-TYPE-06 | pass | Marketing `display.clamp` is `clamp(2.7994rem, 2.3840rem + 1.8461vw, 3.8147rem)`; `sizePx` ≈ 44.78976 and `maxSizePx` ≈ 61.03516. Evaluating the clamp at a 360 px viewport gives `sizePx` and at 1240 px gives `maxSizePx`, each within 0.01 px | plan |
+| C-TYPE-06 | pass | Marketing `display.clamp` is `clamp(2.7994rem, 2.3840rem + 1.8461vw, 3.8147rem)`; `sizePx` ≈ 44.78976 and `maxSizePx` ≈ 61.03516. The test reads the four numbers from the string, and asserts that it found them. Evaluating the clamp at a 360 px viewport gives `sizePx` and at 1240 px gives `maxSizePx`, each within 0.01 px | plan |
 | C-TYPE-07 | pass | In marketing and editorial only `display` has `clamp` and `maxSizePx`; the other steps stay at 18 × 1.2^e (`body` 18, `h1` 37.3248). Editorial has the same sizes as marketing. No other context has `clamp` | ruling |
 | C-TYPE-08 | pass | A `ratio` argument replaces the context's ratio: product with 1.2 gives `h1` 33.1776; marketing with 1.2 gives `display` from 44.78976 to 49.7664 (within 0.01) | ruling |
 | C-TYPE-09 | pass | The steps come in the order caption, label, body-sm, body, lead, h4, h3, h2, h1, display; label equals body-sm in size and lead equals h4 | decision |
 | C-TYPE-10 | pass | `lineHeightPx` equals the line-height table for every step of the dense, product, poster, marketing and editorial contexts. For example product `h1`: 39.0625 × 1.2 = 46.875 snaps to 48, and product `lead`: 20 × 1.5 = 30 snaps up to 32 | decision, ruling |
-| C-TYPE-11 | failure | `ratio` of 1, 0.9, 2.01, NaN or Infinity throws `RangeError`; so does an unknown context cast through `as` | RF3, added |
-| C-TYPE-12 | pass | In every context, and for ratio overrides 1.067, 1.2, 1.5 and 2, each `lineHeightPx` is at least the step's largest size (`maxSizePx` for a fluid step), so a line never undercuts its font. The `body` line height is 1.43 times the size in dense (20 / 14), 1.5 in product, and 1.56 in poster, marketing and editorial (28 / 18) | ruling |
+| C-TYPE-11 | failure | `ratio` of 1, 0.9, 2.01, NaN or Infinity throws `RangeError`; so does an unknown context cast through `as`. An input of `null`, `42`, `"product"` or `true` throws `TypeError` | RF3, added |
+| C-TYPE-12 | pass | In every context, and for ratio overrides 1.067, 1.2, 1.5 and 2, each `lineHeightPx` is at least the step's largest size (`maxSizePx` for a fluid step), so a line never undercuts its font. The `body` line height is 1.43 times the size in dense (20 / 14), 1.5 in product, and 1.56 in poster, marketing and editorial (28 / 18). The floor of R-16: dense at ratio 1.03 gives `display` 20 (16.23 px), and at ratio 1.81 gives `caption` 8 (4.27 px); property (500 runs over every context and any ratio in `(1, 2]`): every line height is a multiple of 4 and at least the step's largest size | ruling |
 | C-SPACE-01 | pass | `spaceScale(4)` is `[0, 4, 8, 12, 16, 24, 32, 48, 64, 80, 96, 128]` | decision |
 | C-SPACE-02 | pass | Each call returns a new array; mutating one result leaves the next call unchanged | I-01, added |
 | C-SPACE-03 | failure | `spaceScale(8)` and `spaceScale(NaN)`, cast through `as`, throw `RangeError` | RF3, added |
@@ -1114,7 +1169,7 @@ Line heights in px (R-16). Sizes come from the type scale; the marketing and edi
 | C-DEPTH-01 | pass | Elevation 3: the key layer is `offsetY 6, blur 12, spread 0, alpha 0.10` and the ambient layer is `offsetY 3, blur 6, spread 0, alpha 0.06` | plan, decision |
 | C-DEPTH-02 | pass | For each elevation `L` from 1 to 5: key `offsetY 2L, blur 4L, alpha 0.10`; ambient `offsetY L, blur 2L, alpha 0.06`; `spread` 0 | decision |
 | C-DEPTH-03 | pass | The result has six entries: index 0 is empty and indexes 1 to 5 hold `[key, ambient]` | ruling |
-| C-DEPTH-04 | pass | Every layer's `color` equals the `neutral950` argument | ruling |
+| C-DEPTH-04 | pass | Every layer's `color` equals the `neutral950` argument and is a distinct object: no layer shares it with the argument or another layer, and changing one layer's color leaves the argument and the other layers unchanged | ruling, I-01 |
 | C-DEPTH-05 | pass | `offsetY` and `blur` of both layers rise strictly with elevation | added |
 | C-DEPTH-06 | failure | A non-finite field in `neutral950` throws `RangeError` | RF3, added |
 | C-MOTION-01 | pass | Durations: instant 50, fast 100, quick 150, base 200, slow 300, slower 400, slowest 500 | decision |
@@ -1130,6 +1185,7 @@ Files: `src/spec/{schema,canonical,hash,url-codec}.ts`, `src/engine/generate.ts`
 ```ts
 // schema.ts
 const DesignSpecSchema; // a strict zod 4 object whose `version` is z.literal("dyelot.spec/1")
+// zod.ts: the one module that imports zod. It sets `z.config({ jitless: true })` and re-exports `z`.
 type DesignSpec = z.infer<typeof DesignSpecSchema>;
 type DirectionParams = ColorParams & {
   type: { context: "dense" | "product" | "marketing" | "editorial" | "poster"; ratio?: number };
@@ -1210,10 +1266,19 @@ Contract:
   `(root)` for the payload itself; the message gives only their count. A `decodeSpec` argument that is not a string
   throws `TypeError` (R-05). `encodeSpec` checks the canonical form of its argument against the schema and throws
   `RangeError` naming the failing paths, so every link it returns opens: a `type.ratio` of 1.0000001 is valid as given,
-  but rounds to 1, and is refused.
+  but rounds to 1, and is refused. A UTF-8 decoder that throws (fflate's own, where `TextDecoder` is missing) is also
+  `corrupt`.
+- **Normalizing a valid link.** A payload that passes the schema but is not in canonical form (keys in another order, a
+  number past 6 significant digits, a hue that rounds to 360) comes back as `canonicalize` would store it:
+  `decodeSpec` returns `DesignSpecSchema.parse(JSON.parse(canonicalize(data)))`, so its spec id is the one the payload's
+  canonical form gives (ruled at Task 1.8). A payload whose canonical form fails the schema, such as a `type.ratio` of
+  1.0000001 that rounds to 1, throws `schema` with the failing paths.
+- **No `eval`.** zod 4 compiles object parsers with the `Function` constructor unless `jitless` is set, and the production
+  CSP has no `'unsafe-eval'`. Every schema imports `z` from `src/spec/zod.ts`, which sets jitless mode first; Biome's
+  `noRestrictedImports` refuses an import of `"zod"` anywhere else. Parsing a whole spec makes no `Function` call.
 - **`generateSystem`.** It checks `params` and `seed` (R-20). It draws `random = seededRandom(seed)`, builds the palettes,
   and for each mode picks the chart colors and resolves the roles at `params.contrastLevel`. It builds the tokens: type
-  from `params.type`, space from `spaceScale(4)`, radii from `params.radius`, shadows from the light-mode neutral-950
+  from `params.type` (read once, so a getter cannot hand the build a value the check never saw), space from `spaceScale(4)`, radii from `params.radius`, shadows from the light-mode neutral-950
   color, and motion from `motionTokens()`. It sets `meta.name` to `params.name ?? "untitled"`, `meta.seed` to `seed`,
   `meta.engineVersion` to `ENGINE_VERSION` and `meta.createdWith` to `"controls"`. Last, it applies `round6` to every number
   (R-02). The result always passes `DesignSpecSchema`. It rounds `type.ratio` with `round6` before use, so the stored
@@ -1247,6 +1312,7 @@ Contract:
 | C-CANON-05 | failure | A spec with NaN, Infinity or −Infinity in a number makes `canonicalize` throw `RangeError`; it never writes `null` | RF3, ruling |
 | C-CANON-06 | pass | A one-field change alters the output; a change below the sixth significant digit (1e-9 on a 0.7 value) does not | added |
 | C-CANON-07 | pass | `JSON.parse(canonicalize(s))` deep-equals `s` for generated specs, so canonicalization changes nothing | ruling |
+| C-CANON-08 | pass | Every hue sits under the key `h` or `hue`, the keys `canonicalize` sends through `roundHue`: in the default, rich and gray specs, every key matching `/hue\|^h$/i` is exactly `h` or `hue` and holds `null` or a number in `[0, 360)`, and every `Oklch` (a `c` key) has its `h` beside it | ruling |
 | C-HASH-01 | pass | `specId(s)` matches `^[0-9a-f]{16}$` and equals `fnv1a64(canonicalize(s))` | plan |
 | C-HASH-02 | pass | FNV-1a 64 vectors: `fnv1a64("")` is `cbf29ce484222325`, `"a"` is `af63dc4c8601ec8c`, `"foobar"` is `85944171f73967e8`, `"dyelot"` is `10593ce3d8ac9214` | added |
 | C-HASH-03 | pass | UTF-8: `fnv1a64("é")` is `0ac21707b7181e01`, the hash of the bytes `c3 a9` | ruling |
@@ -1266,6 +1332,9 @@ Contract:
 | C-URL-11 | pass | `SpecDecodeError` is an `Error` with `name === "SpecDecodeError"` and a `reason` from the three; its message names the reason and never echoes the payload | RF4 |
 | C-URL-12 | pass | Property (500 runs): for any string, and for any single-character mutation of a valid link, `decodeSpec` returns a `DesignSpec` or throws `SpecDecodeError`; no other error type | RF3, RF4 |
 | C-URL-13 | pass | The decoded value passes `DesignSpecSchema.parse` | added |
+| C-URL-15 | pass | A valid payload that is not canonical (shuffled keys, a contrast 1e-9 off its stored value, a palette hue of 359.99999) decodes to the canonical spec: the contrast comes back as stored, the hue as 0, and `specId` and `canonicalize` equal those of the tidy spec. A payload whose `type.ratio` is 1.0000001 throws `schema` with `issues` `["type.ratio"]` | ruling |
+| C-URL-16 | pass | Order and failure modes, seen through a spy on fflate: a link with a matching trailer inflates once; a link whose trailer does not match throws `corrupt` before any `Inflate` exists; a UTF-8 decoder that throws gives `corrupt`, never another error type | RF4, ruling |
+| C-URL-17 | pass | `DesignSpecSchema.parse` of a whole spec, and a schema built after import, make zero calls to the `Function` constructor. With jitless mode off, the same probe sees at least one. `biome.json` restricts the import path `zod` at error level | ruling |
 | C-URL-14 | failure | A change that flips only padding bits of the final deflate byte throws `corrupt`. The test takes the payload length `d` (decoded bytes minus 8) and changes each character from index `floor(8 × (d − 1) / 6)` to index `floor((8 × d − 1) / 6)` to each of the 63 other alphabet characters. A trailer over the inflated text would accept some of these changes (R-22) | RF4, ruling |
 | C-GEN-01 | pass | `generateSystem(DEFAULT_PARAMS, "seed-1")` called twice gives the same `canonicalize` output | plan |
 | C-GEN-02 | pass | `"seed-1"` and `"seed-2"` give different specs when the caller passes no color (primary hue 289 against 69) | plan |
@@ -1277,7 +1346,7 @@ Contract:
 | C-GEN-08 | pass | Wiring of color: `color.params` equals the color part of `params` after the seed normalization of 6.5's Seeds bullet (`normalizeSeed`), and `color.roles[mode]` equals `resolveRoles` with the colors from `pickChartColors`, for both modes | added |
 | C-GEN-09 | pass | `neutralTint: "none"` with a gray primary gives achromatic steps with `h: null` and no NaN | RF3 |
 | C-GEN-10 | failure | Invalid parameters throw `RangeError` naming the field: an unknown enum value; `type.ratio` outside `(1, 2]` or rounding to 1; `name` empty or over 80 characters; `seed` empty or over 128; a seed color out of range | RF3, ruling |
-| C-GEN-11 | pass | `generateSystem` accepts a deep-frozen `params` object and does not mutate it | I-01 |
+| C-GEN-11 | pass | `generateSystem` accepts a deep-frozen `params` object and does not mutate it. It reads `params.type` once: a getter that returns a valid type first and an invalid one later yields a spec built from the first | I-01 |
 | C-GEN-12 | pass | A hue that rounds to 360. A locked primary `oklch(0.7 0.17 359.99999999999994)` gives a spec that passes `DesignSpecSchema`, with every stored hue below 360: the palette hues, the step hues and `color.params.primary.h` (R-02) | ruling |
 | C-GEN-13 | pass | Regenerating is idempotent. `generateSystem` of the parameters a spec records (`color.params`, `type.context` and `type.ratio`, `shape.radiusSet`, `depth.style`, `motion.feel` and `meta.name`), with `meta.seed`, deep-equals the spec. Fixed cases: `#0000ff`, `#00ff00` and `#ff00ff` locked as primary and as accent with `DEFAULT_PARAMS` (none records a `seedDeviation`). Property (50 runs): every enum, locked seeds drawn from `#0000ff`, `#00ff00`, `#ff00ff`, `#ffffff`, `#000000`, `EXTREME_SEEDS` and random in-range colors, and random seed strings | ruling |
 
@@ -1347,6 +1416,8 @@ default designs.
 Contract:
 - **Order.** Findings sort by severity (`error`, `warn`, `info`), then `id`, then `mode` (`light` first), then `subject`,
   each ascending.
+- **Seeds.** Only K4 reads `color.params` seeds, and only in even mode, to find the seeded steps it skips. Standard mode
+  never reads them.
 - **Purity.** `lintSpec` reads the spec and nothing else. It does not mutate it and does not re-validate it; callers parse
   at the boundary. A spec whose numbers include NaN or Infinity makes it throw `RangeError`, so no finding carries a
   non-finite value.
@@ -1436,6 +1507,7 @@ Contract:
 | C-LINT-55 | failure | **Every role list is complete.** With every role of both modes set to `#808080`, each pair and role rule reports exactly its listed subjects in both modes: C1 13, C2 5, C4 4, C5 6, N1 2, N2 10, N3 1, F1 3, S1 8 and S2 1 per mode (C2 10, C4 8, C5 12, N1 4, N2 20 and F1 6 over both), and the dark-mode role rules report D2 and D4 | added |
 | C-LINT-56 | failure | **D3 covers 21 pairs.** With every dark chroma set to 0.4, D3 reports exactly the 21 subjects of primary, secondary, accent, success, warning, danger and info at steps 500, 600 and 700 | added |
 | C-LINT-57 | pass | **D1 to D4 run in dark mode only.** Light roles that would fail them (a black light background, a white light foreground, a light card equal to the page) and light chroma of 0 raise no light-mode D finding | added |
+| C-LINT-58 | pass | **K4 reads seeds in even mode only.** A standard-mode spec whose stored primary seed is out of domain (`l: 2`) still lints, with the same K4 findings; the even-mode spec with that seed throws `RangeError`, because even mode must read the seed | ruling |
 
 ### 6.9 Repository guards
 
