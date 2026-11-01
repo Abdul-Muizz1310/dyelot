@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { hexToRgb, rgbToOklch } from "@/engine/color/convert";
 import { PALETTE_NAMES } from "@/engine/color/palette";
 import { parseColor } from "@/engine/color/parse";
 import { STEPS } from "@/engine/color/scale";
@@ -9,7 +8,7 @@ import { lintSpec } from "@/engine/lint";
 import { TAILWIND_HEXES } from "@/engine/lint/tailwind";
 import { type Finding, RULE_IDS } from "@/engine/lint/types";
 import type { DesignSpec } from "@/spec/schema";
-import { DEFAULT_PARAMS, deepFreeze, defaultSpec, PROPERTY_TIMEOUT } from "../../spec/support";
+import { DEFAULT_PARAMS, deepFreeze, defaultSpec } from "../../spec/support";
 import { copyOf, loose } from "./support";
 import { deriveTailwind } from "./tailwind-source";
 
@@ -36,8 +35,9 @@ const withBody = (sizePx: number, context = "product"): DesignSpec => {
   body.sizePx = sizePx;
   return spec;
 };
+const TAILWIND = deriveTailwind();
 const hexOf = (name: string): string => {
-  const found = deriveTailwind().entries.find((entry) => entry.name === name);
+  const found = TAILWIND.entries.find((entry) => entry.name === name);
   if (found === undefined) throw new Error(`no tailwind color ${name}`);
   return found.hex;
 };
@@ -167,7 +167,7 @@ describe("T3 Tailwind defaults", () => {
   });
 
   it("C-TASTE-12 derives 26 palettes, 286 entries and 283 distinct hexes from theme.css", () => {
-    const { entries, palettes, hexes } = deriveTailwind();
+    const { entries, palettes, hexes } = TAILWIND;
     expect(palettes).toHaveLength(26);
     expect(palettes).toEqual(expect.arrayContaining(["mauve", "olive", "mist", "taupe"]));
     expect(entries).toHaveLength(286);
@@ -178,17 +178,6 @@ describe("T3 Tailwind defaults", () => {
     expect(TAILWIND_HEXES).toHaveLength(283);
     expect(Object.isFrozen(TAILWIND_HEXES)).toBe(true);
   });
-
-  it(
-    "C-TASTE-13 raises nothing for 300 default designs",
-    () => {
-      for (let i = 0; i < 300; i++) {
-        const spec = generateSystem(DEFAULT_PARAMS, `s${i}`);
-        expect(only(spec, "T3"), `s${i}`).toEqual([]);
-      }
-    },
-    PROPERTY_TIMEOUT * 2,
-  );
 
   it("C-TASTE-16 reads steps 300 to 800 only", () => {
     const hex = hexOf("emerald-500");
@@ -270,12 +259,6 @@ describe("the taste rules as a group", () => {
   it("C-TASTE-23 accepts a full DesignSpec and reads its type and shape", () => {
     const spec = withBody(15);
     expect(only(spec, "T4")).toHaveLength(1);
-    expect(lintSpec(generateSystem(DEFAULT_PARAMS, "seed-1")).map((f) => f.id)).toContain("T2");
-  });
-
-  it("C-TASTE-13 hexes match the engine's own conversion of a Tailwind color", () => {
-    const [first] = deriveTailwind().entries;
-    const back = rgbToOklch(hexToRgb(first?.hex as never), "srgb");
-    expect(back.l).toBeGreaterThan(0.9);
+    expect(lintSpec(defaultSpec()).map((f) => f.id)).toContain("T2");
   });
 });

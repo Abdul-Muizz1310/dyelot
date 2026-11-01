@@ -90,7 +90,7 @@ fix for K3, the font files, the lock behavior), the ruling wins and names the de
   default); T3 a scale step equal to a Tailwind v4 default hex; T4 body size < 16 px outside the dense
   context; T5 mixed radius languages (a `sharp` set with `round` pills) (info).
 - **Color names** (`src/engine/color/names.ts`): nearest name by ΔEOK from `color-name-list/bestof`,
-  loaded lazily by the UI (the 53 KB list stays out of the first load).
+  loaded lazily by the UI (the list, 197,611 bytes as ESM and 52,870 bytes gzipped, stays out of the first load; measured for `color-name-list` 14.85.1, whose `bestof` set has 5,000 entries; the UI loads the ESM through `import()`, and the `min.json` build is 117,583 bytes, 50,344 gzipped).
 - **Theme bridge** (`src/theme/vars.ts`, pure): `themeVars(spec, mode)` returns the CSS custom properties
   for the canvas: every role (`--background`, `--primary`, … the 46 roles), each scale step
   (`--primary-600` …), type steps (`--text-<step>`, `--leading-<step>`, `--tracking-<step>`), families
@@ -925,7 +925,7 @@ the signatures in section 5 name. The runtime keys of `src/spec/index.ts`: `Desi
 
 ### 6.2 Font catalog, pairings and loader (Task 2.3)
 
-Tests: `tests/unit/engine/fonts/{catalog,pairings}.test.ts`, `tests/unit/features/fonts/load.test.ts`,
+Tests: `tests/unit/engine/fonts/{catalog,pairings,choose-pairing}.test.ts`, `tests/unit/engine/generate-pairing.test.ts`, `tests/unit/features/fonts/load.test.ts`,
 `tests/unit/scripts/copy-fonts.test.ts`.
 
 | Id | Kind | Case | Origin |
@@ -987,7 +987,7 @@ Tests: `tests/unit/engine/fonts/{catalog,pairings}.test.ts`, `tests/unit/feature
 
 ### 6.3 Presets and pairing choice (Task 2.4)
 
-Tests: `tests/unit/engine/presets.test.ts`.
+Tests: `tests/unit/engine/presets.test.ts`, and `presets-lint-{1..5}.test.ts` for the 50-seed cases C-PRESET-03, C-PRESET-04 and C-PRESET-12 (split so they run in parallel).
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -1010,7 +1010,7 @@ Tests: `tests/unit/engine/presets.test.ts`.
 
 ### 6.4 Taste rules (Task 2.4)
 
-Tests: `tests/unit/engine/lint/taste.test.ts`. Fixtures start from `SPEC` and override single fields. Every finding
+Tests: `tests/unit/engine/lint/taste.test.ts`, `input.test.ts` (the R-05 checks) and `t3-defaults-{1..3}.test.ts` (C-TASTE-13, 100 seeds each). Fixtures start from `SPEC` and override single fields. Every finding
 case asserts the exact `id`, `severity`, `mode`, `subject`, `measured`, `threshold` and `source`.
 
 | Id | Kind | Case | Origin |

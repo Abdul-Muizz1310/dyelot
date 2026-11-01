@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
+import { PAIRINGS } from "@/engine/fonts/pairings";
 import { generateSystem } from "@/engine/generate";
 import { specId } from "@/spec/hash";
 import type { DirectionParams } from "@/spec/schema";
@@ -12,7 +12,7 @@ const GOLDEN_ID = "f99eeb55e29ded65";
 
 describe("generateSystem pairing", () => {
   it("C-PAIR-04 writes the M1 families without a pairing, and the golden id holds", () => {
-    const spec = generateSystem(DEFAULT_PARAMS, "seed-1");
+    const spec = defaultSpec();
     expect(spec.type.families).toEqual({
       display: "host-grotesk",
       body: "host-grotesk",
@@ -36,26 +36,17 @@ describe("generateSystem pairing", () => {
   });
 
   it(
-    "C-PAIR-06 leaves colors unchanged for every pairing",
+    "C-PAIR-06 writes each pairing's families and leaves the colors unchanged",
     () => {
-      const base = generateSystem(DEFAULT_PARAMS, "seed-1").color;
-      for (const id of PAIRING_IDS) {
-        expect(generateSystem({ ...DEFAULT_PARAMS, pairing: id }, "seed-1").color).toEqual(base);
-      }
-    },
-    PROPERTY_TIMEOUT,
-  );
-
-  it(
-    "C-PAIR-06 writes each pairing's own families",
-    () => {
+      const base = defaultSpec();
       for (const pairing of PAIRINGS) {
-        const params = { ...DEFAULT_PARAMS, pairing: pairing.id };
-        expect(generateSystem(params, "seed-1").type.families).toEqual({
+        const spec = generateSystem({ ...DEFAULT_PARAMS, pairing: pairing.id }, "seed-1");
+        expect(spec.type.families, pairing.id).toEqual({
           display: pairing.display,
           body: pairing.body,
           mono: pairing.mono,
         });
+        expect(spec.color, pairing.id).toEqual(base.color);
       }
     },
     PROPERTY_TIMEOUT,

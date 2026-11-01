@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { FONT_CATALOG, type FontEntry, genericness } from "@/engine/fonts/catalog";
 import { choosePairing, PAIRING_IDS, PAIRINGS, type Pairing } from "@/engine/fonts/pairings";
 import { generateSystem } from "@/engine/generate";
+import { seededRandom } from "@/engine/random";
 import { DEFAULT_PARAMS } from "../../spec/support";
 
 // Cases are the C-PAIR-08 to C-PAIR-14 rows of docs/specs/02-studio.md, section 6.2 (Task 2.4).
@@ -92,12 +93,30 @@ describe("choosePairing", () => {
     }
   });
 
-  it("C-PAIR-13 draws from a stream apart from the palette stream", () => {
-    for (const seed of ["seed-1", "s3"]) {
-      const before = generateSystem(DEFAULT_PARAMS, seed).color;
-      choosePairing(seed);
-      choosePairing(`${seed}:pairing`);
-      expect(generateSystem(DEFAULT_PARAMS, seed).color).toEqual(before);
+  it("C-PAIR-13 follows the cumulative-weight walk over the :pairing stream", () => {
+    const weights = PAIRINGS.map((p) => 1 - 0.7 * genericness(p.display, FONT_CATALOG));
+    const total = weights.reduce((sum, w) => sum + w, 0);
+    for (const seed of seeds(200)) {
+      const target = seededRandom(`${seed}:pairing`)() * total;
+      let cumulative = 0;
+      let expected = PAIRINGS[PAIRINGS.length - 1]?.id;
+      for (let i = 0; i < PAIRINGS.length; i++) {
+        cumulative += weights[i] as number;
+        if (target < cumulative) {
+          expected = PAIRINGS[i]?.id;
+          break;
+        }
+      }
+      expect(choosePairing(seed), seed).toBe(expected);
+    }
+    expect(choosePairing("seed-1")).toBe("young-onest");
+  });
+
+  it("C-PAIR-13 leaves the colors alone whatever the pairing is", () => {
+    for (const seed of ["seed-1", "s3", "s17"]) {
+      const auto = generateSystem(DEFAULT_PARAMS, seed).color;
+      const picked = generateSystem({ ...DEFAULT_PARAMS, pairing: choosePairing(seed) }, seed);
+      expect(picked.color).toEqual(auto);
     }
   });
 
@@ -108,5 +127,13 @@ describe("choosePairing", () => {
     expect(() => choosePairing("s", [])).toThrow(/^choosePairing:/);
     expect(() => choosePairing("s", "x" as never)).toThrow(TypeError);
     expect(() => choosePairing("s", PAIRINGS, "x" as never)).toThrow(/^choosePairing:/);
+    // R-05 gaps: a null entry, a display outside the catalog, a null catalog entry.
+    expect(() => choosePairing("s", [null as never])).toThrow(TypeError);
+    expect(() => choosePairing("s", [null as never])).toThrow(/^choosePairing:/);
+    const stray = { ...(PAIRINGS[0] as Pairing), display: "not-a-font" };
+    expect(() => choosePairing("s", [stray])).toThrow(RangeError);
+    expect(() => choosePairing("s", [stray])).toThrow(/^choosePairing:/);
+    expect(() => choosePairing("s", PAIRINGS, [null as never])).toThrow(TypeError);
+    expect(() => choosePairing("s", PAIRINGS, [null as never])).toThrow(/^choosePairing:/);
   });
 });

@@ -66,6 +66,25 @@ describe("lintSpec input checks", () => {
     expect(() => lintSpec(noMode)).toThrow(TypeError);
   });
 
+  it("throws TypeError for missing color params, a null step and a bad catalog", () => {
+    const noParams = copyOf();
+    delete loose(noParams).color.params;
+    expect(() => lintSpec(noParams)).toThrow(TypeError);
+    expect(() => lintSpec(noParams)).toThrow(/^lintSpec: spec\.color\.params/);
+    const nullParams = copyOf();
+    loose(nullParams).color.params = null;
+    expect(() => lintSpec(nullParams)).toThrow(/^lintSpec: spec\.color\.params/);
+    const nullStep = copyOf();
+    loose(nullStep).color.palettes.primary.light[3] = null;
+    expect(() => lintSpec(nullStep)).toThrow(TypeError);
+    expect(() => lintSpec(nullStep)).toThrow(
+      /^lintSpec: spec\.color\.palettes\.primary\.light\[3\]/,
+    );
+    expect(() => lintSpec(defaultSpec(), { catalog: [null as never] })).toThrow(TypeError);
+    expect(() => lintSpec(defaultSpec(), { catalog: [null as never] })).toThrow(/^lintSpec:/);
+    expect(() => lintSpec(defaultSpec(), { catalog: "x" as never })).toThrow(/^lintSpec:/);
+  });
+
   it("accepts the base spec", () => {
     expect(() => lintSpec(defaultSpec())).not.toThrow();
   });

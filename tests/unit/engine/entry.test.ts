@@ -260,6 +260,7 @@ describe("frozen tables", () => {
     "HIGH_GENERICNESS_FAMILIES",
     "PAIRINGS",
     "PAIRING_IDS",
+    "PRESET_IDS",
   ] as const;
 
   it.each(TABLES)("C-ENTRY-05 freezes %s", (name) => {
@@ -267,8 +268,25 @@ describe("frozen tables", () => {
   });
 
   it("C-ENTRY-06 freezes the font tables, every entry and every array inside an entry", () => {
-    for (const table of [engine.FONT_CATALOG, engine.PAIRINGS, engine.HIGH_GENERICNESS_FAMILIES]) {
+    for (const table of [
+      engine.FONT_CATALOG,
+      engine.PAIRINGS,
+      engine.HIGH_GENERICNESS_FAMILIES,
+      engine.PRESETS,
+    ]) {
       expect(Object.isFrozen(table)).toBe(true);
+    }
+    for (const preset of Object.values(engine.PRESETS)) {
+      for (const part of [
+        preset,
+        preset.params,
+        preset.params.type,
+        preset.view,
+        preset.guards,
+        preset.unexpressed,
+      ]) {
+        expect(Object.isFrozen(part), preset.id).toBe(true);
+      }
     }
     for (const font of engine.FONT_CATALOG) {
       expect(Object.isFrozen(font), font.id).toBe(true);

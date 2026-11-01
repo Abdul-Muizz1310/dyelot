@@ -52,6 +52,7 @@ function assertLintable(spec: unknown): asserts spec is LintedSpec {
   assertRecord(spec, "spec");
   assertRecord(spec.color, "spec.color");
   const { palettes, roles } = spec.color;
+  assertRecord(spec.color.params, "spec.color.params");
   assertRecord(palettes, "spec.color.palettes");
   assertRecord(roles, "spec.color.roles");
   for (const name of PALETTE_NAMES) {
@@ -63,6 +64,9 @@ function assertLintable(spec: unknown): asserts spec is LintedSpec {
         throw new TypeError(
           `lintSpec: spec.color.palettes.${name}.${mode} must hold ${STEPS.length} steps`,
         );
+      }
+      for (const [i, step] of (scale as unknown[]).entries()) {
+        assertRecord(step, `spec.color.palettes.${name}.${mode}[${i}]`);
       }
     }
   }
@@ -105,6 +109,9 @@ export function lintSpec(spec: LintedSpec, options: LintOptions = {}): readonly 
     throw new TypeError(
       `lintSpec: options.catalog must be an array, got ${describeType(options.catalog)}`,
     );
+  }
+  for (const [i, font] of ((options.catalog ?? []) as unknown[]).entries()) {
+    assertRecord(font, `options.catalog[${i}]`);
   }
   assertFiniteNumbers(spec, "spec");
   return runRules(spec, options).sort(compare);

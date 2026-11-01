@@ -1,8 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { genericness } from "@/engine/fonts/catalog";
 import { PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
-import { generateSystem } from "@/engine/generate";
-import { lintSpec } from "@/engine/lint";
 import { applyPreset, PRESET_IDS, PRESETS, type PresetId } from "@/engine/presets";
 import type { DirectionParams } from "@/spec/schema";
 import {
@@ -13,7 +11,6 @@ import {
   FEELS,
   HARMONIES,
   LEVELS,
-  PROPERTY_TIMEOUT,
   RADII,
   SCALE_MODES,
   TINTS,
@@ -253,19 +250,6 @@ const TABLE: readonly Row[] = [
 
 const presetOf = (id: string) => PRESETS[id as PresetId];
 const IDS = TABLE.map((row) => row[0]);
-const SEEDS = Array.from({ length: 50 }, (_, i) => `s${i}`);
-
-/** Findings of 50 seeds per preset, generated once: C-PRESET-04 and C-PRESET-12 share them. */
-const measured = new Map<string, ReturnType<typeof lintSpec>[]>();
-function findingsOf(id: string): ReturnType<typeof lintSpec>[] {
-  const cached = measured.get(id);
-  if (cached !== undefined) return cached;
-  const params = applyPreset(DEFAULT_PARAMS, id as never);
-  const all = SEEDS.map((seed) => lintSpec(generateSystem(params, seed)));
-  measured.set(id, all);
-  return all;
-}
-
 const locked = { l: 0.6, c: 0.12, h: 200 };
 
 describe("PRESETS", () => {
@@ -308,7 +292,7 @@ describe("PRESETS", () => {
     expect(preset.view).toEqual({ mode, density });
   });
 
-  it.each(IDS)("C-PRESET-03 %s is a valid patch that generateSystem accepts", (id) => {
+  it.each(IDS)("C-PRESET-03 %s is a valid patch", (id) => {
     const { params } = presetOf(id);
     expect(HARMONIES).toContain(params.harmony);
     expect(CHROMAS).toContain(params.chroma);
@@ -320,26 +304,22 @@ describe("PRESETS", () => {
     expect(DEPTHS).toContain(params.depth);
     expect(FEELS).toContain(params.motion);
     if (params.pairing !== undefined) expect(PAIRING_IDS).toContain(params.pairing);
-    expect(() => generateSystem(applyPreset(DEFAULT_PARAMS, id as never), "seed-1")).not.toThrow();
+    // generateSystem accepts every preset: presets-lint-*.test.ts generate each one.
   });
 
-  it.each(IDS)(
-    "C-PRESET-04 %s raises no lint error over 50 seeds",
-    (id) => {
-      for (const findings of findingsOf(id)) {
-        expect(findings.filter((f) => f.severity === "error")).toEqual([]);
-      }
-    },
-    PROPERTY_TIMEOUT,
-  );
-
   it("C-PRESET-05 keeps locked colors and leaves absent ones absent", () => {
-    const withLocks: DirectionParams = { ...DEFAULT_PARAMS, primary: locked, accent: locked };
+    const withLocks: DirectionParams = {
+      ...DEFAULT_PARAMS,
+      primary: locked,
+      secondary: { l: 0.7, c: 0.1, h: 40 },
+      accent: locked,
+    };
     for (const id of IDS) {
       const result = applyPreset(withLocks, id as never);
       expect(result.primary).toEqual(locked);
+      expect(result.secondary).toEqual({ l: 0.7, c: 0.1, h: 40 });
       expect(result.accent).toEqual(locked);
-      expect("secondary" in result).toBe(false);
+      expect("secondary" in applyPreset(DEFAULT_PARAMS, id as never)).toBe(false);
       expect("primary" in applyPreset(DEFAULT_PARAMS, id as never)).toBe(false);
     }
   });
@@ -424,16 +404,6 @@ describe("PRESETS", () => {
     }
   });
 
-  it.each(IDS)(
-    "C-PRESET-12 %s raises no T1, T3 or T4 over 50 seeds",
-    (id) => {
-      for (const findings of findingsOf(id)) {
-        expect(findings.filter((f) => ["T1", "T3", "T4"].includes(f.id))).toEqual([]);
-      }
-    },
-    PROPERTY_TIMEOUT,
-  );
-
   it("C-PRESET-13 gives every preset a display face below genericness 0.8", () => {
     for (const id of IDS.filter((x) => x !== "default")) {
       const pairing = PAIRINGS.find((p) => p.id === presetOf(id).params.pairing);
@@ -471,11 +441,17 @@ describe("PRESETS", () => {
     expect(applyPreset(at("AA"), "glass").contrastLevel).toBe("AAA");
     expect(applyPreset(at("AA+"), "bento").contrastLevel).toBe("AA+");
     expect(applyPreset(at("AA"), "minimal-swiss").contrastLevel).toBe("AA+");
-    const keep: DirectionParams = { ...DEFAULT_PARAMS, gamut: "p3", contrastLevel: "AA+" };
-    const result = applyPreset(keep, "organic");
-    expect(result.gamut).toBe("p3");
-    expect(result.harmony).toBe("analogous");
-    expect(result.chroma).toBe("muted");
-    expect(result.radius).toBe("round");
+    // Every other field is the preset's, the gamut and the name are the user's.
+    const keep: DirectionParams = {
+      ...DEFAULT_PARAMS,
+      gamut: "p3",
+      name: "Mine",
+      contrastLevel: "AA",
+    };
+    for (const id of IDS) {
+      const { pairing, ...patch } = PRESETS[id as PresetId].params;
+      const expected = { ...keep, ...patch, ...(pairing === undefined ? {} : { pairing }) };
+      expect(applyPreset(keep, id as PresetId), id).toEqual(expected);
+    }
   });
 });

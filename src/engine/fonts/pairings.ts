@@ -215,6 +215,11 @@ export const PAIRINGS: readonly Pairing[] = Object.freeze([
 /** The pairing ids, in order. */
 export const PAIRING_IDS: readonly PairingId[] = Object.freeze(PAIRINGS.map((p) => p.id));
 
+/** The pairings by id, for lookups that already hold a checked id (not exported from the entry). */
+export const PAIRING_BY_ID: ReadonlyMap<PairingId, Pairing> = new Map(
+  PAIRINGS.map((item) => [item.id, item]),
+);
+
 /** How strongly a generic display face is weighted down: `w = 1 - OVERUSE_PENALTY * genericness`. */
 const OVERUSE_PENALTY = 0.7;
 
@@ -239,7 +244,26 @@ export function choosePairing(
     throw new TypeError(`choosePairing: catalog must be an array, got ${describeType(catalog)}`);
   }
   if (pairings.length === 0) throw new RangeError("choosePairing: pairings must not be empty");
-  const weights = pairings.map((item) => 1 - OVERUSE_PENALTY * genericness(item.display, catalog));
+  for (const [i, font] of (catalog as unknown[]).entries()) {
+    if (typeof font !== "object" || font === null) {
+      throw new TypeError(
+        `choosePairing: catalog[${i}] must be an object, got ${describeType(font)}`,
+      );
+    }
+  }
+  const weights = pairings.map((item, i) => {
+    if (typeof item !== "object" || item === null) {
+      throw new TypeError(
+        `choosePairing: pairings[${i}] must be an object, got ${describeType(item)}`,
+      );
+    }
+    if (!catalog.some((font) => font.id === item.display)) {
+      throw new RangeError(
+        `choosePairing: pairings[${i}].display "${String(item.display)}" is not in the catalog`,
+      );
+    }
+    return 1 - OVERUSE_PENALTY * genericness(item.display, catalog);
+  });
   const total = weights.reduce((sum, weight) => sum + weight, 0);
   const target = seededRandom(`${seed}:pairing`)() * total;
   let cumulative = 0;

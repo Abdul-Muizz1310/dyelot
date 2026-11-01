@@ -30,7 +30,7 @@ import {
 import { resolveRoles } from "./color/roles";
 import { STEPS } from "./color/scale";
 import type { Mode, Oklch } from "./color/types";
-import { PAIRING_IDS, PAIRINGS, type Pairing } from "./fonts/pairings";
+import { PAIRING_BY_ID, PAIRING_IDS } from "./fonts/pairings";
 import { seededRandom } from "./random";
 import { round6 } from "./round";
 import { shadows } from "./tokens/depth";
@@ -126,9 +126,15 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   const pairing: unknown = params.pairing;
   let families = DEFAULT_FAMILIES;
   if (pairing !== undefined) {
-    assertOneOf(pairing, PAIRING_IDS, "generateSystem: params.pairing");
-    const { display, body, mono } = PAIRINGS.find((item) => item.id === pairing) as Pairing;
-    families = { display, body, mono };
+    const name = "generateSystem: params.pairing";
+    if (typeof pairing !== "string") {
+      throw new TypeError(`${name} must be a string, got ${describeType(pairing)}`);
+    }
+    const chosen = PAIRING_BY_ID.get(pairing);
+    if (chosen === undefined) {
+      throw new RangeError(`${name} must be one of ${PAIRING_IDS.join(", ")}, got "${pairing}"`);
+    }
+    families = { display: chosen.display, body: chosen.body, mono: chosen.mono };
   }
   const seeds: Seeds = {};
   for (const slot of LOCKABLE) {

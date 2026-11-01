@@ -99,6 +99,10 @@ describe("indexNames", () => {
   });
 });
 
+/** A static import or re-export of the list: `import x from`, a multi-line `{ … } from`, or a bare `import "…"`. */
+const STATIC_IMPORT =
+  /(^|[;\n])\s*(import|export)\s+(?:[^"';()]*?\bfrom\s*)?["']color-name-list|(^|[;\n])\s*import\s*["']color-name-list/;
+
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const full = path.join(dir, entry);
@@ -111,6 +115,20 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe("the list stays out of the engine", () => {
+  it("C-NAME-07 static-import pattern catches every static form and no dynamic one", () => {
+    for (const bad of [
+      'import { colornames } from "color-name-list/bestof";',
+      'import {\n  colornames,\n  other,\n} from "color-name-list";',
+      'import "color-name-list/bestof";',
+      'import type { ColorName } from "color-name-list";',
+      'export { colornames } from "color-name-list/bestof";',
+      "import x from 'color-name-list';",
+    ]) {
+      expect(bad, bad).toMatch(STATIC_IMPORT);
+    }
+    expect('const m = await import("color-name-list/bestof");').not.toMatch(STATIC_IMPORT);
+  });
+
   it("C-NAME-07 names color-name-list only in src/features/studio/names.ts, in a dynamic import", () => {
     const allowed = path.join(ROOT, "src/features/studio/names.ts");
     const naming = sourceFiles(path.join(ROOT, "src")).filter((file) =>
@@ -119,7 +137,7 @@ describe("the list stays out of the engine", () => {
     expect(naming.filter((file) => file !== allowed)).toEqual([]);
     for (const file of naming) {
       const source = readFileSync(file, "utf8");
-      expect(source).not.toMatch(/(^|\n)\s*(import|export)\b[^\n(]*from\s+["']color-name-list/);
+      expect(source).not.toMatch(STATIC_IMPORT);
       expect(source).toMatch(/import\(\s*["']color-name-list/);
     }
     const names = readFileSync(path.join(ROOT, "src/engine/color/names.ts"), "utf8");
