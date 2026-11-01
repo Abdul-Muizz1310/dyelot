@@ -244,6 +244,21 @@ describe("solveScale", () => {
     PROPERTY_TIMEOUT,
   );
 
+  it("solves the threshold steps for target + 0.02, a margin above the 8-bit grid", () => {
+    // The unquantized solution of a threshold step clears its target by more than 0.01, which a
+    // solve for the bare target (margin 0) would not.
+    for (const hue of HUES) {
+      for (const [mode, page] of MODES) {
+        for (const s of solve(hue, mode, page)) {
+          const threshold = THRESHOLD[s.step];
+          if (threshold === undefined) continue;
+          const ratio = wcagRatio(gamutMap(s.oklch, "srgb"), page);
+          expect(ratio, `${mode} ${hue} ${s.step}`).toBeGreaterThan(threshold + 0.01);
+        }
+      }
+    }
+  });
+
   it("C-SCALE-09 throws at step 700 on a #808080 light page, where black reaches 5.32:1", () => {
     const run = () => solve(27, "light", rgbOfHex("#808080"));
     expect(run).toThrow(UnsatisfiableTargetError);
@@ -258,7 +273,7 @@ describe("solveScale", () => {
       expect(failure.hue).toBe(27);
       expect(failure.message).toContain("700");
       expect(failure.message).toContain("27");
-      expect(failure.message).toContain("7");
+      expect(failure.message).toContain("7:1");
     }
   });
 
@@ -542,9 +557,16 @@ describe("pickHex", () => {
   });
 
   it("C-PICK-05 keeps codes inside 0 to 255 at the edges and within the tolerance", () => {
-    expect(pickHex([-1e-7, 0.5, 1 + 1e-7], WHITE, 3)).toMatch(/^#00[78][0f]ff$/);
+    expect(pickHex([-1e-7, 0.5, 1 + 1e-7], WHITE, 3)).toMatch(/^#00(7f|80)ff$/);
     expect(pickHex([0, 0, 0], WHITE, 21)).toBe("#000000");
     expect(pickHex([1, 1, 1], WHITE, 1)).toBe("#ffffff");
+  });
+
+  it("throws TypeError for a threshold of the wrong type (R-05)", () => {
+    for (const bad of ["4.5", null, true]) {
+      expect(() => pickHex([0.3, 0.45, 0.8], WHITE, 4.5, bad as unknown as 4.5)).toThrow(TypeError);
+    }
+    expect(() => pickHex([0.3, 0.45, 0.8], WHITE, 4.5, 5 as unknown as 4.5)).toThrow(RangeError);
   });
 
   it("C-PICK-06 throws RangeError when no hex around the solution meets the threshold", () => {

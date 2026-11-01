@@ -1,6 +1,6 @@
 import { round6, roundHue } from "../round";
 import { wcagRatio } from "./contrast";
-import { ACHROMATIC_CHROMA, hexToRgb, normalizeHue, rgbToOklch } from "./convert";
+import { ACHROMATIC_CHROMA, hexToRgb, normalizeHue, rgbToOklch, toHex } from "./convert";
 import { gamutMap, maxChroma } from "./gamut";
 import {
   assertFinite,
@@ -92,8 +92,6 @@ function drift(hue: number): number {
   return 40 * clamp01(1 - Math.abs(hue - 90) / 35);
 }
 
-const hexCode = (code: number): string => code.toString(16).padStart(2, "0");
-
 /** The floor and the ceiling of 255 times the channel, clamped to 0 to 255, ascending. */
 function codesAround(channel: number): readonly number[] {
   const value = channel * 255;
@@ -106,6 +104,9 @@ function codesAround(channel: number): readonly number[] {
 
 function assertThreshold(threshold: Threshold | undefined): void {
   if (threshold === undefined) return;
+  if (typeof threshold !== "number") {
+    throw new TypeError(`pickHex: threshold must be a number, got ${describeType(threshold)}`);
+  }
   if (threshold !== 3 && threshold !== 4.5 && threshold !== 7) {
     throw new RangeError(`pickHex: threshold must be 3, 4.5 or 7, got ${String(threshold)}`);
   }
@@ -124,7 +125,7 @@ function pick(solution: Rgb, page: Rgb, target: number, threshold?: Threshold): 
         const error = Math.abs(ratio - target);
         if (error < bestError) {
           bestError = error;
-          best = `#${hexCode(r)}${hexCode(g)}${hexCode(b)}` as Hex;
+          best = toHex([r / 255, g / 255, b / 255]);
         }
       }
     }
@@ -208,9 +209,8 @@ function solveLightness(index: number, hue: number, ceiling: number, settings: S
     const c = cappedChroma(ceiling, l, hue, settings.gamut);
     return { l, c, rgb: gamutMap({ l, c, h: hue }, "srgb") };
   };
-  // The extreme meets the nominal target (checked first) but may miss the solved one: take it.
-  const extreme = at(light ? 0 : 1);
-  if (wcagRatio(extreme.rgb, settings.page) < aim) return extreme;
+  // No extreme check here: assertSatisfiable has made the extreme reach 15.5 (step 950), so it
+  // clears every aim, the largest threshold aim being 7.02. The bracket's far end always passes.
   let low = light ? 0 : settings.pageL;
   let high = light ? settings.pageL : 1;
   for (let i = 0; i < SOLVE_ITERATIONS; i++) {
@@ -220,15 +220,16 @@ function solveLightness(index: number, hue: number, ceiling: number, settings: S
     if (short === light) high = middle;
     else low = middle;
   }
-  return at((low + high) / 2);
+  // The far end of the bracket meets the aim at every iteration: `low` in light mode, `high` in dark.
+  return at(light ? low : high);
 }
 
 /** The stored step: rounded oklch (R-02, R-03), the picked hex and its measured contrast. */
 function finish(index: number, hue: number, solution: Solution, settings: Settings): ScaleStep {
   const step = STEPS[index];
   const threshold = THRESHOLDS[step];
-  // The bisection keeps the solution at or above the solved target, so a hex on the far side of
-  // the page always meets the threshold, and pickHex finds one.
+  // solveLightness returns the end of its bracket that meets the aim (target + 0.02), so the
+  // unquantized solution clears the threshold, and pickHex finds a hex around it that meets it.
   const hex = pickHex(solution.rgb, settings.page, TARGETS[step], threshold);
   const c = round6(solution.c);
   return {

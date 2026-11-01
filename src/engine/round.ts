@@ -15,6 +15,7 @@ export function round6(x: number): number {
  * [0, 360): `round6(359.99999999999994)` is 360 (spec R-02).
  */
 export function roundHue(h: number): number {
+  assertFinite(h, "roundHue: h");
   const rounded = round6(h);
   return rounded === 360 ? 0 : rounded;
 }

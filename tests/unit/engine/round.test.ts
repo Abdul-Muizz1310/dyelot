@@ -46,5 +46,6 @@ describe("roundHue", () => {
   it("C-ROUND-06 throws RangeError on NaN and Infinity", () => {
     expect(() => roundHue(Number.NaN)).toThrow(RangeError);
     expect(() => roundHue(Number.POSITIVE_INFINITY)).toThrow(RangeError);
+    expect(() => roundHue(Number.NaN)).toThrow(/^roundHue: h/);
   });
 });
