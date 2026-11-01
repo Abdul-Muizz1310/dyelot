@@ -3,7 +3,14 @@ import { meets, wcagRatio } from "./contrast";
 import { ACHROMATIC_CHROMA, hexToRgb, rgbToOklch, toHex } from "./convert";
 import { deltaEOK } from "./deltae";
 import { gamutMap, inGamut } from "./gamut";
-import { assertFinite, assertOklch, assertOneOf, describeType } from "./guards";
+import {
+  assertFinite,
+  assertGamut,
+  assertMode,
+  assertOklch,
+  assertOneOf,
+  describeType,
+} from "./guards";
 import { HARMONIES, type Harmony, harmonyHues } from "./harmony";
 import { type ScaleStep, STEPS, type Step, solveEvenScales, solveScale, THRESHOLDS } from "./scale";
 import type { Gamut, Hex, Mode, Oklch, Rgb } from "./types";
@@ -22,8 +29,6 @@ export const PALETTE_NAMES = [
 
 export type PaletteName = (typeof PALETTE_NAMES)[number];
 
-export const MODES = ["light", "dark"] as const;
-export const GAMUTS = ["srgb", "p3"] as const;
 export const CHROMA_LEVELS = ["muted", "balanced", "vivid"] as const;
 export const NEUTRAL_TINTS = ["none", "warm", "cool", "brand"] as const;
 export const SCALE_MODES = ["standard", "even"] as const;
@@ -131,7 +136,7 @@ export function pageFor(neutral: Palette, mode: Mode): Hex {
       `pageFor: neutral.peakChroma must be in [0, 0.5], got ${neutral.peakChroma}`,
     );
   }
-  assertOneOf(mode, MODES, "pageFor: mode");
+  assertMode(mode, "pageFor: mode");
   return mode === "light" ? LIGHT_PAGE : darkPage(neutral);
 }
 
@@ -161,7 +166,7 @@ function checkParams(input: ColorParams, random: () => number): void {
   assertOneOf(input.harmony, HARMONIES, "buildPalettes: input.harmony");
   assertOneOf(input.chroma, CHROMA_LEVELS, "buildPalettes: input.chroma");
   assertOneOf(input.neutralTint, NEUTRAL_TINTS, "buildPalettes: input.neutralTint");
-  assertOneOf(input.gamut, GAMUTS, "buildPalettes: input.gamut");
+  assertGamut(input.gamut, "buildPalettes: input.gamut");
   assertOneOf(input.scaleMode, SCALE_MODES, "buildPalettes: input.scaleMode");
   assertOneOf(input.contrastLevel, CONTRAST_LEVELS, "buildPalettes: input.contrastLevel");
   for (const name of LOCKABLE) {

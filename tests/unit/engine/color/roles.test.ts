@@ -316,13 +316,29 @@ describe("resolveRoles", () => {
     for (const chart of [CHART.slice(0, 4), [...CHART, CHART[0]], []]) {
       expect(() => resolveRoles(base, "light", "AA", chart)).toThrow(RangeError);
     }
-    for (const entry of ["red", "#FFF", "#ABCDEF", "#ffffff80", 42, null]) {
+    for (const entry of ["red", "#FFF", "#ABCDEF", "#ffffff80", ""]) {
       const chart = [...CHART.slice(0, 4), entry] as Hex[];
-      expect(() => resolveRoles(base, "light", "AA", chart), String(entry)).toThrow(RangeError);
+      expect(() => resolveRoles(base, "light", "AA", chart), entry).toThrow(RangeError);
     }
     expect(() => resolveRoles(base, "dim" as Mode, "AA", CHART)).toThrow(RangeError);
-    expect(() => resolveRoles(base, 1 as unknown as Mode, "AA", CHART)).toThrow(RangeError);
     expect(() => resolveRoles(base, "light", "A" as Level, CHART)).toThrow(RangeError);
+  });
+
+  it("C-ROLE-07 throws TypeError for a chart, entry, mode or level of the wrong type (R-05)", () => {
+    for (const entry of [42, null, undefined]) {
+      const chart = [...CHART.slice(0, 4), entry] as Hex[];
+      expect(() => resolveRoles(base, "light", "AA", chart), String(entry)).toThrow(TypeError);
+      expect(() => resolveRoles(base, "light", "AA", chart), String(entry)).toThrow("chart[4]");
+    }
+    for (const chart of ["#ffffff", null, { length: 5 }]) {
+      const notAList = chart as unknown as Hex[];
+      expect(() => resolveRoles(base, "light", "AA", notAList)).toThrow(TypeError);
+    }
+    expect(() => resolveRoles(base, 1 as unknown as Mode, "AA", CHART)).toThrow(TypeError);
+    expect(() => resolveRoles(base, "light", null as unknown as Level, CHART)).toThrow(TypeError);
+  });
+
+  it("C-ROLE-07 checks the palette record", () => {
     const notARecord = null as unknown as Record<PaletteName, Palette>;
     expect(() => resolveRoles(notARecord, "light", "AA", CHART)).toThrow(TypeError);
     const { info: _info, ...partial } = base;
@@ -476,6 +492,7 @@ describe("onFill and selectOnFill", () => {
     }
     expect(() => selectOnFill(gray, [])).toThrow(RangeError);
     expect(() => selectOnFill(gray, ["white" as Hex])).toThrow(RangeError);
+    expect(() => selectOnFill(gray, [42 as unknown as Hex])).toThrow(TypeError);
     expect(() => selectOnFill(gray, "#ffffff" as unknown as Hex[])).toThrow(TypeError);
   });
 });

@@ -1,10 +1,9 @@
 import { meets, perceptualLc, wcagRatio } from "./contrast";
 import { hexToRgb } from "./convert";
-import { assertHex, assertOneOf, clampedSrgb, describeType } from "./guards";
+import { assertHex, assertMode, assertOneOf, clampedSrgb, describeType } from "./guards";
 import {
   CONTRAST_LEVELS,
   type ContrastLevel,
-  MODES,
   PALETTE_NAMES,
   type Palette,
   type PaletteName,
@@ -150,10 +149,13 @@ export function resolveRoles(
   level: ContrastLevel,
   chart: readonly Hex[],
 ): Record<RoleName, Hex> {
-  assertOneOf(mode, MODES, "resolveRoles: mode");
+  assertMode(mode, "resolveRoles: mode");
   assertOneOf(level, CONTRAST_LEVELS, "resolveRoles: level");
-  if (!Array.isArray(chart) || chart.length !== CHART_SIZE) {
-    throw new RangeError(`resolveRoles: chart must hold ${CHART_SIZE} hexes`);
+  if (!Array.isArray(chart)) {
+    throw new TypeError(`resolveRoles: chart must be an array, got ${describeType(chart)}`);
+  }
+  if (chart.length !== CHART_SIZE) {
+    throw new RangeError(`resolveRoles: chart must hold ${CHART_SIZE} hexes, got ${chart.length}`);
   }
   for (let i = 0; i < chart.length; i++) assertHex(chart[i], `resolveRoles: chart[${i}]`);
   const at = stepsOf(p, mode);

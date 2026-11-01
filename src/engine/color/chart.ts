@@ -1,7 +1,7 @@
 import { hexToRgb, rgbToOklab } from "./convert";
 import { DEFICIENCIES, simulate } from "./cvd";
-import { assertOneOf, describeType } from "./guards";
-import { GAMUTS, MODES, type Palette, type PaletteName, pageFor } from "./palette";
+import { assertGamut, assertMode, describeType } from "./guards";
+import { type Palette, type PaletteName, pageFor } from "./palette";
 import { type ScaleStep, STEPS, solveScale } from "./scale";
 import type { Gamut, Hex, Mode, Oklab } from "./types";
 
@@ -102,8 +102,8 @@ export function pickChartColors(
   if (typeof p !== "object" || p === null) {
     throw new TypeError(`pickChartColors: p must be a palette record, got ${describeType(p)}`);
   }
-  assertOneOf(mode, MODES, "pickChartColors: mode");
-  assertOneOf(gamut, GAMUTS, "pickChartColors: gamut");
+  assertMode(mode, "pickChartColors: mode");
+  assertGamut(gamut, "pickChartColors: gamut");
   const primary = scaleOf(p, "primary", mode);
   scaleOf(p, "neutral", mode);
   const candidates = candidatesFor(mode, pageFor(p.neutral, mode), gamut);

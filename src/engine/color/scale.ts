@@ -2,7 +2,14 @@ import { round6, roundHue } from "../round";
 import { wcagRatio } from "./contrast";
 import { ACHROMATIC_CHROMA, hexToRgb, normalizeHue, rgbToOklch } from "./convert";
 import { gamutMap, maxChroma } from "./gamut";
-import { assertFinite, assertGamut, clamp01, clampedSrgb, describeType } from "./guards";
+import {
+  assertFinite,
+  assertGamut,
+  assertMode,
+  clamp01,
+  clampedSrgb,
+  describeType,
+} from "./guards";
 import type { Gamut, Hex, Mode, Oklch, Rgb } from "./types";
 
 /** The eleven steps of every scale, lightest job first (spec section 2). */
@@ -139,15 +146,6 @@ export function pickHex(solution: Rgb, page: Rgb, target: number, threshold?: Th
     throw new RangeError(`pickHex: no hex around the solution meets ${threshold}:1`);
   }
   return hex;
-}
-
-function assertMode(mode: Mode, name: string): void {
-  if (typeof mode !== "string") {
-    throw new TypeError(`${name} must be a string, got ${describeType(mode)}`);
-  }
-  if (mode !== "light" && mode !== "dark") {
-    throw new RangeError(`${name} must be "light" or "dark", got ${JSON.stringify(mode)}`);
-  }
 }
 
 /** The checked settings shared by every hue of a solve. */

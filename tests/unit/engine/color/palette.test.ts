@@ -261,6 +261,7 @@ describe("buildPalettes: hues and chroma", () => {
 
   it("C-PAL-05 pageFor throws on an unknown mode or a bad neutral palette", () => {
     expect(() => pageFor(build().neutral, "dim" as Mode)).toThrow(RangeError);
+    expect(() => pageFor(build().neutral, 1 as unknown as Mode)).toThrow(TypeError);
     const neutral = build().neutral;
     for (const bad of [
       { hue: 360 },
@@ -557,30 +558,41 @@ describe("buildPalettes: modes, gamut and purity", () => {
 });
 
 describe("buildPalettes: failures", () => {
-  const expectRange = (
+  const expectError = (
+    kind: typeof RangeError | typeof TypeError,
     overrides: Record<string, unknown>,
     field: string,
     random: () => number = HUE_262,
   ) => {
     const run = () => buildPalettes({ ...DEFAULTS, ...overrides } as ColorParams, random);
-    expect(run, field).toThrow(RangeError);
+    expect(run, field).toThrow(kind);
     expect(run, field).toThrow(field);
   };
+  const expectRange = (overrides: Record<string, unknown>, field: string, random?: () => number) =>
+    expectError(RangeError, overrides, field, random);
+  const ENUM_FIELDS = ["harmony", "chroma", "neutralTint", "gamut", "scaleMode", "contrastLevel"];
 
-  it("C-PAL-17 throws RangeError naming an unknown enum field", () => {
-    for (const field of [
-      "harmony",
-      "chroma",
-      "neutralTint",
-      "gamut",
-      "scaleMode",
-      "contrastLevel",
-    ]) {
-      for (const value of ["tetris", 42, null, undefined]) expectRange({ [field]: value }, field);
+  it("C-PAL-17 throws RangeError naming an enum field set to an unknown string", () => {
+    for (const field of ENUM_FIELDS) {
+      for (const value of ["tetris", "", "SRGB"]) expectRange({ [field]: value }, field);
     }
     // The harmony is checked even when all three colors are locked and no harmony is needed.
     const seed = parseColor("#f66c6d");
-    expectRange({ primary: seed, secondary: seed, accent: seed, harmony: 42 }, "harmony");
+    expectRange({ primary: seed, secondary: seed, accent: seed, harmony: "tetris" }, "harmony");
+  });
+
+  it("C-PAL-17 throws TypeError naming an enum field of the wrong type (R-05)", () => {
+    for (const field of ENUM_FIELDS) {
+      for (const value of [42, null, undefined, true, {}]) {
+        expectError(TypeError, { [field]: value }, field);
+      }
+    }
+    const seed = parseColor("#f66c6d");
+    expectError(
+      TypeError,
+      { primary: seed, secondary: seed, accent: seed, harmony: 42 },
+      "harmony",
+    );
   });
 
   it("C-PAL-17 throws RangeError naming a seed field out of its range", () => {

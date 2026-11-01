@@ -135,6 +135,8 @@ describe("pickChartColors", () => {
     const palettes = build();
     expect(() => pickChartColors(palettes, "dim" as Mode, "srgb")).toThrow(RangeError);
     expect(() => pickChartColors(palettes, "light", "rec2020" as Gamut)).toThrow(RangeError);
+    expect(() => pickChartColors(palettes, 1 as unknown as Mode, "srgb")).toThrow(TypeError);
+    expect(() => pickChartColors(palettes, "light", null as unknown as Gamut)).toThrow(TypeError);
     for (const name of ["primary", "neutral"] as const) {
       const { [name]: _missing, ...partial } = palettes;
       expect(() =>
