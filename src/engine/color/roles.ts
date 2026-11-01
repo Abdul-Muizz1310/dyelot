@@ -125,7 +125,13 @@ function stepsOf(
     throw new TypeError(`resolveRoles: p must be a palette record, got ${describeType(p)}`);
   }
   for (const name of PALETTE_NAMES) {
-    const scale = p[name]?.[mode];
+    const palette = p[name];
+    if (typeof palette !== "object" || palette === null) {
+      throw new TypeError(
+        `resolveRoles: p.${name} must be a palette, got ${describeType(palette)}`,
+      );
+    }
+    const scale = palette[mode];
     if (!Array.isArray(scale) || scale.length !== STEPS.length) {
       throw new TypeError(`resolveRoles: p.${name}.${mode} must hold ${STEPS.length} steps`);
     }

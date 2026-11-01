@@ -113,6 +113,19 @@ export function canonicalize(spec: DesignSpec): string {
 }
 
 /**
+ * Reads canonical text back through the schema for the public function `caller`: the spec it
+ * holds, or a RangeError that starts with `caller` and lists the failing paths.
+ */
+export function checkCanonical(text: string, caller: string): DesignSpec {
+  const checked = DesignSpecSchema.safeParse(JSON.parse(text));
+  if (!checked.success) {
+    const paths = pathsOf(checked.error.issues).join(", ");
+    throw new RangeError(`${caller}: spec does not match ${SPEC_VERSION} at ${paths}`);
+  }
+  return checked.data;
+}
+
+/**
  * A spec as the store keeps it (spec R2-01): `DesignSpecSchema.parse(JSON.parse(canonicalize(spec)))`.
  * Every number is rounded as the canonical text rounds it, so `decodeSpec(encodeSpec(s))` equals
  * `s` and `specId(s)` names what is held. The result is a new object. A spec that is not an object,
@@ -120,10 +133,5 @@ export function canonicalize(spec: DesignSpec): string {
  * RangeError; a spec that fails the schema is a RangeError listing the paths.
  */
 export function normalizeSpec(spec: DesignSpec): DesignSpec {
-  const checked = DesignSpecSchema.safeParse(JSON.parse(canonicalizeFor(spec, "normalizeSpec")));
-  if (!checked.success) {
-    const paths = pathsOf(checked.error.issues).join(", ");
-    throw new RangeError(`normalizeSpec: spec does not match ${SPEC_VERSION} at ${paths}`);
-  }
-  return checked.data;
+  return checkCanonical(canonicalizeFor(spec, "normalizeSpec"), "normalizeSpec");
 }

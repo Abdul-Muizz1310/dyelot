@@ -1,6 +1,6 @@
 import { deflateSync, Inflate, strFromU8, strToU8 } from "fflate";
 import { describeType } from "../engine/color/guards";
-import { canonicalize, canonicalizeFor, pathsOf } from "./canonical";
+import { canonicalize, canonicalizeFor, checkCanonical, pathsOf } from "./canonical";
 import { fnv1a64 } from "./hash";
 import { type DesignSpec, DesignSpecSchema, SPEC_VERSION } from "./schema";
 
@@ -150,11 +150,7 @@ function versionOf(json: unknown): unknown {
  */
 export function encodeSpec(spec: DesignSpec): string {
   const text = canonicalizeFor(spec, "encodeSpec");
-  const checked = DesignSpecSchema.safeParse(JSON.parse(text));
-  if (!checked.success) {
-    const paths = pathsOf(checked.error.issues).join(", ");
-    throw new RangeError(`encodeSpec: spec does not match ${SPEC_VERSION} at ${paths}`);
-  }
+  checkCanonical(text, "encodeSpec");
   const deflated = deflateSync(strToU8(text), { level: DEFLATE_LEVEL });
   const trailer = fnv1a64(deflated);
   const bytes = new Uint8Array(deflated.length + TRAILER_BYTES);

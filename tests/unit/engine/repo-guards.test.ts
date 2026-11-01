@@ -276,7 +276,7 @@ describe("C-REPO-02 the engine reaches the spec only where R2-25 allows", () => 
 
 describe("C-REPO-05 only toHex and the Hex guards make a Hex", () => {
   // A cast (`as Hex`, `<Hex>x`) or a predicate (`x is Hex`, `asserts x is Hex`).
-  const MAKES_HEX = /\bas\s+Hex\b|<Hex>|\bis\s+Hex\b/g;
+  const MAKES_HEX = /\bas\s+Hex\b|(?<![\w$>])<Hex>|\bis\s+Hex\b/g;
 
   it("finds a Hex made only by toHex (a cast) and by isHex and assertHex (predicates)", () => {
     const found = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)].flatMap((file) =>
@@ -299,6 +299,17 @@ describe("C-REPO-05 only toHex and the Hex guards make a Hex", () => {
     expect("const h = <Hex>x;".match(MAKES_HEX)).toHaveLength(1);
     expect("function f(v: unknown): v is Hex {".match(MAKES_HEX)).toHaveLength(1);
     expect("function f(v: unknown): asserts v is  Hex {".match(MAKES_HEX)).toHaveLength(1);
+    expect("const h = <Hex>(x);".match(MAKES_HEX)).toHaveLength(1);
+    for (const generic of [
+      "const a: Set<Hex> = new Set();",
+      "const b: ReadonlyArray<Hex> = [];",
+      "const [c] = useState<Hex>(x);",
+      "const d = new Map<string, Hex>();",
+      "type E = Promise<Hex>;",
+      "type F = Array<Array<Hex>>;",
+    ]) {
+      expect(generic.match(MAKES_HEX), generic).toBeNull();
+    }
     expect("x as HexColor".match(MAKES_HEX)).toBeNull();
     expect("v is HexColor".match(MAKES_HEX)).toBeNull();
     expect("type Hex = string".match(MAKES_HEX)).toBeNull();
@@ -329,6 +340,47 @@ describe("C-ENTRY-16 each bound has one definition", () => {
       .filter(([, code]) => literal.test(code))
       .map(([file]) => file);
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("C-REPO-M2-02 the pure core imports nothing from the app layers (I-M2-07)", () => {
+  const LAYERS = ["features", "app", "components", "lib"].map((name) =>
+    path.join(ROOT, "src", name),
+  );
+  const pureFiles = ["engine", "spec", "theme"].flatMap((name) =>
+    codeFiles(path.join(ROOT, "src", name)),
+  );
+
+  /** Whether `specifier`, written in `file`, points into one of the app layers. */
+  function importsFromLayer(file: string, specifier: string): boolean {
+    if (/^@\/(features|app|components|lib)(\/|$)/.test(specifier)) return true;
+    if (!specifier.startsWith(".")) return false;
+    const resolved = path.resolve(path.dirname(file), specifier);
+    return LAYERS.some((layer) => resolved === layer || resolved.startsWith(layer + path.sep));
+  }
+
+  it("finds no import from src/features, src/app, src/components or src/lib", () => {
+    expect(pureFiles.length).toBeGreaterThan(0);
+    const offenders = pureFiles
+      .filter((file) =>
+        specifiers(stripComments(readFileSync(file, "utf8"))).some((s) =>
+          importsFromLayer(file, s),
+        ),
+      )
+      .map((file) => path.relative(ROOT, file));
+    expect(offenders).toEqual([]);
+  });
+
+  it("recognizes an import from an app layer however it is written", () => {
+    const file = path.join(ROOT, "src/engine/color/example.ts");
+    expect(importsFromLayer(file, "@/features/studio/store")).toBe(true);
+    expect(importsFromLayer(file, "@/lib")).toBe(true);
+    expect(importsFromLayer(file, "../../app/page")).toBe(true);
+    expect(importsFromLayer(file, "../../../src/components/x")).toBe(true);
+    expect(importsFromLayer(file, "../round")).toBe(false);
+    expect(importsFromLayer(file, "@/engine/round")).toBe(false);
+    expect(importsFromLayer(file, "@/library/x")).toBe(false);
+    expect(importsFromLayer(file, "fflate")).toBe(false);
   });
 });
 

@@ -1,22 +1,43 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type { DirectionParams, Finding, LintedSpec } from "@/engine";
 import * as engine from "@/engine";
+import { pickChartColors } from "@/engine/color/chart";
 import { meets, perceptualLc, wcagRatio } from "@/engine/color/contrast";
 import { formatOklch, hexToRgb, oklchToRgb, rgbToOklch, toHex } from "@/engine/color/convert";
-import { simulate } from "@/engine/color/cvd";
+import { DEFICIENCIES, simulate } from "@/engine/color/cvd";
 import { deltaEOK } from "@/engine/color/deltae";
 import { ColorParseError } from "@/engine/color/errors";
 import { gamutMap } from "@/engine/color/gamut";
+import { GAMUTS } from "@/engine/color/guards";
+import { HARMONIES } from "@/engine/color/harmony";
+import {
+  CHROMA_LEVELS,
+  CONTRAST_LEVELS,
+  LOCKABLE,
+  NEUTRAL_TINTS,
+  normalizeSeed,
+  PALETTE_NAMES,
+  SCALE_MODES,
+} from "@/engine/color/palette";
 import { parseColor } from "@/engine/color/parse";
-import { generateSystem } from "@/engine/generate";
+import { ROLE_NAMES, resolveRoles } from "@/engine/color/roles";
+import { STEPS, UnsatisfiableTargetError } from "@/engine/color/scale";
+import { ENGINE_VERSION, generateSystem } from "@/engine/generate";
 import { lintSpec } from "@/engine/lint";
+import { RULE_IDS } from "@/engine/lint/types";
+import { shadows } from "@/engine/tokens/depth";
+import { motionTokens } from "@/engine/tokens/motion";
+import { nestedRadius, RADIUS_SET_NAMES, radiusScale } from "@/engine/tokens/shape";
+import { spaceScale } from "@/engine/tokens/space";
+import { TYPE_CONTEXTS, typeScale } from "@/engine/tokens/type";
 import type { DesignSpec } from "@/spec";
 import * as spec from "@/spec";
 import { canonicalize } from "@/spec/canonical";
 import { specId } from "@/spec/hash";
+import { DEPTH_STYLES, MOTION_FEELS } from "@/spec/schema";
 import { decodeSpec, encodeSpec } from "@/spec/url-codec";
 import { DEFAULT_PARAMS, defaultSpec } from "../spec/support";
 
@@ -125,10 +146,28 @@ describe("the engine entry", () => {
     for (const key of PENDING_KEYS) expect(ENGINE_KEYS).toContain(key);
   });
 
-  it("C-ENTRY-01 exports the very objects its home modules export", () => {
+  it("C-ENTRY-01 exports, for every key, the very object its home module exports", () => {
     const exported: Record<string, unknown> = { ...engine };
-    const homes = {
+    const homes: Record<string, unknown> = {
       ColorParseError,
+      DEFICIENCIES,
+      DEPTH_STYLES,
+      ENGINE_VERSION,
+      GAMUTS,
+      HARMONIES,
+      LOCKABLE,
+      MOTION_FEELS,
+      NEUTRAL_TINTS,
+      PALETTE_NAMES,
+      RADIUS_SET_NAMES,
+      ROLE_NAMES,
+      RULE_IDS,
+      SCALE_MODES,
+      STEPS,
+      TYPE_CONTEXTS,
+      UnsatisfiableTargetError,
+      CHROMA_LEVELS,
+      CONTRAST_LEVELS,
       deltaEOK,
       formatOklch,
       gamutMap,
@@ -136,14 +175,23 @@ describe("the engine entry", () => {
       hexToRgb,
       lintSpec,
       meets,
+      motionTokens,
+      nestedRadius,
+      normalizeSeed,
       oklchToRgb,
       parseColor,
       perceptualLc,
+      radiusScale,
       rgbToOklch,
+      shadows,
       simulate,
+      spaceScale,
       toHex,
+      typeScale,
       wcagRatio,
     };
+    // Every present key has a home entry here, and the pending keys have none until their task lands.
+    expect(sorted(Object.keys(homes))).toEqual(sorted(Object.keys(exported)));
     for (const [name, home] of Object.entries(homes)) {
       expect(exported[name], name).toBe(home);
     }
@@ -218,7 +266,7 @@ describe("the type entry", () => {
   it("C-ENTRY-09 exports the types, and a DesignSpec is a LintedSpec", () => {
     expectTypeOf<DirectionParams>().toHaveProperty("harmony");
     expectTypeOf<Finding>().toHaveProperty("id");
-    expectTypeOf<DesignSpec>().toMatchTypeOf<LintedSpec>();
+    expectTypeOf<DesignSpec>().toExtend<LintedSpec>();
     const linted: LintedSpec = defaultSpec();
     expect(lintSpec(linted)).toBeDefined();
   });
@@ -246,10 +294,37 @@ describe("the entry points keep their behavior", () => {
   });
 });
 
+describe("palette checks", () => {
+  it("C-ENTRY-14 names the function that read the palettes in a TypeError", () => {
+    const palettes = generateSystem(DEFAULT_PARAMS, "seed-1").color.palettes;
+    const { info: _info, ...noInfo } = palettes;
+    const { neutral: _neutral, ...noNeutral } = palettes;
+    const short = {
+      ...palettes,
+      primary: { ...palettes.primary, light: palettes.primary.light.slice(1) },
+    };
+    const chart = ["#111111", "#222222", "#333333", "#444444", "#555555"];
+    expect(() => resolveRoles(noInfo as never, "light", "AA", chart as never)).toThrow(TypeError);
+    expect(() => resolveRoles(noInfo as never, "light", "AA", chart as never)).toThrow(
+      /^resolveRoles: p\.info must be a palette/,
+    );
+    expect(() => resolveRoles(short as never, "light", "AA", chart as never)).toThrow(TypeError);
+    expect(() => resolveRoles(short as never, "light", "AA", chart as never)).toThrow(
+      /^resolveRoles: p\.primary\.light must hold 11 steps/,
+    );
+    for (const bad of [noNeutral, short]) {
+      expect(() => pickChartColors(bad as never, "light", "srgb")).toThrow(TypeError);
+      expect(() => pickChartColors(bad as never, "light", "srgb")).toThrow(/^pickChartColors: p\./);
+    }
+  });
+});
+
 describe("the Biome deep-import rule", () => {
   /** The `noRestrictedImports` diagnostics Biome reports for `source`, written under `folder`. */
   function restricted(folder: string, source: string): boolean {
-    const dir = path.join(ROOT, folder, "__entry-probe__");
+    const parent = path.join(ROOT, folder);
+    const parentExisted = existsSync(parent);
+    const dir = path.join(parent, "__entry-probe__");
     mkdirSync(dir, { recursive: true });
     try {
       const file = path.join(dir, "probe.ts");
@@ -258,9 +333,13 @@ describe("the Biome deep-import rule", () => {
         cwd: ROOT,
         encoding: "utf8",
       });
+      // A failed spawn or a crash must not read as "no diagnostic" (status 0 clean, 1 findings).
+      expect(run.error).toBeUndefined();
+      expect([0, 1]).toContain(run.status);
       return `${run.stdout}${run.stderr}`.includes("noRestrictedImports");
     } finally {
       rmSync(dir, { recursive: true, force: true });
+      if (!parentExisted) rmSync(parent, { recursive: true, force: true });
     }
   }
   const use = (specifier: string): string =>
@@ -270,7 +349,7 @@ describe("the Biome deep-import rule", () => {
     "@/engine/color/palette",
     "@/spec/schema",
     "../../engine/generate",
-    "../../../spec/schema",
+    "../../spec/schema",
   ])("C-ENTRY-10 rejects a deep import of %s from src/features", (specifier) => {
     expect(restricted("src/features", use(specifier))).toBe(true);
   });

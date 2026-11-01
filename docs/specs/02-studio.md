@@ -509,7 +509,7 @@ The entries are the only way for code outside `src/engine`, `src/spec` and `src/
 - `simulate` checks its deficiency with `assertOneOf`.
 - A missing palette, or a palette whose scale has not 11 steps, is a `TypeError` in the functions that read palettes.
 - Inner-function names in public errors become the public entry's name.
-- The 0.5 chroma ceiling and the name and seed bounds are exported from the schema and used once each.
+- The name and seed bounds are exported from the schema and used once each. The 0.5 chroma ceiling is defined once, as `CHROMA_CEILING` in `src/engine/color/guards.ts` (the schema imports it from there, because R2-25 lets only `generate.ts`, `presets.ts` and `index.ts` import values from `src/spec`), and every other use imports it.
 - The repository guard C-REPO-05 also catches `<Hex>` casts and new `is Hex` predicates.
 - The wording "the engine never imports `src/spec`" becomes "the linter never imports `src/spec`".
 
@@ -903,8 +903,8 @@ the signatures in section 5 name. The runtime keys of `src/spec/index.ts`: `Desi
 | C-ENTRY-13 | pass | `simulate(rgb, "protan")` still works, and `simulate(rgb, "x")` throws `RangeError` naming `simulate` through `assertOneOf` | plan |
 | C-ENTRY-14 | failure | A palette missing from a role or chart input, or a scale of 10 steps, throws `TypeError` naming the public entry function | plan |
 | C-ENTRY-15 | pass | A public error message names the public entry (`generateSystem`, `lintSpec`, `encodeSpec`), never an inner function | plan |
-| C-ENTRY-16 | pass | The 0.5 chroma ceiling and the name and seed bounds exist once in the schema module and every other module imports them (source scan finds no second literal) | plan |
-| C-ENTRY-17 | pass | C-REPO-05 now fails on a source line that casts `as Hex`, `<Hex>x` or declares `x is Hex` outside `convert.ts` and the schema | plan |
+| C-ENTRY-16 | pass | The name and seed bounds are defined once in the schema module and the 0.5 chroma ceiling once, as `CHROMA_CEILING`, in `src/engine/color/guards.ts`; every other module imports them (source scan finds no second definition and no second literal of the ceiling) | plan |
+| C-ENTRY-17 | pass | C-REPO-05 now fails on a source line that casts `as Hex`, `<Hex>x` or declares `x is Hex` outside `convert.ts`, the schema and the two predicates of `guards.ts` (`isHex`, `assertHex`); a `<Hex>` in a generic type argument (`Set<Hex>`) is not a cast | plan |
 | C-ENTRY-18 | pass | The linter's source does not import `src/spec` (the reworded guard) | plan |
 | C-NORM-01 | pass | A spec with `color.palettes.primary.light[0].oklch.l = 0.97123456789` normalizes to `0.971235` | plan |
 | C-NORM-02 | pass | `decodeSpec(encodeSpec(normalizeSpec(s)))` deep-equals `normalizeSpec(s)`, for that spec and for `SPEC` | plan |
