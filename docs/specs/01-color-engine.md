@@ -377,11 +377,14 @@ are strict, so a decoder rejects an unknown key. Optional fields are absent, nev
 its parameters at run time and throws `RangeError` naming the field. Bounds: `meta.name` 1 to 80 characters,
 `meta.seed` 1 to 128, policy strings 1 to 64, each `rules` list at most 20 entries of at most 200 characters.
 
-**R-21 · Canonical form and spec id.** `canonicalize` writes JSON with keys sorted at every level, array order kept,
-`undefined` properties omitted, numbers passed through `round6`, no whitespace, and `null` kept. It throws `RangeError`
-on a non-finite number; `JSON.stringify` would write `null` there. `specId` is FNV-1a 64 over the UTF-8 bytes of the
-canonical string, written as 16 lowercase hex digits. The UTF-8 bytes come from fflate's `strToU8`, so the core needs
-no `TextEncoder`.
+**R-21 · Canonical form and spec id.** `canonicalize` writes JSON with keys sorted at every level (by UTF-16 code
+units), array order kept, `undefined` properties omitted, numbers passed through `round6`, no whitespace, and `null`
+kept. A number under the key `h` or `hue` is a hue and goes through `roundHue` instead, so an imported hue in
+`[359.9995, 360)` writes as 0 and the spec still passes the schema, where `round6` would write 360. It throws
+`RangeError` on a non-finite number; `JSON.stringify` would write `null` there. A value JSON cannot carry (a function, a
+symbol, a bigint, an `undefined` array item, an object that is not plain) or a cycle throws `TypeError`. `specId` is
+FNV-1a 64 over the UTF-8 bytes of the canonical string, written as 16 lowercase hex digits. The UTF-8 bytes come from
+fflate's `strToU8`, so the core needs no `TextEncoder`.
 
 **R-22 · Share link format and guards.** The link is base64url without padding of `deflateRaw(utf8(canonical), level 9)`
 followed by an 8-byte trailer: the FNV-1a 64 of the deflate-raw bytes themselves, big-endian. `decodeSpec` checks the
@@ -514,10 +517,15 @@ These hold for every function in M1. Individual cases test them; section 7 maps 
 - A property of 200 `generateSystem` calls costs about 64 scale solves per call (16 palette scales and 48 chart
   candidate scales). Budget for it: the solver may use 24 bisection iterations on its internal `maxChroma` call, as
   `t10_proto.py` does (the public `maxChroma` keeps 40), and it may memoize pure solves by their inputs. Task 1.8 reports
-  the measured cost per call.
+  the measured cost per call. Measured: the first call in a process takes about 330 ms, because it solves and caches the
+  chart candidates of both pages; later calls take a median of 62 ms with `DEFAULT_PARAMS` (the 16 palette scales take
+  58 ms), plus about 90 ms when they meet a dark page not yet cached. C-GEN-04's 200 runs over random parameters take
+  about 24 s.
 - Size headroom for the 12,000-character bound: a prototype with 16 real scales and placeholder roles (22.7 KB of
   canonical JSON) deflated to 4,137 bytes, which is 5,516 characters in base64url. The real spec adds roles, tokens and
-  the trailer, so expect well under the bound; Task 1.8 reports the true number.
+  the trailer, so expect well under the bound; Task 1.8 reports the true number. Measured: the default spec's canonical
+  JSON is 21,722 characters, its deflate stream 5,339 bytes and its link 7,130 characters; seeds 2 to 21 give 7,011 to
+  7,342.
 - `colorjs.io` is a test oracle only. It never appears under `src/`.
 
 ## 6. Modules, interfaces and cases
@@ -889,7 +897,7 @@ type ColorParams = {
 };
 function buildPalettes(input: ColorParams, random: () => number): Record<PaletteName, Palette>;
 function pageFor(neutral: Palette, mode: Mode): Hex; // R-25
-function normalizeSeed(seed: Oklch): Oklch; // R-25: checks the domain, then R-02 and R-03
+function normalizeSeed(seed: Oklch, name?: string): Oklch; // R-25: checks the domain, then R-02 and R-03; `name` starts its error messages
 
 // roles.ts (RoleName is the union of the 46 names in the table below)
 function resolveRoles(
@@ -1125,6 +1133,7 @@ type DirectionParams = ColorParams & {
 
 // canonical.ts and hash.ts
 function canonicalize(spec: DesignSpec): string;
+function canonicalJson(value: unknown, name?: string): string; // canonical.ts; R-21 for any JSON-like value, used by generateSystem
 function specId(spec: DesignSpec): string; // FNV-1a 64 of the canonical string, 16 hex characters
 function fnv1a64(input: string | Uint8Array): string; // hash.ts; 16 lowercase hex characters; it hashes a string as UTF-8 (R-25)
 
@@ -1172,7 +1181,13 @@ Contract:
   `Hex`. An `Oklch` has `l` in `[0, 1]`, `c` in `[0, 0.5]` and `h` in `[0, 360)` or `null`. `Palette.hue` lies in
   `[0, 360)` and `peakChroma` in `[0, 0.5]`. Each palette holds 11 steps per mode in `STEPS` order, with `contrast` in
   `[1, 21]`. Each mode's role map holds exactly the 46 names. Font family ids match `^[a-z0-9-]{1,64}$`. Bounds are in R-20.
-  Achromatic hue (I-04) is a lint rule, not a schema rule.
+  Achromatic hue (I-04) is a lint rule, not a schema rule. The schema also stores each palette under its own name
+  (`palettes.primary.name` is `"primary"`); holds the ten type steps in `typeScale` order, the six shadow entries of R-18
+  and the twelve space steps; takes a `clamp` only in the form `typeScale` writes (R-17); keeps lengths, durations and
+  radii at 0 or above, font sizes and line heights above 0, tracking in `[−0.04, 0.05]`, alpha and bounce in `[0, 1]`
+  and each easing's x values in `[0, 1]`; and keeps `meta.engineVersion` to 1 to 64 characters. A `model:` source takes
+  a slug of 1 to 120 characters from `A–Z`, `a–z`, `0–9` and `_ . : / @ + -`. An optional field written as `undefined`
+  fails (R-19, I-09).
 - **M1 defaults.** `generateSystem` writes `type.families` as `{ display: "host-grotesk", body: "host-grotesk", mono:
   "fragment-mono" }`; `components` as `{ cards: "interactive-only", emphasis: "one-filled-per-region", inputs:
   "outlined", icons: { library: "lucide", strokePx: 2 } }`; and `rules` as `{ do: [], dont: [] }`. M2 owns the real values.
@@ -1182,12 +1197,21 @@ Contract:
   with FNV-1a 64 of the bytes before it, the deflate-raw stream, before inflating anything; inflates with a 1 MiB cap;
   decodes UTF-8; parses JSON; reads `version`; and parses with the schema. Any failure up to JSON is `corrupt`. A `version` that is a string other than `dyelot.spec/1` is
   `version`. A missing or non-string `version`, or a schema failure, is `schema`, and `issues` lists the failing paths.
+  UTF-8 decoding is strict: the text must encode back to the same bytes, so a lenient decoder's U+FFFD never stands in
+  for a bad byte. `issues` lists each failing path once, dotted (`color.roles.light.ring`), in schema order, with
+  `(root)` for the payload itself; the message gives only their count. A `decodeSpec` argument that is not a string
+  throws `TypeError` (R-05). `encodeSpec` checks the canonical form of its argument against the schema and throws
+  `RangeError` naming the failing paths, so every link it returns opens: a `type.ratio` of 1.0000001 is valid as given,
+  but rounds to 1, and is refused.
 - **`generateSystem`.** It checks `params` and `seed` (R-20). It draws `random = seededRandom(seed)`, builds the palettes,
   and for each mode picks the chart colors and resolves the roles at `params.contrastLevel`. It builds the tokens: type
   from `params.type`, space from `spaceScale(4)`, radii from `params.radius`, shadows from the light-mode neutral-950
   color, and motion from `motionTokens()`. It sets `meta.name` to `params.name ?? "untitled"`, `meta.seed` to `seed`,
   `meta.engineVersion` to `ENGINE_VERSION` and `meta.createdWith` to `"controls"`. Last, it applies `round6` to every number
-  (R-02). The result always passes `DesignSpecSchema`.
+  (R-02). The result always passes `DesignSpecSchema`. It rounds `type.ratio` with `round6` before use, so the stored
+  ratio and the stored steps agree; a ratio outside `(1, 2]`, or one that rounds to 1 (any ratio below 1.000005), throws
+  `RangeError`. `color.params` holds the seeds after the normalization of section 6.5's Seeds bullet (`normalizeSeed`),
+  while `buildPalettes` receives them as passed, because R-10 tests the seed as passed for gamut mapping.
 
 | ID | Kind | Case | Origin |
 |---|---|---|---|
@@ -1240,10 +1264,10 @@ Contract:
 | C-GEN-04 | pass | Property (200 runs): no field of a generated spec is NaN or Infinity. Parameters range over every enum, optional locked seeds drawn from `EXTREME_SEEDS` and from random in-range colors (including hues within 1e-9 of 360 and chroma within 1e-9 of 4e-6), and random seed strings | plan, RF3 |
 | C-GEN-05 | pass | Property (50 runs): a generated spec parses under `DesignSpecSchema` | added |
 | C-GEN-06 | pass | `meta.seed` equals the argument, `meta.name` is `params.name ?? "untitled"`, `meta.engineVersion` is `dyelot.engine/1` and `meta.createdWith` is `controls` | ruling |
-| C-GEN-07 | pass | Wiring of tokens, after `round6`: `type.steps` equals `typeScale(params.type)`, `shape.radii` equals `radiusScale(params.radius)`, `space.scale` equals `spaceScale(4)`, `depth.shadows` equals `shadows(light neutral-950 oklch)`, and `motion` equals `motionTokens()`. `shape.radiusSet`, `depth.style` and `motion.feel` record the parameters | ruling |
-| C-GEN-08 | pass | Wiring of color: `color.params` equals the color part of `params`, and `color.roles[mode]` equals `resolveRoles` with the colors from `pickChartColors`, for both modes | added |
+| C-GEN-07 | pass | Wiring of tokens, after `round6`: `type.steps` equals `typeScale(params.type)` with the ratio rounded by `round6`, `shape.radii` equals `radiusScale(params.radius)`, `space.scale` equals `spaceScale(4)`, `depth.shadows` equals `shadows(light neutral-950 oklch)`, and `motion` equals `motionTokens()`. `shape.radiusSet`, `depth.style` and `motion.feel` record the parameters | ruling |
+| C-GEN-08 | pass | Wiring of color: `color.params` equals the color part of `params` after the seed normalization of 6.5's Seeds bullet (`normalizeSeed`), and `color.roles[mode]` equals `resolveRoles` with the colors from `pickChartColors`, for both modes | added |
 | C-GEN-09 | pass | `neutralTint: "none"` with a gray primary gives achromatic steps with `h: null` and no NaN | RF3 |
-| C-GEN-10 | failure | Invalid parameters throw `RangeError` naming the field: an unknown enum value; `type.ratio` outside `(1, 2]`; `name` empty or over 80 characters; `seed` empty or over 128; a seed color out of range | RF3, ruling |
+| C-GEN-10 | failure | Invalid parameters throw `RangeError` naming the field: an unknown enum value; `type.ratio` outside `(1, 2]` or rounding to 1; `name` empty or over 80 characters; `seed` empty or over 128; a seed color out of range | RF3, ruling |
 | C-GEN-11 | pass | `generateSystem` accepts a deep-frozen `params` object and does not mutate it | I-01 |
 | C-GEN-12 | pass | A hue that rounds to 360. A locked primary `oklch(0.7 0.17 359.99999999999994)` gives a spec that passes `DesignSpecSchema`, with every stored hue below 360: the palette hues, the step hues and `color.params.primary.h` (R-02) | ruling |
 
