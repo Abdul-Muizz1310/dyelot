@@ -3,10 +3,11 @@
 > Source note: this milestone spec refines `docs/specs/00-design.md`, the umbrella. Paths to `docs/research/`,
 > `docs/plans/` and `knowledge/` point into the private `repos` meta-repo.
 
-Status: written 2026-11-01 as Task 1.1 of the M0–M1 plan. Section 2 copies the plan's decisions word for word.
-Section 3 lists three conflicts that the owner must settle before Tasks 1.5, 1.6 and 1.9 start. Section 4 lists
-rulings that close gaps in the decisions; the owner can overturn any of them by editing this file before the task
-that uses it starts. Tasks 1.2 to 1.9 implement against the cases in section 6.
+Status: written 2026-11-01 as Task 1.1 of the M0–M1 plan, and revised the same day after the owner ruled on four
+conflicts. Section 2 copies the plan's decisions word for word, and they include those rulings. Section 3 keeps the
+evidence behind the four rulings. Section 4 lists rulings that close gaps in the decisions; the owner can overturn
+any of them by editing this file before the task that uses it starts. Tasks 1.2 to 1.9 implement against the cases
+in section 6.
 
 ## 1. Purpose and scope
 
@@ -28,7 +29,7 @@ M1 delivers, in the order of the plan's tasks:
 | 1.2 | Color types, `parseColor`, OKLCH and sRGB and Display P3 conversion, CSS Color 4 gamut mapping |
 | 1.3 | WCAG contrast, the advisory perceptual score, ΔEOK, color-vision simulation |
 | 1.4 | `seededRandom` and the OKLCH harmonies |
-| 1.5 | The contrast-solved 11-step scale, the even-chroma variant, `UnsatisfiableTargetError` |
+| 1.5 | The contrast-solved 11-step scale, the nearest-hex picker, the even-chroma variant, `UnsatisfiableTargetError` |
 | 1.6 | Palettes, seed preservation, the role table, `onFill`, chart colors |
 | 1.7 | Type, space, shape, depth and motion tokens |
 | 1.8 | The `dyelot.spec/1` schema, canonical form, spec id, share-link codec, `generateSystem` |
@@ -51,7 +52,7 @@ The umbrella says a milestone spec may refine it but must say where. These are t
 | §6 Type: dense 1.125–1.2, product 1.2–1.25 | Dense 1.2, product 1.25 | The plan fixes one ratio per context |
 | §3 State: the hash carries the canonical spec | The link also carries an 8-byte integrity trailer and size guards (R-22) | Raw deflate cannot detect tampering |
 | §4 Spec: every listed field | The schema leaves out fields with no M1 source (R-19) | M2 and M3 add them |
-| §13 Engine: every solved step within 0.01 of its target | Within 0.05, under review in X-1 | The plan sets 0.05; 8-bit hex limits both |
+| §13 Engine: every solved step within 0.01 of its target | Within `max(0.05, 0.01 × target)`, from the nearest of the surrounding 8-bit hexes (X-1) | One 8-bit code step moves a high-step ratio by up to about 0.1 |
 
 ## 2. Decisions M1 implements
 
@@ -61,7 +62,8 @@ never change it.
 - **Steps** `50 100 200 300 400 500 600 700 800 900 950`. **Targets** (contrast against the mode's
   page): `1.06 1.15 1.32 1.65 2.2 3.0 4.5 7.0 9.5 12.5 15.5`. Threshold steps 500, 600, 700 are solved
   for `target + 0.02` and must meet `3.0 / 4.5 / 7.0` on the emitted hex; other steps land within
-  ±0.05 of their target.
+  `max(0.05, 0.01 × target)` of their target. The solver picks, among the 8-bit hexes around its
+  solution, the one nearest the target (a threshold step: the nearest one that meets its threshold).
 - **Pages:** light `#ffffff`; dark = the neutral palette's hue at `oklch(0.18, min(0.012, Cneutral), h)`.
   Light scales darken away from the page, dark scales lighten away from it; step numbers keep their
   jobs in both modes.
@@ -75,8 +77,9 @@ never change it.
 - **Harmony** (OKLCH hue of primary `h₀`): monochrome `[h₀]`; analogous secondary `h₀−30`, accent
   `h₀+30`; complementary accent `h₀+180`; split accent `h₀+150`, secondary `h₀+210`; triadic `h₀±120`;
   tetradic `h₀+60`, `h₀+180`, `h₀+240`. Secondary uses `0.6 ×` peak chroma.
-- **Status hues:** success 150, warning 70, danger 25, info 250. **Status steps** (so lightness
-  separates them for color-blind readers): success **700**, warning **500**, danger **600**, info **600**.
+- **Status hues:** success 150, warning 70, danger 25, info 250, at a fixed peak chroma of 0.14 whatever
+  the `chroma` param. **Status steps** (so lightness separates them for color-blind readers): warning
+  **500**, danger **600**, info **700**, success **800** (measured min ΔEOK 0.086 light, 0.094 dark).
 - **Role table** (identical step numbers in both modes; `onFill(x)` defined below):
 
   | Role | Source | Role | Source |
@@ -90,11 +93,12 @@ never change it.
   | sidebar-accent-foreground | neutral-900 | destructive | danger-600 |
   | destructive-foreground | onFill(danger-600) | success · warning · info | status steps above |
   | `<status>-foreground` | onFill(that fill) | `<status>-subtle` / `-subtle-foreground` | x-100 / x-900 |
-  | border, sidebar-border | neutral-200 | input | neutral-500 |
-  | ring, sidebar-ring | primary-500 | chart-1…5 | `pickChartColors` |
+  | border, sidebar-border | neutral-200 | input | neutral-600 |
+  | ring, sidebar-ring | primary-600 | chart-1…5 | `pickChartColors` |
 
   Contrast level **AA+** moves muted-foreground to 800; **AAA** also moves primary and destructive to
-  700, ring and input to 600.
+  700, ring and input to 700. (Ring and input sit at 600 so they keep 3:1 against card and muted
+  surfaces, not only the page: measured 4.24 and 3.91 in light mode.)
 - **`onFill(fill)`:** candidates `#ffffff` and `#000000`; keep those with WCAG ≥ 4.5 against the fill;
   if both pass, pick the larger `|perceptualLc(candidate, fill)|`; if one passes, pick it; if none,
   pick the higher WCAG and let lint rule C5 report it.
@@ -105,7 +109,8 @@ never change it.
   `seedDeviation: { step, deltaEOK }` (ΔEOK from the original seed; `step` is where the nearest color sits).
 - **P3 mode:** chroma may reach the P3 maximum, but contrast is solved and guaranteed on the sRGB hex;
   P3-rendered contrast checks arrive with the M3 exports.
-- **Chart colors:** greedy pick of 5 from candidates (hues every 15°, steps 500–800, in gamut), first
+- **Chart colors:** greedy pick of 5 from candidates (hues every 15°, steps 600–900, in gamut, so every
+  mark keeps 3:1 against page and card; measured 0.106 for primary hue 262), first
   pick primary-600, each next pick maximizing the minimum ΔEOK to the chosen set under none, protan,
   deutan and tritan simulation; ties break by lower hue then lower step. Must reach ≥ 0.08.
 - **CVD:** severity 1 only, in linear RGB, clamped: Viénot (protan, deutan) and Brettel (tritan) with
@@ -126,70 +131,66 @@ never change it.
   generators → M5 (shader backgrounds); Sanzo Wada combinations → M6 (gallery); image extraction → M4;
   color names, presets, the font catalog and the taste lint rules → M2.
 
-## 3. Conflicts the owner must settle
+## 3. Conflicts found and ruled
 
 Writing the cases meant checking each plan expectation against the decisions and the reference code in
-`docs/research/2026-11-design-studio/artifacts/color-check/`. Three expectations cannot hold as written. Each case
-that depends on one carries its id in brackets, for example `[X-1]`, and states the plan's expectation until the
-owner rules. The ruling is a small edit to this file: change the case, drop the bracket.
+`docs/research/2026-11-design-studio/artifacts/color-check/`. Four expectations could not hold as first written. The
+owner ruled on each, and section 2 now carries the rulings, so no case waits on them. This section keeps the evidence.
 
-The measurements come from a Python port of `t10_proto.py` that follows section 2 (bisection on L, hex quantized,
-page `#ffffff` for light and `#0f1216` for dark) and from `core.py` and `cvd.py` unchanged.
+The measurements come from a Python port of `t10_proto.py` that follows section 2, and from `core.py` and `cvd.py`
+unchanged. Unless a row says otherwise, light mode solves on `#ffffff` and dark mode on `#0f1216`, the emitted hex of
+`oklch(0.18 0.01 262)`.
 
-### X-1 · 8-bit hex cannot hold the ±0.05 band at the high steps (blocks Task 1.5)
+### X-1 · The contrast band at the high steps (ruled)
 
-The plan asks every solved step to land within 0.05 of its target on the emitted hex. Section 2 limits that band to
-the non-threshold steps, the Task 1.5 test applies it to every step, and umbrella §13 says 0.01. Eight hues at peak
-chroma 0.20, bisection on L, taking the side of the step that meets the target, gives these worst errors:
+The plan asked every step to land within 0.05 of its target on the emitted hex. A solver that rounds its solution to one
+hex misses that band at the high steps. Eight hues at peak chroma 0.20, bisection on L, rounding to the nearest hex and
+taking the side of the step that meets the target, give these worst errors:
 
 | Step | 500 | 600 | 700 | 800 | 900 | 950 |
 |---|---|---|---|---|---|---|
 | Light, worst error | 0.043 | 0.055 | 0.078 | 0.089 | 0.125 | 0.107 |
 | Dark, worst error | 0.040 | 0.053 | 0.042 | 0.068 | 0.075 | 0.090 |
 
-Steps 50 to 400 stay below 0.021. Two limits cause the growth. One code step in the green channel moves the ratio by
-about 0.10 at step 950. And a gray scale (peak chroma 0) has only 256 levels: on white its nearest hex misses the
-target by 0.062 at step 800 and 0.050 at step 900; on a gray dark page (`#121212`) it misses by 0.070 at step 950, and
-the nearest hex that meets 7.0 misses by 0.078. A local search over L (±0.003) and chroma (95 to 100% of the envelope)
-brings the eight hues to 0.050 or less at peak chroma 0.05, 0.10 and 0.20, so the band holds for chromatic scales with
-that refinement and never for gray scales at steps 700 to 950. The Task 1.5 property draws peak chroma from 0 to 0.35,
-so it reaches gray scales.
+A gray scale (peak chroma 0) has only 256 levels. On white its nearest gray misses the target by 0.062 at step 800 and
+0.050 at step 900. On the dark page its nearest gray that meets 4.5 misses by 0.061 at step 600.
 
-Options:
-- **A.** Keep ±0.05 for steps 50 to 600 and use ±0.10 for steps 700 to 950. The solver refines its bisection result to
-  the nearest representable hex, and on steps 500 to 700 to the nearest hex that still meets the threshold. This is the
-  proposal.
-- **B.** Keep ±0.05 everywhere with that refinement, and exempt scales whose peak chroma is below 0.05 from the property,
-  because they sit close to the gray lattice.
-- **C.** Replace the band with a relative one (for example 1% of the target).
+**Ruling (now in section 2).** Each step lands within `max(0.05, 0.01 × target)` of its target. The solver picks, among
+the 8-bit hexes around its solution, the one nearest the target. A threshold step picks the nearest hex that still meets
+3.0, 4.5 or 7.0. Neutral (zero-chroma) scales pass the same band.
 
-### X-2 · N1 and F1 fail the role table at contrast levels AA and AA+ (blocks Tasks 1.6 and 1.9)
+**Result.** With the picker of R-06 (the floor and the ceiling of each channel, up to eight hexes), no step of any tested
+scale leaves its band: the eight hues at peaks 0.20 and 0.14, and zero-chroma scales on `#ffffff`, `#0f1216` and `#121212`.
+The tightest case is hue 150 at step 600 in light mode, an error of 0.0494 against a band of 0.05. A random sweep of 60
+scales (peak 0 to 0.35, both modes) uses at most 0.885 of the band. The off-gray hexes matter: gray hexes alone cannot
+reach the dark step-600 band, and hexes one code away from gray can.
 
-N1 asks `input` for 3:1 against the background and the card. F1 asks `ring` for 3:1 against the background, the
-card and the muted fill. The role table sets `input` to neutral-500 and `ring` to primary-500, both solved for 3.02
-against the page, while the card is neutral-50 (target 1.06) and the muted fill is neutral-100 (target 1.15). The
-ratio between two steps equals the quotient of their targets in both modes: 3.02 / 1.06 = 2.85 and 3.02 / 1.15 = 2.63.
-Both fall below 3. Measured on solved scales for hue 262 at balanced chroma:
+### X-2 · `input` and `ring` against the card and the muted fill (ruled)
 
-| Pair | Light | Dark |
-|---|---|---|
-| `input` against card | 2.86 | 2.83 |
-| `ring` against card | 2.86 | 2.86 |
-| `ring` against muted | 2.64 | 2.64 |
+N1 asks `input` for 3:1 against the background and the card. F1 asks `ring` for 3:1 against the background, the card and
+the muted fill. At step 500, solved for 3.02, the ratio to the card (neutral-50, target 1.06) is 3.02 / 1.06 = 2.85, and
+to the muted fill (neutral-100, target 1.15) is 3.02 / 1.15 = 2.63. Both fall below 3. Measured on hue 262 at balanced
+chroma, `input` against the card was 2.86 (light) and 2.83 (dark), and `ring` against the muted fill was 2.64 in both modes.
 
-At AAA the role table moves `input` and `ring` to step 600 (4.52 / 1.06 = 4.26 and 4.52 / 1.15 = 3.93), so both rules
-pass. At AA and AA+ every generated spec carries N1 and F1 errors, and the Task 1.9 property "zero error findings"
-cannot pass.
+**Ruling (now in section 2).** `input` moves from neutral-500 to neutral-600, and `ring` and `sidebar-ring` move from
+primary-500 to primary-600. At AAA, `ring` and `input` move to step 700 (they moved to 600 before).
 
-Options:
-- **A.** Move `input`, `ring` and `sidebar-ring` to step 600 at every level. The AAA row then changes nothing for them.
-- **B.** Measure N1 and F1 against the background only. This drops the card and muted clauses that WCAG 1.4.11
-  implies for a control inside a card.
+**Result.** Measured on hue 262 at balanced chroma:
 
-### X-3 · The status indicators cannot reach ΔEOK 0.08 in light mode (blocks Tasks 1.6 and 1.9)
+| Pair | Light, 600 | Dark, 600 | Light, 700 | Dark, 700 |
+|---|---|---|---|---|
+| `input` against card | 4.245 | 4.252 | 6.601 | 6.619 |
+| `input` against muted | 3.914 | 3.914 | 6.085 | 6.092 |
+| `ring` against card | 4.244 | 4.273 | 6.607 | 6.641 |
+| `ring` against muted | 3.912 | 3.933 | 6.091 | 6.113 |
 
-The Task 1.6 test expects success-700, warning-500, danger-600 and info-600 to differ by at least 0.08 under none,
-protan, deutan and tritan. With the decisions' steps and hues, the smallest pairwise ΔEOK over the four views is:
+In dark mode the card sits above the page (step 50 solves on the lighter side, R-06), which keeps the dark values close
+to the light ones. A dark card that sat below the page would inflate them (a ratio near 5.07 against the card).
+
+### X-3 · The status indicators in light mode (ruled)
+
+The plan expected success-700, warning-500, danger-600 and info-600 to differ by at least 0.08 under none, protan,
+deutan and tritan. At the `chroma` parameter's value the smallest pairwise ΔEOK over the four views was:
 
 | Status palette peak chroma | Light | Dark |
 |---|---|---|
@@ -197,34 +198,49 @@ protan, deutan and tritan. With the decisions' steps and hues, the smallest pair
 | 0.14 | 0.0476 | 0.0826 |
 | 0.22 | 0.0254 | 0.0658 |
 
-Light mode never reaches 0.08 at any peak chroma from 0 to 0.26; the best value is 0.0740, at 0.06. The weakest pair is
-success-700 against danger-600, under protan in light mode and under deutan in dark mode. At balanced chroma the light
-value 0.0476 sits below the S1 error floor of 0.05, so the Task 1.9 property "zero error findings" fails as well. Step
-combinations that reach 0.08 in both modes exist; success-600 with warning-800, danger-400 and info-800 reaches 0.135 at
-balanced chroma. They spread the statuses across four steps and put warning at 800, a dark brown.
+Light mode never reached 0.08 at any peak chroma from 0 to 0.26. At balanced chroma the light value sat below the S1
+error floor of 0.05.
 
-Options:
-- **A.** Set the status palettes' peak chroma to 0.08–0.10. S1 then raises no error in light mode (0.0607 to 0.0672) and
-  dark mode stays above 0.08. Light mode keeps an S1 warning.
-- **B.** Change the status steps.
-- **C.** Keep the steps and test the S1 error floor (0.05) for status sets, and the 0.08 target for chart sets only.
+**Ruling (now in section 2).** The status palettes use a fixed peak chroma of 0.14 whatever the `chroma` parameter says.
+The status steps become warning 500, danger 600, info 700 and success 800. The `-foreground` roles follow their fills
+through `onFill`, and the `-subtle` and `-subtle-foreground` roles stay on steps 100 and 900 of each status palette.
+
+**Result.** The smallest pairwise ΔEOK over the four views is 0.0855 in light mode and 0.0914 to 0.0940 in dark mode, across
+dark pages of brand, gray, warm and cool tints. The weakest pair is success-800 against info-700 under tritan. `abs(ΔL)`
+between danger-600 and success-800 is 0.202 (light) and 0.172 (dark), so S2 stays silent. Solving the four palettes with
+`solveEvenScales` lowers the light minimum to 0.0815, so the guarantee covers standard scale mode only.
+
+### X-4 · The chart candidates against the card (ruled)
+
+N2 now asks each chart color for 3:1 against the page and the card. Candidates at steps 500 to 800 start at 3.02 against
+the page, so step 500 reaches only 2.85 against the card.
+
+**Ruling (now in section 2).** Candidates are hues every 15° at steps 600 to 900.
+
+**Result.** Every pick keeps at least 4.50:1 against the page and 4.24:1 against the card. The greedy pick reaches a
+smallest ΔEOK of 0.1059 (light) and 0.1132 (dark) for primary hue 270 at balanced chroma, and 0.0888 or more over 12 primary
+hues, three `chroma` settings and both modes (R-13 fixes the candidate chroma at 0.14).
 
 ## 4. Rulings that close gaps in the decisions
 
-The plan leaves some behavior open, and two of its statements need a correction to hold together. Each ruling below
+The plan leaves some behavior open, and two of its statements needed a correction to hold together. Each ruling below
 picks the smallest answer that makes the cases testable. The module sections cite them as R-nn.
 
-**R-01 · `ScaleStep` fields.** `oklch` is the stored solved value in the spec's gamut, before mapping to sRGB. `hex`
-is `toHex(gamutMap(oklch, "srgb"))`. `contrast` is `wcagRatio(hexToRgb(hex), page)`. The `page` argument is the
-page's emitted color (`hexToRgb` of the page hex). Hue checks read `oklch.h`, never the hue of the hex, because
-8-bit quantization moves a hex's hue (1.7° at step 50 of hue 95, and more at lower chroma).
+**R-01 · `ScaleStep` fields.** `oklch` is the solver's continuous solution in the spec's gamut, before mapping to sRGB,
+rounded with `round6`. It keeps the exact hue and chroma of the formulas in section 2. `hex` is the hex that the picker
+chose (R-06), one of the hexes around the sRGB mapping of the solution. `contrast` is `wcagRatio(hexToRgb(hex), page)`.
+The `page` argument is the page's emitted color (`hexToRgb` of the page hex). Hue and chroma checks read `oklch`, never
+the hue of the hex, because 8-bit quantization moves a hex's hue (1.7° at step 50 of hue 95, and more at lower chroma).
+Each channel of a solved step's `hex` differs from `toHex(gamutMap(oklch, "srgb"))` by at most one code. So anything that
+emits an sRGB value (exports, the receipt, the linter) uses the stored `hex` and never re-derives it from `oklch`: a
+re-derived hex can move a channel by one code and drop a threshold step under its ratio. A seed step is the exception,
+because `hex` is exactly `toHex(gamutMap(seed, "srgb"))` there.
 
 **R-02 · Canonical numbers.** `round6(x)` is `Number(x.toPrecision(6))`, with `-0` written as `0`. The solver, seed
-placement and `generateSystem` apply it to every number they store, and derive each `hex` from the rounded OKLCH
-value. Three results follow. `canonicalize` changes nothing in a generated spec. `hex` always equals
-`toHex(gamutMap(oklch, "srgb"))`. A share link restores the exact spec, so `decodeSpec(encodeSpec(s))` deep-equals
-`s`. Without this the plan's round-trip property fails, because `canonicalize` rounds to 6 significant digits and a
-generated spec holds full doubles. `round6` lives in `src/engine/round.ts`.
+placement and `generateSystem` apply it to every number they store. Two results follow. `canonicalize` changes nothing in
+a generated spec, and a share link restores the exact spec, so `decodeSpec(encodeSpec(s))` deep-equals `s`. Without this
+the plan's round-trip property fails, because `canonicalize` rounds to 6 significant digits and a generated spec holds
+full doubles. `round6` lives in `src/engine/round.ts`.
 
 **R-03 · Achromatic colors.** A color is achromatic when `c ≤ 4e-6`. Achromatic colors carry `h: null` and chromatic
 colors carry a finite `h` in `[0, 360)`. `parseColor` applies the rule: `oklch(0.6 0 120)` gives `h: null` and
@@ -251,19 +267,25 @@ chroma, named colors, `hsl()` and `color()`. The error message quotes at most th
 `TypeError` (a value of the wrong type), and the message names the argument. `Hex` values come from `toHex` and from
 the schema only; tests may cast a literal with `as Hex`.
 
-**R-06 · Solver bracket and unsatisfiable steps.** The search on L runs on the reachable side of the page: `[0, Lpage]`
-in light mode and `[Lpage, 1]` in dark mode. Contrast is not monotonic across the page's own lightness, so an
-unbounded search can land on the wrong side. A step is unsatisfiable when the extreme color (black on a light page,
-white on a dark page) falls short of the step's nominal target. `UnsatisfiableTargetError` reports the first such step
-in `STEPS` order, the input hue and the nominal target (`7.0`, not `7.02`). When the extreme meets the nominal target
-but not the solved value, the step takes the extreme.
+**R-06 · Solver bracket, hex picker and unsatisfiable steps.** The search on L runs on the reachable side of the page:
+`[0, Lpage]` in light mode and `[Lpage, 1]` in dark mode. Contrast is not monotonic across the page's own lightness, so an
+unbounded search can land on the wrong side. It bisects the contrast of the unquantized, gamut-mapped color, because a
+quantized contrast is a step function with no solution between its jumps. After 50 iterations the picker takes the hexes
+around the solution: for each channel of its sRGB mapping, the floor and the ceiling of 255 times the channel, clamped to
+0–255, which gives up to eight hexes. It keeps the hex whose contrast is nearest the nominal target. On a threshold step
+it keeps the nearest hex among those that meet the threshold (3.0, 4.5 or 7.0). A tie goes to the lexicographically
+smaller hex. Hexes one code off gray fill the gaps between gray levels, which is how a zero-chroma scale reaches its band:
+a neutral step's `hex` can differ from gray by one code per channel while its `oklch` stays achromatic. A step is
+unsatisfiable when the extreme color (black on a light page, white on a dark page) falls short of the step's nominal
+target. `UnsatisfiableTargetError` reports the first such step in `STEPS` order, the input hue and the nominal target
+(`7.0`, not `7.02`). When the extreme meets the nominal target but not the solved value, the step takes the extreme.
 
-**R-07 · Hue drift arithmetic.** The formula in section 2 binds. `drift(95) = 40 × (1 − 5 / 35) = 34.286`, so step 950
-of hue 95 has hue 60.714. The plan's "≈ 59 (95 − 36)" in Task 1.5 is wrong arithmetic and is not a case.
+**R-07 · Hue drift arithmetic.** The formula in section 2 binds. `drift(95) = 40 × (1 − 5 / 35) = 34.286` (the plan's 34.29), so step
+950 of hue 95 has hue 60.714 (the plan's 60.71). The first draft of Task 1.5 said "≈ 59 (95 − 36)". That was wrong arithmetic, and the plan now agrees with the formula.
 
-**R-08 · Peak chroma per palette.** Primary, accent and the four status palettes use the `chroma` parameter's value.
-Secondary uses 0.6 times it. Neutral follows the tint table; with tint `none` the neutral takes the primary's hue,
-which never shows because its chroma is 0.
+**R-08 · Peak chroma per palette.** Primary and accent use the `chroma` parameter's value. The four status palettes use
+0.14 whatever the parameter says (section 2). Secondary uses 0.6 times the parameter's value. Neutral follows the tint
+table; with tint `none` the neutral takes the primary's hue, which never shows because its chroma is 0.
 
 **R-09 · Achromatic seeds.** A locked seed with `c ≤ 4e-6` has no hue to anchor. Its palette takes hue 0 and peak chroma
 0, so the scale is gray. With `neutralTint: "brand"`, an achromatic primary gives the neutral palette chroma 0.
@@ -276,17 +298,19 @@ stands in for it. Its `step` is the step that holds that color, or, when no step
 color is nearest to the seed by ΔEOK. Locked secondary and accent seeds follow the same rule.
 
 **R-11 · Even mode.** `buildPalettes` groups the palettes by `peakChroma` and solves each group with
-`solveEvenScales`. The neutral palette is always solved alone. With the default parameters the primary, accent and
-four status palettes form one group, and secondary stands alone.
+`solveEvenScales`. The neutral palette is always solved alone. With `chroma: "balanced"` the primary, accent and
+four status palettes share 0.14 and form one group, and secondary stands alone. With `muted` or `vivid` the status
+palettes form a group of their own.
 
 **R-12 · Harmony slots.** Complementary: secondary `h₀`, accent `h₀+180`. Triadic: secondary `h₀+120`, accent `h₀+240`
 (the decisions' `h₀±120` in listed order). Tetradic: secondary `h₀+60`, accent `h₀+180`; the third hue, `h₀+240`, has
 no slot in M1. Every other row follows section 2.
 
-**R-13 · Chart candidates.** The picker solves the candidates with peak chroma 0.14 whatever the `chroma` parameter says. The first
-pick, primary-600, keeps the brand's own chroma. At the brand's own chroma a `muted` palette with a green primary
-reaches only 0.066 (dark) and 0.077 (light) in the greedy pick. At 0.14 the pick reaches 0.093 or more for 12 primary
-hues, three chroma settings and both modes.
+**R-13 · Chart candidates.** The picker solves the candidates with peak chroma 0.14 whatever the `chroma` parameter says,
+at steps 600, 700, 800 and 900 (section 2). The first pick, primary-600, keeps the brand's own chroma. Steps from 600 up
+keep every mark at 4.5:1 against the page and 4.24:1 against the card. At the brand's own chroma a `muted` palette with
+a green primary separated the pick less (0.066 to 0.077, measured on steps 500 to 800). At 0.14 and steps 600 to 900 the
+pick reaches 0.0888 or more for 12 primary hues, three chroma settings and both modes.
 
 **R-14 · Roles.** The role table in section 2 yields 44 role names. Section 6.5 lists them. The `<status>` placeholder
 means `success`, `warning` and `info`; the danger family is `destructive`, and M1 has no danger subtle pair.
@@ -347,10 +371,11 @@ plugins and the alias) or with a `// @vitest-environment node` docblock at the t
 folder coverage floors. DOM use in the pure core then fails at run time, because `window` is undefined, and C-REPO-03
 asserts it.
 
-**R-25 · Shared helpers.** The plan's interfaces do not name five small functions that the tasks share, so this spec
-names them: `round6` (`src/engine/round.ts`), `pageFor(neutral, mode)` (`palette.ts`), `minPairwiseDeltaE(colors)`
-(`deltae.ts`, used by chart picking and rule S1), `selectOnFill(fill, candidates)` (`roles.ts`) and `fnv1a64(text)`
-(`hash.ts`, used by `specId` and the link trailer).
+**R-25 · Shared helpers.** The plan's interfaces do not name six small functions that the tasks share, so this spec
+names them: `round6` (`src/engine/round.ts`), `pickHex(solution, page, target, threshold?)` (`scale.ts`, the picker of
+R-06), `pageFor(neutral, mode)` (`palette.ts`), `minPairwiseDeltaE(colors)` (`deltae.ts`, used by chart picking and rule
+S1), `selectOnFill(fill, candidates)` (`roles.ts`) and `fnv1a64(text)` (`hash.ts`, used by `specId` and the link
+trailer).
 
 ## 5. Conventions and invariants
 
@@ -377,7 +402,6 @@ from `src/engine/`.
 - **Origin.** `plan` is a test that the plan's Step 1 lists. `RF1` to `RF5` is a Review Focus item. `decision` is a rule
   stated in section 2. `ruling` is a rule in section 4. `I-01` to `I-10` is an invariant from this section. `added` is a
   boundary or failure case that this spec adds.
-- **Brackets.** `[X-1]` marks a case that depends on an open conflict in section 3.
 - **Tolerances.** Hex channels ±1, OKLCH L and C ±0.001, H ±0.1° (compared only when C is above 4e-6). A contrast ratio
   compares on its full float, with no rounding. "≈" means these tolerances unless the case names another.
 - **Property tests.** They use fast-check with the run counts stated in each case. A counterexample that fails once joins
@@ -416,8 +440,8 @@ These hold for every function in M1. Individual cases test them; section 7 maps 
   Otherwise `h` is finite and in `[0, 360)`.
 - **I-05 Emitted color.** Every contrast measurement uses the emitted color: the gamut-mapped value quantized to 8-bit
   hex, against the mode's page hex. A ratio of 4.499 fails 4.5. No comparison rounds.
-- **I-06 Canonical numbers.** Every number stored in a spec has at most 6 significant digits, and every `hex` derives
-  from the stored OKLCH value (R-02).
+- **I-06 Canonical numbers.** Every number stored in a spec has at most 6 significant digits (R-02). A solved step's `hex`
+  is within one code per channel of `toHex(gamutMap(oklch, "srgb"))`, and consumers use the stored `hex` (R-01).
 - **I-07 Mode symmetry.** Step numbers keep their jobs in both modes. Light scales darken away from the page and dark
   scales lighten away from it.
 - **I-08 Hex form.** A `Hex` is `#` followed by six lowercase hex digits.
@@ -708,20 +732,29 @@ function solveEvenScales(
   rest: Omit<Parameters<typeof solveScale>[0], "hue">,
 ): readonly (readonly ScaleStep[])[];
 class UnsatisfiableTargetError extends Error { step: Step; hue: number; target: number }
+function pickHex(solution: Rgb, page: Rgb, target: number, threshold?: 3 | 4.5 | 7): Hex; // R-06, R-25
 
 // round.ts
 function round6(x: number): number; // R-02
 ```
 
 Contract, for step index `i` from 0 to 10 in `STEPS` order:
-- **Target.** The nominal target is `TARGETS[step]`. Steps 500, 600 and 700 solve for `target + 0.02`.
+- **Target and band.** The nominal target is `TARGETS[step]`. Steps 500, 600 and 700 solve for `target + 0.02` and must
+  meet 3.0, 4.5 and 7.0 on the emitted hex. Every step lands within `max(0.05, 0.01 × target)` of its target: 0.05
+  through step 600, then 0.07, 0.095, 0.125 and 0.155 at steps 700, 800, 900 and 950.
 - **Hue.** `hue − drift(hue) × i / 10`, normalized into `[0, 360)`.
 - **Chroma.** `min(peakChroma × envelope[i] × k, 0.97 × maxChroma(L, hue, gamut))`, where the envelope is
   `0.12 0.22 0.40 0.62 0.85 1 1 0.90 0.75 0.60 0.45` and `k` is 0.85 in dark mode and 1 in light mode.
-- **Search.** Bisection on L with 50 iterations inside the bracket of R-06. The measured contrast is the ratio of the
-  gamut-mapped, 8-bit-quantized color against `page`. The module may refine the result afterwards, as X-1 describes.
+- **Search and pick.** Bisection on L with 50 iterations inside the bracket of R-06, on the contrast of the unquantized,
+  gamut-mapped color. `pickHex` then chooses the hex (R-06). Rounding the solution to one hex misses the band at
+  the high steps (section 3, X-1); the nearest of the surrounding hexes does not.
+- **`pickHex`.** It forms the floor and the ceiling of 255 times each channel of `solution`, clamped to 0–255, which gives
+  up to eight hexes. It returns the one whose `wcagRatio` against `page` is nearest `target`. With `threshold` it
+  considers only hexes that meet the threshold, and it throws `RangeError` when none does. A tie goes to the
+  lexicographically smaller hex. A non-finite `target` or channel, or a channel outside `[−1e-6, 1 + 1e-6]`, throws
+  `RangeError`.
 - **Output.** `oklch`, `hex` and `contrast` follow R-01 and R-02. For `gamut: "p3"` the chroma cap uses the P3 gamut and
-  the hex is the sRGB mapping, so the solver solves and measures contrast on the sRGB hex.
+  the hex comes from the sRGB mapping, so the solver solves and measures contrast on the sRGB hex.
 - **Even scales.** For each step, every hue uses the same chroma: the smallest chroma that any of the hues reaches at that
   step, after its own cap. Lightness is then solved again with that chroma. The scales come back in the order of
   `hues`. One hue gives the same scale as `solveScale`.
@@ -729,28 +762,36 @@ Contract, for step index `i` from 0 to 10 in `STEPS` order:
   input throws `RangeError`: a non-finite `hue`; a `peakChroma` outside `[0, 0.5]`; a `page` channel outside
   `[−1e-6, 1 + 1e-6]`; an unknown `mode` or `gamut`; an empty `hues` list.
 
-`DARK_PAGE`, `HUES` and `PEAK` come from section 5.
+`DARK_PAGE`, `HUES` and `PEAK` come from section 5. In the C-PICK cases, `white` is the `Rgb` of `#ffffff`.
 
 | ID | Kind | Case | Origin |
 |---|---|---|---|
 | C-SCALE-01 | pass | Shape: 11 steps in `STEPS` order; `TARGETS` equals section 2; every `hex` is lowercase `#rrggbb`; every `contrast` equals the ratio re-measured from `hex` against the page, within 1e-4 (the stored value keeps 6 significant digits) | plan, decision |
-| C-SCALE-02 | pass | For each hue in `HUES` at `PEAK`, light on white and dark on `DARK_PAGE`, every step's contrast re-measured from `hex` is within 0.05 of its target, and steps 500, 600 and 700 meet 3.0, 4.5 and 7.0 on the full float [X-1] | plan, decision, RF2 |
+| C-SCALE-02 | pass | For each hue in `HUES` at `PEAK`, light on white and dark on `DARK_PAGE`, every step's contrast re-measured from `hex` is within `max(0.05, 0.01 × target)` of its target, and steps 500, 600 and 700 meet 3.0, 4.5 and 7.0 on the full float | plan, decision, RF2 |
 | C-SCALE-03 | pass | L is strictly decreasing across the steps in light mode and strictly increasing in dark mode, and every adjacent `abs(ΔL)` is at least 0.008 | plan |
 | C-SCALE-04 | pass | Every `hex` decodes to channels in `[0, 1]`, and every `oklch` is in the requested gamut (`inGamut`) | plan, decision |
-| C-SCALE-05 | pass | Drift, read from `oklch.h` within 0.1°. Hue 95: step 50 is 95 and step 950 is 60.714, with step `i` at `95 − 34.286 × i / 10` (R-07). Hue 262: every step is 262. Hues 27, 55 and 150: no drift. Hue 90: step 950 is 50 | plan, decision, ruling |
+| C-SCALE-05 | pass | Drift, read from `oklch.h` within 0.1°. Hue 95: step 50 is 95 and step 950 is 60.714 (the plan's 60.71), with step `i` at `95 − 34.286 × i / 10` (R-07). Hue 262: every step is 262. Hues 27, 55 and 150: no drift. Hue 90: step 950 is 50 | plan, decision, ruling |
 | C-SCALE-06 | pass | At every step the stored chroma equals `min(peak × envelope × k, 0.97 × maxChroma(L, hue, gamut))` within 0.001 | decision |
-| C-SCALE-07 | pass | `solveEvenScales([27, 150, 262], …)` returns three scales in input order. At every step the chroma spread across the three is at most 0.005 and the contrasts lie within 0.05 of each other [X-1]. Holds in light and dark mode | plan |
-| C-SCALE-08 | pass | Property (200 runs; hue 0–360, peak 0–0.35, both modes): no throw; C-SCALE-01, 03, 04 and 06 hold; contrast follows C-SCALE-02 [X-1]; no field is NaN or Infinity | plan, RF2, RF3 |
+| C-SCALE-07 | pass | `solveEvenScales([27, 150, 262], …)` returns three scales in input order. At every step the chroma spread across the three is at most 0.005 and the contrasts lie within 0.05 of each other. Holds in light and dark mode | plan |
+| C-SCALE-08 | pass | Property (200 runs; hue 0–360, peak 0–0.35, both modes): no throw; C-SCALE-01, 03, 04 and 06 hold; contrast follows C-SCALE-02; no field is NaN or Infinity | plan, RF2, RF3 |
 | C-SCALE-09 | failure | A light page of `#808080` (black reaches only 5.32:1 on it) throws `UnsatisfiableTargetError` with `step === 700` and `target === 7.0`. `hue` equals the input hue, and the message names step, hue and target | plan, RF2 |
-| C-SCALE-10 | pass | Extreme inputs each give a scale that satisfies C-SCALE-03 and 04 with finite fields, or throw `UnsatisfiableTargetError` naming step and hue: (a) light page `#fefefe`; (b) dark page `#050505`; (c) peak chroma 0, where every hex is a gray; (d) hue 110 at peak 0.35, above the gamut, in both modes | RF2, RF3 |
+| C-SCALE-10 | pass | Extreme inputs each give a scale that satisfies C-SCALE-03 and 04 with finite fields, or throw `UnsatisfiableTargetError` naming step and hue: (a) light page `#fefefe`; (b) dark page `#050505`; (c) peak chroma 0, where every `oklch` has `c` 0 and `h: null` and the channels of every hex differ by at most one code; (d) hue 110 at peak 0.35, above the gamut, in both modes | RF2, RF3 |
 | C-SCALE-11 | failure | A light-mode scale on a `#000000` page and a dark-mode scale on a `#ffffff` page throw `UnsatisfiableTargetError` with `step === 50` | RF2, added |
 | C-SCALE-12 | failure | Invalid input throws `RangeError`: a non-finite `hue`; `peakChroma` of NaN, −0.01 or 0.51; a `page` channel outside the range; an unknown `mode` or `gamut` cast through `as`; `solveEvenScales([], …)` | RF3, added |
-| C-SCALE-13 | pass | With `gamut: "p3"`, every `oklch` is in the P3 gamut and every `hex` is an sRGB hex. The contrast rules of C-SCALE-02 hold on the hex [X-1]. At hue 145 and peak 0.30, at least one step's chroma exceeds `maxChroma(L, hue, "srgb")` | decision |
-| C-SCALE-14 | pass | Property (200 runs): `hex === toHex(gamutMap(oklch, "srgb"))` at every step, and `round6` leaves every stored number unchanged | ruling |
+| C-SCALE-13 | pass | With `gamut: "p3"`, every `oklch` is in the P3 gamut and every `hex` is an sRGB hex. The contrast rules of C-SCALE-02 hold on the hex. At hue 145 and peak 0.30, at least one step's chroma exceeds `maxChroma(L, hue, "srgb")` | decision |
+| C-SCALE-14 | pass | Property (200 runs): every channel of `hex` differs from the same channel of `toHex(gamutMap(oklch, "srgb"))` by at most one code, and `round6` leaves every stored number unchanged | ruling |
 | C-SCALE-15 | pass | The same input gives a deep-equal output, and the `page` tuple is not mutated | I-01 |
 | C-SCALE-16 | pass | `solveEvenScales` with one hue equals `solveScale` for that hue, within the tolerances | added |
 | C-SCALE-17 | pass | A non-white light page (`#f0f0f0`) and dark pages of other hues: the solver measures contrast against the page it receives | added |
 | C-SCALE-18 | pass | Peak chroma 0 gives `h: null` at every step; any chromatic scale gives finite hues | RF3, ruling |
+| C-SCALE-19 | pass | Neutral scales pass the same band. With peak chroma 0, light on `#ffffff`, dark on `DARK_PAGE` and dark on `#121212`: every step is within the C-SCALE-02 band, steps 500, 600 and 700 meet their thresholds, every `oklch` has `c` 0, and the channels of every hex differ by at most one code | plan, decision |
+| C-PICK-01 | pass | `pickHex([0.3, 0.45, 0.8], white, 4.5)` is `#4d73cc` (ratio 4.5261), the nearest of the four hexes around the solution | decision, added |
+| C-PICK-02 | pass | For the solution `[0.338, 0.426, 0.879]` on white with target 4.5, `pickHex` returns `#576de0` (4.4977). With threshold 4.5 it returns `#566de0` (4.5069), the nearest hex that meets 4.5 | decision, added |
+| C-PICK-03 | pass | Property (200 runs over random solutions, the pages `#ffffff` and `#0f1216`, and targets): the result equals the best of the up to eight hexes found by brute force, no channel leaves 0–255, and its error is never larger than rounding each channel gives | decision, added |
+| C-PICK-04 | pass | A solution whose channels are whole codes gives that hex: `pickHex([0.4, 0.4, 0.4], white, 4.5)` is `#666666` | added |
+| C-PICK-05 | pass | Channels at the edges, and within the 1e-6 tolerance (`[-1e-7, 0.5, 1 + 1e-7]`), give codes inside 0–255 | added |
+| C-PICK-06 | failure | `pickHex([0.2, 0.5, 0.7], white, 4.5, 4.5)` throws `RangeError`: no hex around a solution of 4.33:1 meets 4.5 | decision, added |
+| C-PICK-07 | failure | A non-finite channel or target, and a channel outside `[−1e-6, 1 + 1e-6]`, throw `RangeError` | RF3, added |
 | C-ROUND-01 | pass | `round6(0.7002508346689501) === 0.700251`, `round6(22.0638415289496) === 22.0638`, `round6(1234567) === 1234570`, `round6(4e-7) === 4e-7` | ruling |
 | C-ROUND-02 | pass | `round6(0) === 0` and `Object.is(round6(-0), 0)` | ruling |
 | C-ROUND-03 | pass | Property (500 runs): `round6(round6(x)) === round6(x)` | ruling |
@@ -819,40 +860,41 @@ Contract:
   in even mode (R-11).
 - **Seeds.** R-10 and the seed rule in section 2. A locked seed's own chroma never changes `peakChroma`.
 - **`resolveRoles`.** The sources in section 2, with the level moves: AA+ puts `muted-foreground` on neutral-800; AAA also
-  puts `primary`, `sidebar-primary` and `destructive` on step 700, and `ring`, `sidebar-ring` and `input` on step 600.
+  puts `primary`, `sidebar-primary`, `destructive`, `ring`, `sidebar-ring` and `input` on step 700.
   Every `*-foreground` on a solid fill is `onFill` of that fill. `chart` must hold exactly five `Hex` values.
 - **`onFill`.** Section 2 and R-15. The result is always `#ffffff` or `#000000`.
-- **`pickChartColors`.** Section 2 and R-13. The candidates are 24 hues (every 15°) times steps 500, 600, 700 and 800,
-  solved on the mode's page. The first pick is `primary` step 600. Each later pick maximizes the smallest ΔEOK to the
+- **`pickChartColors`.** Section 2 and R-13. The candidates are 24 hues (every 15°) times steps 600, 700, 800 and 900,
+  solved on the mode's page, so every mark keeps 3:1 against the page and the card. The first pick is `primary` step 600. Each later pick maximizes the smallest ΔEOK to the
   chosen set over the four views. A tie goes to the lower hue, then to the lower step. The returned set reaches 0.08.
 
 | ID | Kind | Case | Origin |
 |---|---|---|---|
 | C-PAL-01 | pass | A missing primary takes `floor(random() × 360)`: `() => 0.5` gives 180, `() => 0` gives 0, `() => 0.999999` gives 359. `buildPalettes` calls `random` once when `primary` is missing and never when the caller passes it | plan, decision |
 | C-PAL-02 | pass | Secondary and accent hues equal `harmonyHues(h₀, harmony)` for every harmony. A locked secondary or accent keeps its own hue, and the harmony does not move it | plan, decision |
-| C-PAL-03 | pass | `peakChroma`: muted 0.08, balanced 0.14, vivid 0.22 on primary, accent and the four status palettes; secondary is 0.6 times that; neutral is 0 for `none`, 0.012 at hue 60 for `warm`, 0.012 at hue 250 for `cool`, 0.010 at the primary hue for `brand` | decision, ruling |
+| C-PAL-03 | pass | `peakChroma`: muted 0.08, balanced 0.14, vivid 0.22 on primary and accent; 0.14 on the four status palettes whatever the parameter says; secondary is 0.6 times the parameter's value; neutral is 0 for `none`, 0.012 at hue 60 for `warm`, 0.012 at hue 250 for `cool`, 0.010 at the primary hue for `brand` | decision, ruling |
 | C-PAL-04 | pass | Status hues: success 150, warning 70, danger 25, info 250 | decision |
 | C-PAL-05 | pass | `pageFor(neutral, "light")` is `#ffffff`. The dark page is the emitted hex of `oklch(0.18, min(0.012, Cneutral), hneutral)`: `#121212` for tint `none`, and `toHex(gamutMap(oklch(0.18 0.01 hprimary), "srgb"))` for tint `brand` | decision |
-| C-PAL-06 | pass | Property (100 random parameter sets): all eight palettes exist with 11 light and 11 dark steps. Every non-seed step meets the C-SCALE rules for contrast [X-1], strict lightness order and gamut | added |
+| C-PAL-06 | pass | Property (100 random parameter sets): all eight palettes exist with 11 light and 11 dark steps. Every non-seed step meets the C-SCALE rules for contrast, strict lightness order and gamut | added |
 | C-PAL-07 | pass | Seed `#f66c6d` (2.88:1 on white) locked as primary appears verbatim at light step 400, because its nearest step, 500, would break the 3.0 threshold. `palettes.primary.light[4].hex` is `#f66c6d` and its `oklch` equals the parsed seed. `seedStep.light` is 400 and there is no `seedDeviation`. The dark scale holds the seed verbatim at `seedStep.dark` | plan, RF5 |
 | C-PAL-08 | pass | A seed outside sRGB, `oklch(0.7 0.3 145)`, in sRGB mode is gamut-mapped, placed in both modes and recorded: `seedDeviation.deltaEOK` is above 0.02 (about 0.06) and `seedDeviation.step` equals `seedStep.light` | plan, RF5 |
 | C-PAL-09 | pass | No step accepts the seed. Primary `oklch(0.68 0.05 0)` in light mode has a lightness (0.68) slightly below step 500's (0.686) and a contrast (2.95) below step 500's threshold (3.0), so steps 500 and 600 both reject it. `seedStep` is absent. The light scale equals the scale solved without a seed. `seedDeviation.step` is the step nearest the seed by ΔEOK (500 on the reference scale), and `deltaEOK` equals `deltaEOK(seed, light[step].oklch)`. If the dark scale accepts the seed, it holds it verbatim | decision, ruling, RF5 |
 | C-PAL-10 | pass | Each of `EXTREME_SEEDS` locked as primary, in sRGB and P3: `buildPalettes` does not throw; every non-seed step meets C-SCALE-03 and 04; L stays strictly ordered across all 11 steps including the seed step; no field is NaN or Infinity; the seed is either verbatim at `seedStep` or recorded in `seedDeviation`, never dropped silently | RF2, RF3, RF5 |
-| C-PAL-11 | pass | An achromatic seed (`#808080`, `oklch(0.6 0 none)`) gives the primary palette `peakChroma` 0, `hue` 0, a gray hex at every step and `h: null` on every `oklch` | ruling |
+| C-PAL-11 | pass | An achromatic seed (`#808080`, `oklch(0.6 0 none)`) gives the primary palette `peakChroma` 0, `hue` 0, `h: null` on every `oklch`, and hexes whose channels differ by at most one code | ruling |
 | C-PAL-12 | pass | A locked secondary or accent seed follows the same rule as C-PAL-07: with `secondary: #f66c6d`, `palettes.secondary.light[seedStep.light]` is verbatim and `peakChroma` stays 0.6 times the parameter | decision, ruling |
 | C-PAL-13 | pass | A locked seed's chroma does not set `peakChroma`: primary `#f66c6d` with `chroma: "muted"` has `peakChroma` 0.08 | decision |
 | C-PAL-14 | pass | Even mode: palettes that share a `peakChroma` have a per-step chroma spread of at most 0.005 (seed steps excepted). Secondary and neutral equal their standard-mode scales | ruling |
-| C-PAL-15 | pass | P3: with `gamut: "p3"` every non-seed `oklch` is in the P3 gamut, every `hex` is an sRGB hex, and the contrast rules hold on the hex [X-1] | decision |
+| C-PAL-15 | pass | P3: with `gamut: "p3"` every non-seed `oklch` is in the P3 gamut, every `hex` is an sRGB hex, and the contrast rules hold on the hex | decision |
 | C-PAL-16 | pass | The same parameters and the same `random` stream give deep-equal palettes, and the input is not mutated | I-01 |
 | C-PAL-17 | failure | Invalid input throws `RangeError` naming the field: an unknown `harmony`, `chroma`, `neutralTint`, `gamut`, `scaleMode` or `contrastLevel`; a seed with a non-finite field, `l` outside `[0, 1]`, `c` outside `[0, 0.5]` or `h` outside `[0, 360)`; a `random` that returns NaN or a value outside `[0, 1)` | RF3, added |
 | C-ROLE-01 | pass | `resolveRoles` returns exactly the 44 role names, each a `Hex` | decision, ruling |
 | C-ROLE-02 | pass | For every mode and level, each role equals the hex of its source in section 2 (`background` is the page hex; every `*-foreground` on a solid fill is `onFill` of that fill; `chart-n` is the n-th chart color) | decision |
 | C-ROLE-03 | pass | AA and AA+ differ only in `muted-foreground`. Between AA+ and AAA, only `primary`, `sidebar-primary`, `destructive`, `ring`, `sidebar-ring`, `input` and the foregrounds on the first three may change, and the six fills do change | decision |
-| C-ROLE-04 | pass | Property (200 seeds, both modes, AA, AA+ and AAA; palettes and charts built once per seed and mode): every pair in the C1 and C5 lists has WCAG ≥ 4.5; `muted-foreground` on `background` is ≥ 7 at AA+ and AAA; `input` and `ring` against `background` are ≥ 3 | plan |
+| C-ROLE-04 | pass | Property (200 seeds, both modes, AA, AA+ and AAA; palettes and charts built once per seed and mode): every pair in the C1 and C5 lists has WCAG ≥ 4.5; `muted-foreground` on `background` is ≥ 7 at AA+ and AAA; `input` and `ring` against `background`, `card` and `muted` are ≥ 3 | plan |
 | C-ROLE-05 | pass | `muted-foreground` on `muted` is ≥ 7 at AA+ and AAA (step 800 against step 100 gives about 8.3) | added |
-| C-ROLE-06 | pass | Status sources: `success` is success-700, `warning` warning-500, `destructive` danger-600 and `info` info-600, with `onFill` foregrounds | decision |
+| C-ROLE-06 | pass | Status sources: `warning` is warning-500, `destructive` danger-600, `info` info-700 and `success` success-800, with `onFill` foregrounds; the `-subtle` and `-subtle-foreground` roles stay on steps 100 and 900 | decision |
 | C-ROLE-07 | failure | A `chart` list with fewer or more than five entries, or an entry that is not a `Hex`, throws `RangeError`; so does an unknown mode or level | added |
 | C-ROLE-08 | pass | The same input gives a deep-equal output, and the palettes are not mutated | I-01 |
+| C-ROLE-09 | pass | `input` and `ring` keep 3:1 beyond the page. For hue 262 at balanced chroma, at AA and AA+, `input` is neutral-600 and `ring` and `sidebar-ring` are primary-600. In light mode they measure about 4.24 against the card and 3.91 against the muted fill (within 0.05); in dark mode about 4.25 and 3.91 to 3.93. At AAA all three sit on step 700 and measure at least 6.5 against the card and 6.0 against the muted fill | decision |
 | C-ONFILL-01 | pass | `onFill` of the light primary-600 for hue 262 is `#ffffff`: both candidates reach 4.5, and white wins on `abs(Lc)` (about 76.8 against 32.7) | plan |
 | C-ONFILL-02 | pass | `onFill(#ffeb3b)` is `#000000`, because only black reaches 4.5 | plan |
 | C-ONFILL-03 | pass | When only white reaches 4.5, white wins: `onFill(#006400)` is `#ffffff` | decision |
@@ -861,12 +903,13 @@ Contract:
 | C-ONFILL-06 | pass | When no candidate reaches 4.5, `selectOnFill` returns the one with the higher WCAG ratio: `selectOnFill(#808080, [#777777, #888888])` returns the candidate that `wcagRatio` ranks higher | decision |
 | C-ONFILL-07 | pass | Property (500 runs): `onFill` always returns `#ffffff` or `#000000`, and at least one of the two reaches 4.5 on the fill (R-15) | decision, ruling |
 | C-ONFILL-08 | failure | A channel outside `[−1e-6, 1 + 1e-6]` or NaN throws `RangeError`; so does `selectOnFill` with an empty candidate list | RF3, added |
-| C-STATUS-01 | pass | The status indicators success-700, warning-500, danger-600 and info-600 have pairwise ΔEOK ≥ 0.08 under none, protan, deutan and tritan for the default status hues, in both modes [X-3] | plan |
+| C-STATUS-01 | pass | The status indicators warning-500, danger-600, info-700 and success-800 have pairwise ΔEOK ≥ 0.08 under none, protan, deutan and tritan in both modes, for every `chroma` parameter and every `neutralTint` (property, 100 runs; standard scale mode). The reference minimum is 0.0855 in light mode and 0.0914 to 0.0940 in dark mode | plan, decision |
+| C-STATUS-02 | pass | The status palettes do not depend on the `chroma` parameter: for one primary and one `neutralTint`, `palettes.success`, `warning`, `danger` and `info` are deep-equal across `muted`, `balanced` and `vivid`, and each has `peakChroma` 0.14 | decision |
 | C-CHART-01 | pass | `pickChartColors` returns five distinct `Hex` values; the first is `primary` step 600 of that mode | decision |
-| C-CHART-02 | pass | Each chart color is at least 3:1 against the mode's page hex, measured on the hex | plan |
+| C-CHART-02 | pass | Each chart color is at least 3:1 against the mode's page hex and against its `card` hex (neutral-50), measured on the hexes. The smallest ratios on the reference scales are 4.50 and 4.24 | plan, decision |
 | C-CHART-03 | pass | Property (100 runs over primary hue 0–360, `chroma` of muted, balanced and vivid, both modes): `minPairwiseDeltaE` of the five is at least 0.08 in all four views | plan, decision |
 | C-CHART-04 | pass | The same palettes give the same array, and the order of keys in the palette record does not matter | plan |
-| C-CHART-05 | pass | Every chosen color after the first equals the `hex` of a candidate step (hue a multiple of 15, step 500 to 800) of a scale solved at peak chroma 0.14 on that page | decision, ruling |
+| C-CHART-05 | pass | Every chosen color after the first equals the `hex` of a candidate step (hue a multiple of 15, step 600 to 900) of a scale solved at peak chroma 0.14 on that page | decision, ruling |
 | C-CHART-06 | pass | P3: candidates solve in the P3 gamut and the hexes are sRGB; C-CHART-02 and 03 hold on the hexes | decision |
 | C-CHART-07 | failure | An unknown mode or gamut throws `RangeError`; so does a palette record that lacks `primary` or `neutral` | added |
 
@@ -931,7 +974,7 @@ Contract:
 
 | ID | Kind | Case | Origin |
 |---|---|---|---|
-| C-TYPE-01 | pass | Product: `body` is 16 px; `h1` is 16 × 1.25⁴ ≈ 39.0625 (within 0.01); caption 10.24; label and body-sm 12.8; lead and h4 20; h3 25; h2 31.25; display 48.828125 | plan, decision |
+| C-TYPE-01 | pass | Product: `body` is 16 px; `h1` is 16 × 1.25⁴ ≈ 39.0625 (the plan's 39.06; within 0.01); caption 10.24; label and body-sm 12.8; lead and h4 20; h3 25; h2 31.25; display 48.828125 | plan, decision |
 | C-TYPE-02 | pass | Dense: body 14, `h1` 29.0304, display 34.8365 (within 0.001). Poster: body 18, `h1` 91.125, display 136.6875 | decision |
 | C-TYPE-03 | pass | Every `lineHeightPx` is a positive multiple of 4, for every context and for ratios 1.067, 1.2, 1.5 and 2 | plan, ruling |
 | C-TYPE-04 | pass | Tracking at 16 px (product `body`) ≈ −0.01096 (within 0.0001; the plan writes −0.0109). At 48.83 px (product `display`) it is ≈ −0.02226: the curve nears −0.0223 and the clamp does not engage | plan |
@@ -1125,7 +1168,7 @@ what each rule measures. A rule runs in both modes, except D1 to D4, which run i
 | C4 | The 4 body pairs: `abs(perceptualLc(foreground, fill))` | abs(Lc) < 75 | warn | abs(Lc) / 75 | `perceptual contrast guidance (advisory)` |
 | C5 | The 6 C5 on-fill pairs, as WCAG ratio | ratio < 4.5 | error | ratio / 4.5 | `WCAG 2.2 SC 1.4.3` |
 | N1 | `input` against `background`, and against `card` | ratio < 3 | error | ratio / 3 | `WCAG 2.2 SC 1.4.11` |
-| N2 | `chart-1` to `chart-5` against `background` | ratio < 3 | error | ratio / 3 | `WCAG 2.2 SC 1.4.11` |
+| N2 | `chart-1` to `chart-5` against `background`, and against `card` | ratio < 3 | error | ratio / 3 | `WCAG 2.2 SC 1.4.11` |
 | N3 | `border` against `background` | ratio < 3 | info | ratio / 3 | `WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)` |
 | F1 | `ring` against `background`, against `card` and against `muted` | ratio < 3 | error | ratio / 3 | `WCAG 2.2 SC 1.4.11, 2.4.13` |
 | S1 | The `status` set (`success`, `warning`, `destructive`, `info`) and the `chart` set (`chart-1` to `chart-5`): the smallest pairwise ΔEOK under each view from `minPairwiseDeltaE` | min < 0.08 | warn; error when min < 0.05 | min / 0.08 | `calibrated against Okabe-Ito (RR-0028)` |
@@ -1152,10 +1195,15 @@ Contract:
 - **Purity.** `lintSpec` reads the spec and nothing else. It does not mutate it and does not re-validate it; callers parse
   at the boundary. A spec whose numbers include NaN or Infinity makes it throw `RangeError`, so no finding carries a
   non-finite value.
-- **Known default noise.** On a default spec the linter stays silent for C1, C2, C4, C5, N2, K1, K2, K4, G1, G3, D1, D2 and
-  D4. N3 reports info in both modes. S2 warns in dark mode (ΔL 0.088 for hue 262 at balanced chroma). D3 may warn.
-  N1, F1 and S1 depend on X-2 and X-3. A locked seed can raise K2 and K4 at its own step, because the seed keeps its own
-  lightness and chroma; M1 reports those warnings and the palette's `seedStep` explains them.
+- **Known default noise.** On a default spec (contrast level AA) the linter stays silent for C1, C2, C4, C5, N1, N2, F1,
+  S1, S2, K1, K2, K4, G1, G3, D1, D2 and D4. N3 reports info in both modes. D3 may warn. A locked seed can raise K2 and K4
+  at its own step, because the seed keeps its own lightness and chroma; M1 reports those warnings and the palette's
+  `seedStep` explains them.
+- **Known AAA consequence.** At contrast level AAA the role table moves `destructive` to danger-700, which has the same
+  lightness as info-700. The status set then falls to a smallest ΔEOK of 0.030 in light mode (protan) and 0.058 in dark
+  mode (deutan), so S1 reports an error in light mode and a warning in dark mode. The plan's status property uses the AA
+  steps (danger-600), so no planned test fails. Keeping `destructive` on step 600 at AAA would remove the finding; that is
+  the owner's call.
 - **Overrides.** Pass fixtures override what their rule measures so that it holds, and assert that no finding has the id.
   Fail fixtures assert that the findings contain the expected element. They compute the expected `measured` with the
   engine's own contrast, lightness and ΔEOK functions and compare at 1e-9; the literal values in the rows below are
@@ -1171,18 +1219,18 @@ Contract:
 | C-LINT-06 | failure | **C4.** With `foreground` (light) set to `#767676` (abs(Lc) 71.57): `{ id: "C4", severity: "warn", mode: "light", subject: "foreground/background", measured: 71.57, threshold: 75 }` | plan |
 | C-LINT-07 | pass | **C5.** On the base spec, no C5 finding | plan |
 | C-LINT-08 | failure | **C5.** With `primary-foreground` (light) set to the `primary` hex (ratio 1): `{ id: "C5", severity: "error", mode: "light", subject: "primary-foreground/primary", measured: 1, threshold: 4.5 }` | plan |
-| C-LINT-09 | pass | **N1.** With `input` (light) set to the neutral-600 hex (about 4.3 against the card), no N1 finding | plan |
-| C-LINT-10 | failure | **N1.** With `input` (light) set to the neutral-400 hex: two error findings, `input/background` and `input/card`, each with `measured` below 3 and `threshold` 3 [X-2] | plan |
+| C-LINT-09 | pass | **N1.** On the base spec, whose `input` is neutral-600 (about 4.2 against the card in light mode), no N1 finding | plan |
+| C-LINT-10 | failure | **N1.** With `input` (light) set to the neutral-400 hex: two error findings, `input/background` and `input/card`, each with `measured` below 3 and `threshold` 3 | plan |
 | C-LINT-11 | pass | **N2.** On the base spec, no N2 finding | plan |
-| C-LINT-12 | failure | **N2.** With `chart-3` (dark) set to `#222222`: `{ id: "N2", severity: "error", mode: "dark", subject: "chart-3/background", measured: <ratio below 3>, threshold: 3 }` | plan |
+| C-LINT-12 | failure | **N2.** With `chart-3` (dark) set to `#222222`: error findings `{ id: "N2", severity: "error", mode: "dark", subject: "chart-3/background", measured: <ratio below 3>, threshold: 3 }` and the same for `chart-3/card` | plan |
 | C-LINT-13 | pass | **N3.** With `border` set to the neutral-500 hex (ratio 3.0 or more), no N3 finding | plan |
 | C-LINT-14 | failure | **N3.** On the base spec: `{ id: "N3", severity: "info", mode: "light", subject: "border/background", measured: about 1.32, threshold: 3 }`, and the same in dark mode | plan |
-| C-LINT-15 | pass | **F1.** With `ring` (light) set to the primary-600 hex (about 3.9 against muted), no F1 finding | plan |
-| C-LINT-16 | failure | **F1.** With `ring` (light) set to the primary-300 hex: error findings for `ring/background`, `ring/card` and `ring/muted`, each below 3 [X-2] | plan |
-| C-LINT-17 | pass | **S1.** With the four status roles set to `#009e73`, `#e69f00`, `#d55e00` and `#0072b2` (smallest ΔEOK 0.156, 0.115, 0.112 and 0.092 under none, protan, deutan and tritan), no `status` finding, in either mode. The base spec's chart set raises none either | plan |
+| C-LINT-15 | pass | **F1.** On the base spec, whose `ring` is primary-600 (about 3.9 against muted in light mode), no F1 finding | plan |
+| C-LINT-16 | failure | **F1.** With `ring` (light) set to the primary-300 hex: error findings for `ring/background`, `ring/card` and `ring/muted`, each below 3 | plan |
+| C-LINT-17 | pass | **S1.** On the base spec the status and chart sets raise no S1 finding in either mode. The status minimum is about 0.086 in light mode and 0.091 to 0.094 in dark mode | plan |
 | C-LINT-18 | failure | **S1.** With `chart-2` set equal to `chart-1`: four error findings `chart/none`, `chart/protan`, `chart/deutan` and `chart/tritan`, each with `measured` 0 and `threshold` 0.08 | plan |
 | C-LINT-19 | failure | **S1.** With `chart-1` to `chart-5` set to `#202020`, `#808080`, `#949494`, `#d0d0d0` and `#f0f0f0`: four warn findings, one per view, each with `measured` 0.0667 (the ΔEOK of `#808080` and `#949494`) and `threshold` 0.08 | plan |
-| C-LINT-20 | pass | **S2.** With `success` (dark) set to the success-800 hex, no S2 finding in dark mode. The base spec raises none in light mode (ΔL about 0.13) | plan |
+| C-LINT-20 | pass | **S2.** On the base spec, no S2 finding in either mode (`abs(ΔL)` between danger-600 and success-800 is about 0.20 in light mode and 0.17 in dark) | plan |
 | C-LINT-21 | failure | **S2.** With `success` (light) set to the `destructive` hex: `{ id: "S2", severity: "warn", mode: "light", subject: "destructive/success", measured: 0, threshold: 0.10 }` | plan |
 | C-LINT-22 | pass | **K1.** On the base spec, no K1 finding | plan |
 | C-LINT-23 | failure | **K1.** After swapping the L of `primary` light steps 300 and 400: `{ id: "K1", severity: "error", mode: "light", subject: "primary-300/primary-400", measured: <the original L(400) minus the original L(300), negative>, threshold: 0 }` | plan |
@@ -1206,10 +1254,10 @@ Contract:
 | C-LINT-41 | failure | **P1.** With primary locked to `oklch(0.6 0.12 111)`: info findings in light mode that include `primary-600` and `primary-700`, each with `measured` below 0.65 and `threshold` 0.65 | plan |
 | C-LINT-42 | pass | Property (100 runs over mutated base specs): `lintSpec` sorts findings by severity, then id, then mode, then subject | added |
 | C-LINT-43 | pass | The rule ids are exactly the 20 in `RuleId`. Every finding has a non-empty `source` without "APCA" in any case, and a finite `measured` and `threshold` | RF3, ruling |
-| C-LINT-44 | pass | Property (200 seeds, default params): `generateSystem` output has zero `error` findings [X-2] [X-3] | plan |
+| C-LINT-44 | pass | Property (200 seeds, default params): `generateSystem` output has zero `error` findings | plan |
 | C-LINT-45 | pass | The same spec gives deep-equal findings, and `lintSpec` accepts a deep-frozen spec | I-01 |
 | C-LINT-46 | failure | A spec whose stored numbers include NaN, built by casting, makes `lintSpec` throw `RangeError` | RF3, added |
-| C-LINT-47 | pass | On the base spec, C1, C2, C4, C5, N2, K1, K2, K4, G1, G3, D1, D2 and D4 stay silent, N3 reports info in both modes, and S2 warns in dark mode only | added |
+| C-LINT-47 | pass | On the base spec, C1, C2, C4, C5, N1, N2, F1, S1, S2, K1, K2, K4, G1, G3, D1, D2 and D4 stay silent, and N3 reports info in both modes | added |
 
 ### 6.9 Repository guards
 
@@ -1259,7 +1307,6 @@ C-PAL-10 and C-PAL-11 for locked seeds.
 ## 9. Done when
 
 - Every case in section 6 has a test, and every `failure` case fails in the way its row says.
-- The owner settles X-1, X-2 and X-3, and the bracketed cases change to match.
 - `pnpm lint && pnpm typecheck && pnpm vitest run --coverage && pnpm build && pnpm test:e2e` passes, with the folder floors
   met: lines, statements and functions 95, branches 90, on `src/engine/**` and `src/spec/**`.
 - The Task 1.8 report states the measured encoded length of the default spec, as C-URL-08 asks.
