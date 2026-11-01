@@ -95,6 +95,24 @@ describe("pickChartColors", () => {
     PROPERTY_TIMEOUT,
   );
 
+  it("C-CHART-03 picks the golden set for hue 262 and reaches X-4's minimum for hue 270", () => {
+    // The light set for hue 262 matches an independent greedy of the reviewer's.
+    expect(pickChartColors(build(), "light", "srgb")).toEqual([
+      "#4775ca",
+      "#59231a",
+      "#bc5b28",
+      "#18467d",
+      "#973b30",
+    ]);
+    // Section 3, X-4: the smallest ΔEOK for primary hue 270 at balanced chroma.
+    const hue270 = build({}, () => 270.5 / 360);
+    const expected: Record<Mode, number> = { light: 0.1059, dark: 0.1132 };
+    for (const mode of MODES) {
+      const views = minPairwiseDeltaE(pickChartColors(hue270, mode, "srgb").map(rgbOfHex));
+      expect(Math.abs(Math.min(...Object.values(views)) - expected[mode]), mode).toBeLessThan(1e-4);
+    }
+  });
+
   it("C-CHART-04 gives the same array for the same palettes, in any key order", () => {
     const palettes = build();
     const reordered = Object.fromEntries(Object.entries(palettes).reverse()) as Record<

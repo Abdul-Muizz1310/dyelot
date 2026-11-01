@@ -455,6 +455,17 @@ describe("onFill and selectOnFill", () => {
     );
   });
 
+  it("C-ONFILL-04 lets the second candidate win on the perceptual score when both pass", () => {
+    const white = rgbOfHex(WHITE);
+    const gray = rgbOfHex("#595959");
+    const black = rgbOfHex(BLACK);
+    expect(wcagRatio(gray, white)).toBeCloseTo(7.005, 3);
+    expect(wcagRatio(black, white)).toBeCloseTo(21, 9);
+    expect(Math.abs(perceptualLc(gray, white))).toBeCloseTo(84.29, 2);
+    expect(Math.abs(perceptualLc(black, white))).toBeCloseTo(106.04, 2);
+    expect(selectOnFill(white, ["#595959", "#000000"] as Hex[])).toBe(BLACK);
+  });
+
   it("C-ONFILL-05 compares on the full float: 4.4781 fails and 4.5422 passes", () => {
     expect(selectOnFill(rgbOfHex(WHITE), ["#777777", "#767676"] as Hex[])).toBe("#767676");
   });

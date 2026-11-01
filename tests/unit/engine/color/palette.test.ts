@@ -1,6 +1,6 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { wcagRatio } from "@/engine/color/contrast";
+import { meets, wcagRatio } from "@/engine/color/contrast";
 import { rgbToOklch, toHex } from "@/engine/color/convert";
 import { deltaEOK, minPairwiseDeltaE } from "@/engine/color/deltae";
 import { gamutMap, inGamut, maxChroma } from "@/engine/color/gamut";
@@ -55,6 +55,8 @@ const WHITE = rgbOfHex("#ffffff");
 /** A missing primary takes floor(262.5 / 360 × 360) = 262. */
 const HUE_262 = () => 262.5 / 360;
 const PROPERTY_TIMEOUT = 180_000;
+/** The thresholds of steps 500, 600 and 700, by step index. */
+const SEED_THRESHOLDS: Readonly<Record<number, 3 | 4.5 | 7>> = { 5: 3, 6: 4.5, 7: 7 };
 
 const build = (overrides: Partial<ColorParams> = {}, random: () => number = HUE_262) =>
   buildPalettes({ ...DEFAULTS, ...overrides }, random);
@@ -138,6 +140,13 @@ function expectPalette(
       expect(entry.hex).toMatch(/^#[0-9a-f]{6}$/);
       if (held[mode].includes(i)) {
         expect(entry.hex).toBe(seed?.hex);
+        // A seed step keeps its step's threshold on its own hex (section 2).
+        const threshold = SEED_THRESHOLDS[i];
+        if (threshold !== undefined) {
+          expect(meets(wcagRatio(rgbOfHex(entry.hex), page), threshold), `${name} ${mode}`).toBe(
+            true,
+          );
+        }
         return;
       }
       expect(inGamut(entry.oklch, gamut), `${name} ${mode} ${entry.step}`).toBe(true);
@@ -365,6 +374,30 @@ describe("buildPalettes: seeds", () => {
     const dark = primary.seedStep?.dark;
     expect(dark).toBeDefined();
     expect(primary.dark[indexOf(dark ?? 0)].hex).toBe("#f66c6d");
+    expectPalette(palettes, "primary", "srgb", seed);
+  });
+
+  it("C-PAL-07 tries the steps nearest the seed's L first, not the steps in order", () => {
+    // Light L of hue 25: step 300 is 0.8462 and step 400 is 0.7669. The seed's L, 0.78, fits
+    // between 200 and 400 and between 300 and 500, so in STEPS order step 300 would accept it;
+    // step 400 is nearer (gap 0.013 against 0.066) and takes it.
+    const seed: Oklch = { l: 0.78, c: 0.06, h: 25 };
+    const seedless = solveScale({
+      hue: 25,
+      peakChroma: 0.14,
+      mode: "light",
+      page: WHITE,
+      gamut: "srgb",
+    });
+    expect(Math.abs(seedless[3].oklch.l - 0.8462)).toBeLessThan(0.0005);
+    expect(Math.abs(seedless[4].oklch.l - 0.7669)).toBeLessThan(0.0005);
+    expect(seedless[2].oklch.l > seed.l && seed.l > seedless[4].oklch.l).toBe(true);
+    const palettes = build({ primary: seed });
+    const { primary } = palettes;
+    expect(primary.seedStep).toEqual({ light: 400, dark: 800 });
+    expect("seedDeviation" in primary).toBe(false);
+    expect(primary.light[indexOf(400)].oklch).toEqual(seed);
+    expect(primary.dark[indexOf(800)].oklch).toEqual(seed);
     expectPalette(palettes, "primary", "srgb", seed);
   });
 
