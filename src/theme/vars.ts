@@ -110,19 +110,26 @@ function round6(value: number): number {
   return rounded === 0 ? 0 : rounded;
 }
 
-/** The spring of a feel (R2-08): `calm` is smooth, `brisk` snappy, `playful` bouncy. */
-export function feelSpring(motion: Motion): { visualDuration: number; bounce: number } {
+function springOf(motion: Motion, who: string): { visualDuration: number; bounce: number } {
   if (!isRecord(motion)) {
-    throw new TypeError(`feelSpring: motion must be an object, got ${kind(motion)}`);
+    throw new TypeError(`${who}: motion must be an object, got ${kind(motion)}`);
   }
   if (typeof motion.feel !== "string") {
-    throw new TypeError(`feelSpring: motion.feel must be a string, got ${kind(motion.feel)}`);
+    throw new TypeError(`${who}: motion.feel must be a string, got ${kind(motion.feel)}`);
   }
   if (!MOTION_FEELS.includes(motion.feel)) {
-    throw new RangeError(`feelSpring: unknown motion feel ${JSON.stringify(motion.feel)}`);
+    throw new RangeError(`${who}: unknown motion feel ${JSON.stringify(motion.feel)}`);
+  }
+  if (!isRecord(motion.springs)) {
+    throw new TypeError(`${who}: motion.springs must be an object, got ${kind(motion.springs)}`);
   }
   const { visualDuration, bounce } = motion.springs[SPRING_OF_FEEL[motion.feel]];
   return { visualDuration, bounce };
+}
+
+/** The spring of a feel (R2-08): `calm` is smooth, `brisk` snappy, `playful` bouncy. */
+export function feelSpring(motion: Motion): { visualDuration: number; bounce: number } {
+  return springOf(motion, "feelSpring");
 }
 
 /** The view variables of a density (R2-07): the offset on spacing and the control height. */
@@ -170,13 +177,22 @@ function layerCss(layer: Layer, factor: number, capAlpha: boolean): string {
 }
 
 function shadowVars(depth: DesignSpec["depth"], out: Record<string, string>): void {
+  if (typeof depth.style !== "string") {
+    throw new TypeError(`themeVars: depth.style must be a string, got ${kind(depth.style)}`);
+  }
   if (!DEPTH_STYLES.includes(depth.style)) {
     throw new RangeError(`themeVars: unknown depth style ${JSON.stringify(depth.style)}`);
   }
   const layered = depth.style === "layered";
   const factor = layered ? LAYERED_FACTOR : 1;
   for (const level of ELEVATIONS) {
-    const [key, ambient] = depth.shadows[level];
+    const row = depth.shadows[level];
+    if (!Array.isArray(row) || row.length !== 2) {
+      throw new TypeError(
+        `themeVars: depth.shadows[${level}] must hold 2 layers, got ${kind(row)}`,
+      );
+    }
+    const [key, ambient] = row;
     out[`--shadow-${level}`] =
       depth.style === "flat"
         ? "none"
@@ -255,46 +271,54 @@ export function themeVars(
   need(roles, `spec.color.roles.${mode}`);
   for (const role of ROLE_NAMES) out[`--${role}`] = color(roles[role], `role ${role}`);
 
+  need(spec.type, "spec.type");
+  need(spec.space, "spec.space");
+  need(spec.shape, "spec.shape");
+  need(spec.depth, "spec.depth");
+  need(spec.motion, "spec.motion");
+  need(spec.components, "spec.components");
   need(spec.color.palettes, "spec.color.palettes");
   for (const palette of PALETTE_NAMES) {
     need(spec.color.palettes[palette], `palette ${palette}`);
     const scale = spec.color.palettes[palette][mode];
     if (!Array.isArray(scale) || scale.length !== STEPS.length) {
       throw new TypeError(
-        `themeVars: palette ${palette} ${mode} must hold ${STEPS.length} steps, got ${kind(scale)}`,
+        `themeVars: palette ${palette} ${mode} must hold ${STEPS.length} steps, got ${Array.isArray(scale) ? scale.length : kind(scale)}`,
       );
     }
     STEPS.forEach((step, index) => {
       const entry = scale[index];
       need(entry, `palette ${palette} step ${step}`);
-      if (entry?.step !== step) {
+      if (entry.step !== step) {
         throw new RangeError(
           `themeVars: palette ${palette} ${mode} entry ${index} must be step ${step}, got ${JSON.stringify(entry.step)}`,
         );
       }
-      out[`--${palette}-${step}`] = color(entry?.hex, `scale step ${palette}-${step}`);
+      out[`--${palette}-${step}`] = color(entry.hex, `scale step ${palette}-${step}`);
     });
   }
 
-  const steps = spec.type.steps as readonly DesignSpec["type"]["steps"][number][];
+  const steps = spec.type.steps;
   if (!Array.isArray(steps) || steps.length !== STEP_NAMES.length) {
     throw new TypeError(
-      `themeVars: spec.type.steps must hold ${STEP_NAMES.length} steps, got ${kind(steps)}`,
+      `themeVars: spec.type.steps must hold ${STEP_NAMES.length} steps, got ${Array.isArray(steps) ? steps.length : kind(steps)}`,
     );
   }
   STEP_NAMES.forEach((name, index) => {
-    const step = need(steps[index], `type step ${name}`) as DesignSpec["type"]["steps"][number];
+    const step = steps[index];
+    need(step, `type step ${name}`);
     if (step.name !== name) {
       throw new RangeError(
         `themeVars: type step ${index} must be ${name}, got ${JSON.stringify(step.name)}`,
       );
     }
-    const size =
-      name === "display" && step.clamp !== undefined
-        ? checked.units === "cqi"
-          ? step.clamp.replaceAll("vw", "cqi")
-          : step.clamp
-        : `${num(step.sizePx, `type step ${name} size`)}px`;
+    let size = `${num(step.sizePx, `type step ${name} size`)}px`;
+    if (name === "display" && step.clamp !== undefined) {
+      if (typeof step.clamp !== "string") {
+        throw new TypeError(`themeVars: display clamp must be a string, got ${kind(step.clamp)}`);
+      }
+      size = checked.units === "cqi" ? step.clamp.replaceAll("vw", "cqi") : step.clamp;
+    }
     out[`--text-${name}`] = size;
     out[`--leading-${name}`] = `${num(step.lineHeightPx, `type step ${name} line height`)}px`;
     out[`--tracking-${name}`] = `${num(step.trackingEm, `type step ${name} tracking`)}em`;
@@ -323,11 +347,18 @@ export function themeVars(
     );
   }
   for (const name of EASINGS) {
-    const points = spec.motion.easings[name].map((p, i) => num(p, `easing ${name}[${i}]`));
+    const easing: unknown = spec.motion.easings[name];
+    if (!Array.isArray(easing)) {
+      throw new TypeError(`themeVars: easing ${name} must be an array, got ${kind(easing)}`);
+    }
+    if (easing.length !== 4) {
+      throw new RangeError(`themeVars: easing ${name} must hold 4 numbers, got ${easing.length}`);
+    }
+    const points = easing.map((p, i) => num(p, `easing ${name}[${i}]`));
     out[`--ease-${name}`] = `cubic-bezier(${points.join(", ")})`;
   }
 
-  const spring = feelSpring(spec.motion);
+  const spring = springOf(spec.motion, "themeVars");
   out["--spring-duration"] = num(spring.visualDuration, "spring duration");
   out["--spring-bounce"] = num(spring.bounce, "spring bounce");
 

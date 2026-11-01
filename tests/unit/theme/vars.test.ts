@@ -500,18 +500,71 @@ describe("C-THEME-24 to C-THEME-26 and C-THEME-29 failures", () => {
   it("does not trust the names of the type steps or the scale entries", () => {
     const nine = clone(SOFT());
     (nine.type.steps as unknown[]).pop();
-    expect(() => themeVars(nine, "light")).toThrow(/themeVars/);
+    expect(() => themeVars(nine, "light")).toThrow(TypeError);
+    expect(() => themeVars(nine, "light")).toThrow(/themeVars.*got 9/);
     const renamed = clone(SOFT());
     (renamed.type.steps[2] as { name: string }).name = "x:red";
+    expect(() => themeVars(renamed, "light")).toThrow(RangeError);
     expect(() => themeVars(renamed, "light")).toThrow(/themeVars/);
     const twelve = clone(SOFT());
     (twelve.color.palettes.primary.light as unknown[]).push(
       twelve.color.palettes.primary.light[10],
     );
-    expect(() => themeVars(twelve, "light")).toThrow(/themeVars/);
+    expect(() => themeVars(twelve, "light")).toThrow(TypeError);
+    expect(() => themeVars(twelve, "light")).toThrow(/themeVars.*got 12/);
     const wrongStep = clone(SOFT());
     (wrongStep.color.palettes.accent.dark[4] as { step: number }).step = 500;
+    expect(() => themeVars(wrongStep, "dark")).toThrow(RangeError);
     expect(() => themeVars(wrongStep, "dark")).toThrow(/themeVars/);
+  });
+
+  it("type-checks the clamp string", () => {
+    for (const units of ["vw", "cqi"] as const) {
+      const s = clone(CALM_LAYERED());
+      (s.type.steps[9] as Record<string, unknown>).clamp = 5;
+      expect(() => themeVars(s, "light", { units })).toThrow(TypeError);
+      expect(() => themeVars(s, "light", { units })).toThrow(/themeVars.*clamp/);
+    }
+  });
+
+  it("names themeVars for a missing section, shadow row or springs", () => {
+    const noType = clone(SOFT());
+    (noType as Record<string, unknown>).type = undefined;
+    expect(() => themeVars(noType, "light")).toThrow(TypeError);
+    expect(() => themeVars(noType, "light")).toThrow(/themeVars/);
+    const noShadow = clone(SOFT());
+    (noShadow.depth.shadows as unknown[])[3] = undefined;
+    expect(() => themeVars(noShadow, "light")).toThrow(TypeError);
+    expect(() => themeVars(noShadow, "light")).toThrow(/themeVars/);
+    const noSprings = clone(SOFT());
+    (noSprings.motion as Record<string, unknown>).springs = undefined;
+    expect(() => themeVars(noSprings, "light")).toThrow(TypeError);
+    expect(() => themeVars(noSprings, "light")).toThrow(/themeVars/);
+    expect(() => feelSpring(noSprings.motion)).toThrow(/feelSpring/);
+  });
+
+  it("names themeVars for an unknown feel and types the depth style", () => {
+    const feel = clone(SOFT());
+    (feel.motion as { feel: string }).feel = "slow";
+    expect(() => themeVars(feel, "light")).toThrow(RangeError);
+    expect(() => themeVars(feel, "light")).toThrow(/themeVars/);
+    const depth = clone(SOFT());
+    (depth.depth as Record<string, unknown>).style = 5;
+    expect(() => themeVars(depth, "light")).toThrow(TypeError);
+    expect(() => themeVars(depth, "light")).toThrow(/themeVars/);
+  });
+
+  it("requires four finite numbers in an easing", () => {
+    const short = clone(SOFT());
+    (short.motion.easings as Record<string, unknown>).standard = [0.2, 0];
+    expect(() => themeVars(short, "light")).toThrow(RangeError);
+    expect(() => themeVars(short, "light")).toThrow(/themeVars.*standard/);
+    const text = clone(SOFT());
+    (text.motion.easings as Record<string, unknown>).standard = "0.2,0,0,1";
+    expect(() => themeVars(text, "light")).toThrow(TypeError);
+    const word = clone(SOFT());
+    (word.motion.easings.standard as unknown[])[1] = "x";
+    expect(() => themeVars(word, "light")).toThrow(TypeError);
   });
 
   it("checks shadow layers before it scales them", () => {
@@ -576,6 +629,7 @@ describe("C-DENSITY densityVars", () => {
 
   it("C-DENSITY-03 throws RangeError for an unknown density and TypeError for a non-string", () => {
     expect(() => densityVars("tight" as never)).toThrow(RangeError);
+    expect(() => densityVars("constructor" as never)).toThrow(RangeError);
     expect(() => densityVars("constructor" as never)).toThrow(/densityVars/);
     expect(() => densityVars(1 as never)).toThrow(TypeError);
     expect(() => densityVars(1 as never)).toThrow(/densityVars/);
