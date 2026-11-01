@@ -199,4 +199,17 @@ describe("K4 in even mode skips a seeded step for every palette of the seed's gr
     const standard = withId(lintSpec(lockedSpec("#7f00ff", "standard")), "K4");
     expect(standard.map((f) => `${f.mode} ${f.subject}`)).toEqual(["light primary-600"]);
   });
+
+  it("K4 reads the locked seeds in even mode only", () => {
+    // Standard mode measures every step against its own formula, so the seeds play no part: a
+    // stored seed the engine could not read changes nothing there.
+    const standard = copyOf(lockedSpec("#7f00ff", "standard"));
+    loose(standard).color.params.primary = { l: 2, c: 0, h: null };
+    expect(withId(lintSpec(standard), "K4").map((f) => `${f.mode} ${f.subject}`)).toEqual([
+      "light primary-600",
+    ]);
+    const even = copyOf(lockedSpec("#7f00ff"));
+    loose(even).color.params.primary = { l: 2, c: 0, h: null };
+    expect(() => lintSpec(even)).toThrow(RangeError);
+  });
 });

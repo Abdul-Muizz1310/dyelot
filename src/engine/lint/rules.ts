@@ -254,7 +254,8 @@ function seededSteps(spec: LintedSpec, mode: Mode): ReadonlyMap<PaletteName, Rea
  */
 const K4: Rule = (spec, mode) => {
   const even = spec.color.params.scaleMode === "even";
-  const seeded = seededSteps(spec, mode);
+  // Standard mode measures each step against its own palette, so only even mode reads the seeds.
+  const seeded = even ? seededSteps(spec, mode) : new Map<PaletteName, ReadonlySet<number>>();
   return PALETTE_NAMES.flatMap((name) => {
     const group = groupOf(spec, name);
     return spec.color.palettes[name][mode].flatMap((entry, index) => {
