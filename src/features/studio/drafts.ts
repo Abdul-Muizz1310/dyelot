@@ -101,8 +101,21 @@ function parseDraft(text: string): Draft | null {
  * (C-DRAFT-12, R2-14 item 2).
  */
 export function loadDraft(storage: StorageLike | null): { draft: Draft | null; readable: boolean } {
+  return loadDraftAs(storage, "loadDraft");
+}
+
+/** The draft under `dyelot:draft`, or null (section 5.7): `loadDraft`'s draft. */
+export function readDraft(storage: StorageLike | null): Draft | null {
+  return loadDraftAs(storage, "readDraft").draft;
+}
+
+/** `loadDraft`, with errors naming the public function the caller used (R-05). */
+function loadDraftAs(
+  storage: StorageLike | null,
+  caller: "loadDraft" | "readDraft",
+): { draft: Draft | null; readable: boolean } {
   if (storage === null) return { draft: null, readable: false };
-  assertStorage(storage, "readDraft: storage");
+  assertStorage(storage, `${caller}: storage`);
   let text: unknown;
   try {
     text = storage.getItem(DRAFT_KEY);
@@ -113,11 +126,6 @@ export function loadDraft(storage: StorageLike | null): { draft: Draft | null; r
   const draft = parseDraft(text);
   if (draft === null) clearDraft(storage);
   return { draft, readable: true };
-}
-
-/** The draft under `dyelot:draft`, or null (section 5.7): `loadDraft`'s draft. */
-export function readDraft(storage: StorageLike | null): Draft | null {
-  return loadDraft(storage).draft;
 }
 
 /**

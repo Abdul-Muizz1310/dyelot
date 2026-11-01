@@ -306,8 +306,8 @@ then has every `vw` of the `clamp` string written as `cqi`, so the fluid size fo
    that is now stale is never posted. (`revert` is added because it restores the committed snapshot just as `undo`
    does.) An error reply for a request older than the newest issued one is ignored: the newer request's reply decides
    what the canvas shows. An error reply for the newest request sets a failed status.
-4. Every applied reply passes through `normalizeSpec` before the store keeps it. A reply that fails is dropped and sets
-   a failed status.
+4. Every applied reply passes through `normalizeSpec` before the store keeps it. A reply that fails is dropped; it sets
+   a failed status only when it answers the newest request, and is ignored otherwise (as error replies are, item 3).
 5. `newSeed` defaults to two 32-bit draws from `crypto.getRandomValues`, written `a.toString(36) + b.toString(36)`, so an
    e2e init script can replace `getRandomValues` with a counter and know every seed (F-KEY-02).
 6. A change is committed when its reply is applied. Committing pushes the previous snapshot `{ params, seed, spec }`

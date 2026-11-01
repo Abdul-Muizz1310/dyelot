@@ -191,6 +191,12 @@ describe("loadDraft (M5)", () => {
     expect(loadDraft(throwingStorage())).toEqual({ draft: null, readable: false });
     expect(loadDraft(null)).toEqual({ draft: null, readable: false });
   });
+
+  it("names itself, and readDraft names readDraft, when the storage is not one (R-05)", () => {
+    expect(() => loadDraft({} as never)).toThrow(TypeError);
+    expect(() => loadDraft({} as never)).toThrow(/^loadDraft: storage /);
+    expect(() => readDraft({} as never)).toThrow(/^readDraft: storage /);
+  });
 });
 
 describe("clearDraft", () => {
