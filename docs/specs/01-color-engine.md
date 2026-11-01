@@ -1316,7 +1316,7 @@ what each rule measures. A rule runs in both modes, except D1 to D4, which run i
 | G3 | Each step's `oklch` with `c ≤ 4e-6` | `h` is not `null` | error | c / 4e-6 | `CSS Color 4 (powerless hue)` |
 | D1 | Dark `background`: OKLCH L of the hex | L < 0.15 | warn | L / 0.15 | `Material dark theme guidance` |
 | D2 | Dark `foreground`: OKLCH L of the hex | L < 0.92 or L > 0.96 | warn | L / the violated bound | `off-white body text (Radix, Material)` |
-| D3 | Dark chroma against light chroma at steps 500, 600 and 700 of primary, secondary, accent, success, warning, danger and info | dark c > light c | warn | dark c / light c | `Material guidance on dark-mode accents` |
+| D3 | Dark chroma at steps 500, 600 and 700 of primary, secondary, accent, success, warning, danger and info, against the bound `max(light c, 0.85 × peak)`: the light chroma at the same step, or the engine's own dark desaturation of the palette's peak chroma | dark c > bound | warn | dark c / bound | `Material guidance on dark-mode accents` |
 | D4 | Dark `card` L against dark `background` L | card L ≤ background L | warn | card L / background L | `Material 3 tonal elevation` |
 | P1 | Each step of primary, secondary and accent in both modes: `h` in `[90, 111]`, `c > 0.04` and `l < 0.65` | all three hold | info | l / 0.65 | `Palmer and Schloss, via Material Color Utilities` |
 
@@ -1325,22 +1325,34 @@ Subjects (R-23): pair rules use `<foreground>/<fill>`, for example `muted-foregr
 `status` or `chart` and view `none`, `protan`, `deutan` or `tritan`; S2 uses `destructive/success`; D1 uses `background`;
 D2 uses `foreground`; D4 uses `card/background`; N3 uses `border/background`. D1 to D4 report `mode: "dark"`.
 
+`peak` in K4 and D3 is the palette's `peakChroma`. A palette that carries none (an imported design, in a later milestone)
+uses the largest chroma of its light steps instead, so `LintedSpec`, the part of a `DesignSpec` that `lintSpec` reads,
+marks `peakChroma` optional. D3 compares with the light chroma at the same step only up to the engine's own dark
+desaturation: a light step that the gamut limits (light 600 and 700 of most hues from 51 to 242) holds less chroma than
+its correctly desaturated dark twin, which the first form of the rule (dark c > light c) reported 454 times over the 360
+default designs.
+
 Contract:
 - **Order.** Findings sort by severity (`error`, `warn`, `info`), then `id`, then `mode` (`light` first), then `subject`,
   each ascending.
 - **Purity.** `lintSpec` reads the spec and nothing else. It does not mutate it and does not re-validate it; callers parse
   at the boundary. A spec whose numbers include NaN or Infinity makes it throw `RangeError`, so no finding carries a
   non-finite value.
-- **Known default noise.** On a default spec (contrast level AA) the linter stays silent for C1, C2, C4, C5, N1, N2, F1,
-  S1, S2, K1, K2, K4, G1, G3, D1, D2 and D4. N3 reports info in both modes. D3 may warn. A locked seed can raise K2 and K4
-  at its own step, because the seed keeps its own lightness and chroma; M1 reports those warnings. The palette's
-  `seedStep` names that step when both modes place the seed. When only one mode places it, `seedStep` is absent (R-10),
-  and the seed's hex in that mode's scale marks the step. A locked seed raises no G1, because R-10 maps every seed
-  whose stored form lies more than 2e-4 outside, the bound G1 checks. Rounding can leave a stored seed
-  outside the gamut by up to 1.347e-4 (a locked `#0000ff` by 1.8e-6, `#00ff00` by 4.3e-5, and `#00fd1b`, the worst of
-  all 16,777,216 8-bit colors, by 1.347e-4), and G1 allows 2e-4. Only the 390,152 colors with a 00 or ff channel can
-  leave the gamut at all; the other 16,387,064 stay inside. Gamut-mapped seeds behave alike: 20,000 random out-of-gamut
-  seeds reach 1.14e-4 at most.
+- **Known default noise.** `DEFAULT_PARAMS` gives 360 designs, one per primary hue, because the seed picks only that
+  hue. Linted all 360, the linter raises no error and no warning: C1, C2, C4, C5, N1, N2, F1, S1, S2, K1, K2, K4, G1,
+  G3 and D1 to D4 stay silent. Two info rules report. N3 (decorative borders) fires in both modes of every design: 360
+  light and 360 dark findings, because `border` is neutral-200 (about 1.32:1). P1 (hues 90–111, the dark
+  yellow-greens) gives 158 light findings on 42 designs (primary hues 75 to 148) and 205 dark findings on 58 designs
+  (primary hues 67 to 146), from a primary, secondary or accent whose drifted hue falls in that range. The base spec
+  (hue 289) raises neither P1 nor any warning. A locked seed can raise K2, K4 and D3 at its own step, because the seed
+  keeps its own lightness and chroma (a locked `#f66c6d` puts chroma 0.1701 at dark primary-600, above the bound
+  0.14); M1 reports those warnings. The palette's `seedStep` names that step when both modes place the seed. When only
+  one mode places it, `seedStep` is absent (R-10), and the seed's hex in that mode's scale marks the step. A locked
+  seed raises no G1, because R-10 maps every seed whose stored form lies more than 2e-4 outside, the bound G1 checks.
+  Rounding can leave a stored seed outside the gamut by up to 1.347e-4 (a locked `#0000ff` by 1.8e-6, `#00ff00` by
+  4.3e-5, and `#00fd1b`, the worst of all 16,777,216 8-bit colors, by 1.347e-4), and G1 allows 2e-4. Only the 390,152
+  colors with a 00 or ff channel can leave the gamut at all; the other 16,387,064 stay inside. Gamut-mapped seeds
+  behave alike: 20,000 random out-of-gamut seeds reach 1.14e-4 at most.
 - **Contrast level.** `destructive` stays on danger-600 at every level, so the status set, S1 and S2 do not depend on the
   level. For text that needs 7:1, `destructive-subtle-foreground` on `destructive-subtle` (about 10.9:1) carries it.
 - **Overrides.** Pass fixtures override what their rule measures so that it holds, and assert that no finding has the id.
@@ -1386,7 +1398,7 @@ Contract:
 | C-LINT-34 | pass | **D2.** On the base spec the dark foreground has L about 0.936, and no D2 finding appears | plan |
 | C-LINT-35 | failure | **D2.** Dark `foreground` set to `#ffffff` gives `measured: 1`, `threshold: 0.96`; set to `#cccccc` it gives `measured` about 0.8452 and `threshold` 0.92; both are warn findings with subject `foreground` | plan |
 | C-LINT-36 | pass | **D3.** With every dark chroma halved, no D3 finding appears | plan |
-| C-LINT-37 | failure | **D3.** With `primary` dark step 600's chroma set to the light chroma plus 0.05: `{ id: "D3", severity: "warn", mode: "dark", subject: "primary-600", measured: <dark c>, threshold: <light c> }` | plan |
+| C-LINT-37 | failure | **D3.** With `primary` dark step 600's chroma set to the light chroma plus 0.05: `{ id: "D3", severity: "warn", mode: "dark", subject: "primary-600", measured: <dark c>, threshold: max(<light c>, 0.85 × 0.14) }`, which is the light chroma here (0.14). With the amber spec of C-LINT-51 and its `primary` dark step 700 set to 0.129, above both bounds: threshold `0.85 × 0.14 = 0.119`, the peak bound, because light 700 holds only about 0.106 | plan, ruling |
 | C-LINT-38 | pass | **D4.** On the base spec the dark card is lighter than the page (L 0.212 against 0.181), and no D4 finding appears | plan |
 | C-LINT-39 | failure | **D4.** With dark `card` set to the `background` hex: `{ id: "D4", severity: "warn", mode: "dark", subject: "card/background", measured: L, threshold: L }` with equal values | plan |
 | C-LINT-40 | pass | **P1.** On the base spec (primary hue 289), no P1 finding | plan |
@@ -1396,10 +1408,12 @@ Contract:
 | C-LINT-44 | pass | Property (200 seeds, default params): `generateSystem` output has zero `error` findings | plan |
 | C-LINT-45 | pass | The same spec gives deep-equal findings, and `lintSpec` accepts a deep-frozen spec | I-01 |
 | C-LINT-46 | failure | A spec whose stored numbers include NaN, built by casting, makes `lintSpec` throw `RangeError` | RF3, added |
-| C-LINT-47 | pass | On the base spec, C1, C2, C4, C5, N1, N2, F1, S1, S2, K1, K2, K4, G1, G3, D1, D2 and D4 stay silent, and N3 reports info in both modes | added |
+| C-LINT-47 | pass | On the base spec, C1, C2, C4, C5, N1, N2, F1, S1, S2, K1, K2, K4, G1, G3, D1, D2, D3 and D4 stay silent, and N3 reports info in both modes | added |
 | C-LINT-48 | pass | **G1 on locked seeds.** A locked `#0000ff` raises no G1 finding in sRGB mode: after `round6` its stored `oklch` leaves the gamut by 1.8e-6. The same holds for `#00ff00` (4.3e-5), `#ff00ff` (4.9e-6) and the gamut-mapped seed `oklch(0.7 0.3 145)` (2.1e-5) | plan, RF2, RF5 |
 | C-LINT-49 | failure | **C1 on the destructive subtle pair.** With `destructive-subtle-foreground` (light) set to the `destructive-subtle` hex (ratio 1): `{ id: "C1", severity: "error", mode: "light", subject: "destructive-subtle-foreground/destructive-subtle", measured: 1, threshold: 4.5 }`. The base spec raises none for it (about 10.9) | decision, added |
 | C-LINT-50 | pass | **G1 on every 8-bit seed.** Every 8-bit color locked as a seed raises no G1 finding in sRGB mode: for each hex, the stored seed's `oklch` (after `round6`, `roundHue` and the achromatic rule) converted back to sRGB leaves `[0, 1]` by at most 2e-4. The exhaustive run over all 16,777,216 hexes takes about 20 s in plain JavaScript and finds a largest excess of 1.347e-4 (`#00fd1b`). A faster run may check only the 390,152 hexes with a 00 or ff channel, because the exhaustive run found no other color outside the gamut | plan, added |
+| C-LINT-51 | pass | **D3 on an amber palette.** `generateSystem(DEFAULT_PARAMS, "amber-392")` has primary hue 85 (amber). Its light primary 700 is gamut-limited (about 0.106) below its dark twin (0.1071 = 0.14 × 0.9 × 0.85), which the first form of D3 reported. Because the dark chroma stays within `0.85 × 0.14`, no D3 finding appears | ruling |
+| C-LINT-52 | pass | **A palette without a peak.** With `peakChroma` removed from that spec's `primary` and its light step 50 lifted to chroma 0.2, D3 reads the peak as 0.2, the largest light chroma: dark 700 at 0.16 stays silent (bound 0.17), and at 0.18 gives `{ id: "D3", subject: "primary-700", measured: 0.18, threshold: 0.17 }`. `lintSpec` does not throw, and every finding is finite | ruling |
 
 ### 6.9 Repository guards
 
