@@ -1,6 +1,6 @@
 import { oklchToOklab, rgbToOklab } from "./convert";
-import { type Deficiency, simulate } from "./cvd";
-import { assertOklch, clampedSrgb, describeType } from "./guards";
+import { DEFICIENCIES, simulate } from "./cvd";
+import { assertOklch, assertRgb, clampedSrgb, describeType } from "./guards";
 import type { Oklab, Oklch, Rgb } from "./types";
 
 /** The Euclidean distance between two OKLab colors. */
@@ -35,15 +35,46 @@ export function deltaEOK(a: Oklch, b: Oklch): number {
   return result;
 }
 
-/** The smallest ΔEOK over every unordered pair of the colors, which `clampedSrgb` has checked. */
-function smallestDistance(colors: readonly Rgb[]): number {
-  const labs = colors.map((color) => rgbToOklab(color, "srgb"));
-  let smallest = Number.POSITIVE_INFINITY;
-  for (let i = 0; i < labs.length; i++) {
-    for (let j = i + 1; j < labs.length; j++) {
-      smallest = Math.min(smallest, distance(labs[i], labs[j]));
-    }
+/** The four views in which colors are compared: normal vision, then each deficiency. */
+export const VIEWS = ["none", ...DEFICIENCIES] as const;
+
+export type View = (typeof VIEWS)[number];
+
+/** A color's OKLab under each view. */
+export type Views = Readonly<Record<View, Oklab>>;
+
+/** `viewsOf` for a color that `clampedSrgb` has checked. */
+function viewsOfChecked(rgb: Rgb): Views {
+  return {
+    none: rgbToOklab(rgb, "srgb"),
+    protan: rgbToOklab(simulate(rgb, "protan"), "srgb"),
+    deutan: rgbToOklab(simulate(rgb, "deutan"), "srgb"),
+    tritan: rgbToOklab(simulate(rgb, "tritan"), "srgb"),
+  };
+}
+
+/**
+ * A color's OKLab as seen with normal vision (`none`) and under each simulated deficiency (spec
+ * R-25). `minPairwiseDeltaE` and chart picking both measure on these, so the picker and lint rule
+ * S1 cannot drift apart. A channel may sit up to 1e-6 outside 0 to 1, as in `simulate`.
+ */
+export function viewsOf(rgb: Rgb): Views {
+  return viewsOfChecked(clampedSrgb(rgb, "viewsOf: rgb"));
+}
+
+function assertViews(views: Views, name: string): void {
+  if (typeof views !== "object" || views === null) {
+    throw new TypeError(`${name} must be the views of a color, got ${describeType(views)}`);
   }
+  for (const view of VIEWS) assertRgb(views[view], `${name}.${view}`);
+}
+
+/** The smallest ΔEOK between two colors over the four views (spec R-25). */
+export function minViewDeltaE(a: Views, b: Views): number {
+  assertViews(a, "minViewDeltaE: a");
+  assertViews(b, "minViewDeltaE: b");
+  let smallest = Number.POSITIVE_INFINITY;
+  for (const view of VIEWS) smallest = Math.min(smallest, distance(a[view], b[view]));
   return smallest;
 }
 
@@ -52,7 +83,7 @@ function smallestDistance(colors: readonly Rgb[]): number {
  * each color vision deficiency. Every color is simulated first, then compared in OKLab. It needs
  * at least two colors. A channel may sit up to 1e-6 outside 0 to 1, as in `simulate`.
  */
-export function minPairwiseDeltaE(colors: readonly Rgb[]): Record<"none" | Deficiency, number> {
+export function minPairwiseDeltaE(colors: readonly Rgb[]): Record<View, number> {
   if (!Array.isArray(colors)) {
     throw new TypeError(
       `minPairwiseDeltaE: colors must be an array of colors, got ${describeType(colors)}`,
@@ -63,13 +94,22 @@ export function minPairwiseDeltaE(colors: readonly Rgb[]): Record<"none" | Defic
       `minPairwiseDeltaE: colors needs at least two colors, got ${colors.length}`,
     );
   }
-  const checked = colors.map((color, i) => clampedSrgb(color, `minPairwiseDeltaE: colors[${i}]`));
-  const seenBy = (deficiency: Deficiency): number =>
-    smallestDistance(checked.map((color) => simulate(color, deficiency)));
+  const views = colors.map((color, i) =>
+    viewsOfChecked(clampedSrgb(color, `minPairwiseDeltaE: colors[${i}]`)),
+  );
+  const smallest = (view: View): number => {
+    let found = Number.POSITIVE_INFINITY;
+    for (let i = 0; i < views.length; i++) {
+      for (let j = i + 1; j < views.length; j++) {
+        found = Math.min(found, distance(views[i][view], views[j][view]));
+      }
+    }
+    return found;
+  };
   return {
-    none: smallestDistance(checked),
-    protan: seenBy("protan"),
-    deutan: seenBy("deutan"),
-    tritan: seenBy("tritan"),
+    none: smallest("none"),
+    protan: smallest("protan"),
+    deutan: smallest("deutan"),
+    tritan: smallest("tritan"),
   };
 }

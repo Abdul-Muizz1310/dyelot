@@ -1,9 +1,9 @@
-import { hexToRgb, rgbToOklab } from "./convert";
-import { DEFICIENCIES, simulate } from "./cvd";
+import { hexToRgb } from "./convert";
+import { minViewDeltaE, VIEWS, type Views, viewsOf } from "./deltae";
 import { assertGamut, assertMode, describeType } from "./guards";
 import { type Palette, type PaletteName, pageFor } from "./palette";
 import { type ScaleStep, STEPS, solveScale } from "./scale";
-import type { Gamut, Hex, Mode, Oklab } from "./types";
+import type { Gamut, Hex, Mode } from "./types";
 
 // Section 2 and R-13: candidates are hues every 15° at steps 600 to 900, solved at chroma 0.14.
 const CHART_SIZE = 5;
@@ -14,25 +14,21 @@ const CANDIDATE_INDEXES = [600, 700, 800, 900].map((step) =>
 );
 const FIRST_INDEX = STEPS.indexOf(600);
 
-/** A color and its OKLab under each view: none, then protan, deutan and tritan. */
-type Seen = { readonly hex: Hex; readonly views: readonly Oklab[] };
+/** A color and its OKLab under each view, from deltae's `viewsOf`, frozen. */
+type Seen = { readonly hex: Hex; readonly views: Views };
 
 function seen(hex: Hex): Seen {
-  const rgb = hexToRgb(hex);
-  return {
-    hex,
-    views: [
-      rgbToOklab(rgb, "srgb"),
-      ...DEFICIENCIES.map((deficiency) => rgbToOklab(simulate(rgb, deficiency), "srgb")),
-    ],
-  };
+  const views = viewsOf(hexToRgb(hex));
+  for (const view of VIEWS) Object.freeze(views[view]);
+  return Object.freeze({ hex, views: Object.freeze(views) });
 }
 
 /**
  * The candidates of each (mode, page, gamut), in hue order then step order, the order that breaks
  * ties. A cache keeps them, because they depend on nothing else and cost 24 scale solves. Its size
  * is bounded by the domain: light mode has one page, and the dark pages, `oklch(0.18, c ≤ 0.012,
- * h)`, map to fewer than 150 hexes. The cache never changes an output.
+ * h)`, map to fewer than 150 hexes. Every cached list, color and view is frozen, so no caller can
+ * change what a later call reads, and the cache never changes an output.
  */
 const CANDIDATES = new Map<string, readonly Seen[]>();
 
@@ -51,21 +47,16 @@ function candidatesFor(mode: Mode, page: Hex, gamut: Gamut): readonly Seen[] {
     });
     for (const index of CANDIDATE_INDEXES) found.push(seen(scale[index].hex));
   }
-  CANDIDATES.set(key, found);
-  return found;
-}
-
-function distance(p: Oklab, q: Oklab): number {
-  return Math.sqrt((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2);
+  const frozen = Object.freeze(found);
+  CANDIDATES.set(key, frozen);
+  return frozen;
 }
 
 /** The smallest ΔEOK from `candidate` to any chosen color, under any of the four views. */
 function separation(candidate: Seen, chosen: readonly Seen[]): number {
   let smallest = Number.POSITIVE_INFINITY;
   for (const other of chosen) {
-    candidate.views.forEach((view, v) => {
-      smallest = Math.min(smallest, distance(view, other.views[v]));
-    });
+    smallest = Math.min(smallest, minViewDeltaE(candidate.views, other.views));
   }
   return smallest;
 }

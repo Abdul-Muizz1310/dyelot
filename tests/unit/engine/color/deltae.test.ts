@@ -1,7 +1,14 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import { rgbToOklch } from "@/engine/color/convert";
-import { deltaEOK, minPairwiseDeltaE } from "@/engine/color/deltae";
+import { rgbToOklab, rgbToOklch } from "@/engine/color/convert";
+import { simulate } from "@/engine/color/cvd";
+import {
+  type Views as ColorViews,
+  deltaEOK,
+  minPairwiseDeltaE,
+  minViewDeltaE,
+  viewsOf,
+} from "@/engine/color/deltae";
 import type { Oklch, Rgb } from "@/engine/color/types";
 import { anyRgb, BAD_CHANNELS, rgbOfHex, withChannel } from "./support";
 
@@ -297,5 +304,47 @@ describe("minPairwiseDeltaE", () => {
         [0.3, 0.2, 0.1],
       ]),
     );
+  });
+});
+
+// R-25: the views that chart picking shares with minPairwiseDeltaE, so the picker and rule S1
+// measure alike.
+describe("viewsOf and minViewDeltaE", () => {
+  it("gives a color's OKLab under normal vision and each simulated deficiency", () => {
+    fc.assert(
+      fc.property(anyRgb, (rgb) => {
+        const views = viewsOf(rgb);
+        expect(Object.keys(views)).toEqual([...VIEWS]);
+        expect(views.none).toEqual(rgbToOklab(rgb, "srgb"));
+        for (const deficiency of ["protan", "deutan", "tritan"] as const) {
+          expect(views[deficiency]).toEqual(rgbToOklab(simulate(rgb, deficiency), "srgb"));
+        }
+      }),
+      { numRuns: 200 },
+    );
+  });
+
+  it("equals the smallest view of minPairwiseDeltaE for two colors, exactly", () => {
+    fc.assert(
+      fc.property(anyRgb, anyRgb, (a, b) => {
+        const pairwise = minPairwiseDeltaE([a, b]);
+        expect(minViewDeltaE(viewsOf(a), viewsOf(b))).toBe(Math.min(...Object.values(pairwise)));
+      }),
+      { numRuns: 200 },
+    );
+    expect(minViewDeltaE(viewsOf(BLACK), viewsOf(WHITE))).toBeCloseTo(1, 3);
+    expect(minViewDeltaE(viewsOf(WHITE), viewsOf(WHITE))).toBe(0);
+  });
+
+  it("throws on a bad color or a malformed set of views", () => {
+    for (const bad of BAD_CHANNELS) {
+      expect(() => viewsOf(withChannel([0.5, 0.5, 0.5], 1, bad))).toThrow(RangeError);
+    }
+    const good = viewsOf(WHITE);
+    expect(() => minViewDeltaE(null as unknown as ColorViews, good)).toThrow(TypeError);
+    expect(() =>
+      minViewDeltaE(good, { ...good, tritan: undefined } as unknown as ColorViews),
+    ).toThrow(TypeError);
+    expect(() => minViewDeltaE(good, { ...good, protan: [0, Number.NaN, 0] })).toThrow(RangeError);
   });
 });
