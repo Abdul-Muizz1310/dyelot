@@ -200,7 +200,7 @@ describe("K4 in even mode skips a seeded step for every palette of the seed's gr
     expect(standard.map((f) => `${f.mode} ${f.subject}`)).toEqual(["light primary-600"]);
   });
 
-  it("K4 reads the locked seeds in even mode only", () => {
+  it("C-LINT-58 K4 reads the locked seeds in even mode only", () => {
     // Standard mode measures every step against its own formula, so the seeds play no part: a
     // stored seed the engine could not read changes nothing there.
     const standard = copyOf(lockedSpec("#7f00ff", "standard"));

@@ -244,7 +244,7 @@ describe("solveScale", () => {
     PROPERTY_TIMEOUT,
   );
 
-  it("solves the threshold steps for target + 0.02, a margin above the 8-bit grid", () => {
+  it("C-PICK-08 solves the threshold steps for target + 0.02, a margin above the 8-bit grid", () => {
     // The unquantized solution of a threshold step clears its target by more than 0.01, which a
     // solve for the bare target (margin 0) would not.
     for (const hue of HUES) {
@@ -562,7 +562,7 @@ describe("pickHex", () => {
     expect(pickHex([1, 1, 1], WHITE, 1)).toBe("#ffffff");
   });
 
-  it("throws TypeError for a threshold of the wrong type (R-05)", () => {
+  it("C-PICK-07 throws TypeError for a threshold of the wrong type (R-05)", () => {
     for (const bad of ["4.5", null, true]) {
       expect(() => pickHex([0.3, 0.45, 0.8], WHITE, 4.5, bad as unknown as 4.5)).toThrow(TypeError);
     }

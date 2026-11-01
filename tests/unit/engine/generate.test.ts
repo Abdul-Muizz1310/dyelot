@@ -295,7 +295,7 @@ describe("generateSystem", () => {
     expect(() => generateSystem(DEFAULT_PARAMS, 42 as unknown as string)).toThrow(TypeError);
   });
 
-  it("reads params.type once, so a getter cannot change it between the check and the build", () => {
+  it("C-GEN-11 reads params.type once, so a getter cannot change it between the check and the build", () => {
     let reads = 0;
     const params = { ...DEFAULT_PARAMS };
     Object.defineProperty(params, "type", {

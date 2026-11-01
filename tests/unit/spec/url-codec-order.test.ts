@@ -32,12 +32,12 @@ beforeEach(() => {
 const link = encodeSpec(defaultSpec());
 
 describe("decodeSpec order", () => {
-  it("inflates a link whose trailer matches", () => {
+  it("C-URL-16 inflates a link whose trailer matches", () => {
     decodeSpec(link);
     expect(fflate.inflaters).toBe(1);
   });
 
-  it("checks the trailer before it inflates anything", () => {
+  it("C-URL-16 checks the trailer before it inflates anything", () => {
     const last = link.length - 2;
     const swapped = ALPHABET[(ALPHABET.indexOf(link[last]) + 1) % 64];
     const tampered = `${link.slice(0, last)}${swapped}${link.slice(last + 1)}`;
@@ -45,7 +45,7 @@ describe("decodeSpec order", () => {
     expect(fflate.inflaters).toBe(0);
   });
 
-  it("reports a UTF-8 decoder that throws as corrupt, never as another error", () => {
+  it("C-URL-16 reports a UTF-8 decoder that throws as corrupt, never as another error", () => {
     fflate.failUtf8 = true;
     const failure = decodeError(() => decodeSpec(link));
     expect(failure.reason).toBe("corrupt");

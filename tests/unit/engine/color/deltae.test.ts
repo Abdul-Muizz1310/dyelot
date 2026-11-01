@@ -181,7 +181,7 @@ describe("deltaEOK", () => {
     expect(() => deltaEOK(far, farther)).toThrow(/too far apart/);
   });
 
-  it("measures a distance it can represent even when its square overflows", () => {
+  it("C-DELTAE-14 measures a distance it can represent even when its square overflows", () => {
     // 2e200 is a finite double, but its square is not: a sum of squares would reject it.
     expect(deltaEOK({ l: 1e200, c: 0, h: null }, { l: -1e200, c: 0, h: null })).toBe(2e200);
     expect(deltaEOK({ l: 0.5, c: 1e200, h: 0 }, { l: 0.5, c: 0, h: null })).toBe(1e200);

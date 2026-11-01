@@ -79,7 +79,7 @@ describe("shadows", () => {
     expect(shadows(NEUTRAL)[1]).toHaveLength(2);
   });
 
-  it("gives every layer its own copy of the color (I-01)", () => {
+  it("C-DEPTH-04 gives every layer its own copy of the color (I-01)", () => {
     const input = { ...NEUTRAL };
     const result = shadows(input);
     const colors = result.flat().map((layer) => layer.color);

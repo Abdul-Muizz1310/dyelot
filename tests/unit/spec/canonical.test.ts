@@ -31,7 +31,7 @@ function objects(value: unknown): Array<Record<string, unknown>> {
 }
 
 describe("canonicalize", () => {
-  it("R-21 rounds by key: every hue in the schema sits under h or hue, and nothing else does", () => {
+  it("C-CANON-08 rounds by key: every hue in the schema sits under h or hue, and nothing else does", () => {
     // canonicalize sends a number under the key h or hue through roundHue. A hue stored under
     // another key would round to 360, and a key named h that held another number would wrap.
     for (const spec of [defaultSpec(), richSpec(), graySpec()]) {

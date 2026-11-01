@@ -31,7 +31,7 @@ function functionCallsDuring(work: () => void): number {
 }
 
 describe("the shared zod instance", () => {
-  it("parses a whole design spec with zero Function-constructor calls", () => {
+  it("C-URL-17 parses a whole design spec with zero Function-constructor calls", () => {
     const spec = defaultSpec();
     const calls = functionCallsDuring(() => {
       expect(DesignSpecSchema.parse(spec)).toEqual(spec);
@@ -40,7 +40,7 @@ describe("the shared zod instance", () => {
     expect(calls).toBe(0);
   });
 
-  it("is a probe that sees zod's compiled parsers when jitless is off", () => {
+  it("C-URL-17 is a probe that sees zod's compiled parsers when jitless is off", () => {
     z.config({ jitless: false });
     try {
       const calls = functionCallsDuring(() => {
@@ -52,7 +52,7 @@ describe("the shared zod instance", () => {
     }
   });
 
-  it("is the only module under src/ that imports zod itself", () => {
+  it("C-URL-17 is the only module under src/ that imports zod itself", () => {
     const root = path.resolve(import.meta.dirname, "../../..");
     const biome = JSON.parse(readFileSync(path.join(root, "biome.json"), "utf8"));
     const rule = biome.linter.rules.style.noRestrictedImports;
