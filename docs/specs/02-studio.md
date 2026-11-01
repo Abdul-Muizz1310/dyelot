@@ -1340,13 +1340,18 @@ followed by one of the Tailwind palette names and a step; the names come from th
 `--color-<palette>-<step>` palettes of `node_modules/tailwindcss/theme.css`, and not from a typed list), `bg-white`,
 `bg-black`, `text-white`, `text-black`, the `dark:` variant, an arbitrary value holding a color (`[#abc]`, `[rgb(...)]`), a hex
 literal, any of `rgb(`, `rgba(`, `hsl(`, `hsla(`, `hwb(`, `lab(`, `lch(`, `oklab(`, `oklch(`, `color(`, and a CSS named color used
-as a value. `transparent`, `currentColor`, `inherit` and `var(--x)` pass. `color-mix(...)` passes only when every color
-argument is `var(--x)` or `transparent` (`color-mix(in oklab, var(--primary) 20%, transparent)`); a literal color inside it
-is a violation.
+as a value. `transparent`, `currentColor` and `inherit` pass. `var(--x)` passes only when `x` is a name that `themeVars` or
+`densityVars` writes (the guard derives the list from their output) or a `--kit-*` local of the preview kit; a chrome token such
+as `var(--panel)` or `bg-(--panel)` is a violation. The value of a custom property (`--kit-scrim: white`, the quoted key
+`"--kit-value": "red"`) and of a vendor-prefixed property (`-webkit-text-fill-color`) is checked like any color value, the
+fallback of `var(--x, red)` is checked, and the CSS Color 4 system colors (`Canvas`, `CanvasText`, `ButtonBorder`,
+`AccentColor` and the rest) count as named colors. `color-mix(...)` passes only when every color argument is `var(--x)` or
+`transparent` (`color-mix(in oklab, var(--primary) 20%, transparent)`); a literal color inside it is a violation. Each hit
+names the rule that fired.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-GUARD-01 | failure | `findViolations` flags `bg-indigo-500`, `bg-mauve-500` (a palette Tailwind added after 4.0), `text-slate-700`, `border-red-200`, `ring-blue-500/50`, `dark:bg-black`, `bg-white`, `bg-[#fff]`, `color: #fff`, `fill: rgb(0 0 0 / 0.1)`, `stroke: oklch(0.6 0.1 20)`, `color: rebeccapurple`, `color-mix(in oklab, #fff 20%, transparent)`, and `style={{ color: "red" }}` | plan |
+| C-GUARD-01 | failure | `findViolations` flags `bg-indigo-500`, `bg-mauve-500` (a palette Tailwind added after 4.0), `text-slate-700`, `border-red-200`, `ring-blue-500/50`, `dark:bg-black`, `bg-white`, `bg-[#fff]`, `color: #fff`, `fill: rgb(0 0 0 / 0.1)`, `stroke: oklch(0.6 0.1 20)`, `color: rebeccapurple`, `color-mix(in oklab, #fff 20%, transparent)`, and `style={{ color: "red" }}`; also `[data-canvas] { --kit-scrim: white; }`, `style={{ "--kit-value": "red" }}`, `color: var(--primary, red)`, `background-color: Canvas`, `color: CanvasText`, `border: 1px solid ButtonBorder`, `color: AccentColor`, `-webkit-text-fill-color: white`, `-webkit-tap-highlight-color: red`, `color: var(--panel)`, `background: var(--page)`, `bg-(--panel)` and `text-[var(--fg-muted)]`; the test names the rule each sample fires | plan, review |
 | C-GUARD-02 | pass | `findViolations` passes `bg-(--primary)`, `text-[var(--foreground)]`, `fill="currentColor"`, `background: transparent`, `color-mix(in oklab, var(--primary) 20%, transparent)`, and `border-border` only when the Tailwind theme maps `border` to a variable (the guard lists the utility names it allows: the role names of `ROLE_NAMES`) | plan |
 | C-GUARD-03 | pass | No file under `src/features/preview/` has a violation | plan |
 | C-GUARD-04 | pass | Every `.css`, `.ts` and `.tsx` file under `src/features/preview/` is scanned, including `kit/` and `templates/`; the test fails when the folder is empty or unreadable | added |
@@ -1396,8 +1401,12 @@ The studio is a client page at `/studio`. Its regions are landmarks: the inputs 
 canvas (`<main aria-label="Canvas">`) and the inspector (`<aside aria-label="Inspector">`). The page has one `h1`,
 visually hidden, "dyelot studio". The toolbar above the canvas has one order, in the DOM and for Tab: below 1024 px the drawer buttons "Inputs" and
 "Inspector" first, then the frame switcher, the template switcher, the mode toggle, the density group, "Reduce motion", the
-copy group, the vision group, "Undo", "Redo" and "Copy link". The DOM order of the page is: skip link, header, inputs panel,
-canvas toolbar, canvas, inspector.
+copy group, the vision group, "Undo", "Redo" and "Copy link". Below 640 px the five view controls (the mode toggle, the
+density group, "Reduce motion", the copy group and the vision group) sit in a disclosure: a button "View" with
+`aria-expanded` and `aria-controls`, closed by default, takes the mode toggle's place, and the disclosed group follows it
+directly in the DOM, so the order stays Inputs, Inspector, frame, template, "View" (mode, density, motion, copy, vision),
+Undo, Redo, Copy link. The keyboard shortcuts work whether it is open or closed. The DOM order of the page is: skip link,
+header, inputs panel, canvas toolbar, canvas, inspector.
 The header holds the wordmark, the lot tag and the swatch strip. The lot tag reads `LOT` and `lotTag(specId(spec))` in
 Geist Mono. The strip is a group labeled "Primary scale, 11 steps" with 11 swatches, each titled with its step and hex.
 
@@ -1503,7 +1512,9 @@ The canvas is a framed specimen on the house dot grid. The frame is an element `
 with container queries. The toolbar is the one of section 7.1, in that order: a frame switcher (radio group "Frame": 360, 768, 1280), a template switcher
 (`landing`, `dashboard`, `settings`, `mobile`, `editorial`, `kitchen sink`), a mode toggle, a density group, a "Reduce
 motion" switch, a copy group ("Real copy", "Edge-case copy") and a vision group ("Vision": none, protan, deutan, tritan),
-then Undo, Redo and Copy link. The canvas passes `{ vision, units: "cqi" }` to `themeVars`.
+then Undo, Redo and Copy link; below 640 px the five view controls sit in the "View" disclosure of section 7.1. The toolbar
+stays compact: at 1280 × 800 it takes at most 3 rows and 150 px, at 360 × 740 with the disclosure closed at most 170 px, and
+every toolbar target is at least 28 px tall and 24 px wide. The canvas passes `{ vision, units: "cqi" }` to `themeVars`.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -1523,6 +1534,9 @@ then Undo, Redo and Copy link. The canvas passes `{ vision, units: "cqi" }` to `
 | F-CANVAS-14 | pass | The fluid display size follows the frame, not the window: with the `marketing` context, the computed `font-size` of a display heading differs between the 360 and 1280 frames at the same viewport width, and equals the `clamp` evaluated at the frame's width | ruling |
 | F-CANVAS-15 | pass | A canvas element that takes focus (a preview checkbox, a tab) has a computed `outline-color` equal to the canvas's `--ring`, never madder `#f66c6d`; the chrome's own outline rule does not apply inside `[data-canvas]` | ruling |
 | F-CANVAS-16 | pass | The canvas loads the spec's display, body and mono families from `/fonts/<id>/` with `fontLoader.load` (the FontFace API), and loads the new families when the pairing changes; a family outside the catalog loads nothing, keeps its fallback stack and raises no error | decision, R2-27 |
+| F-CANVAS-17 | pass | At 1280 × 800 the canvas toolbar takes at most 3 rows (distinct top edges of its items) and its height is at most 150 px; the frame switcher's group has an accessible description that holds the fit ("fit 43%") | ruling, review |
+| F-CANVAS-18 | pass | Every target of the canvas toolbar (buttons, radios' labels, selects, switches) is at least 28 px tall and 24 px wide, at 1280 × 800 and at 360 × 740 with the "View" disclosure open | ruling, review |
+| F-CANVAS-19 | pass | Below 640 px the "View" button sits where the mode toggle was, with `aria-expanded="false"` and `aria-controls` naming the group, and the five view controls are hidden; at 360 × 740 the closed toolbar is at most 170 px tall; Enter and Space on the button open and close the group and focus stays on the button; the Tab order is Inputs, Inspector, frame, template, "View", then the mode toggle, density, "Reduce motion", copy and vision when open, then Undo, Redo, Copy link; Alt+T flips the mode with the group closed or open | ruling, review |
 
 ### 7.5 The kitchen sink (Task 2.7)
 
