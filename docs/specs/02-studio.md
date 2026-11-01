@@ -1385,7 +1385,8 @@ built by the test. The flows F-KEY-01 to F-KEY-14 run the same rules in the brow
 
 ## 7. Flows (UI, covered by Playwright)
 
-Tests: `tests/e2e/studio.spec.ts`, `tests/e2e/templates.spec.ts`, `tests/e2e/inspector.spec.ts`, `tests/e2e/home.spec.ts`.
+Tests: `tests/e2e/studio.spec.ts`, `tests/e2e/canvas.spec.ts` (section 7.4), `tests/e2e/templates.spec.ts`,
+`tests/e2e/inspector.spec.ts`, `tests/e2e/home.spec.ts`.
 Every flow runs against the production build. A flow that names no viewport runs at 1280 × 800. "Canvas variables" means
 the computed custom properties on `[data-canvas]`.
 
@@ -1521,6 +1522,7 @@ then Undo, Redo and Copy link. The canvas passes `{ vision, units: "cqi" }` to `
 | F-CANVAS-13 | pass | The canvas region is keyboard-scrollable (`tabindex="0"` when it scrolls), axe finds no scrollable-region violation, and with focus on it Space and the arrow keys scroll it natively without regenerating, undoing or redoing (R2-15 item 5) | I-M2-03, ruling |
 | F-CANVAS-14 | pass | The fluid display size follows the frame, not the window: with the `marketing` context, the computed `font-size` of a display heading differs between the 360 and 1280 frames at the same viewport width, and equals the `clamp` evaluated at the frame's width | ruling |
 | F-CANVAS-15 | pass | A canvas element that takes focus (a preview checkbox, a tab) has a computed `outline-color` equal to the canvas's `--ring`, never madder `#f66c6d`; the chrome's own outline rule does not apply inside `[data-canvas]` | ruling |
+| F-CANVAS-16 | pass | The canvas loads the spec's display, body and mono families from `/fonts/<id>/` with `fontLoader.load` (the FontFace API), and loads the new families when the pairing changes; a family outside the catalog loads nothing, keeps its fallback stack and raises no error | decision, R2-27 |
 
 ### 7.5 The kitchen sink (Task 2.7)
 
