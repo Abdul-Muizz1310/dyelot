@@ -155,12 +155,15 @@ lists in section 6.1; types are checked by the compiler. `DirectionParams` gains
    monospace, R2-04) and `geist` and `geist-mono` (section 5.2 lists them). The two Geist faces are not in any pairing.
 2. A family id is its Google Fonts name lowercased with spaces turned into `-` (`Source Serif 4` is `source-serif-4`).
 3. `variable` and `weights` are fixed by Task 2.3 from the installed Fontsource metadata. The table in 5.2 gives the
-   planned values, checked on 2026-11-01 against the Google Fonts metadata: a family without a `wght` axis is
-   `variable: false`. A mismatch changes that table, not the shape. `axes` lists only `wght` for a variable family and
+   planned values. `variable` means "has an `@fontsource-variable/<id>` package"; a family without one is `variable: false`.
+   Checked against the npm registry on 2026-11-01 with `npm view <package> version`: all 34 variable entries have their
+   `@fontsource-variable/<id>` package (versions 5.3.0 to 5.3.2), the six static entries have `@fontsource/<id>` (5.3.0) and
+   no `@fontsource-variable/<id>` (the registry answers E404), and `@fontsource-variable/tiny5` does not exist, so Tiny5 is
+   static with the single weight 400. A mismatch changes that table, not the shape. `axes` lists only `wght` for a variable family and
    nothing for a static one, because the copied file holds that one axis (item 5). For a variable family `weights` is
    `[min, max]`; for a static family it is the ascending list of the weights copied: 400 and, when the family has it, 700.
 4. The copy script reads `@fontsource-variable/<id>` for a variable family and `@fontsource/<id>` for a static one. The
-   plan names only the first; static families (Gloock, Young Serif, Courier Prime, Fragment Mono, Redaction) have no
+   plan names only the first; static families (Gloock, Young Serif, Courier Prime, Fragment Mono, Redaction, Tiny5) have no
    variable package.
 5. Files land in `<out>/<id>/` (`public/fonts/<id>/` by default; `--out <dir>` changes it): the Latin file
    `<id>-latin-wght-normal.woff2` for a variable family, `<id>-latin-400-normal.woff2` and, when the family has a bold,
@@ -191,8 +194,9 @@ set by a preset is explicit and survives regeneration. `choosePairing` draws fro
 stream apart from the one `buildPalettes` uses, so choosing a pairing never moves a color. The spec records the three families and not whether the choice was automatic,
 so `paramsOfSpec` decides: when the families equal the pairing `choosePairing(meta.seed)` picks, `pairing` stays absent
 (auto); when they equal another pairing, that pairing is explicit; otherwise the fonts are custom (R2-14 item 4). A link
-or draft that reloads therefore keeps auto as auto, except that an explicit choice equal to the auto pick reads back as
-auto, which changes nothing on screen.
+load infers params through `paramsOfSpec`, so it keeps auto as auto, except that an explicit choice equal to the auto
+pick reads back as auto: nothing changes on screen until the next `regenerate`, which may then pick another pairing. A draft
+stores the params as they were, so there an explicit choice stays explicit.
 
 **R2-06 · Preset shape.** `Preset = { id, label, summary, params, view, guards, unexpressed }`. `params` is the
 `PresetParams` patch: `harmony`, `chroma`, `neutralTint`, `contrastLevel`, `scaleMode`, `type.context`, `radius`,
@@ -247,16 +251,18 @@ names from it, and asserts the module's set equals the derived set; the preview 
 palette-name list from the same derivation.
 
 **R2-10 · The fix table.** The decisions map K3 to the even scale mode, but K3 is not a rule of the M1 linter (M1 spec
-section 9 defers it). M2 ships the four fixes that exist, each to the lowest level that clears the finding it names: C1 to
-`AA+` (it moves only `muted-foreground` against `muted` and `background`), and C5, N1 and F1 to `AAA`. A scan of the engine
-found no generated design that raises any of the four at `AA`: 576 designs (3 chroma levels × 4 neutral tints × 2 gamuts × 2
-scale modes × seeds `s0` to `s11`, `DEFAULT_PARAMS` otherwise) gave 0 findings of C1, C5, N1 or F1. These findings reach the
+section 9 defers it). M2 ships the four fixes that exist: C1 raises the contrast level to `AA+` (it moves only
+`muted-foreground` against `muted` and `background`), and C5, N1 and F1 raise it to `AAA`. A scan of the engine found no
+generated design that raises any of the four at `AA`: 576 designs (3 chroma levels × 4 neutral tints × 2 gamuts × 2 scale
+modes × seeds `s0` to `s11`, `DEFAULT_PARAMS` otherwise) gave 0 findings of C1, C5, N1 or F1. These findings reach the
 studio only through an opened link whose roles were made elsewhere. The fix therefore means "regenerate the design from its
-parameters at a higher contrast level", which replaces every role, and the button says so (section 7.8). The inspector
-regenerates in memory at the target level first and offers the action only when that spec no longer has the finding (same
-`id`, `subject` and `mode`); otherwise the finding shows "No automatic fix clears this." A fix whose target is not above the
-current level is disabled. When K3 arrives a later milestone adds its row. The owner can instead map K4 to the even mode by
-editing this ruling.
+parameters at a higher contrast level", which replaces every role, and the button says so (section 7.8).
+`fixFor(finding, params)` is pure and does not regenerate: it reads the finding's id and the current `contrastLevel` and returns a
+patch or `null`. The button applies the patch through the normal store path (`setParams`), so the worker does the
+regeneration and nothing heavy runs on the main thread. When the finding is still present after that regeneration, the
+inspector says so in a labeled message ("Raising the contrast did not clear this finding."). A fix whose target is not above the
+current level returns `null`, and the inspector shows the finding with the note "Contrast is already <level>." and no button.
+When K3 arrives a later milestone adds its row. The owner can instead map K4 to the even mode by editing this ruling.
 
 **R2-11 · Color names API.** `names.ts` is pure and never imports the list. `indexNames(list)` takes
 `readonly { name: string; hex: string }[]`, validates it and returns a frozen index with each color's OKLab
@@ -302,7 +308,11 @@ then has every `vw` of the `clamp` string written as `cqi`, so the fluid size fo
 **R2-14 · The link, the hash and the first load.**
 1. The hash grammar is `#s=` followed by the link and nothing else. An empty hash, `#`, or any hash that does not start
    with `#s=` means "no link" and shows no banner. `#s=` with an empty or invalid rest is a `corrupt` link.
-2. The first load takes the hash if it decodes, else the draft, else a fresh design. When a hash fails, the studio opens
+2. The first load takes the hash if it decodes, else the draft, else a fresh design. When a draft exists and its
+   `specId` equals the decoded hash's, the first load takes the draft's `params`, `seed` and `preset` with the spec, so an
+   explicit pairing stays explicit and the preset survives a reload. A draft whose `specId` differs from the hash's is not used
+   for that load; the hash wins and `preset` is `null`. A draft's `params` that fail the domain check (every enum in its
+   set) are dropped and `paramsOfSpec` supplies them. When a hash fails, the studio opens
    the draft or a fresh design and shows the banner, so the page is never blank.
 3. The banner (`role="alert"`) has two sentences and two buttons. Its first sentence per reason is in section 6.8, C-HASH-10.
    The second sentence is "The studio opened your last draft instead." or "The studio opened a fresh design instead."
@@ -317,7 +327,7 @@ the gaps:
    `button`), a `textarea`, a `select`, or any element with `contenteditable`. The `color` input is not one.
 2. Space, ← and → also do nothing when focus sits on a control that uses the key itself: a `button`, a `summary`, a link, an
    element with role `button`, `switch`, `checkbox`, `radio`, `tab`, `slider`, `menuitem` or `option`, or inside an open
-   drawer's focus trap. Space on the page body, the canvas frame or the header regenerates.
+   drawer's focus trap. Space on the page body or the header regenerates; inside `[data-canvas]` Space and the arrow keys scroll the canvas natively.
 3. A chord with Ctrl or Meta fires only for Mod+S, and Alt only for Alt+T, matched on `event.code` (`KeyT`), because Alt changes the character on some layouts. A held key repeats: Space regenerates on every
    repeat, and the worker's stale rule (R2-13) keeps the canvas current.
 4. `L` fires only when focus is on a seed row's swatch button, native color input or lock toggle. It never fires from the
@@ -336,18 +346,30 @@ the gaps:
    scales down with `transform: scale(<available / frame>)`. The switcher shows the scale ("fit 91%"). At 360 px the
    page never scrolls sideways.
 
-**R2-17 · Locking a color.** Locking an unlocked seed must not move the canvas, so it locks the color the palette already
-holds, at the palette's own hue. For `primary` the seed is `normalizeSeed({ l, c, h })` with `l` and `c` from
-`rgbToOklch(hexToRgb(roles.light.primary))` and `h` from `palettes.primary.hue`. For `secondary` and `accent` it is the
-palette's light step 500: `l` and `c` from that step's stored `oklch`, `h` from the palette's `hue`. The step-100 tint
-that a role such as `secondary` shows is never the source, and the drifted hue of a step is never the seed's hue (a
-seed hue off the palette's hue moves the harmony hues). Unlocking removes the key from `params`. Both regenerate and
-commit. Measured over `seed-1` to `seed-20` with `DEFAULT_PARAMS`: locking `secondary` or `accent` left all 46 roles
-of both modes identical in 20 of 20 seeds; locking `primary` left them identical in 15 of 20 seeds, and in the other five
-the four roles `primary`, `ring`, `sidebar-primary` and `sidebar-ring` moved by one 8-bit code in one channel, because a
-seed step's hex is `toHex(gamutMap(oklch))`, which the M1 spec allows to differ by one code from the solved hex (M1 R-01).
-The case C-STORE-34 therefore asserts equality within one code per channel for every role, and equality of all roles in
-at least 15 of 20 seeds for `primary` and 20 of 20 for `secondary` and `accent`.
+**R2-17 · Locking a color.** Locking keeps the spec a pure function of its params and seed, so it regenerates the design with
+the seed in `params`. It picks the seed so that the locked slot's own color stays where it was. For `primary` the seed is
+`normalizeSeed({ l, c, h })` with `l` and `c` from `rgbToOklch(hexToRgb(roles.light.primary))` and `h` from
+`palettes.primary.hue`. For `secondary` and `accent` it is the palette's light step 500: `l` and `c` from that step's stored
+`oklch`, `h` from the palette's `hue`. The step-100 tint that a role such as `secondary` shows is never the source, and the
+drifted hue of a step is never the seed's hue (a seed hue off the palette's hue moves the harmony hues). Unlocking removes the
+key from `params`. Both regenerate and commit.
+
+What the promise is, measured on 2026-11-01 with `DEFAULT_PARAMS` and `AA` or `AAA`:
+- Locking `secondary` or `accent` left all 46 roles of both modes identical in every seed: 20 of 20 for `seed-1` to
+  `seed-20` and 40 of 40 for `s0` to `s39`, at `AA` and at `AAA`.
+- Locking `primary` keeps the primary role itself within ΔEOK 0.0016 (`seed-1` to `seed-20`) and 0.0074 (`s0` to `s39`,
+  the larger of the two levels); other non-chart roles move by at most 10 codes in one channel. All 46 roles are identical in
+  15 of 20 seeds at `AA` and 13 of 20 at `AAA` for `seed-1` to `seed-20`, and in 27 of 40 at `AA` and 14 of 40 at `AAA` for `s0`
+  to `s39`.
+- The chart roles are the exception: in the seeds that change at all, `chart-1` to `chart-5` can move, by up to 3 codes in
+  `seed-1` to `seed-20` at `AA` and by up to 166 codes (`AA`) and 187 codes (`AAA`) in `s0` to `s39`. Chart colors come from a
+  picker that crosses a threshold when a palette changes slightly, so a small shift of the primary scale (the locked seed
+  sits on its step exactly) can choose a different chart color. This is the cause; it is not 8-bit rounding of the seed hex.
+- The promise that matters is that later regenerations keep the locked color. For a locked primary over `s0` to `s39`, three
+  regenerations each (120 runs per level), the locked hex sits in a scale of the new spec with no `seedDeviation` in 99 runs
+  at `AA` and 105 at `AAA`; in the other 21 and 15 the spec records a `seedDeviation` (largest ΔEOK 0.0191 at `AA`, 0.0095 at
+  `AAA`), as M1 R-10 says; no run drops the seed. `params.primary` is never changed by a regeneration.
+The lock toggle shows no warning text; C-STORE-34 and C-STORE-41 assert these bounds.
 
 **R2-18 · Where the Review Focus 1 e2e lives.** The plan names Task 2.5 for the bad-link e2e, but the page that shows the
 banner arrives in Task 2.6. The pure parts of Review Focus 1 (reasons, copy, state) are tested in Task 2.5; the e2e that
@@ -371,7 +393,7 @@ single-character label. `vision` is `none`, `protan`, `deutan` or `tritan`.
 
 **R2-22 · New pure folders.** `src/theme/**` joins the pure-core test project (`tests/unit/theme/**` runs in `node`) and the
 coverage floors of 95 for lines, statements and functions and 90 for branches. The same floors cover `src/engine/fonts/**`
-and the pure helper files of the studio: `src/features/studio/{protocol,url,drafts,params,lot,inspect,fixes,client}.ts` and
+and the pure helper files of the studio: `src/features/studio/{protocol,url,drafts,params,lot,inspect,fixes,client}.ts` (`fixes.ts` holds `fixFor`, section 5.8) and
 `src/features/fonts/load.ts`, which the coverage include lists by name. The rest of `src/features/**` runs in jsdom or
 Playwright and is covered by the flows.
 
@@ -383,14 +405,18 @@ the canvas, where a spec may name them. `src/app/layout.tsx` is unchanged by M2 
 list as the GitHub link. It carries no other change.
 
 **R2-25 · The M1 cases that change.** The taste rules add findings to the M1 base spec (`seed-1` has primary hue 289, a white
-page and no locked seed, so T2 fires), the generator-importing guard has to admit new importers, and `RULE_IDS` grows. Three
-M1 cases change, and every other M1 case passes unmodified:
-- **C-LINT-43** compares the first 20 entries of `RULE_IDS` with M1's 20 ids, and its checks on `source`, `measured` and
-  `threshold` read the findings whose id is one of those 20.
+page and no locked seed, so T2 fires), the generator-importing guard has to admit new importers, `RULE_IDS` grows, and the
+Task 2.2 cleanup turns two errors into `TypeError`. Six M1 cases change, and every other M1 case passes unmodified:
+- **C-LINT-43** (the id-set assertion at `tests/unit/engine/lint/lint-spec.test.ts:95`) compares against M1's 20 ids: the first
+  20 entries of `RULE_IDS` equal them, and the findings it checks (`source`, `measured`, `threshold`) are those with an M1
+  id. Adding T2 to the expected set is the other way to keep it green; the spec picks the filter.
 - **C-LINT-47** filters the findings of the base spec to M1's 20 ids before it asserts silence and the N3 info findings.
 - **C-REPO-02** allows an `import type` from `src/spec` anywhere under `src/engine`, and a value import from `src/spec` in
   `generate.ts`, `presets.ts` and `index.ts`; the linter files still import nothing from `src/spec` (C-ENTRY-18).
-I-M2-08 says this: every M1 case passes unmodified except these three, and every M1 golden holds.
+- **C-REPO-05** scans for `<Hex>` casts and `is Hex` predicates as well (Task 2.2).
+- **C-CHART-07** and **C-ROLE-07** expect `TypeError`, not `RangeError`, for a missing palette or a wrong step count
+  (the Task 2.2 cleanup, C-ENTRY-14).
+I-M2-08 and C-TASTE-22 say this: every M1 case passes unmodified except these six, and every M1 golden holds.
 
 **R2-26 · T5 is dropped; T3 reads steps 300 to 800.** T5 (mixed radius languages) fired on every `sharp` design, since the
 spec cannot say whether a pill is drawn, and it had no fix. The decision's T5 is removed, T1 to T4 stay, and the `pills` option
@@ -414,7 +440,7 @@ is in flight, a new request replaces the one pending, so a superseded request is
 client posts the pending request, if any. Request ids stay monotonic and the store's rule (R2-13 item 3) is unchanged.
 
 **R2-30 · The canvas is isolated from the chrome.** Inside `[data-canvas]`: `color-scheme` is set per mode (`light` or `dark`)
-so native controls follow the spec's mode and not the chrome's dark scheme; the focus ring is `outline: 2px solid var(--ring)`;
+so native controls follow the spec's mode and not the chrome's dark scheme; the focus ring is `outline: 2px solid var(--ring)`, and the rule `[data-canvas] * { outline-color: var(--ring) }` sets the outline color explicitly so the chrome's madder outline cannot reach a canvas element;
 `::selection` uses `--primary` with `--primary-foreground`, the caret uses `--primary`, and the scrollbar uses `--border` and
 `--muted`; the fluid display size follows the canvas (R2-12). The only madder inside the canvas is the highlight overlay of
 "Show me" (R2-20). The chrome-only accessibility cases (the madder focus ring, the achromatic chrome) apply outside
@@ -437,7 +463,7 @@ so native controls follow the spec's mode and not the chrome's dark scheme; the 
   studio's first-load state with `newSeed` stubbed to return `"seed-1"`. A fake `clock` and fake timers drive every
   debounce and every coalesce window. A `StubClient` posts requests and replies in any order the test chooses.
 - **Case ids.** `C-ENTRY`, `C-NORM`, `C-FONT`, `C-LOAD`, `C-PAIR`, `C-PRESET`, `C-TASTE`, `C-NAME`, `C-THEME`, `C-DENSITY`,
-  `C-STORE`, `C-WORK`, `C-HASH`, `C-DRAFT`, `C-KEYS`, `C-INSPECT`, `C-GUARD`, `C-REPO`; flows `F-STUDIO`, `F-INPUT`,
+  `C-STORE`, `C-WORK`, `C-HASH`, `C-DRAFT`, `C-INSPECT`, `C-GUARD`, `C-REPO`; flows `F-STUDIO`, `F-INPUT`,
   `F-KEY`, `F-CANVAS`, `F-TPL`, `F-INSP`, `F-A11Y`, `F-HOME`.
 
 ### Invariants
@@ -458,8 +484,8 @@ so native controls follow the spec's mode and not the chrome's dark scheme; the 
   records no request to either. The chrome's `next/font` self-hosts at build time (R2-23).
 - **I-M2-07 · The pure core stays pure.** `src/engine`, `src/spec` and `src/theme` read no DOM, storage or network and import
   nothing from `src/features`, `src/app` or `src/components`.
-- **I-M2-08 · M1 is unchanged except three cases.** Every M1 case passes unmodified except C-LINT-43, C-LINT-47 and C-REPO-02,
-  which R2-25 amends, and every M1 golden (spec ids, share links) holds, because the generator's output is the same when
+- **I-M2-08 · M1 is unchanged except three cases.** Every M1 case passes unmodified except the six that R2-25 lists (C-LINT-43,
+  C-LINT-47, C-REPO-02, C-REPO-05, C-CHART-07, C-ROLE-07), and every M1 golden (spec ids, share links) holds, because the generator's output is the same when
   `pairing` is absent.
 
 ## 5. Public API of the new pure modules
@@ -523,8 +549,8 @@ function choosePairing(seed: string, pairings?: readonly Pairing[], catalog?: re
 `seededRandom(seed + ":pairing")` and walks the cumulative weights to `u × total` (R2-05). `genericness` throws
 `RangeError` for an unknown id and `TypeError` for a non-string.
 
-The 40 families and the 20 pairings (research D2). `var` is the planned `variable` flag (R2-03 item 3); the flags were
-checked against the Google Fonts metadata of 2026-11-01. A variable family's `axes` is `wght` alone, because the copied file
+The 40 families and the 20 pairings (research D2). `var` is the `variable` flag (R2-03 item 3); the flags were checked
+against the npm registry on 2026-11-01. A variable family's `axes` is `wght` alone, because the copied file
 holds that axis only; the research's other axes (`wdth`, `opsz`, `ROND`) are out of reach in M2.
 
 | id | Family | Category | var | Axes (planned) | In pairing |
@@ -555,7 +581,7 @@ holds that axis only; the research's other axes (`wdth`, `opsz`, `ROND`) are out
 | `courier-prime` | Courier Prime | mono | no | none | 11 (mono) |
 | `big-shoulders` | Big Shoulders | display | yes | wght | 12 (display) |
 | `red-hat-text` | Red Hat Text | sans | yes | wght | 12, 14, 15 (body) |
-| `tiny5` | Tiny5 | display | yes | wght | 13 (display) |
+| `tiny5` | Tiny5 | display | no | none | 13 (display) |
 | `doto` | Doto | display | yes | wght | 14 (display) |
 | `red-hat-mono` | Red Hat Mono | mono | yes | wght | 14, 15 (mono) |
 | `redaction` | Redaction | serif | no | none | 15 (display) |
@@ -751,6 +777,8 @@ type Notice =
   | { kind: "custom-fonts" }
   | { kind: "copy-blocked" };
 type Status = { phase: "idle" | "generating" | "failed"; notice: Notice | null; draft: "on" | "off" };
+type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 type ParamsPatch = DeepPartial<DirectionParams>;      // `type` merges by key; `pairing: undefined` means auto
 type TemplateId = "landing" | "dashboard" | "settings" | "mobile" | "editorial" | "kitchen-sink";
 type Highlight = { roles: readonly string[]; cells: readonly { palette: PaletteName; step: Step }[] };
@@ -797,10 +825,11 @@ function readHash(hash: string): HashResult;
 function writeHash(spec: DesignSpec): string;           // `#s=<encodeSpec(spec)>`
 function linkUrl(origin: string, spec: DesignSpec): string; // `<origin>/studio#s=...`
 function bannerFor(notice: Notice): { message: string; detail: string };
-// drafts.ts: the value under `dyelot:draft` is `{ v: 1, link, preset }`
+// drafts.ts: the value under `dyelot:draft` is `{ v: 1, link, params, preset }`; `params` keep an absent pairing absent (auto)
 function safeStorage(win: { localStorage?: unknown } | undefined): StorageLike | null; // null when the accessor throws
-function readDraft(storage: StorageLike | null): { spec: DesignSpec; preset: PresetId | null } | null;
-function writeDraft(storage: StorageLike | null, spec: DesignSpec, preset: PresetId | null): { ok: boolean };
+type Draft = { spec: DesignSpec; params: DirectionParams | null; seed: string; preset: PresetId | null };
+function readDraft(storage: StorageLike | null): Draft | null; // params null when they fail the domain check
+function writeDraft(storage: StorageLike | null, snapshot: Snapshot): { ok: boolean };
 function clearDraft(storage: StorageLike | null): void;
 // params.ts
 function paramsOfSpec(spec: DesignSpec): { params: DirectionParams; customFonts: boolean };
@@ -830,8 +859,8 @@ function passLevel(ratio: number, kind: "text" | "ui"): PassLevel | UiLevel;
 function formatLc(lc: number): string;                       // "+76", "−33", "0"
 function groupFindings(findings: readonly Finding[]): { error: Finding[]; warn: Finding[]; info: Finding[] };
 function showMe(finding: Finding): { roles: readonly string[]; cells: readonly { palette: PaletteName; step: Step }[] };
-function fixFor(finding: Finding, level: ContrastLevel): { label: string; patch: ParamsPatch } | { label: string; disabled: true } | null;
-// C1 targets "AA+"; C5, N1 and F1 target "AAA"; any other id gives null (R2-10)
+function fixFor(finding: Finding, params: DirectionParams): ParamsPatch | null;
+// C1 targets "AA+"; C5, N1 and F1 target "AAA"; null for any other id and when params.contrastLevel is already at or above the target (R2-10)
 function findingTitle(id: RuleId): string;
 ```
 
@@ -912,7 +941,7 @@ Tests: `tests/unit/engine/fonts/{catalog,pairings}.test.ts`, `tests/unit/feature
 | C-FONT-19 | pass | The output directory holds exactly the 40 catalog directories and nothing else | added |
 | C-FONT-20 | failure | With `--out <tmp>`, the script exits non-zero and names the id when its Fontsource package is missing (a fixture `node_modules` without one package) | added |
 | C-FONT-21 | pass | Running the script twice leaves every file byte-identical | added |
-| C-FONT-22 | pass | `package.json` runs the script in `predev` and `prebuild`, and lists `@fontsource-variable/<id>` (variable) or `@fontsource/<id>` (static) in `devDependencies` for every catalog id; `.gitignore` lists `public/fonts/` | plan, ruling |
+| C-FONT-22 | pass | `package.json` runs the script in `predev` and `prebuild`, and lists `@fontsource-variable/<id>` (variable, 34 entries) or `@fontsource/<id>` (static, 6 entries including `tiny5`) in `devDependencies` for every catalog id; every listed package resolves in `node_modules` after install; `.gitignore` lists `public/fonts/` | plan, ruling |
 | C-FONT-23 | pass | From the Google Fonts metadata of 2026-11-01 (a fixture holding each family's `popularity`), the display face of every pairing except `archivo-courier` has genericness below 0.8, and `archivo` has genericness ≈ 0.869 (popularity 27) | ruling |
 | C-PAIR-01 | pass | `PAIRINGS` has 20 entries with unique ids, in the order of the table in 5.2; every display, body and mono is a catalog id | plan |
 | C-PAIR-02 | pass | The ten pairings without a D2 mono (2, 3, 4, 5, 8, 9, 10, 12, 16, 20) take `fragment-mono` | ruling |
@@ -991,7 +1020,7 @@ case asserts the exact `id`, `severity`, `mode`, `subject`, `measured`, `thresho
 | C-TASTE-19 | pass | Findings sort by severity, id, mode, subject: a fixture raising `C4`, `K2` and `T1` (all `warn`) and `N3` (`info`) returns them in that order | decision |
 | C-TASTE-20 | failure | A `type` whose `families.display` is not a string, or whose `steps` lacks `body`, throws `TypeError` naming `lintSpec`; a non-finite `sizePx` throws `RangeError` | added |
 | C-TASTE-21 | pass | `lintSpec` does not mutate its input and gives the same result twice | added |
-| C-TASTE-22 | pass | Every M1 lint case passes unmodified except C-LINT-43 and C-LINT-47, which R2-25 amends | I-M2-08 |
+| C-TASTE-22 | pass | Every M1 lint case passes unmodified except C-LINT-43 and C-LINT-47, and the other M1 cases pass unmodified except the six of R2-25 | I-M2-08 |
 | C-TASTE-23 | pass | `lintSpec(generateSystem(DEFAULT_PARAMS, "seed-1"))` accepts a full `DesignSpec` and reads its `type` and `shape` | decision |
 
 ### 6.5 Color names (Task 2.4)
@@ -1088,13 +1117,14 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-STORE-31 | pass | `paramsOfSpec` returns `pairing` absent when the families are the automatic pick for `meta.seed`, the explicit pairing id when they equal another pairing, and absent with `customFonts: true` when they match none; a spec generated with an explicit `host-grotesk` whose seed does not pick it back gives `pairing: "host-grotesk"` | ruling |
 | C-STORE-32 | pass | `lotTag("0123456789abcdef")` is `0123·4567`; the middle dot is U+00B7 | decision |
 | C-STORE-33 | failure | `lotTag` of a string that is not 16 lowercase hex digits throws `RangeError`; a non-string throws `TypeError` | added |
-| C-STORE-34 | pass | Locking leaves the canvas where it was (R2-17): over `seed-1` to `seed-20` with `DEFAULT_PARAMS`, after `toggleLock` of each slot every role of both modes equals its old hex within one code per channel; for `secondary` and `accent` all 46 roles of both modes are identical in 20 of 20 seeds; for `primary` they are identical in at least 15 of 20 (measured 15; the other five differ in `primary`, `ring`, `sidebar-primary` and `sidebar-ring` by one code, M1 R-01) | ruling, measured |
+| C-STORE-34 | pass | Locking keeps the locked color (R2-17). After `toggleLock` of `secondary` or `accent`, all 46 roles of both modes are identical in 20 of 20 seeds (`seed-1` to `seed-20`) and 40 of 40 (`s0` to `s39`), at `AA` and `AAA`. After `toggleLock("primary")`: the primary role of each mode stays within ΔEOK 0.0016 for `seed-1` to `seed-20` and 0.0074 for `s0` to `s39`; every non-chart role stays within 10 codes per channel; at least 15 of 20 (`AA`) and 13 of 20 (`AAA`) seeds of `seed-1` to `seed-20` have all roles identical, and at least 27 of 40 (`AA`) and 14 of 40 (`AAA`) of `s0` to `s39`; any chart role may differ (measured up to 187 codes) | ruling, measured |
 | C-STORE-35 | pass | `preset` becomes `null` when `setParams` changes a preset-owned field to a different value, or `view.density` changes; it stays when a seed color, the mode, the frame or another view setting changes, or when `setParams` writes the value a field already has | ruling |
 | C-STORE-36 | pass | `undo` and `redo` restore `preset` with the rest of the snapshot | ruling |
 | C-STORE-37 | pass | Five `setSeedColor` calls with the same `coalesce` key (a drag in the native color input) within 1,000 ms commit as one history entry; a call without a key commits alone | ruling |
 | C-STORE-38 | pass | An auto pairing stays auto through a reload: after a committed change the link `loadFromHash(writeHash(spec))` gives `params.pairing` absent, and a following `regenerate` picks a new automatic pairing for the new seed; an explicit pairing stays explicit and `regenerate` keeps it | ruling |
-| C-STORE-39 | pass | A draft restore gives the draft's `preset`; a link load gives `preset: null` (the spec has no preset field) | ruling |
+| C-STORE-39 | pass | A draft restore with no hash gives the draft's `params`, `seed` and `preset`; a link load gives `params` from `paramsOfSpec` and `preset: null` (the spec has no preset field) unless the draft matches (C-HASH-16) | ruling |
 | C-STORE-40 | pass | `startFresh` sets `lastApplied` before it issues its own request: a reply for a request issued before `startFresh` and arriving after it is dropped, and the reply for the `startFresh` request applies | ruling |
+| C-STORE-41 | pass | Later regenerations keep the locked color: after `toggleLock("primary")`, each of three `regenerate` calls over `s0` to `s39` leaves `params.primary` unchanged, and the new spec holds the seed's hex in a scale with no `seedDeviation` in at least 99 of 120 runs at `AA` and 105 of 120 at `AAA`; in every other run the spec records a `seedDeviation` (largest ΔEOK 0.0191), and in none is the seed dropped | ruling, measured |
 | C-WORK-01 | pass | `runGenerate({ id: 7, params, seed })` returns `{ id: 7, ok: true, spec }`, `spec` deep-equals `generateSystem(params, seed)`, and `structuredClone(spec)` deep-equals it | plan |
 | C-WORK-02 | failure | `runGenerate` with bad params returns `{ id, ok: false, error: { name, message } }` and never throws | I-M2-03 |
 | C-WORK-03 | pass | RF4: requests 1, 2 and 3 are posted; replies arrive 2, 3, 1; the final `spec` is request 3's, reply 1 changes nothing, and two replies applied | RF4, plan |
@@ -1126,9 +1156,9 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-HASH-13 | pass | A pending hash write flushes at once on `pagehide` and on `visibilitychange` to hidden | added |
 | C-HASH-14 | pass | A `hashchange` to a valid link loads it and pushes the previous design onto `history`; to an invalid one it sets the notice and keeps the spec | R2-14 |
 | C-HASH-15 | failure | A `replaceState` that throws (a sandboxed frame) is swallowed; the store goes on | I-M2-05 |
-| C-HASH-16 | pass | First load priority: a valid hash beats a draft; a draft beats a fresh design; a bad hash with a draft opens the draft and the banner says so; a bad hash without one opens a fresh design. A hash load has `preset: null`; a draft load has the draft's preset | R2-14 |
+| C-HASH-16 | pass | First load priority: a valid hash beats a draft; a draft beats a fresh design; a bad hash with a draft opens the draft and the banner says so; a bad hash without one opens a fresh design. A hash load has `preset: null`, except when a draft's `specId` equals the hash's: then the draft's `params`, `seed` and `preset` apply (an explicit pairing stays explicit); a draft with another `specId` is ignored for that load | R2-14 |
 | C-HASH-17 | pass | A first load with a valid hash writes nothing to the draft until the first commit | added |
-| C-DRAFT-01 | pass | `writeDraft` stores JSON `{ "v": 1, "link": "<encodeSpec>", "preset": <id or null> }` under `dyelot:draft`; `readDraft` returns `{ spec, preset }` with a spec deep-equal to the one written | decision, ruling |
+| C-DRAFT-01 | pass | `writeDraft` stores JSON `{ "v": 1, "link": "<encodeSpec>", "params": <DirectionParams>, "preset": <id or null> }` under `dyelot:draft`; `readDraft` returns `{ spec, params, seed, preset }` with a spec deep-equal to the one written and `params` equal to the written ones (an absent pairing stays absent) | decision, ruling |
 | C-DRAFT-02 | pass | An empty storage gives `readDraft` `null` | added |
 | C-DRAFT-03 | failure | RF2: `safeStorage(win)` returns `null` when reading `win.localStorage` throws `SecurityError` (the accessor itself throws before `readDraft` gets a storage); `readDraft(null)` gives `null` and `writeDraft(null, spec, null)` gives `{ ok: false }`, never a throw | RF2, plan |
 | C-DRAFT-04 | failure | RF2: `setItem` that throws `QuotaExceededError` gives `{ ok: false }` and the store sets `status.draft` to `off`; a later successful write sets it to `on` | RF2, plan |
@@ -1139,17 +1169,18 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-DRAFT-09 | pass | `clearDraft` removes the key and swallows a throwing storage | added |
 | C-DRAFT-10 | pass | RF2: a store built with a storage whose every method throws still commits, undoes, redoes, regenerates and updates the hash; `status.draft` is `off` | RF2, plan |
 | C-DRAFT-11 | pass | A draft is written after the same debounce as the hash, once per burst | decision |
+| C-DRAFT-12 | failure | A stored `params` with a value outside its set (`chroma: "loud"`) reads back as `params: null`, and the first load falls back to `paramsOfSpec` | ruling |
 
 ### 6.8 Fix mapping (Task 2.10 helpers, tested with the store in Task 2.5)
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-INSPECT-01 | pass | `fixFor` for a `C1` finding at level `AA` gives the label "Raise contrast to AA+" and the patch `{ contrastLevel: "AA+" }`; for a `C5`, `N1` or `F1` finding at `AA` or `AA+` it gives "Raise contrast to AAA" and `{ contrastLevel: "AAA" }` | decision, ruling |
-| C-INSPECT-02 | pass | When the target is not above the current level the action is `{ label: "Contrast is already <level>", disabled: true }`: C1 at `AA+` or `AAA`, and C5, N1 and F1 at `AAA` | ruling |
-| C-INSPECT-03 | pass | `fixFor` returns `null` for every other rule id, including `K4` and the T rules | ruling |
-| C-INSPECT-04 | pass | A link built by the test holds a spec with `color.params.contrastLevel: "AA"` and `roles.light.ring` set to `#f4f4f4` on the `#ffffff` page. The inspector shows the F1 finding for `ring/background` in light mode. The fix "Raise contrast to AAA" regenerates the design from its parameters at `AAA`, which replaces every role: the new spec's `color.params.contrastLevel` is `AAA`, the F1 finding is gone, and the ratio of `ring` to `background` is at least 3 in both modes. The case states that regeneration, not an edit of the ring, clears the finding (R2-10) | plan, ruling |
+| C-INSPECT-01 | pass | `fixFor` for a `C1` finding with `params.contrastLevel` `AA` returns `{ contrastLevel: "AA+" }`; for a `C5`, `N1` or `F1` finding at `AA` or `AA+` it returns `{ contrastLevel: "AAA" }`; it does not call the generator (a spy on `generateSystem` sees no call) | decision, ruling |
+| C-INSPECT-02 | pass | When the target is not above the current level `fixFor` returns `null`: C1 at `AA+` or `AAA`, and C5, N1 and F1 at `AAA` | ruling |
+| C-INSPECT-03 | pass | `fixFor` returns `null` for every other rule id, including `K4` and the T rules; it does not mutate its arguments | ruling |
+| C-INSPECT-04 | pass | A link built by the test holds a spec with `color.params.contrastLevel: "AA"` and `roles.light.ring` set to `#f4f4f4` on the `#ffffff` page. The inspector shows the F1 finding for `ring/background` in light mode and the button "Raise contrast to AAA". Pressing it calls `setParams({ contrastLevel: "AAA" })`, the worker regenerates the design at `AAA`, which replaces every role: the new spec's `color.params.contrastLevel` is `AAA`, the F1 finding is gone, and the ratio of `ring` to `background` is at least 3 in both modes. The case states that regeneration, not an edit of the ring, clears the finding (R2-10) | plan, ruling |
 | C-INSPECT-16 | pass | The scan behind R2-10 holds as a recorded measurement: for 3 chroma levels × 4 neutral tints × 2 gamuts × 2 scale modes × seeds `s0` to `s11` at `AA`, the engine raises no C1, C5, N1 or F1 finding (0 of 576 designs) | measured |
-| C-INSPECT-17 | pass | The inspector offers a fix only when the spec regenerated in memory at the target level no longer has the finding; when it still has it, `fixFor`'s caller shows "No automatic fix clears this." and no button | ruling |
+| C-INSPECT-17 | failure | When the finding is still present after the regeneration (a stub client returns a spec that keeps it), the inspector shows "Raising the contrast did not clear this finding." with `role="status"` and keeps the finding | ruling |
 
 ### 6.9 Inspector helpers (Task 2.10)
 
@@ -1214,7 +1245,7 @@ is a violation.
 | C-REPO-M2-01 | pass | No file under `src`, `scripts` or `public` (outside `public/fonts` binaries) contains `fonts.googleapis.com`, `fonts.gstatic.com` or `fontshare`; `next/font` is allowed for the chrome (R2-23) | I-M2-06 |
 | C-REPO-M2-02 | pass | `src/engine`, `src/spec` and `src/theme` import nothing from `src/features`, `src/app`, `src/components` or `src/lib` | I-M2-07 |
 | C-REPO-M2-03 | pass | `vitest.config.ts` runs `tests/unit/theme/**` in the `node` project, and its coverage include and floors cover `src/theme/**`, `src/engine/fonts/**` and the named pure helper files of R2-22 at 95 and 90 | R2-22 |
-| C-REPO-M2-04 | pass | The M1 repository guards C-REPO-01 to C-REPO-05 pass unmodified, apart from C-REPO-02 (R2-25) and C-REPO-05's wider scan | plan |
+| C-REPO-M2-04 | pass | The M1 repository guards C-REPO-01 to C-REPO-05 pass unmodified, apart from C-REPO-02 and C-REPO-05, which R2-25 amends | plan |
 
 ## 7. Flows (UI, covered by Playwright)
 
@@ -1290,7 +1321,7 @@ sets are a native `select`. The one primary chrome action of the panel, "Regener
 | F-INPUT-05 | pass | Choosing a preset sets the controls it fixes, keeps the locked seeds, keeps a higher contrast level, sets the mode and density, and shows its guard notes and `unexpressed` list under the select; the select shows the preset's label | decision, ruling |
 | F-INPUT-06 | pass | Typing `#1f6f5b` into the primary hex field and blurring locks primary: the lock toggle is pressed, `--primary-600` follows the color, and the native color input shows the same color | decision |
 | F-INPUT-07 | pass | Choosing a color in the native color input updates the hex field and locks the seed; dragging in the picker (many `input` events) is one undo step | decision, ruling |
-| F-INPUT-08 | pass | The lock toggle on an unlocked seed locks it at the current color and the canvas does not jump; toggling again unlocks | ruling |
+| F-INPUT-08 | pass | The lock toggle on an unlocked seed locks it at the color the palette holds. For `secondary` and `accent` the canvas variables do not change; for `primary` the primary role keeps its color within the bound of C-STORE-34 and the chart colors may change. Toggling again unlocks. After a lock, Space keeps the locked color (C-STORE-41) | ruling |
 | F-INPUT-09 | failure | An invalid hex ("banana") shows a field message "Enter a color like #3a6ea5 or oklch(0.6 0.15 250)." linked with `aria-describedby`, sets `aria-invalid`, and leaves the canvas unchanged | I-M2-03 |
 | F-INPUT-10 | pass | An unlocked seed's field shows the generated color as a placeholder-styled value and "Auto" next to it | added |
 | F-INPUT-11 | pass | "Regenerate" changes the unlocked colors, keeps the locked ones, and changes the lot tag | decision |
@@ -1304,7 +1335,7 @@ sets are a native `select`. The one primary chrome action of the panel, "Regener
 | Id | Kind | Case | Origin |
 |---|---|---|---|
 | F-KEY-01 | pass | Space on the page body regenerates the unlocked colors; the lot tag changes | plan |
-| F-KEY-02 | pass | RF4: an init script replaces `crypto.getRandomValues` so that call n fills `[n, 0]` (seed `n.toString(36) + "0"`) and counts calls in `window.__seedCalls`. Holding Space for 1 second leaves the canvas on the newest request's design: within 2 s of the last key event the lot tag equals the id that the test computes in Node for the seed of call `window.__seedCalls` (`specId(generateSystem(resolveParams(params, seed), seed))`) | RF4, ruling |
+| F-KEY-02 | pass | RF4: an init script wraps `crypto.getRandomValues`; for a call on a `Uint32Array` of length 2 (the seed draw of R2-13 item 5, and only that) call n fills `[n, 0]` (seed `n.toString(36) + "0"`) and increments `window.__seedCalls`; other calls pass through. Holding Space for 1 second leaves the canvas on the newest request's design: within 2 s of the last key event the lot tag equals the id that the test computes in Node for the seed of call `window.__seedCalls` (`specId(generateSystem(resolveParams(params, seed), seed))`) | RF4, ruling |
 | F-KEY-03 | pass | ← undoes and → redoes; the lot tag follows | plan |
 | F-KEY-04 | pass | Alt+T flips light and dark; the canvas variables change and no history entry is added | decision |
 | F-KEY-05 | pass | Mod+S copies the share link and prevents the browser's save dialog | decision |
@@ -1341,8 +1372,9 @@ then Undo, Redo and Copy link. The canvas passes `{ vision, units: "cqi" }` to `
 | F-CANVAS-10 | pass | The template switcher shows each of the six templates; the choice is kept across edits and view changes | decision |
 | F-CANVAS-11 | pass | "Show me" (section 7.8) outlines the elements whose `data-roles` hold the role, in madder, 2 px dashed with a 2 px offset, and clears when another is chosen or the finding is dismissed | decision |
 | F-CANVAS-12 | pass | Inside the canvas `color-scheme` is `light` or `dark` by the mode (so native controls follow the spec), the focus ring is `--ring`, `::selection` uses `--primary` and `--primary-foreground`, the caret uses `--primary`, the scrollbar uses `--border` and `--muted`, and `text-underline-offset` and tabular numerals are set | research D1 rule 25, R2-30 |
-| F-CANVAS-13 | pass | The canvas region is keyboard-scrollable (`tabindex="0"` when it scrolls) and axe finds no scrollable-region violation | I-M2-03 |
+| F-CANVAS-13 | pass | The canvas region is keyboard-scrollable (`tabindex="0"` when it scrolls), axe finds no scrollable-region violation, and with focus on it Space and the arrow keys scroll it natively without regenerating, undoing or redoing (R2-15 item 5) | I-M2-03, ruling |
 | F-CANVAS-14 | pass | The fluid display size follows the frame, not the window: with the `marketing` context, the computed `font-size` of a display heading differs between the 360 and 1280 frames at the same viewport width, and equals the `clamp` evaluated at the frame's width | ruling |
+| F-CANVAS-15 | pass | A canvas element that takes focus (a preview checkbox, a tab) has a computed `outline-color` equal to the canvas's `--ring`, never madder `#f66c6d`; the chrome's own outline rule does not apply inside `[data-canvas]` | ruling |
 
 ### 7.5 The kitchen sink (Task 2.7)
 
