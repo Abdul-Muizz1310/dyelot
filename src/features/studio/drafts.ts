@@ -52,18 +52,18 @@ function assertStorage(value: unknown, name: string): asserts value is StorageLi
 
 /**
  * `win.localStorage`, or null when there is no window, no storage, or the accessor throws, which
- * some browsers do before any method is called (C-DRAFT-03).
+ * some browsers do before any method is called (C-DRAFT-03). Reading the storage's methods is
+ * guarded too: a blocked storage can throw on any property (F-STUDIO-17).
  */
 export function safeStorage(win: { localStorage?: unknown } | undefined): StorageLike | null {
   if (win === undefined) return null;
   assertRecord(win, "safeStorage: win");
-  let storage: unknown;
   try {
-    storage = win.localStorage;
+    const storage = win.localStorage;
+    return isStorage(storage) ? storage : null;
   } catch {
     return null;
   }
-  return isStorage(storage) ? storage : null;
 }
 
 const DRAFT_KEYS: ReadonlySet<string> = new Set(["v", "link", "params", "preset"]);

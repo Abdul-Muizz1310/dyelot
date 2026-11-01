@@ -219,6 +219,18 @@ describe("safeStorage", () => {
     expect(safeStorage(win)).toBeNull();
   });
 
+  it("C-DRAFT-03 gives null when reading a property of the storage throws (F-STUDIO-17)", () => {
+    const blocked = new Proxy(
+      {},
+      {
+        get() {
+          throw new DOMException("The operation is insecure.", "SecurityError");
+        },
+      },
+    );
+    expect(safeStorage({ localStorage: blocked })).toBeNull();
+  });
+
   it("gives null with no window, a null localStorage, or one without the storage methods", () => {
     expect(safeStorage(undefined)).toBeNull();
     expect(safeStorage({})).toBeNull();
