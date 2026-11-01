@@ -1262,7 +1262,7 @@ what each rule measures. A rule runs in both modes, except D1 to D4, which run i
 | K1 | Each adjacent step pair of each palette: the movement of L toward the far end (`L(a) − L(b)` in light mode, `L(b) − L(a)` in dark) | movement ≤ 0 | error | movement / 0 | `invariant` |
 | K2 | Each adjacent step pair: `abs(ΔL)` | abs(ΔL) < 0.008 | warn | abs(ΔL) / 0.008 | `CSS JND; Radix measured` |
 | K4 | Each step: `abs(c − expected)`, where `expected` is the step's expected chroma. In standard mode it is `min(peak × envelope × k, 0.97 × maxChroma(L, drifted hue, gamut))` as in section 6.4. In even mode it is the group cap: the smallest value of that formula over the palettes of the step's even group (R-11), each taken at its own stored L and drifted hue | difference > 0.01 | warn | difference / 0.01 | `computed (RR-0028)` |
-| G1 | Each step's `oklch` in the spec's gamut: the largest channel excess outside `[0, 1]`, so each emitted value must lie in `[−1e-4, 1 + 1e-4]` | excess > 1e-4 | error | excess / 1e-4 | `CSS Color 4` |
+| G1 | Each step's `oklch` in the spec's gamut: the largest channel excess outside `[0, 1]`, so each emitted value must lie in `[−2e-4, 1 + 2e-4]` | excess > 2e-4 | error | excess / 2e-4 | `CSS Color 4` |
 | G3 | Each step's `oklch` with `c ≤ 4e-6` | `h` is not `null` | error | c / 4e-6 | `CSS Color 4 (powerless hue)` |
 | D1 | Dark `background`: OKLCH L of the hex | L < 0.15 | warn | L / 0.15 | `Material dark theme guidance` |
 | D2 | Dark `foreground`: OKLCH L of the hex | L < 0.92 or L > 0.96 | warn | L / the violated bound | `off-white body text (Radix, Material)` |
@@ -1284,11 +1284,10 @@ Contract:
 - **Known default noise.** On a default spec (contrast level AA) the linter stays silent for C1, C2, C4, C5, N1, N2, F1,
   S1, S2, K1, K2, K4, G1, G3, D1, D2 and D4. N3 reports info in both modes. D3 may warn. A locked seed can raise K2 and K4
   at its own step, because the seed keeps its own lightness and chroma; M1 reports those warnings and the palette's
-  `seedStep` explains them. Rounding can leave a locked seed a few 1e-5 outside the
-  gamut (a locked `#0000ff` by 1.8e-6, `#00ff00` by 4.3e-5), and G1 allows 1e-4, so these seeds raise no G1. An exhaustive
-  scan of the 16,777,216 8-bit colors finds 113, all near the green corner with a red channel of 00 (the worst is
-  `#00fd1b` at 1.35e-4), that exceed 1e-4 after rounding and raise G1 when locked. A tolerance of 2e-4 would cover them
-  all.
+  `seedStep` explains them. A locked seed raises no G1. Rounding can leave a stored seed outside the gamut by up to
+  1.347e-4 (a locked `#0000ff` by 1.8e-6, `#00ff00` by 4.3e-5, and `#00fd1b`, the worst of all 16,777,216 8-bit colors, by
+  1.347e-4), and G1 allows 2e-4. Only the 390,152 colors with a 00 or ff channel can leave the gamut at all; the other
+  16,387,064 stay inside. Gamut-mapped seeds behave alike: 20,000 random out-of-gamut seeds reach 1.14e-4 at most.
 - **Contrast level.** `destructive` stays on danger-600 at every level, so the status set, S1 and S2 do not depend on the
   level. For text that needs 7:1, `destructive-subtle-foreground` on `destructive-subtle` (about 10.9:1) carries it.
 - **Overrides.** Pass fixtures override what their rule measures so that it holds, and assert that no finding has the id.
@@ -1326,7 +1325,7 @@ Contract:
 | C-LINT-26 | pass | **K4.** On the base spec, no K4 finding | plan |
 | C-LINT-27 | failure | **K4.** After subtracting 0.02 from `primary` light step 500's chroma: `{ id: "K4", severity: "warn", mode: "light", subject: "primary-500", measured: 0.02, threshold: 0.01 }` | plan |
 | C-LINT-28 | pass | **G1.** On the base spec, no G1 finding | plan |
-| C-LINT-29 | failure | **G1.** After setting `primary` light step 500's `oklch` to `{ l: 0.7, c: 0.4, h: 145 }` in an sRGB spec: `{ id: "G1", severity: "error", mode: "light", subject: "primary-500", measured: <excess above 1e-4>, threshold: 1e-4 }` | plan |
+| C-LINT-29 | failure | **G1.** After setting `primary` light step 500's `oklch` to `{ l: 0.7, c: 0.4, h: 145 }` in an sRGB spec: `{ id: "G1", severity: "error", mode: "light", subject: "primary-500", measured: <excess above 2e-4>, threshold: 2e-4 }` | plan |
 | C-LINT-30 | pass | **G3.** On a spec built with `neutralTint: "none"`, every neutral step has `c` 0 and `h: null`, and no G3 finding appears | plan |
 | C-LINT-31 | failure | **G3.** After setting a neutral step of that spec to `h: 120` with `c` 0: `{ id: "G3", severity: "error", mode: "light", subject: "neutral-500", measured: 0, threshold: 4e-6 }` | plan |
 | C-LINT-32 | pass | **D1.** On the base spec the dark background has L about 0.181, and no D1 finding appears | plan |
@@ -1347,6 +1346,7 @@ Contract:
 | C-LINT-47 | pass | On the base spec, C1, C2, C4, C5, N1, N2, F1, S1, S2, K1, K2, K4, G1, G3, D1, D2 and D4 stay silent, and N3 reports info in both modes | added |
 | C-LINT-48 | pass | **G1 on locked seeds.** A locked `#0000ff` raises no G1 finding in sRGB mode: after `round6` its stored `oklch` leaves the gamut by 1.8e-6. The same holds for `#00ff00` (4.3e-5), `#ff00ff` (4.9e-6) and the gamut-mapped seed `oklch(0.7 0.3 145)` (2.1e-5) | plan, RF2, RF5 |
 | C-LINT-49 | failure | **C1 on the destructive subtle pair.** With `destructive-subtle-foreground` (light) set to the `destructive-subtle` hex (ratio 1): `{ id: "C1", severity: "error", mode: "light", subject: "destructive-subtle-foreground/destructive-subtle", measured: 1, threshold: 4.5 }`. The base spec raises none for it (about 10.9) | decision, added |
+| C-LINT-50 | pass | **G1 on every 8-bit seed.** Every 8-bit color locked as a seed raises no G1 finding in sRGB mode: for each hex, the stored seed's `oklch` (after `round6`, `roundHue` and the achromatic rule) converted back to sRGB leaves `[0, 1]` by at most 2e-4. The exhaustive run over all 16,777,216 hexes takes about 20 s in plain JavaScript and finds a largest excess of 1.347e-4 (`#00fd1b`). A faster run may check only the 390,152 hexes with a 00 or ff channel, because the exhaustive run found no other color outside the gamut | plan, added |
 
 ### 6.9 Repository guards
 
