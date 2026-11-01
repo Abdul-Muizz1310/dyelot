@@ -106,11 +106,12 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   assertOneOf(gamut, GAMUTS, "generateSystem: params.gamut");
   assertOneOf(scaleMode, SCALE_MODES, "generateSystem: params.scaleMode");
   assertOneOf(contrastLevel, CONTRAST_LEVELS, "generateSystem: params.contrastLevel");
+  // Read once: a getter could hand back another object between the check and the build.
   const type: unknown = params.type;
   if (typeof type !== "object" || type === null) {
     throw new TypeError(`generateSystem: params.type must be an object, got ${describeType(type)}`);
   }
-  const { context, ratio } = params.type;
+  const { context, ratio } = type as DirectionParams["type"];
   assertOneOf(context, TYPE_CONTEXTS, "generateSystem: params.type.context");
   const { radius, depth, motion, name } = params;
   assertOneOf(radius, RADIUS_SET_NAMES, "generateSystem: params.radius");

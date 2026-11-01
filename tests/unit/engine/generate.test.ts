@@ -295,6 +295,22 @@ describe("generateSystem", () => {
     expect(() => generateSystem(DEFAULT_PARAMS, 42 as unknown as string)).toThrow(TypeError);
   });
 
+  it("reads params.type once, so a getter cannot change it between the check and the build", () => {
+    let reads = 0;
+    const params = { ...DEFAULT_PARAMS };
+    Object.defineProperty(params, "type", {
+      enumerable: true,
+      get: () => {
+        reads += 1;
+        // The first read is valid; any later read would hand back a context the check never saw.
+        return reads === 1 ? { context: "product" } : { context: "huge" };
+      },
+    });
+    const spec = generateSystem(params, "seed-1");
+    expect(reads).toBe(1);
+    expect(spec.type.context).toBe("product");
+  });
+
   it("C-GEN-11 accepts a deep-frozen params object and does not mutate it", () => {
     const params = deepFreeze(structuredClone(RICH_PARAMS));
     const before = structuredClone(params);
