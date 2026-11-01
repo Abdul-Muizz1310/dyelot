@@ -107,7 +107,8 @@ scripts/render-icons.mjs    renders the raster icons from src/app/icon.svg
 
 ## 🚀 Usage
 
-You need Node 22.22.2 or later and pnpm 10. CI runs Node 24.
+You need pnpm 10 and a Node version that jsdom 30 supports: 22.22.2 or later on 22, 24.15.0 or
+later on 24, or 26 and up. CI runs Node 24.
 
 ```bash
 pnpm install
@@ -144,7 +145,7 @@ directory to the icon script to write the files there instead of in place.
 | Color | OKLCH and WCAG 2.2 contrast, in a pure TypeScript engine |
 | Spec | zod 4 in jitless mode (no `eval` under the CSP), fflate for the share link |
 | Quality | Biome, Vitest with jsdom, fast-check, Playwright with axe |
-| Tooling | pnpm 10, Node 22.22.2 or later (CI runs 24) |
+| Tooling | pnpm 10, Node `^22.22.2 \|\| ^24.15.0 \|\| >=26` (CI runs 24) |
 | CI | GitHub Actions: lint, typecheck, unit tests with coverage and the build, then Playwright on Chromium |
 
 ---

@@ -287,7 +287,7 @@ next 16.4, react 19.3, typescript 5 strict, tailwind 4.3, zod 4, zustand 5, moti
 @toon-format/toon 4.4, ai 7 with @openrouter/ai-sdk-provider 3.1, @fontsource-variable/* (build-time copy).
 Dev: Biome 2.5, Vitest 4, fast-check, Playwright 1.62 with @axe-core/playwright, msw, ajv (DTCG and shadcn
 schemas), @google/design.md (pinned, CI lint), colorjs.io (test oracle only). pnpm 10, Node 22 (*refined in M1:
-Node 22.22.2 or later, which jsdom needs; CI runs Node 24*). License:
+Node `^22.22.2 || ^24.15.0 || >=26`, the range jsdom 30 needs. CI runs Node 24*). License:
 MIT; the README states Remotion's own license for anyone reusing the video code.
 
 ## 13. Testing
