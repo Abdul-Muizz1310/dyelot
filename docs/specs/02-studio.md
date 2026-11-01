@@ -345,7 +345,8 @@ the gaps:
 1. A text field is an `input` whose type takes text (everything except `color`, `checkbox`, `radio`, `range` and
    `button`), a `textarea`, a `select`, or any element with `contenteditable`. The `color` input is not one.
 2. Space, ← and → also do nothing when focus sits on a control that uses the key itself: a `button`, a `summary`, a link, an
-   element with role `button`, `switch`, `checkbox`, `radio`, `tab`, `slider`, `menuitem` or `option`, or inside an open
+   element with role `button`, `switch`, `checkbox`, `radio`, `tab`, `slider`, `menuitem` or `option` (a native checkbox,
+   radio or range input has the role implicitly), a native color input (Space opens its picker; Task 2.6), or inside an open
    drawer's focus trap. Space on the page body or the header regenerates; on the canvas region or inside it (item 5) Space and the arrow keys scroll the canvas natively.
 3. A chord with Ctrl or Meta fires only for Mod+S, and Alt only for Alt+T, matched on `event.code` (`KeyT`), because Alt changes the character on some layouts. A held key repeats: Space regenerates on every
    repeat, and the worker's stale rule (R2-13) keeps the canvas current.
@@ -416,7 +417,7 @@ single-character label. `vision` is `none`, `protan`, `deutan` or `tritan`.
 
 **R2-22 · New pure folders.** `src/theme/**` joins the pure-core test project (`tests/unit/theme/**` runs in `node`) and the
 coverage floors of 95 for lines, statements and functions and 90 for branches. The same floors cover `src/engine/fonts/**`
-and the pure helper files of the studio: `src/features/studio/{protocol,url,drafts,params,lot,inspect,fixes,client,guards,view}.ts` (`fixes.ts` holds `fixFor`, section 5.8; `guards.ts` holds the R-05 checks the helpers share, because the engine entry does not export its own; `view.ts` holds the view settings and `mergeView`) and
+and the pure helper files of the studio: `src/features/studio/{protocol,url,drafts,params,lot,inspect,fixes,client,guards,view,shortcuts,inputs}.ts` (`fixes.ts` holds `fixFor`, section 5.8; `guards.ts` holds the R-05 checks the helpers share, because the engine entry does not export its own; `view.ts` holds the view settings and `mergeView`; `shortcuts.ts` holds the key rules of R2-15 and `inputs.ts` the seed and pairing labels of the inputs panel, both added by Task 2.6, section 6.11) and
 `src/features/fonts/load.ts`, which the coverage include lists by name. The rest of `src/features/**` runs in jsdom or
 Playwright and is covered by the flows.
 
@@ -910,7 +911,25 @@ const DEFAULT_VIEW: View;
 function mergeView(view: View, patch: Partial<View>, caller?: string): View; // setView's checked merge
 // lot.ts
 function lotTag(id: string): string;                    // "0123456789abcdef" -> "0123·4567"
+// shortcuts.ts (Task 2.6): the key rules of R2-15, read from the event and its target
+type KeyPress = { key: string; code: string; ctrlKey: boolean; metaKey: boolean; altKey: boolean;
+                  shiftKey: boolean; isComposing: boolean };
+type Shortcut = { kind: "close-drawer" | "copy-link" | "toggle-mode" | "regenerate" | "undo" | "redo" }
+              | { kind: "toggle-lock"; slot: Lockable };
+const CANVAS_REGION = "[data-canvas-region]";           // on <main aria-label="Canvas">
+const SEED_SLOT = "data-seed-slot";                     // on each seed row's color input and lock toggle
+function isTextField(element: Element): boolean;        // R2-15 item 1
+function usesKey(element: Element): boolean;            // R2-15 item 2
+function shortcutFor(press: KeyPress, target: Element | null, context: { drawerOpen: boolean }): Shortcut | null;
+// inputs.ts (Task 2.6)
+const SEED_FIELD_MESSAGE = "Enter a color like #3a6ea5 or oklch(0.6 0.15 250).";
+const GAMUT_LABELS: Readonly<Record<Gamut, string>>;    // "sRGB", "Display P3"
+function seedHex(spec: DesignSpec, params: DirectionParams, slot: Lockable): Hex; // the color a seed row shows
+function autoPairingLabel(seed: string): string;        // "Auto (<label of choosePairing(seed)>)"
 ```
+
+`seedHex` gives a locked slot's seed and an unlocked slot's `lockSeed(spec, slot)`, the color a lock would hold (R2-17),
+each mapped into sRGB with `gamutMap`, because the hex field and the native color input hold sRGB hex only.
 
 `paramsOfSpec` reads `color.params`, `type.context`, `type.ratio`, `shape.radiusSet`, `depth.style`, `motion.feel` and
 `meta.name`, and finds the pairing whose three families equal `type.families`. When that pairing is the one
@@ -1337,6 +1356,31 @@ is a violation.
 | C-REPO-M2-04 | pass | The M1 repository guards C-REPO-01 to C-REPO-05 pass unmodified, apart from C-REPO-02 and C-REPO-05, which R2-25 amends | plan |
 | C-REPO-M2-05 | pass | git tracks no font binary (woff, woff2, ttf, otf) outside `src/lib/site/fonts/`, the M0 share-card fonts | review |
 
+### 6.11 Shortcut and input helpers (Task 2.6)
+
+Tests: `tests/unit/features/studio/{shortcuts,inputs}.test.ts`, in jsdom. A "press" is a `KeyPress`; the target is an element
+built by the test. The flows F-KEY-01 to F-KEY-13 run the same rules in the browser.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-KEYS-01 | pass | With the body as target (or `null`) and no drawer open, Space gives `regenerate`, ← `undo` and → `redo`; a repeated press gives the same | R2-15 |
+| C-KEYS-02 | failure | Each text field ignores Space, L, ←, →, Alt+T and Mod+S: an `input` of type text, email, number, search, url, tel, password and date, a `textarea`, a `select`, an element with `contenteditable` and a child of one | R2-15 item 1 |
+| C-KEYS-03 | pass | `isTextField` is false for `input` of type color, checkbox, radio, range and button, and for `contenteditable="false"` | R2-15 item 1 |
+| C-KEYS-04 | failure | Space, ← and → give `null` on a `button`, a `summary`, a link with `href`, a native checkbox, radio, range or color input, and an element with each role of R2-15 item 2 | R2-15 item 2 |
+| C-KEYS-05 | pass | L (or Shift+L) on an element with `data-seed-slot="primary"` (the color input, the lock toggle) gives `toggle-lock` for that slot; L on the body, on a button without the attribute, on a hex field or with Ctrl, Meta or Alt gives `null`; a slot outside `LOCKABLE` gives `null` | R2-15 item 4 |
+| C-KEYS-06 | pass | Alt with `code` `KeyT` gives `toggle-mode` whatever `key` says (`t`, `†`); Alt with another code, Alt+Shift+T and Ctrl+Alt+T give `null` | R2-15 item 3 |
+| C-KEYS-07 | pass | Ctrl+S and Meta+S give `copy-link` outside a text field and `null` inside one; with Alt or Shift held they give `null`; any other Ctrl or Meta chord gives `null` | R2-15 items 3 and 7 |
+| C-KEYS-08 | pass | Escape gives `close-drawer` when a drawer is open, from any target, a text field included; with no drawer open it gives `null` | R2-15 item 6 |
+| C-KEYS-09 | failure | With the canvas region or any element inside it as target, Space, ←, →, L, Alt+T and Mod+S give `null` | R2-15 item 5 |
+| C-KEYS-10 | failure | With a drawer open, Space, ← and → give `null`, while L, Alt+T and Mod+S still fire | R2-15 item 2 |
+| C-KEYS-11 | failure | A press during IME composition, and any other key, gives `null` | added |
+| C-KEYS-12 | failure | R-05: a press that is not an object, or whose `key` or `code` is not a string, throws `TypeError` naming `shortcutFor`; a target that is neither an `Element` nor `null` throws `TypeError` | added |
+| C-INPUTS-01 | pass | `seedHex` of an unlocked slot is `toHex(gamutMap(lockSeed(spec, slot), "srgb"))` for each of the three slots | R2-17 |
+| C-INPUTS-02 | pass | `seedHex` of a locked slot is its seed mapped into sRGB; a seed set from `#1f6f5b` reads back `#1f6f5b` | decision |
+| C-INPUTS-03 | failure | `seedHex` with a slot outside `LOCKABLE` throws `RangeError`, with a spec or params that are not objects `TypeError`, each naming `seedHex` | added |
+| C-INPUTS-04 | pass | `autoPairingLabel(seed)` is `Auto (<label>)` with the label of `choosePairing(seed)`; a non-string seed throws `TypeError` | ruling |
+| C-INPUTS-05 | pass | `GAMUT_LABELS` names `srgb` "sRGB" and `p3` "Display P3", and `SEED_FIELD_MESSAGE` is the message of F-INPUT-09 | decision |
+
 ## 7. Flows (UI, covered by Playwright)
 
 Tests: `tests/e2e/studio.spec.ts`, `tests/e2e/templates.spec.ts`, `tests/e2e/inspector.spec.ts`, `tests/e2e/home.spec.ts`.
@@ -1411,7 +1455,7 @@ sets are a native `select`. The one primary chrome action of the panel, "Regener
 | F-INPUT-05 | pass | Choosing a preset sets the controls it fixes, keeps the locked seeds, keeps a higher contrast level, sets the mode and density, and shows its guard notes and `unexpressed` list under the select; the select shows the preset's label | decision, ruling |
 | F-INPUT-06 | pass | Typing `#1f6f5b` into the primary hex field and blurring locks primary: the lock toggle is pressed, `--primary-600` follows the color, and the native color input shows the same color | decision |
 | F-INPUT-07 | pass | Choosing a color in the native color input updates the hex field and locks the seed; dragging in the picker (many `input` events) is one undo step | decision, ruling |
-| F-INPUT-08 | pass | The lock toggle on an unlocked seed locks it at the color the palette holds. For `secondary` and `accent` the canvas variables do not change; for `primary` the primary role keeps its color within the bound of C-STORE-34 and the chart colors may change. Toggling again unlocks. After a lock, Space keeps the locked color (C-STORE-41) | ruling |
+| F-INPUT-08 | pass | The lock toggle on an unlocked seed locks it at the color the palette holds. For `secondary` and `accent` the role variables do not change (a scale step may move onto the locked seed); for `primary` the primary role keeps its color within the bound of C-STORE-34 and the chart colors may change. Toggling again unlocks and restores every canvas variable. After a lock, Space keeps the locked color (C-STORE-41) | ruling |
 | F-INPUT-09 | failure | An invalid hex ("banana") shows a field message "Enter a color like #3a6ea5 or oklch(0.6 0.15 250)." linked with `aria-describedby`, sets `aria-invalid`, and leaves the canvas unchanged | I-M2-03 |
 | F-INPUT-10 | pass | An unlocked seed's field shows the generated color as a placeholder-styled value and "Auto" next to it | added |
 | F-INPUT-11 | pass | "Regenerate" changes the unlocked colors, keeps the locked ones, and changes the lot tag | decision |
@@ -1430,7 +1474,7 @@ sets are a native `select`. The one primary chrome action of the panel, "Regener
 | F-KEY-04 | pass | Alt+T flips light and dark; the canvas variables change and no history entry is added | decision |
 | F-KEY-05 | pass | Mod+S copies the share link and prevents the browser's save dialog | decision |
 | F-KEY-06 | pass | L with focus on the primary row's swatch button toggles the lock; with focus on the secondary row's lock toggle it toggles secondary; Alt+T is matched on `event.code` `KeyT` | decision, ruling |
-| F-KEY-07 | failure | With focus in the hex field, the harmony select or any text field, Space, L, ←, → and Alt+T do nothing to the design | plan, ruling |
+| F-KEY-07 | failure | With focus in the hex field, the harmony select or any text field, the studio's shortcuts do not fire: Space, L, ←, → and Alt+T neither regenerate, lock, undo, redo nor flip the mode. A closed select's own arrow keys stay native (Chromium moves its value on ← and →) | plan, ruling |
 | F-KEY-08 | failure | L with focus in the primary hex field does not lock it | ruling |
 | F-KEY-09 | failure | Space with focus on a button activates the button and does not regenerate; ← and → on a radio group move the radio and do not undo | ruling |
 | F-KEY-10 | pass | Escape closes an open drawer, also from a text field inside it | decision, ruling |
@@ -1579,7 +1623,7 @@ top for font failures.
 | F-A11Y-01 | pass | axe finds 0 violations on `/` and on `/studio`, in the default state and with each drawer open at 360 px | decision |
 | F-A11Y-02 | pass | Every interactive element in the chrome has a hit area of at least 24 × 24 px and an accessible name | decision |
 | F-A11Y-03 | pass | Every focusable element outside `[data-canvas]` shows a 2 px madder focus ring (`outline`) with at least a 3:1 change against its neighbor; inside the canvas the ring is the spec's `--ring` | decision, ruling |
-| F-A11Y-04 | pass | The chrome stays achromatic: no computed color outside `[data-canvas]` has a chroma above 0.02 except madder on focus rings, the active state and the primary action, and the data swatches (elements with `data-swatch`: the lot strip, seed swatches, scale cells), which show spec colors by design | decision, ruling |
+| F-A11Y-04 | pass | The chrome stays achromatic: no computed color outside `[data-canvas]` has a chroma above 0.02 except the house neutral `:root` tokens (`--fg-muted`, `--border`, `--border-bright`, `--panel`, tinted greys of chroma 0.016 to 0.037), madder on focus rings, the active state and the primary action, and the data swatches (elements with `data-swatch`: the lot strip, seed swatches, scale cells), which show spec colors by design | decision, ruling |
 | F-A11Y-05 | pass | At 360 px no route scrolls horizontally | RF5, plan |
 | F-A11Y-06 | pass | With `prefers-reduced-motion: reduce`, the chrome's own transitions (drawers, toasts) run at 0.01 ms or less | decision |
 | F-A11Y-07 | pass | Chrome text meets 4.5:1 and chrome non-text parts meet 3:1 against `#0a0a0a` and `#12121a` (a measured pass over the chrome's own tokens) | decision |
@@ -1615,6 +1659,7 @@ Each row lists the cases that carry the item. Every case with the item's tag in 
 | The `MONO` axis, `wdth`, `opsz` and `ROND` axes of the catalog's families (M2 copies the `wght` file only) | R2-03 | Not scheduled |
 | A fix for the taste rules T1 to T4 | R2-26 | Not scheduled |
 | Fonts beyond the 40 families | umbrella §6 ("about 40") | Not scheduled |
+| Drafts do not restore the preset's view settings (mode, density); after a reload a dark preset shows a light canvas until toggled | R2-06, R2-13 item 7, Task 2.6 | Revisit with M6 polish |
 
 ## 10. Done when
 
