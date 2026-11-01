@@ -1,4 +1,4 @@
-import type { Gamut, Oklch, Rgb } from "./types";
+import type { Gamut, Hex, Oklch, Rgb } from "./types";
 
 /**
  * How far outside 0 to 1 a channel may sit and still count as in gamut. `toHex` and `inGamut`
@@ -82,4 +82,35 @@ export function clampedSrgb(rgb: Rgb, name: string): Rgb {
     );
   }
   return [clamp01(rgb[0]), clamp01(rgb[1]), clamp01(rgb[2])];
+}
+
+/** A value as an error message shows it: strings quoted, objects by their type. */
+function show(value: unknown): string {
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "object" || typeof value === "function") return describeType(value);
+  return String(value);
+}
+
+/**
+ * One of a field's listed strings. The field's domain is that list, so any other value, of any
+ * type, is a RangeError that names the field (spec 6.5, Checks).
+ */
+export function assertOneOf<T extends string>(
+  value: unknown,
+  allowed: readonly T[],
+  name: string,
+): asserts value is T {
+  if (!(allowed as readonly unknown[]).includes(value)) {
+    const list = allowed.map((item) => JSON.stringify(item)).join(", ");
+    throw new RangeError(`${name} must be one of ${list}, got ${show(value)}`);
+  }
+}
+
+const HEX = /^#[0-9a-f]{6}$/;
+
+/** A `Hex`: `#` and six lowercase hex digits (spec I-08). Anything else is a RangeError. */
+export function assertHex(value: unknown, name: string): asserts value is Hex {
+  if (typeof value !== "string" || !HEX.test(value)) {
+    throw new RangeError(`${name} must be a lowercase #rrggbb hex, got ${show(value)}`);
+  }
 }

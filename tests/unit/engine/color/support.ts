@@ -100,3 +100,36 @@ export function withChannel(base: Rgb, index: 0 | 1 | 2, value: number): Rgb {
   channels[index] = value;
   return channels;
 }
+
+/** C-SCALE-02: every non-threshold step within its band, steps 500 to 700 above their thresholds. */
+const STEP_TARGETS = [1.06, 1.15, 1.32, 1.65, 2.2, 3.0, 4.5, 7.0, 9.5, 12.5, 15.5];
+const STEP_THRESHOLDS: Readonly<Record<number, number>> = { 5: 3, 6: 4.5, 7: 7 };
+
+/** Asserts the contrast checks of C-SCALE-02 on the hex of step index `i`. */
+export function expectStepContrast(
+  hex: string,
+  i: number,
+  page: Rgb,
+  ratioOf: (a: Rgb, b: Rgb) => number,
+): void {
+  const ratio = ratioOf(rgbOfHex(hex), page);
+  const target = STEP_TARGETS[i];
+  const threshold = STEP_THRESHOLDS[i];
+  if (threshold === undefined) {
+    expect(Math.abs(ratio - target), `step index ${i} ${hex} ${ratio}`).toBeLessThanOrEqual(
+      Math.max(0.05, 0.01 * target),
+    );
+  } else {
+    expect(ratio >= threshold, `step index ${i} ${hex} ${ratio}`).toBe(true);
+    expect(ratio - target, `step index ${i} ${hex} ${ratio}`).toBeLessThanOrEqual(0.12);
+  }
+}
+
+/** Freezes an object and everything inside it, so a mutation throws. */
+export function deepFreeze<T>(value: T): T {
+  if (typeof value === "object" && value !== null) {
+    for (const inner of Object.values(value)) deepFreeze(inner);
+    Object.freeze(value);
+  }
+  return value;
+}

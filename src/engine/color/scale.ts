@@ -25,10 +25,10 @@ export const TARGETS: Readonly<Record<Step, number>> = {
   950: 15.5,
 };
 
-type Threshold = 3 | 4.5 | 7;
+export type Threshold = 3 | 4.5 | 7;
 
 /** Steps whose emitted hex must meet a WCAG threshold. They solve for `target + 0.02`. */
-const THRESHOLDS: Readonly<Partial<Record<Step, Threshold>>> = { 500: 3, 600: 4.5, 700: 7 };
+export const THRESHOLDS: Readonly<Partial<Record<Step, Threshold>>> = { 500: 3, 600: 4.5, 700: 7 };
 const THRESHOLD_MARGIN = 0.02;
 
 /** The chroma envelope per step index, times the palette's peak chroma. */
