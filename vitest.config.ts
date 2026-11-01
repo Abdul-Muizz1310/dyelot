@@ -7,6 +7,7 @@ import { configDefaults, defineConfig } from "vitest/config";
 const PURE_CORE_TESTS = [
   "tests/unit/engine/**/*.test.{ts,tsx}",
   "tests/unit/spec/**/*.test.{ts,tsx}",
+  "tests/unit/theme/**/*.test.{ts,tsx}",
   // The build scripts run under Node and spawn it; they have no DOM.
   "tests/unit/scripts/**/*.test.{ts,tsx}",
 ];
@@ -44,7 +45,13 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       // Pure modules only; components and routes are covered by the E2E tier.
-      include: ["src/engine/**", "src/spec/**", "src/lib/site/**", "src/features/fonts/load.ts"],
+      include: [
+        "src/engine/**",
+        "src/spec/**",
+        "src/theme/**",
+        "src/lib/site/**",
+        "src/features/fonts/load.ts",
+      ],
       thresholds: {
         lines: 80,
         statements: 80,
@@ -53,6 +60,7 @@ export default defineConfig({
         // The pure core holds a higher floor than the rest of the code.
         "src/engine/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/spec/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
+        "src/theme/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
       },
     },
