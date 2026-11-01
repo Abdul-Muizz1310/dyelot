@@ -98,9 +98,9 @@ describe("typeScale", () => {
     expect(display.clamp).toBe("clamp(2.7994rem, 2.3840rem + 1.8461vw, 3.8147rem)");
     expect(display.sizePx).toBeCloseTo(44.78976, 5);
     expect(display.maxSizePx).toBeCloseTo(61.03516, 4);
-    const [min, intercept, slope, max] = (display.clamp ?? "")
-      .match(/-?\d+\.\d+/g)
-      ?.map(Number) ?? [Number.NaN];
+    const match = (display.clamp ?? "").match(/-?\d+\.\d+/g);
+    expect(match).not.toBeNull();
+    const [min, intercept, slope, max] = (match ?? []).map(Number);
     // `slope` is in vw (percent of the viewport, in px), `min`, `intercept` and `max` in rem.
     const at = (viewport: number) =>
       16 * Math.min(max, Math.max(min, intercept + (slope * viewport) / 100 / 16));
@@ -175,6 +175,12 @@ describe("typeScale", () => {
     expect(() => typeScale({ context: "huge" as Context })).toThrow(/context/);
   });
 
+  it("C-TYPE-11 throws TypeError for an input that is a primitive, not an object", () => {
+    for (const bad of [42, "product", true]) {
+      expect(() => typeScale(bad as unknown as { context: Context })).toThrow(TypeError);
+    }
+  });
+
   it("C-TYPE-11 throws TypeError for a value of the wrong type", () => {
     expect(() => typeScale({ context: 3 as unknown as Context })).toThrow(TypeError);
     expect(() => typeScale({ context: "product", ratio: "1.2" as unknown as number })).toThrow(
@@ -192,6 +198,28 @@ describe("typeScale", () => {
         }
       }
     }
+  });
+
+  it("C-TYPE-12 floors each line height at the next multiple of 4 above the size", () => {
+    // Dense at ratio 1.03: display is 16.23 px, and 16.23 x 1.1 = 17.85 snaps to 16 without the floor.
+    const display = step(typeScale({ context: "dense", ratio: 1.03 }), "display");
+    expect(display.lineHeightPx).toBe(20);
+    // Dense at ratio 1.81: caption is 4.27 px, and 4.27 x 1.4 = 5.98 snaps to 4 without the floor.
+    expect(step(typeScale({ context: "dense", ratio: 1.81 }), "caption").lineHeightPx).toBe(8);
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...CONTEXTS),
+        fc.double({ min: 1.000_01, max: 2, noNaN: true }),
+        (context, ratio) => {
+          for (const s of typeScale({ context, ratio })) {
+            const size = s.maxSizePx ?? s.sizePx;
+            expect(s.lineHeightPx).toBeGreaterThanOrEqual(size);
+            expect(s.lineHeightPx % 4).toBe(0);
+          }
+        },
+      ),
+      { numRuns: 500 },
+    );
   });
 
   it("C-TYPE-12 gives body line heights of 1.43, 1.5 and 1.56 times the size", () => {

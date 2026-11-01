@@ -78,4 +78,15 @@ describe("shadows", () => {
     expect(shadows(NEUTRAL)[3][0].alpha).toBe(0.1);
     expect(shadows(NEUTRAL)[1]).toHaveLength(2);
   });
+
+  it("gives every layer its own copy of the color (I-01)", () => {
+    const input = { ...NEUTRAL };
+    const result = shadows(input);
+    const colors = result.flat().map((layer) => layer.color);
+    for (const color of colors) expect(color).not.toBe(input);
+    expect(new Set(colors).size).toBe(colors.length);
+    (result[2][1].color as { l: number }).l = 0.9;
+    expect(input).toEqual(NEUTRAL);
+    expect(result[2][0].color).toEqual(NEUTRAL);
+  });
 });

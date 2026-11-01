@@ -74,9 +74,13 @@ function trackingFor(sizePx: number): number {
   return Math.min(TRACKING_MAX, Math.max(TRACKING_MIN, raw));
 }
 
-/** The product snapped to the nearest multiple of 4, rounded up on a tie (spec R-16). */
+/**
+ * The product snapped to the nearest multiple of 4, rounded up on a tie, and never below the next
+ * multiple of 4 at or above the size, so a line never undercuts its font at any legal ratio (R-16).
+ */
 function snapLineHeight(sizePx: number, multiplier: number): number {
-  return 4 * Math.floor((sizePx * multiplier) / 4 + 0.5);
+  const snapped = 4 * Math.floor((sizePx * multiplier) / 4 + 0.5);
+  return Math.max(snapped, 4 * Math.ceil(sizePx / 4));
 }
 
 /** The Utopia `clamp()` of a size that runs from `sizePx` to `maxSizePx` across the viewports. */
