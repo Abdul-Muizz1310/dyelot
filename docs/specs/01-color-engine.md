@@ -317,7 +317,11 @@ table; with tint `none` the neutral takes the primary's hue, which never shows b
 0, so the scale is gray. With `neutralTint: "brand"`, an achromatic primary gives the neutral palette chroma 0.
 
 **R-10 · Seed records.** The seed is gamut-mapped to the spec's gamut, then placed in each mode's scale by the rule in
-section 2. `seedStep` is present when both modes place the seed. When a mode rejects it, that mode's scale stays as
+section 2. The seed "had to be gamut-mapped" when the seed as passed, before rounding, fails `inGamut` for the spec's
+gamut, with its tolerance of 1e-6 per channel. Only then does the engine map the rounded seed and place the result; an
+in-gamut seed is placed as rounded. Rounding alone never counts: `round6` leaves a locked `#0000ff` about 1.8e-6 outside
+`[0, 1]` (C-LINT-48), but the seed as passed is in gamut, so it records no `seedDeviation` and its hex stays `#0000ff`
+(C-PAL-20). `seedStep` is present when both modes place the seed. When a mode rejects it, that mode's scale stays as
 solved, `seedStep` is absent and `seedDeviation` is present, even when the other mode placed the seed verbatim (C-PAL-09):
 the type of `seedStep` needs both modes, and a consumer finds an accepted placement by looking for the seed's hex in that
 mode's scale. `seedDeviation` describes the light mode, unless only the dark mode rejects the seed. Its `deltaEOK` is the ΔEOK between the original seed (before gamut mapping) and the color that
@@ -915,6 +919,11 @@ Contract:
   `floor(random() × 360)`. A missing secondary or accent comes from `harmonyHues(h₀, harmony)` with R-12, where `h₀` is
   the primary's hue. The status palettes use success 150, warning 70, danger 25 and info 250. `buildPalettes` calls `random` once when `primary` is
   missing and never otherwise, and `random` must return a finite number in `[0, 1)`.
+- **Checks.** `buildPalettes` checks every parameter itself, before it draws or solves anything, so each failure names
+  its field (C-PAL-17). An enum field's domain is its list of strings, so any other value, of any type, throws
+  `RangeError`, even when all three colors are locked and no harmony is needed. It does not rely on `harmonyHues`, whose
+  `TypeError` for a value of the wrong type would name another function. `resolveRoles` and `pickChartColors` check
+  `mode`, `level` and `gamut` the same way (C-ROLE-07, C-CHART-07).
 - **Chroma and pages.** R-08 gives each palette's `peakChroma`. `pageFor` returns `#ffffff` in light mode. In dark mode it
   returns `toHex(gamutMap({ l: 0.18, c: min(0.012, neutral.peakChroma), h: neutral.hue }, "srgb"))`, with `h: null` when
   the chroma is at most 4e-6. Each mode's scales solve against that page with `solveScale`, or with `solveEvenScales`
@@ -940,7 +949,7 @@ Contract:
 | C-PAL-06 | pass | Property (100 random parameter sets): all eight palettes exist with 11 light and 11 dark steps. Every non-seed step passes the contrast checks of C-SCALE-02 (non-threshold steps within the band; threshold steps meeting their thresholds with an overshoot of at most 0.12), keeps strict lightness order and stays in gamut | added |
 | C-PAL-07 | pass | Seed `#f66c6d` (2.88:1 on white) locked as primary appears verbatim at light step 400, because its nearest step, 500, would break the 3.0 threshold. `palettes.primary.light[4].hex` is `#f66c6d` and its `oklch` equals the parsed seed with `round6` applied to each number (R-02). `seedStep.light` is 400 and there is no `seedDeviation`. The dark scale holds the seed verbatim at `seedStep.dark` | plan, RF5 |
 | C-PAL-08 | pass | A seed outside sRGB, `oklch(0.7 0.3 145)`, in sRGB mode is gamut-mapped, placed in both modes and recorded: `seedDeviation.deltaEOK` is above 0.02 (about 0.06) and `seedDeviation.step` equals `seedStep.light` | plan, RF5 |
-| C-PAL-09 | pass | No step accepts the seed. Primary `oklch(0.68 0.05 0)` in light mode has a lightness (0.68) slightly below step 500's (0.686) and a contrast (2.95) below step 500's threshold (3.0), so steps 500 and 600 both reject it. The light scale equals the scale solved without a seed. The dark scale accepts the seed: it holds it verbatim at step 600 (a 6.4:1 contrast). `seedStep` is nevertheless absent, because it records both modes or neither (R-10); a consumer finds the dark placement by looking for the seed's hex in `dark`. `seedDeviation` describes the light mode: its `step` is the step nearest the seed by ΔEOK (500 on the reference scale), and its `deltaEOK` equals `deltaEOK(seed, light[step].oklch)` | decision, ruling, RF5 |
+| C-PAL-09 | pass | No light step accepts the seed. Primary `oklch(0.68 0.05 0)` in light mode has a lightness (0.68) slightly below step 500's (0.686) and a contrast (2.95) below step 500's threshold (3.0), so steps 500 and 600 both reject it. The light scale equals the scale solved without a seed. The dark scale accepts the seed: it holds it verbatim at step 600 (a 6.4:1 contrast). `seedStep` is nevertheless absent, because it records both modes or neither (R-10); a consumer finds the dark placement by looking for the seed's hex in `dark`. `seedDeviation` describes the light mode: its `step` is the step nearest the seed by ΔEOK (500 on the reference scale), and its `deltaEOK` equals `deltaEOK(seed, light[step].oklch)` | decision, ruling, RF5 |
 | C-PAL-10 | pass | Each of `EXTREME_SEEDS` locked as primary, in sRGB and P3: `buildPalettes` does not throw; every non-seed step meets C-SCALE-03 and 04; L stays strictly ordered across all 11 steps including the seed step; no field is NaN or Infinity; the seed is either verbatim at `seedStep` or recorded in `seedDeviation`, never dropped silently | RF2, RF3, RF5 |
 | C-PAL-11 | pass | An achromatic seed (`#808080`, `oklch(0.6 0 none)`) gives the primary palette `peakChroma` 0, `hue` 0, `h: null` on every `oklch`, and hexes whose channels differ by at most one code | ruling |
 | C-PAL-12 | pass | A locked secondary or accent seed follows the same rule as C-PAL-07: with `secondary: #f66c6d`, `palettes.secondary.light[seedStep.light]` is verbatim and `peakChroma` stays 0.6 times the parameter | decision, ruling |
@@ -951,6 +960,7 @@ Contract:
 | C-PAL-17 | failure | Invalid input throws `RangeError` naming the field: an unknown `harmony`, `chroma`, `neutralTint`, `gamut`, `scaleMode` or `contrastLevel`; a seed with a non-finite field, `l` outside `[0, 1]`, `c` outside `[0, 0.5]` or `h` outside `[0, 360)`; a `random` that returns NaN or a value outside `[0, 1)` | RF3, added |
 | C-PAL-18 | pass | A hue that rounds to 360. A locked primary with hue `359.99999999999994` gives `palettes.primary.hue === 0`, and every step's `oklch.h`, and the seed step's, is below 360 (R-02) | ruling |
 | C-PAL-19 | pass | The achromatic test runs after rounding. A locked primary `{ l: 0.6, c: 0.0000040000004, h: 120 }` becomes `c: 4e-6` and `h: null` in `color.params`, and gives an achromatic primary: `peakChroma` 0, `hue` 0 (R-03, R-09) | ruling |
+| C-PAL-20 | pass | Rounding alone does not count as gamut mapping (R-10). A locked `#0000ff` primary in sRGB, whose stored seed `round6` leaves about 1.8e-6 outside `[0, 1]`, records no `seedDeviation`, and both modes hold it verbatim: `light[seedStep.light].hex` and `dark[seedStep.dark].hex` are `#0000ff` (steps 700 and 400 with `DEFAULT_PARAMS`) | ruling, RF5 |
 | C-ROLE-01 | pass | `resolveRoles` returns exactly the 46 role names, each a `Hex` | decision, ruling |
 | C-ROLE-02 | pass | For every mode and level, each role equals the hex of its source in section 2 (`background` is the page hex; every `*-foreground` on a solid fill is `onFill` of that fill; `chart-n` is the n-th chart color) | decision |
 | C-ROLE-03 | pass | AA and AA+ differ only in `muted-foreground`. Between AA+ and AAA, only `primary`, `sidebar-primary`, `ring`, `sidebar-ring`, `input` and the foregrounds on `primary` and `sidebar-primary` may change, and the five fills do change. `destructive`, its foreground and its subtle pair never change with the level | decision |
@@ -1283,11 +1293,13 @@ Contract:
   non-finite value.
 - **Known default noise.** On a default spec (contrast level AA) the linter stays silent for C1, C2, C4, C5, N1, N2, F1,
   S1, S2, K1, K2, K4, G1, G3, D1, D2 and D4. N3 reports info in both modes. D3 may warn. A locked seed can raise K2 and K4
-  at its own step, because the seed keeps its own lightness and chroma; M1 reports those warnings and the palette's
-  `seedStep` explains them. A locked seed raises no G1. Rounding can leave a stored seed outside the gamut by up to
-  1.347e-4 (a locked `#0000ff` by 1.8e-6, `#00ff00` by 4.3e-5, and `#00fd1b`, the worst of all 16,777,216 8-bit colors, by
-  1.347e-4), and G1 allows 2e-4. Only the 390,152 colors with a 00 or ff channel can leave the gamut at all; the other
-  16,387,064 stay inside. Gamut-mapped seeds behave alike: 20,000 random out-of-gamut seeds reach 1.14e-4 at most.
+  at its own step, because the seed keeps its own lightness and chroma; M1 reports those warnings. The palette's
+  `seedStep` names that step when both modes place the seed. When only one mode places it, `seedStep` is absent (R-10),
+  and the seed's hex in that mode's scale marks the step. A locked seed raises no G1. Rounding can leave a stored seed
+  outside the gamut by up to 1.347e-4 (a locked `#0000ff` by 1.8e-6, `#00ff00` by 4.3e-5, and `#00fd1b`, the worst of
+  all 16,777,216 8-bit colors, by 1.347e-4), and G1 allows 2e-4. Only the 390,152 colors with a 00 or ff channel can
+  leave the gamut at all; the other 16,387,064 stay inside. Gamut-mapped seeds behave alike: 20,000 random out-of-gamut
+  seeds reach 1.14e-4 at most.
 - **Contrast level.** `destructive` stays on danger-600 at every level, so the status set, S1 and S2 do not depend on the
   level. For text that needs 7:1, `destructive-subtle-foreground` on `destructive-subtle` (about 10.9:1) carries it.
 - **Overrides.** Pass fixtures override what their rule measures so that it holds, and assert that no finding has the id.
@@ -1367,7 +1379,7 @@ Each row lists the cases that carry the item. Every case that has the item's tag
 | RF2 | Extreme seeds still give a valid scale, or an `UnsatisfiableTargetError` naming step and hue | C-SCALE-08, C-SCALE-09, C-SCALE-10, C-SCALE-11, C-SCALE-12, C-PAL-10, C-PAL-11 |
 | RF3 | NaN or Infinity never reaches a spec, including achromatic hues and equal-color contrast | C-GEN-04 (the property), C-GEN-09, C-CONTRAST-05, C-CONTRAST-10, C-DELTAE-01, C-CONV-13, C-SCALE-18, C-CANON-05, C-SCHEMA-05, C-LINT-43, C-LINT-46, and every `RangeError` failure case |
 | RF4 | Truncated, tampered or future-version share links decode to a typed `SpecDecodeError` with a reason, never a blank studio | C-URL-02 (tampered), C-URL-03 (truncated), C-URL-04 (future version), C-URL-05, C-URL-06, C-URL-07, C-URL-11, C-URL-12 |
-| RF5 | A locked seed survives verbatim when contrast allows; otherwise the spec records how far the nearest step moved it | C-PAL-07, C-PAL-08, C-PAL-09, C-PAL-10 |
+| RF5 | A locked seed survives verbatim when contrast allows; otherwise the spec records how far the nearest step moved it | C-PAL-07, C-PAL-08, C-PAL-09, C-PAL-10, C-PAL-20 |
 
 The plan names Task 1.5 for RF2, but a seed enters at `buildPalettes` (Task 1.6), and `solveScale` takes a hue, a peak
 chroma and a page. The spec therefore tests extreme inputs at both levels: C-SCALE-10 and C-SCALE-11 for the scale, and
