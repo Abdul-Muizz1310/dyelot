@@ -513,3 +513,30 @@ describe("the font coverage and project config", () => {
     expect(core?.test?.include).toContain("tests/unit/scripts/**/*.test.{ts,tsx}");
   });
 });
+
+describe("C-REPO-M2-03 the new pure folders and helpers keep the pure-core floors (R2-22)", () => {
+  const FLOORS = { lines: 95, statements: 95, functions: 95, branches: 90 };
+  const thresholds = () => config.test?.coverage?.thresholds as Record<string, unknown> | undefined;
+  const include = () => config.test?.coverage?.include ?? [];
+
+  it("runs tests/unit/theme in the node project", () => {
+    const projects = config.test?.projects as { test?: { name?: string; include?: string[] } }[];
+    const core = projects.find((project) => project.test?.name === "core");
+    expect(core?.test?.include).toContain("tests/unit/theme/**/*.test.{ts,tsx}");
+  });
+
+  it("measures src/theme and src/engine (with src/engine/fonts) at 95 and 90", () => {
+    expect(include()).toEqual(expect.arrayContaining(["src/theme/**", "src/engine/**"]));
+    expect(thresholds()?.["src/theme/**"]).toEqual(FLOORS);
+    expect(thresholds()?.["src/engine/**"]).toEqual(FLOORS);
+  });
+
+  it.each(["protocol", "url", "drafts", "params", "lot", "inspect", "fixes", "client", "guards"])(
+    "measures src/features/studio/%s.ts by name and holds it to 95 and 90",
+    (name) => {
+      const file = `src/features/studio/${name}.ts`;
+      expect(include()).toContain(file);
+      expect(thresholds()?.[file]).toEqual(FLOORS);
+    },
+  );
+});

@@ -12,6 +12,22 @@ const PURE_CORE_TESTS = [
   "tests/unit/scripts/**/*.test.{ts,tsx}",
 ];
 
+/** The floor of the pure core, held by every pure helper too (spec R2-22). */
+const PURE_FLOORS = { lines: 95, statements: 95, functions: 95, branches: 90 };
+
+/** The studio's pure helper files, each measured and held to `PURE_FLOORS` on its own. */
+const STUDIO_HELPERS = [
+  "protocol",
+  "url",
+  "drafts",
+  "params",
+  "lot",
+  "inspect",
+  "fixes",
+  "client",
+  "guards",
+].map((name) => `src/features/studio/${name}.ts`);
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -55,6 +71,9 @@ export default defineConfig({
         "src/theme/**",
         "src/lib/site/**",
         "src/features/fonts/load.ts",
+        // The studio's pure helpers (spec R2-22). The store, the worker shell and the UI are
+        // covered by the flows; inspect.ts arrives with Task 2.10 and is held to the floor then.
+        ...STUDIO_HELPERS,
       ],
       thresholds: {
         lines: 80,
@@ -66,6 +85,7 @@ export default defineConfig({
         "src/spec/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/theme/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
+        ...Object.fromEntries(STUDIO_HELPERS.map((file) => [file, PURE_FLOORS])),
       },
     },
   },
