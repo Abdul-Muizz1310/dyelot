@@ -301,13 +301,24 @@ describe("createFontLoader().load", () => {
     const { deps } = stubs();
     const loader = createFontLoader(deps);
     const seen: string[] = [];
-    loader.subscribe(() => {
-      throw new Error("listener bug");
-    });
-    loader.subscribe(() => seen.push(loader.status("onest")));
-    await expect(loader.load("onest")).resolves.toEqual({ id: "onest", status: "loaded" });
-    expect(loader.status("onest")).toBe("loaded");
-    expect(seen).toEqual(["loading", "loaded"]);
+    const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      loader.subscribe(() => {
+        throw new Error("listener bug");
+      });
+      loader.subscribe(() => seen.push(loader.status("onest")));
+      await expect(loader.load("onest")).resolves.toEqual({ id: "onest", status: "loaded" });
+      expect(loader.status("onest")).toBe("loaded");
+      expect(seen).toEqual(["loading", "loaded"]);
+      // The throwing listener is heard twice, "loading" and "loaded", and logged each time.
+      expect(logged).toHaveBeenCalledTimes(2);
+      expect(logged).toHaveBeenCalledWith(
+        "createFontLoader: a status listener threw",
+        expect.any(Error),
+      );
+    } finally {
+      logged.mockRestore();
+    }
   });
 
   it("C-LOAD-14 shares the in-flight load with a load called from a listener", async () => {

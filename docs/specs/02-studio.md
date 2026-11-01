@@ -981,7 +981,7 @@ Tests: `tests/unit/engine/fonts/{catalog,pairings}.test.ts`, `tests/unit/feature
 | C-LOAD-10 | pass | Two loaders built from different stubs do not share state | added |
 | C-LOAD-11 | failure | With no `document` and no injected `fonts`, `load` resolves `{ status: "failed", reason: "unsupported" }` | review |
 | C-LOAD-12 | failure | A `fonts.add` that throws makes `load` resolve `{ status: "failed", reason: "load" }`; the faces already added are removed (`fonts.delete`) and none stay | review |
-| C-LOAD-13 | pass | A listener that throws neither rejects `load` nor leaves the family at `loading`; the other listeners still hear every change | review |
+| C-LOAD-13 | pass | A listener that throws neither rejects `load` nor leaves the family at `loading`, and the error is logged with `console.error`; the other listeners still hear every change | review |
 | C-LOAD-14 | pass | A `load(id)` called from a listener while `id` is loading shares the in-flight promise and builds no second face | review |
 | C-LOAD-15 | pass | The default timeout is the single constant `FONT_TIMEOUT_MS` (8000 ms); the browser instance uses it | review |
 
@@ -1263,6 +1263,7 @@ is a violation.
 | C-REPO-M2-02 | pass | `src/engine`, `src/spec` and `src/theme` import nothing from `src/features`, `src/app`, `src/components` or `src/lib` | I-M2-07 |
 | C-REPO-M2-03 | pass | `vitest.config.ts` runs `tests/unit/theme/**` in the `node` project, and its coverage include and floors cover `src/theme/**`, `src/engine/fonts/**` and the named pure helper files of R2-22 at 95 and 90 | R2-22 |
 | C-REPO-M2-04 | pass | The M1 repository guards C-REPO-01 to C-REPO-05 pass unmodified, apart from C-REPO-02 and C-REPO-05, which R2-25 amends | plan |
+| C-REPO-M2-05 | pass | git tracks no font binary (woff, woff2, ttf, otf) outside `src/lib/site/fonts/`, the M0 share-card fonts | review |
 
 ## 7. Flows (UI, covered by Playwright)
 

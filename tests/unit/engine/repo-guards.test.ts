@@ -1,3 +1,4 @@
+import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { builtinModules } from "node:module";
 import { tmpdir } from "node:os";
@@ -474,6 +475,22 @@ describe("the font guards", () => {
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the font binaries", () => {
+  it("C-REPO-M2-05 tracks no font binary outside src/lib/site/fonts", () => {
+    const tracked = spawnSync("git", ["ls-files", "*.woff2", "*.woff", "*.ttf", "*.otf"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    expect(tracked.error).toBeUndefined();
+    expect(tracked.status).toBe(0);
+    const stray = tracked.stdout
+      .split("\n")
+      .filter(Boolean)
+      .filter((file) => !file.startsWith("src/lib/site/fonts/"));
+    expect(stray).toEqual([]);
   });
 });
 

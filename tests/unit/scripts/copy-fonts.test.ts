@@ -126,38 +126,23 @@ describe("scripts/copy-fonts.mjs", () => {
     }
   }
 
-  it("exits non-zero for --out without a directory", () => {
+  it("C-FONT-24 exits non-zero and writes nothing for --out without a directory", () => {
     const { result, written } = runRejected(["--out"]);
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("--out");
+    expect(result.stderr).toMatch(/^copy-fonts: --out needs a directory/);
     expect(written).toEqual([]);
   });
 
   it.each([
-    [["--out=dir"]],
-    [["--bogus"]],
-    [["stray"]],
-    [["--out", "dir", "extra"]],
-    [["--out", "a", "--out", "b"]],
-  ])("exits non-zero, names the argument and writes nothing for %j", (args) => {
+    [["--out=dir"], "--out=dir"],
+    [["--bogus"], "--bogus"],
+    [["stray"], "stray"],
+    [["--out", "dir", "extra"], "extra"],
+    [["--out", "a", "--out", "b"], "--out"],
+  ])("C-FONT-24 rejects %j naming the argument %j and writes nothing", (args, named) => {
     const { result, written } = runRejected(args);
     expect(result.status).not.toBe(0);
-    expect(result.stderr).toMatch(/^copy-fonts: /);
-    expect(result.stderr).toMatch(/unknown argument|usage/);
+    expect(result.stderr).toContain(`copy-fonts: unknown argument "${named}"`);
     expect(written).toEqual([]);
-  });
-
-  it("git tracks no font binary except the share card's (src/lib/site/fonts, M0)", () => {
-    const tracked = spawnSync("git", ["ls-files", "*.woff2", "*.woff", "*.ttf", "*.otf"], {
-      cwd: ROOT,
-      encoding: "utf8",
-    });
-    expect(tracked.error).toBeUndefined();
-    expect(tracked.status).toBe(0);
-    const stray = tracked.stdout
-      .split("\n")
-      .filter(Boolean)
-      .filter((file) => !file.startsWith("src/lib/site/fonts/"));
-    expect(stray).toEqual([]);
   });
 });

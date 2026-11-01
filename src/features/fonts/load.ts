@@ -71,8 +71,9 @@ export function createFontLoader(deps: FontLoaderDeps): FontLoader {
     for (const listener of [...listeners]) {
       try {
         listener();
-      } catch {
-        // A listener's bug never rejects a load or strands a family at "loading".
+      } catch (error) {
+        // A listener's bug never rejects a load or strands a family at "loading", but it is logged.
+        console.error("createFontLoader: a status listener threw", error);
       }
     }
   };
