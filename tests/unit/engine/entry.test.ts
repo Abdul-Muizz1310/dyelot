@@ -25,6 +25,14 @@ import {
 import { parseColor } from "@/engine/color/parse";
 import { ROLE_NAMES, resolveRoles } from "@/engine/color/roles";
 import { STEPS, UnsatisfiableTargetError } from "@/engine/color/scale";
+import {
+  FONT_CATALOG,
+  fontFiles,
+  fontStack,
+  genericness,
+  HIGH_GENERICNESS_FAMILIES,
+} from "@/engine/fonts/catalog";
+import { PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
 import { ENGINE_VERSION, generateSystem } from "@/engine/generate";
 import { lintSpec } from "@/engine/lint";
 import { RULE_IDS } from "@/engine/lint/types";
@@ -105,23 +113,16 @@ const ENGINE_KEYS = [
 ];
 
 /**
- * Keys whose module a later task of M2 creates (fonts 2.3, presets 2.4, taste rules and names
+ * Keys whose module a later task of M2 creates (presets 2.4, taste rules and names
  * 2.4 to 2.5). Until then the entry holds the set without them; each task deletes its names from
  * this list and the test then demands them. The list only shrinks: no key joins the entry that
  * the full set above does not name.
  */
 const PENDING_KEYS = [
-  "FONT_CATALOG",
-  "HIGH_GENERICNESS_FAMILIES",
-  "PAIRINGS",
-  "PAIRING_IDS",
   "PRESETS",
   "PRESET_IDS",
   "applyPreset",
   "choosePairing",
-  "fontFiles",
-  "fontStack",
-  "genericness",
   "indexNames",
   "nearestName",
 ];
@@ -153,11 +154,15 @@ describe("the engine entry", () => {
       DEFICIENCIES,
       DEPTH_STYLES,
       ENGINE_VERSION,
+      FONT_CATALOG,
       GAMUTS,
       HARMONIES,
+      HIGH_GENERICNESS_FAMILIES,
       LOCKABLE,
       MOTION_FEELS,
       NEUTRAL_TINTS,
+      PAIRINGS,
+      PAIRING_IDS,
       PALETTE_NAMES,
       RADIUS_SET_NAMES,
       ROLE_NAMES,
@@ -169,9 +174,12 @@ describe("the engine entry", () => {
       CHROMA_LEVELS,
       CONTRAST_LEVELS,
       deltaEOK,
+      fontFiles,
+      fontStack,
       formatOklch,
       gamutMap,
       generateSystem,
+      genericness,
       hexToRgb,
       lintSpec,
       meets,
@@ -248,10 +256,37 @@ describe("frozen tables", () => {
     "MOTION_FEELS",
     "DEFICIENCIES",
     "LOCKABLE",
+    "FONT_CATALOG",
+    "HIGH_GENERICNESS_FAMILIES",
+    "PAIRINGS",
+    "PAIRING_IDS",
   ] as const;
 
   it.each(TABLES)("C-ENTRY-05 freezes %s", (name) => {
     expect(Object.isFrozen(exported[name]), name).toBe(true);
+  });
+
+  it("C-ENTRY-06 freezes the font tables, every entry and every array inside an entry", () => {
+    for (const table of [engine.FONT_CATALOG, engine.PAIRINGS, engine.HIGH_GENERICNESS_FAMILIES]) {
+      expect(Object.isFrozen(table)).toBe(true);
+    }
+    for (const font of engine.FONT_CATALOG) {
+      expect(Object.isFrozen(font), font.id).toBe(true);
+      expect(Object.isFrozen(font.axes), font.id).toBe(true);
+      expect(Object.isFrozen(font.weights), font.id).toBe(true);
+    }
+    for (const pairing of engine.PAIRINGS) {
+      expect(Object.isFrozen(pairing), pairing.id).toBe(true);
+      expect(Object.isFrozen(pairing.fit), pairing.id).toBe(true);
+    }
+  });
+
+  it("C-ENTRY-07 throws TypeError on a write to a font table", () => {
+    const first = engine.FONT_CATALOG[0] as { family: string };
+    expect(() => {
+      first.family = "x";
+    }).toThrow(TypeError);
+    expect(() => (engine.PAIRING_IDS as string[]).push("x")).toThrow(TypeError);
   });
 
   it("C-ENTRY-07 throws TypeError on a write", () => {

@@ -33,6 +33,16 @@ export { parseColor } from "./color/parse";
 export { ROLE_NAMES, type RoleName } from "./color/roles";
 export { STEPS, type Step, UnsatisfiableTargetError } from "./color/scale";
 export type { Gamut, Hex, Mode, Oklch, Rgb } from "./color/types";
+export {
+  FONT_CATALOG,
+  type FontCategory,
+  type FontEntry,
+  fontFiles,
+  fontStack,
+  genericness,
+  HIGH_GENERICNESS_FAMILIES,
+} from "./fonts/catalog";
+export { PAIRING_IDS, PAIRINGS, type Pairing, type PairingId } from "./fonts/pairings";
 export { ENGINE_VERSION, generateSystem } from "./generate";
 export { lintSpec } from "./lint";
 export type { Finding, LintedSpec, RuleId, Severity } from "./lint/types";

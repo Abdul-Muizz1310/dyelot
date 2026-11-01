@@ -413,3 +413,20 @@ describe("C-REPO-04 the coverage floors", () => {
     });
   });
 });
+
+describe("the font guards", () => {
+  const FORBIDDEN = ["fonts.googleapis.com", "fonts.gstatic.com", "fontshare"];
+
+  it("C-REPO-M2-01 keeps every Google, gstatic and Fontshare host out of src, scripts and public", () => {
+    const files = ["src", "scripts", "public"].flatMap((folder) =>
+      codeFiles(path.join(ROOT, folder)),
+    );
+    expect(files.length).toBeGreaterThan(0);
+    for (const file of files) {
+      const source = readFileSync(file, "utf8").toLowerCase();
+      for (const host of FORBIDDEN) {
+        expect(source.includes(host), `${path.relative(ROOT, file)} names ${host}`).toBe(false);
+      }
+    }
+  });
+});
