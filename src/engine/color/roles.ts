@@ -1,5 +1,5 @@
 import { meets, perceptualLc, wcagRatio } from "./contrast";
-import { hexToRgb } from "./convert";
+import { hexToRgb, toHex } from "./convert";
 import { assertHex, assertMode, assertOneOf, clampedSrgb, describeType } from "./guards";
 import {
   CONTRAST_LEVELS,
@@ -67,8 +67,8 @@ export type RoleName = (typeof ROLE_NAMES)[number];
 const CHART_SIZE = 5;
 /** WCAG 2.2 body text: the ratio text on a solid fill must reach. */
 const TEXT_THRESHOLD = 4.5;
-const WHITE = "#ffffff" as Hex;
-const BLACK = "#000000" as Hex;
+const WHITE = toHex([1, 1, 1]);
+const BLACK = toHex([0, 0, 0]);
 const ON_FILL_CANDIDATES: readonly Hex[] = [WHITE, BLACK];
 
 type Measured = { readonly hex: Hex; readonly ratio: number; readonly lc: number };

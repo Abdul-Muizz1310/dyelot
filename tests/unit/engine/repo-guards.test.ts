@@ -4,7 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import config from "../../../vitest.config";
 
-// C-REPO-01, C-REPO-02 and C-REPO-04 of docs/specs/01-color-engine.md, section 6.9. C-REPO-03
+// C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9. C-REPO-03
 // lives in environment.test.ts, one copy per folder.
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
@@ -226,6 +226,27 @@ describe("C-REPO-02 the engine does not import from the spec", () => {
     expect(importsFromSpec(file, "@/engine/round")).toBe(false);
     expect(importsFromSpec(file, "fflate")).toBe(false);
     expect(importsFromSpec(file, "../../specs/other")).toBe(false);
+  });
+});
+
+describe("C-REPO-05 only toHex and the schema make a Hex", () => {
+  const CAST = /\bas\s+Hex\b/g;
+
+  it("finds no cast to Hex in src/engine or src/spec outside toHex", () => {
+    const casts = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)].flatMap((file) =>
+      Array.from(stripComments(readFileSync(file, "utf8")).matchAll(CAST), () =>
+        path.relative(ROOT, file),
+      ),
+    );
+    // toHex itself brands the string it builds, once.
+    expect(casts).toEqual(["src/engine/color/convert.ts"]);
+  });
+
+  it("is a grep that sees a cast however it is spaced, and not a longer name", () => {
+    expect("x as Hex;".match(CAST)).toHaveLength(1);
+    expect("x as\n  Hex)".match(CAST)).toHaveLength(1);
+    expect("x as HexColor".match(CAST)).toBeNull();
+    expect("type Hex = string".match(CAST)).toBeNull();
   });
 });
 

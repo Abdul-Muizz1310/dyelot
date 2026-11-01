@@ -1517,6 +1517,7 @@ Contract:
 | C-REPO-02 | pass | Grep: no file under `src/engine/` other than `generate.ts` imports from `src/spec/` | added |
 | C-REPO-03 | pass | An engine test and a spec test each assert `typeof window === "undefined"` and `typeof document === "undefined"`, which proves the node environment (R-24) | ruling |
 | C-REPO-04 | pass | `vitest.config.ts` sets coverage floors for `src/engine/**` and `src/spec/**`: lines, statements and functions 95, branches 90 | added |
+| C-REPO-05 | pass | Grep, comments stripped: the only cast to `Hex` (`as Hex`) under `src/engine/` and `src/spec/` is the one in `toHex`, so every other `Hex` comes from `toHex` or the schema (R-05). Constant hexes such as the white page are built with `toHex` | added |
 
 ## 7. Review Focus coverage
 

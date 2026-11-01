@@ -88,7 +88,7 @@ const NEUTRAL: Readonly<Record<ColorParams["neutralTint"], { chroma: number; hue
 };
 
 // The pages: white in light mode; in dark mode the neutral's hue at L 0.18 and chroma up to 0.012.
-const LIGHT_PAGE = "#ffffff" as Hex;
+const LIGHT_PAGE = toHex([1, 1, 1]);
 const DARK_PAGE_L = 0.18;
 const DARK_PAGE_CHROMA = 0.012;
 
