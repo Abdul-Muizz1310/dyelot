@@ -57,7 +57,10 @@ const OKLAB_TO_LMS: Mat3 = [
   [1.0, -0.0894841775298119, -1.2914855480194092],
 ];
 
-/** A 3 by 3 matrix times a column vector. */
+/**
+ * A 3 by 3 matrix times a column vector. An unchecked kernel: it validates nothing, so callers
+ * pass it only vectors they have already checked (finite, three components).
+ */
 export function multiply(m: Mat3, v: Vec3): Vec3 {
   return [
     m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
