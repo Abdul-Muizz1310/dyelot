@@ -64,7 +64,8 @@ export function withinUnitCube(rgb: Rgb, tolerance: number): boolean {
   );
 }
 
-const clamp01 = (channel: number): number => Math.min(1, Math.max(0, channel));
+/** A channel clamped into 0 to 1. */
+export const clamp01 = (channel: number): number => Math.min(1, Math.max(0, channel));
 
 /**
  * Checks an sRGB color for the functions that measure it, and returns it with every channel

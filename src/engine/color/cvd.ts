@@ -1,5 +1,5 @@
 import { linearToSrgb, type Mat3, multiply, srgbToLinear, type Vec3 } from "./convert";
-import { clampedSrgb, describeType } from "./guards";
+import { clamp01, clampedSrgb, describeType } from "./guards";
 import type { Rgb } from "./types";
 
 /** The color vision deficiencies that `simulate` reproduces: no L cones, no M cones, no S cones. */
@@ -56,7 +56,7 @@ function matrixFor(linear: Vec3, deficiency: Deficiency): Mat3 {
 
 /** A linear channel clamped into 0 to 1, then encoded. The outer `min` keeps rounding below 1. */
 function encodeChannel(linear: number): number {
-  return Math.min(1, linearToSrgb(Math.min(1, Math.max(0, linear))));
+  return Math.min(1, linearToSrgb(clamp01(linear)));
 }
 
 function assertDeficiency(deficiency: Deficiency): void {

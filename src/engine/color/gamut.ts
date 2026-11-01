@@ -1,5 +1,12 @@
 import { oklchToOklab, oklchToRgb, rgbToOklab, tryOklchToRgb } from "./convert";
-import { assertFinite, assertGamut, assertOklch, RGB_TOLERANCE, withinUnitCube } from "./guards";
+import {
+  assertFinite,
+  assertGamut,
+  assertOklch,
+  clamp01,
+  RGB_TOLERANCE,
+  withinUnitCube,
+} from "./guards";
 import type { Gamut, Oklch, Rgb } from "./types";
 
 // CSS Color 4, section 14.2.2: the JND (the smallest difference in OKLab that the eye notices)
@@ -12,8 +19,6 @@ const MAX_CHROMA_SEARCH = 0.5;
 const MAX_CHROMA_ITERATIONS = 40;
 // Past 53 halvings of [0, 0.5] a double cannot move, so 64 is more than any caller needs.
 const MAX_ITERATIONS_ALLOWED = 64;
-
-const clamp01 = (channel: number): number => Math.min(1, Math.max(0, channel));
 
 function clip(rgb: Rgb): Rgb {
   return [clamp01(rgb[0]), clamp01(rgb[1]), clamp01(rgb[2])];
