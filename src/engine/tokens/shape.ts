@@ -1,6 +1,9 @@
 import { assertFinite, assertOneOf } from "../color/guards";
 
-export type RadiusSet = "sharp" | "soft" | "round";
+/** The radius sets, in the order the studio lists them. */
+export const RADIUS_SET_NAMES = ["sharp", "soft", "round"] as const;
+
+export type RadiusSet = (typeof RADIUS_SET_NAMES)[number];
 export type RadiusScale = {
   sm: number;
   md: number;
@@ -16,11 +19,9 @@ const RADIUS_SETS = {
   round: [8, 12, 16, 24, 32],
 } as const satisfies Record<RadiusSet, readonly number[]>;
 
-const SET_NAMES = Object.keys(RADIUS_SETS) as RadiusSet[];
-
 /** The radii of a set in px, `sm` to `2xl`, plus `full` (a pill). Each call returns a new object. */
 export function radiusScale(set: RadiusSet): RadiusScale {
-  assertOneOf(set, SET_NAMES, "radiusScale: set");
+  assertOneOf(set, RADIUS_SET_NAMES, "radiusScale: set");
   const [sm, md, lg, xl, xxl] = RADIUS_SETS[set];
   return { sm, md, lg, xl, "2xl": xxl, full: 9999 };
 }

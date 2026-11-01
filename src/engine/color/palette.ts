@@ -110,10 +110,11 @@ function roundSeed(seed: Oklch): Oklch {
  * A locked seed as the engine uses and stores it (spec R-25). It checks the seed's domain first
  * (l in [0, 1], c in [0, 0.5], h null or in [0, 360)) and throws RangeError naming the field, or
  * TypeError for a value of the wrong type, so it never builds a value from bad input. Then it
- * rounds the seed and applies the achromatic rule (R-02, R-03).
+ * rounds the seed and applies the achromatic rule (R-02, R-03). `name` is how an error names the
+ * seed, so a caller such as `generateSystem` can name its own field.
  */
-export function normalizeSeed(seed: Oklch): Oklch {
-  checkSeed(seed, "normalizeSeed: seed");
+export function normalizeSeed(seed: Oklch, name = "normalizeSeed: seed"): Oklch {
+  checkSeed(seed, name);
   return roundSeed(seed);
 }
 

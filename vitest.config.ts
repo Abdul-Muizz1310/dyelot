@@ -50,7 +50,7 @@ export default defineConfig({
         branches: 70,
         // The pure core holds a higher floor than the rest of the code.
         "src/engine/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
-        // The same floor for src/spec/** arrives with the first file in that folder.
+        "src/spec/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
       },
     },
   },

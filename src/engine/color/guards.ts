@@ -109,6 +109,14 @@ export function assertOneOf<T extends string>(
 const HEX = /^#[0-9a-f]{6}$/;
 
 /**
+ * Whether a value is a `Hex`: a string of `#` and six lowercase hex digits (spec I-08). The spec
+ * schema uses it to turn a parsed string into a `Hex` (R-05).
+ */
+export function isHex(value: unknown): value is Hex {
+  return typeof value === "string" && HEX.test(value);
+}
+
+/**
  * A `Hex`: `#` and six lowercase hex digits (spec I-08). A value that is not a string is a
  * TypeError, and a string of another form is a RangeError (R-05).
  */
@@ -116,7 +124,7 @@ export function assertHex(value: unknown, name: string): asserts value is Hex {
   if (typeof value !== "string") {
     throw new TypeError(`${name} must be a string, got ${describeType(value)}`);
   }
-  if (!HEX.test(value)) {
+  if (!isHex(value)) {
     throw new RangeError(`${name} must be a lowercase #rrggbb hex, got ${JSON.stringify(value)}`);
   }
 }

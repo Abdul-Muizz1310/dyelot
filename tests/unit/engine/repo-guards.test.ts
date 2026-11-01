@@ -120,6 +120,7 @@ describe("C-REPO-01 the pure core uses no impure API", () => {
 
   it("scans real files, so the grep cannot pass by looking at nothing", () => {
     expect(codeFiles(ENGINE_DIR).length).toBeGreaterThan(0);
+    expect(codeFiles(SPEC_DIR).length).toBeGreaterThan(0);
   });
 
   it("finds no randomness, clock, DOM, storage, Node or framework use in src/engine or src/spec", () => {
@@ -229,15 +230,23 @@ describe("C-REPO-02 the engine does not import from the spec", () => {
 });
 
 describe("C-REPO-04 the coverage floors", () => {
-  // The src/spec/** floor joins this test when that folder gets its first file.
-  it("holds src/engine/** to lines, statements and functions 95 and branches 90", () => {
-    const thresholds = config.test?.coverage?.thresholds as Record<string, unknown> | undefined;
-    expect(thresholds?.["src/engine/**"]).toEqual({
-      lines: 95,
-      statements: 95,
-      functions: 95,
-      branches: 90,
-    });
+  it.each(["src/engine/**", "src/spec/**"])(
+    "holds %s to lines, statements and functions 95 and branches 90",
+    (folder) => {
+      const thresholds = config.test?.coverage?.thresholds as Record<string, unknown> | undefined;
+      expect(thresholds?.[folder]).toEqual({
+        lines: 95,
+        statements: 95,
+        functions: 95,
+        branches: 90,
+      });
+    },
+  );
+
+  it("measures both folders of the pure core", () => {
+    expect(config.test?.coverage?.include).toEqual(
+      expect.arrayContaining(["src/engine/**", "src/spec/**"]),
+    );
   });
 
   it("keeps the global floors for everything else", () => {
