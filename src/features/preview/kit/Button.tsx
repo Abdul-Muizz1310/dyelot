@@ -1,5 +1,6 @@
 "use client";
 
+import "./button.css";
 import { LoaderCircle } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ButtonVariant, KitState } from "./states";

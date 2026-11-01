@@ -1,5 +1,6 @@
 "use client";
 
+import "./surfaces.css";
 import {
   CircleAlert,
   CircleCheck,
@@ -9,6 +10,7 @@ import {
   WavesHorizontal,
 } from "lucide-react";
 import { useId, useState } from "react";
+import { SAMPLE_PLACES } from "../copy";
 import { Button } from "./Button";
 import type { KitState } from "./states";
 
@@ -65,7 +67,7 @@ const ALERTS = {
   invalid: {
     tone: "destructive",
     title: "Gauge offline",
-    body: "Sample: Gull Point has not reported since 04:10. Check its battery.",
+    body: `Sample: ${SAMPLE_PLACES[2]} has not reported since 04:10. Check its battery.`,
     roles: "destructive-subtle destructive-subtle-foreground",
   },
 } as const;
@@ -93,7 +95,7 @@ export function Tooltip() {
   return (
     <span className="kit-tooltip-anchor">
       <Button variant="ghost" icon={<MapPin aria-hidden="true" />} describedBy={id}>
-        Samphire Bay
+        {SAMPLE_PLACES[0]}
       </Button>
       <span
         role="tooltip"

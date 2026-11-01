@@ -1,0 +1,89 @@
+/* ─────────────────────────────────────────────────────────────
+ * The preview kit (spec section 7.5, R2-20). Each part paints
+ * only with the spec's roles, set as custom properties on the
+ * nearest [data-canvas]; a text color always sits on the fill
+ * it is paired with, so contrast is the spec's own. A forced
+ * state is `data-state` and shares its rule with the live one.
+ * Radius and spacing vary by hierarchy: controls take md,
+ * fields sm, cards xl, sheets 2xl, chips and switches full.
+ * ───────────────────────────────────────────────────────────── */
+
+/* Type steps */
+.kit-t-caption {
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-caption);
+}
+.kit-t-label {
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  letter-spacing: var(--tracking-label);
+}
+.kit-t-body-sm {
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+  letter-spacing: var(--tracking-body-sm);
+}
+.kit-t-body {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
+}
+.kit-t-lead {
+  font-size: var(--text-lead);
+  line-height: var(--leading-lead);
+  letter-spacing: var(--tracking-lead);
+}
+.kit-t-h4 {
+  font-size: var(--text-h4);
+  line-height: var(--leading-h4);
+  letter-spacing: var(--tracking-h4);
+}
+.kit-t-h3 {
+  font-size: var(--text-h3);
+  line-height: var(--leading-h3);
+  letter-spacing: var(--tracking-h3);
+}
+.kit-t-h2 {
+  font-size: var(--text-h2);
+  line-height: var(--leading-h2);
+  letter-spacing: var(--tracking-h2);
+}
+.kit-t-h1 {
+  font-size: var(--text-h1);
+  line-height: var(--leading-h1);
+  letter-spacing: var(--tracking-h1);
+}
+.kit-t-display {
+  font-size: var(--text-display);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+}
+
+.kit-display {
+  font-family: var(--font-display);
+  font-weight: 650;
+}
+
+.kit-mono {
+  font-family: var(--font-mono);
+}
+
+/* Icons: one library, one stroke width (F-TPL-07). Zero specificity, so a part's own size wins. */
+:where([data-canvas]) svg.lucide {
+  flex: none;
+  width: 1.125em;
+  height: 1.125em;
+  stroke-width: var(--icon-stroke);
+}
+
+/* The spinner of a loading button or toast. */
+.kit-spin {
+  animation: kit-spin calc(var(--duration-slowest) * 2) linear infinite;
+}
+
+@keyframes kit-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}

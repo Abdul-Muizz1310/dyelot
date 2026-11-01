@@ -19,13 +19,21 @@ export type CanvasCopy = {
 
 const EDGE_WORD = "Spritsailbargemooringandtidecalculations";
 
+/** The fictional places of the sample copy: the one list every template reads them from. */
+export const SAMPLE_PLACES = Object.freeze([
+  "Samphire Bay",
+  "Heron Staithe",
+  "Gull Point",
+  "Wrack Quay",
+] as const);
+
 export const COPY: Readonly<Record<"real" | "edge", CanvasCopy>> = Object.freeze({
   real: Object.freeze({
-    title: "Spring tide at Samphire Bay",
+    title: `Spring tide at ${SAMPLE_PLACES[0]}`,
     word: "saltmarsh",
     person: "Maren Holt",
     amount: "4.12",
-    items: Object.freeze(["Samphire Bay", "Heron Staithe", "Gull Point"]),
+    items: Object.freeze(SAMPLE_PLACES.slice(0, 3)),
     label: "Neap",
   }),
   edge: Object.freeze({

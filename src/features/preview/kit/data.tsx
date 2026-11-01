@@ -1,13 +1,15 @@
 "use client";
 
+import "./data.css";
 import { Check, User } from "lucide-react";
 import { useState } from "react";
+import { SAMPLE_PLACES } from "../copy";
 import type { KitState } from "./states";
 
 // The kit's data parts (section 7.5): table rows, badges, chips, avatars, skeletons and progress.
 // Numbers sit in tabular numerals; a selected chip or row takes the accent pair.
 
-const PLACES = ["Samphire Bay", "Heron Staithe", "Gull Point", "Wrack Quay"] as const;
+const PLACES = SAMPLE_PLACES;
 
 function Head() {
   return (

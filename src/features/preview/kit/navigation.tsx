@@ -1,5 +1,6 @@
 "use client";
 
+import "./navigation.css";
 import { Bookmark, Check } from "lucide-react";
 import { m } from "motion/react";
 import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from "react";

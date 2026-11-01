@@ -1,5 +1,6 @@
 "use client";
 
+import "./fields.css";
 import { ChevronDown, CircleAlert, CircleCheck } from "lucide-react";
 import { useId } from "react";
 import type { KitState } from "./states";

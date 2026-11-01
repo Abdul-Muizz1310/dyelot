@@ -1,5 +1,6 @@
 "use client";
 
+import "./choices.css";
 import { Check, Minus } from "lucide-react";
 import { m } from "motion/react";
 import { useId, useLayoutEffect, useRef, useState } from "react";

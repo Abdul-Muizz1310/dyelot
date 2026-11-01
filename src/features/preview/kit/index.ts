@@ -1,4 +1,4 @@
-import "./kit.css";
+import "./base.css";
 
 // The preview kit (spec section 7.5): the shared parts every template builds on (Tasks 2.7 to 2.10).
 
