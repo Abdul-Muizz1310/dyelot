@@ -81,7 +81,7 @@ export function Toast({ state, onClose, fallbackFocus }: ToastProps) {
               aria-label="Share link"
               value={state.link}
               onFocus={(event) => event.currentTarget.select()}
-              className="min-h-8 min-w-0 flex-1 rounded-md border border-border-bright bg-page px-2 font-mono text-xs tabular-nums"
+              className="min-h-8 min-w-0 flex-1 rounded-md border border-control-edge bg-page px-2 font-mono text-xs tabular-nums"
             />
             <button type="button" onClick={() => closeBlocked(state.returnTo)} className={BUTTON}>
               Close

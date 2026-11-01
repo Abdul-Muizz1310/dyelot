@@ -70,7 +70,7 @@ export function Toolbar({
       >
         <span
           aria-hidden="true"
-          className="relative h-4 w-7 rounded-full border border-border-bright transition-colors group-aria-checked:bg-border"
+          className="relative h-4 w-7 rounded-full border border-control-edge transition-colors group-aria-checked:bg-border"
         >
           <span className="absolute top-0.5 left-0.5 size-2.5 rounded-full bg-fg-muted transition-transform group-aria-checked:translate-x-3 group-aria-checked:bg-foreground" />
         </span>

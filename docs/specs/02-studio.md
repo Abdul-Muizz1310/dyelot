@@ -1430,8 +1430,10 @@ Geist Mono. The strip is a group labeled "Primary scale, 11 steps" with 11 swatc
 
 Each control has a visible label and an accessible name. A small enum of at most four options is a radio group; larger
 sets are a native `select`. The one primary chrome action of the panel, "Regenerate", is the only madder fill; a selected
-option, a pressed lock toggle and the mode switch show a neutral selected state (foreground text, a lighter neutral fill and a
-`--border-bright` edge), so madder means focus or the primary action. "Regenerate" and the shortcut hint stay in view at 1280 × 800
+option, a pressed lock toggle and the mode switch show a neutral selected state (foreground text and a lighter neutral fill; a
+selected option adds a `--border-bright` inner ring), so madder means focus or the primary action. Every form-control edge (text
+and hex fields, color inputs, selects, segmented groups, toggles) is the achromatic `--control-edge` (`#666666`, 3.24:1 on the
+panel, 3.45:1 on the page, F-A11Y-09); decorative dividers and panel edges keep `--border` and `--border-bright`. "Regenerate" and the shortcut hint stay in view at 1280 × 800
 as the panel's footer; the hint names Space, ← and →, L, Alt+T and Ctrl+S (⌘S on a Mac).
 
 | Control | Label | Kind | Options | Changes |
@@ -1636,6 +1638,7 @@ top for font failures.
 | F-A11Y-06 | pass | With `prefers-reduced-motion: reduce`, the chrome's own transitions (drawers, toasts) run at 0.01 ms or less | decision |
 | F-A11Y-07 | pass | Chrome text meets 4.5:1 and chrome non-text parts meet 3:1 against `#0a0a0a` and `#12121a` (a measured pass over the chrome's own tokens) | decision |
 | F-A11Y-08 | pass | On `/studio` the surround behind the shell is achromatic: every color stop of `body::before`'s background image (the house dot grid) has a chroma of 0.005 or less, so the M0 madder crown does not tint the toolbar or the canvas surround; the home page keeps its crown | decision, review |
+| F-A11Y-09 | pass | WCAG 1.4.11: at 1280 px and at 360 px (with the inputs drawer open), every form control of the chrome (text and hex fields, color inputs, selects, segmented groups, lock toggles, the mode switch's track) has a border, and its border color has a contrast of at least 3:1 against the background it sits on (the nearest ancestor with an opaque background) | decision, review |
 | F-HOME-01 | pass | The home page keeps its single `h1` and gains a link "open the studio" with `href="/studio"`, in the list beside the GitHub link | decision, ruling |
 | F-HOME-02 | pass | Following the link opens `/studio` | decision |
 

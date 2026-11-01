@@ -1642,6 +1642,79 @@ test.describe("7.9 Accessibility", () => {
     expect((await stops()).some((stop) => stop.chroma > 0.1)).toBe(true);
   });
 
+  /**
+   * The form controls of the chrome that are on screen, each with its border color and the opaque
+   * background it sits on (F-A11Y-09).
+   */
+  function controlEdges(page: Page) {
+    return page.evaluate(() => {
+      const opaque = (color: string) => !/rgba\(.*,\s*0\)$/.test(color) && color !== "transparent";
+      const backdrop = (el: Element): string => {
+        for (let node = el.parentElement; node !== null; node = node.parentElement) {
+          const color = getComputedStyle(node).backgroundColor;
+          if (opaque(color)) return color;
+        }
+        return getComputedStyle(document.body).backgroundColor;
+      };
+      const selector = [
+        "input:not([type='radio'])",
+        "select",
+        "fieldset > div",
+        "button[aria-pressed]",
+        "[role='switch'] > span:first-child",
+      ].join(", ");
+      return [...document.querySelectorAll(selector)]
+        .filter((el) => !el.closest("[data-canvas], [inert]"))
+        .filter((el) => {
+          const box = el.getBoundingClientRect();
+          return box.width > 1 && box.height > 1;
+        })
+        .map((el) => {
+          const style = getComputedStyle(el);
+          return {
+            control: `${el.tagName.toLowerCase()} ${el.getAttribute("aria-label") ?? el.closest("fieldset")?.querySelector("legend")?.textContent ?? el.id}`,
+            width: Number.parseFloat(style.borderTopWidth),
+            edge: style.borderTopColor,
+            backdrop: backdrop(el),
+          };
+        });
+    });
+  }
+
+  /** The WCAG contrast of two `rgb()` colors. */
+  function contrast(a: string, b: string): number {
+    const luminance = (color: string) => {
+      const [r = 0, g = 0, bl = 0] = (color.match(/[\d.]+/g) ?? []).map(Number);
+      const [lr, lg, lb] = [r, g, bl].map((v) => {
+        const c = v / 255;
+        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+      }) as [number, number, number];
+      return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+    };
+    const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p) as [number, number];
+    return (x + 0.05) / (y + 0.05);
+  }
+
+  test("F-A11Y-09 every form control's edge meets 3:1 against what it sits on", async ({
+    page,
+  }) => {
+    const weak = async () =>
+      (await controlEdges(page))
+        .map((item) => ({ ...item, ratio: contrast(item.edge, item.backdrop) }))
+        .filter((item) => item.width <= 0 || item.ratio < 3);
+    await openStudio(page);
+    const wide = await controlEdges(page);
+    // Three seed rows of three, four selects, nine groups and the switch's track.
+    expect(wide.length).toBeGreaterThanOrEqual(23);
+    expect(await weak(), "1280 px").toEqual([]);
+    await page.setViewportSize(PHONE);
+    expect(await weak(), "360 px").toEqual([]);
+    await button(page, "Inputs").click();
+    await expect(inputsAside(page)).toBeVisible();
+    expect((await controlEdges(page)).length).toBeGreaterThanOrEqual(22);
+    expect(await weak(), "360 px, inputs drawer").toEqual([]);
+  });
+
   test("F-A11Y-06 with reduced motion the drawers and toasts move in 0.01 ms or less", async ({
     page,
   }) => {

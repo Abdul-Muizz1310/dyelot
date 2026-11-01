@@ -23,6 +23,9 @@
   --border: #1e1e2e;
   --border-bright: #2a2a3d;
 
+  /* The edge of a form control (WCAG 1.4.11): achromatic, 3.24:1 on the panel and 3.45:1 on the page. */
+  --control-edge: #666666;
+
   /* Accent */
   --accent-madder: #f66c6d;
   --accent-madder-soft: rgb(246 108 109 / 0.1);
@@ -41,6 +44,7 @@
   --color-fg-muted: var(--fg-muted);
   --color-border: var(--border);
   --color-border-bright: var(--border-bright);
+  --color-control-edge: var(--control-edge);
   --color-accent-madder: var(--accent-madder);
   --color-accent-madder-soft: var(--accent-madder-soft);
 

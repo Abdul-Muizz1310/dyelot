@@ -35,10 +35,9 @@ describe("F-A11Y-07 the chrome tokens", () => {
     },
   );
 
-  // Non-text: the mode switch's thumb at rest is --fg-muted; the focus ring is madder. Field edges
-  // use --border-bright like every control; a hex field always shows its value or the generated hex
-  // as a placeholder in --fg-muted, which marks where it is.
-  it.each(["fg-muted", "accent-madder"])(
+  // Non-text: the edge of every form control is --control-edge (F-A11Y-09); the mode switch's thumb
+  // at rest is --fg-muted; the focus ring is madder.
+  it.each(["control-edge", "fg-muted", "accent-madder"])(
     "--%s meets 3:1 as a control edge on the page and the panel",
     (name) => {
       for (const surface of SURFACES) {

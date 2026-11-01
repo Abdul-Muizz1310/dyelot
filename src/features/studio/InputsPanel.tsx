@@ -37,7 +37,7 @@ const CUSTOM = "custom";
 
 const LABEL = "block text-fg-muted text-xs";
 const SELECT =
-  "h-9 w-full rounded-md border border-border-bright bg-panel px-2 text-foreground text-sm hover:border-fg-muted";
+  "h-9 w-full rounded-md border border-control-edge bg-panel px-2 text-foreground text-sm hover:border-fg-muted";
 
 type Option<T extends string> = { readonly value: T; readonly label: string };
 const same = <T extends string>(values: readonly T[]): readonly Option<T>[] =>
@@ -261,7 +261,7 @@ function Choice<T extends string>({
   return (
     <fieldset className="min-w-0 space-y-1.5">
       <legend className={`${LABEL} mb-1.5`}>{legend}</legend>
-      <div className="flex gap-1 rounded-md border border-border-bright p-0.5">
+      <div className="flex gap-1 rounded-md border border-control-edge p-0.5">
         {options.map((option) => (
           <label
             key={option.value}
@@ -389,7 +389,7 @@ function SeedRow({ slot, store }: { slot: Lockable; store: StudioStore }) {
           onKeyDown={(event) => {
             if (event.key === "Enter") commit();
           }}
-          className="h-9 min-w-0 flex-1 rounded-md border border-border-bright bg-page px-2 font-mono text-foreground text-sm tabular-nums placeholder:text-fg-muted hover:border-fg-muted aria-invalid:border-foreground"
+          className="h-9 min-w-0 flex-1 rounded-md border border-control-edge bg-page px-2 font-mono text-foreground text-sm tabular-nums placeholder:text-fg-muted hover:border-fg-muted aria-invalid:border-foreground"
         />
         <input
           type="color"
@@ -402,7 +402,7 @@ function SeedRow({ slot, store }: { slot: Lockable; store: StudioStore }) {
             setInvalid(false);
             setSeedColor(slot, event.currentTarget.value, { coalesce: `seed:${slot}` });
           }}
-          className="size-9 shrink-0 cursor-pointer rounded-md border border-border-bright bg-page p-0.5 [&::-webkit-color-swatch]:rounded-[4px] [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
+          className="size-9 shrink-0 cursor-pointer rounded-md border border-control-edge bg-page p-0.5 [&::-webkit-color-swatch]:rounded-[4px] [&::-webkit-color-swatch]:border-0 [&::-webkit-color-swatch-wrapper]:p-0"
         />
         <button
           type="button"
@@ -410,7 +410,7 @@ function SeedRow({ slot, store }: { slot: Lockable; store: StudioStore }) {
           aria-pressed={locked}
           {...{ [SEED_SLOT]: slot }}
           onClick={() => toggleLock(slot)}
-          className={`inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-border-bright text-fg-muted hover:text-foreground ${PRESSED}`}
+          className={`inline-flex size-9 shrink-0 items-center justify-center rounded-md border border-control-edge text-fg-muted hover:text-foreground ${PRESSED}`}
         >
           <LockIcon locked={locked} />
         </button>
