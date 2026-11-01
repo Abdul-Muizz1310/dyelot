@@ -117,7 +117,13 @@ function inflateCapped(deflated: Uint8Array): Uint8Array {
 
 /** Strict UTF-8: the text must encode back to the same bytes, so U+FFFD never stands in. */
 function utf8(bytes: Uint8Array): string {
-  const text = strFromU8(bytes);
+  let text: string;
+  try {
+    text = strFromU8(bytes);
+  } catch {
+    // fflate's own decoder, used where TextDecoder is missing, throws on some invalid bytes.
+    throw corrupt("the design is not valid UTF-8");
+  }
   if (!sameBytes(strToU8(text), bytes)) throw corrupt("the design is not valid UTF-8");
   return text;
 }
@@ -168,7 +174,8 @@ export function encodeSpec(spec: DesignSpec): string {
 /**
  * Opens a share link (spec R-22, section 6.7), in this order: the length guard; the base64url
  * alphabet; decoding, and re-encoding to the same text; the trailer, checked before anything is
- * inflated; inflating with a 1 MiB cap; strict UTF-8; JSON; the version; the schema. A failure up
+ * inflated; inflating with a 1 MiB cap; strict UTF-8; JSON; the version; the schema; then the
+ * schema again on the canonical form, so a valid payload comes back normalized. A failure up
  * to JSON is `corrupt`. A `version` string other than `dyelot.spec/1` is `version`. A missing or
  * non-string version, or any other schema failure, is `schema`, with `issues`. A link that is not
  * a string throws TypeError.
@@ -193,6 +200,14 @@ export function decodeSpec(s: string): DesignSpec {
       `it was made for another spec version than ${SPEC_VERSION}`,
     );
   }
+  const parsed = parseSchema(json);
+  // A valid payload that is not in canonical form (another engine's key order, more digits) is
+  // stored as canonicalize writes it, so the decoded spec equals its canonical form (spec 6.7).
+  return parseSchema(JSON.parse(canonicalize(parsed)));
+}
+
+/** The schema's parse, with a failure as `SpecDecodeError("schema")` listing the paths. */
+function parseSchema(json: unknown): DesignSpec {
   const parsed = DesignSpecSchema.safeParse(json);
   if (!parsed.success) {
     const paths = pathsOf(parsed.error.issues);

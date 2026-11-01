@@ -334,6 +334,35 @@ describe("encodeSpec and decodeSpec", () => {
     }
   });
 
+  it("C-URL-15 normalizes a valid payload that is not in canonical form", () => {
+    const spec = defaultSpec();
+    const path = ["color", "palettes", "primary", "light", 6, "contrast"] as const;
+    const contrast = spec.color.palettes.primary.light[6].contrast;
+    // Shuffled keys, a number past 6 significant digits and a hue that rounds to 360 all pass the
+    // schema; decodeSpec stores them as canonicalize would.
+    const untidy = withValue(
+      withValue(shuffled(spec, "order"), path, contrast + 1e-9),
+      ["color", "palettes", "primary", "hue"],
+      359.99999,
+    );
+    const decoded = decodeSpec(linkOfJson(untidy));
+    expect(decoded.color.palettes.primary.light[6].contrast).toBe(contrast);
+    expect(decoded.color.palettes.primary.hue).toBe(0);
+    const expected = as(withValue(spec, ["color", "palettes", "primary", "hue"], 0));
+    expect(decoded).toEqual(expected);
+    expect(specId(decoded)).toBe(specId(expected));
+    expect(canonicalize(decoded)).toBe(canonicalize(expected));
+  });
+
+  it("C-URL-15 refuses a payload whose canonical form fails the schema", () => {
+    // A ratio of 1.0000001 lies in (1, 2] as given but rounds to 1, which the schema refuses.
+    const spec = withValue(defaultSpec(), ["type", "ratio"], 1.0000001);
+    expect(DesignSpecSchema.safeParse(spec).success).toBe(true);
+    const failure = decodeError(() => decodeSpec(linkOfJson(spec)));
+    expect(failure.reason).toBe("schema");
+    expect(failure.issues).toEqual(["type.ratio"]);
+  });
+
   it("C-URL-14 rejects a change that flips only padding bits of the final deflate byte", () => {
     const link = encodeSpec(defaultSpec());
     const positions = finalBytePositions(link);
