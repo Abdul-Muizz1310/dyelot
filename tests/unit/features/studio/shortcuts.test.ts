@@ -23,6 +23,7 @@ function press(key: string, code: string, held: Partial<KeyPress> = {}): KeyPres
     altKey: false,
     shiftKey: false,
     isComposing: false,
+    repeat: false,
     ...held,
   };
 }
@@ -49,6 +50,15 @@ afterEach(() => {
 });
 
 describe("shortcutFor on the page", () => {
+  it("C-KEYS-01 gives the same for a held key: Space, ← and → fire on every repeat", () => {
+    const held = { repeat: true };
+    expect(shortcutFor({ ...SPACE, ...held }, document.body, NO_DRAWER)).toEqual({
+      kind: "regenerate",
+    });
+    expect(shortcutFor({ ...LEFT, ...held }, null, NO_DRAWER)).toEqual({ kind: "undo" });
+    expect(shortcutFor({ ...RIGHT, ...held }, null, NO_DRAWER)).toEqual({ kind: "redo" });
+  });
+
   it("C-KEYS-01 gives regenerate for Space, undo for ← and redo for → on the body", () => {
     expect(shortcutFor(SPACE, document.body, NO_DRAWER)).toEqual({ kind: "regenerate" });
     expect(shortcutFor(LEFT, document.body, NO_DRAWER)).toEqual({ kind: "undo" });
@@ -200,6 +210,24 @@ describe("Alt+T flips the mode, matched on the code (R2-15 item 3)", () => {
 });
 
 describe("Mod+S copies the link (R2-15 items 3 and 7)", () => {
+  it("C-KEYS-07 Mod+S is matched on the code KeyS too, for layouts where S types another letter", () => {
+    expect(shortcutFor(press("ы", "KeyS", { ctrlKey: true }), null, NO_DRAWER)).toEqual({
+      kind: "copy-link",
+    });
+    expect(shortcutFor(press("ы", "KeyS", { metaKey: true }), null, NO_DRAWER)).toEqual({
+      kind: "copy-link",
+    });
+    expect(shortcutFor(press("ы", "KeyS", { ctrlKey: true }), build("<input>"), NO_DRAWER)).toBe(
+      null,
+    );
+  });
+
+  it("C-KEYS-07 a held Mod+S keeps copying, so the save dialog stays shut on every repeat", () => {
+    expect(shortcutFor({ ...CTRL_S, repeat: true }, null, NO_DRAWER)).toEqual({
+      kind: "copy-link",
+    });
+  });
+
   it("C-KEYS-07 Ctrl+S and Meta+S give copy-link outside a text field", () => {
     expect(shortcutFor(CTRL_S, null, NO_DRAWER)).toEqual({ kind: "copy-link" });
     expect(shortcutFor(META_S, build("<button>b</button>"), NO_DRAWER)).toEqual({
@@ -273,6 +301,15 @@ describe("an open drawer keeps Space and the arrows (R2-15 item 2)", () => {
     expect(shortcutFor(CTRL_S, heading, DRAWER)).toEqual({ kind: "copy-link" });
     const lock = build(`<button ${SEED_SLOT}="accent">lock</button>`);
     expect(shortcutFor(L, lock, DRAWER)).toEqual({ kind: "toggle-lock", slot: "accent" });
+  });
+});
+
+describe("held toggles (C-KEYS-13)", () => {
+  it("C-KEYS-13 a repeated L or Alt+T gives null, so a held toggle does not flicker", () => {
+    const lock = build(`<button ${SEED_SLOT}="primary">lock</button>`);
+    expect(shortcutFor({ ...L, repeat: true }, lock, NO_DRAWER)).toBeNull();
+    expect(shortcutFor({ ...ALT_T, repeat: true }, null, NO_DRAWER)).toBeNull();
+    expect(shortcutFor(L, lock, NO_DRAWER)).toEqual({ kind: "toggle-lock", slot: "primary" });
   });
 });
 

@@ -14,6 +14,8 @@ export type KeyPress = {
   readonly altKey: boolean;
   readonly shiftKey: boolean;
   readonly isComposing: boolean;
+  /** A held key's repeated press. */
+  readonly repeat: boolean;
 };
 
 export type Shortcut =
@@ -108,22 +110,26 @@ export function shortcutFor(
   }
   assertRecord(context, "shortcutFor: context");
   if (press.isComposing) return null;
-  const { key, code, ctrlKey, metaKey, altKey, shiftKey } = press;
+  const { key, code, ctrlKey, metaKey, altKey, shiftKey, repeat } = press;
   // Escape is exempt from the text-field rule: a modal drawer closes from every control in it.
   if (key === "Escape") return context.drawerOpen ? { kind: "close-drawer" } : null;
   // The canvas region and everything in it keep their keys (item 5).
   if (target?.closest(CANVAS_REGION)) return null;
   const inText = target !== null && isTextField(target);
   if (ctrlKey || metaKey) {
-    const save = key.toLowerCase() === "s" && !altKey && !shiftKey;
+    // The key or the code: S types another letter on some layouts. A repeat copies again, so a
+    // held chord never opens the save dialog (item 7).
+    const save = (key.toLowerCase() === "s" || code === "KeyS") && !altKey && !shiftKey;
     return save && !inText ? { kind: "copy-link" } : null;
   }
   if (altKey) {
-    // Matched on the code: Alt changes the character on some layouts (item 3).
-    return code === "KeyT" && !shiftKey && !inText ? { kind: "toggle-mode" } : null;
+    // Matched on the code: Alt changes the character on some layouts (item 3). A held toggle
+    // would flip on every repeat, so a repeat does nothing.
+    return code === "KeyT" && !shiftKey && !inText && !repeat ? { kind: "toggle-mode" } : null;
   }
   if (inText) return null;
   if (key.toLowerCase() === "l") {
+    if (repeat) return null;
     const slot = seedSlot(target);
     return slot === null ? null : { kind: "toggle-lock", slot };
   }
