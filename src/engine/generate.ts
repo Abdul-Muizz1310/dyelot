@@ -127,9 +127,12 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   let families = DEFAULT_FAMILIES;
   if (pairing !== undefined) {
     assertOneOf(pairing, PAIRING_IDS, "generateSystem: params.pairing");
-    // assertOneOf ran against PAIRING_IDS, so the lookup cannot miss; the fallback only satisfies the type.
-    const { display, body, mono } = pairingById(pairing) ?? DEFAULT_FAMILIES;
-    families = { display, body, mono };
+    const chosen = pairingById(pairing);
+    // assertOneOf ran against PAIRING_IDS, so a miss means PAIRINGS and PAIRING_IDS disagree: fail loudly.
+    if (chosen === undefined) {
+      throw new Error(`generateSystem: pairing "${pairing}" is listed but has no entry`);
+    }
+    families = { display: chosen.display, body: chosen.body, mono: chosen.mono };
   }
   const seeds: Seeds = {};
   for (const slot of LOCKABLE) {
