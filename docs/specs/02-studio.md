@@ -1346,7 +1346,8 @@ as `var(--panel)`, `VAR(--panel)` (CSS function names ignore case), `bg-(--panel
 is a violation. A name built in a template passes only when its fixed prefix ends in `-` and starts a bridge name
 (`` `var(--text-${step})` ``); `` `var(--${role})` `` and `` `var(--p${x})` `` could name anything and are violations. A role's
 variable comes from `roleVar(role)` in `src/features/preview/vars.ts`, which throws `RangeError` for a name outside
-`ROLE_NAMES`; the guard allows that function's body by name. The value of a custom property (`--kit-scrim: white`, the quoted key
+`ROLE_NAMES`; the guard allows that function's checked body exactly as `vars.ts` writes it, and a function that borrows the
+name with any other body is scanned like the rest. The value of a custom property (`--kit-scrim: white`, the quoted key
 `"--kit-value": "red"`) and of a vendor-prefixed property (`-webkit-text-fill-color`) is checked like any color value, the
 fallback of `var(--x, red)` is checked, and the CSS Color 4 system colors (`Canvas`, `CanvasText`, `ButtonBorder`,
 `AccentColor` and the rest) count as named colors. `color-mix(...)` passes only when every color argument is `var(--x)` or

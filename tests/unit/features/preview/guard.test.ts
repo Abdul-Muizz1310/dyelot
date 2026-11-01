@@ -61,6 +61,10 @@ describe("C-GUARD-01 findViolations flags every color that is not a spec variabl
     ["background: var(--page)", OUTSIDE],
     ["bg-(--panel)", OUTSIDE],
     ["text-[var(--fg-muted)]", OUTSIDE],
+    // Only roleVar's own checked body is allowed, not any function that borrows its name.
+    ['function roleVar(role: string): string {\n  return "var(--panel)";\n}\n', OUTSIDE],
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
+    ["function roleVar(role: string): string {\n  return `var(--${role})`;\n}\n", OUTSIDE],
   ])("flags %s as a %s", (source, rule) => {
     expect(findViolations(source)).toContainEqual(expect.stringContaining(rule));
   });

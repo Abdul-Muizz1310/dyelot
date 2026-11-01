@@ -213,8 +213,13 @@ function allowedVariable(name: string): boolean {
   );
 }
 
-/** The body of `roleVar`, the one function allowed to build a role's variable from a name. */
-const ROLE_VAR = /function roleVar\([^)]*\)[^{]*\{[^}]*\}/g;
+/**
+ * The body of `roleVar`, the one function allowed to build a role's variable from a name, exactly
+ * as `vars.ts` writes it: typed `RoleName` and checked against `ROLE_NAMES` before it builds the
+ * name. A function that borrows the name with any other body is scanned like the rest.
+ */
+const ROLE_VAR =
+  /function roleVar\(role: RoleName\): string \{\s*assertOneOf\(role, ROLE_NAMES, "roleVar: role"\);\s*return `var\(--\$\{role\}\)`;\s*\}/g;
 
 /** Every `var(--x)` or `(--x)` whose name the bridge does not write, `roleVar`'s body aside. */
 function variableHits(source: string): string[] {
