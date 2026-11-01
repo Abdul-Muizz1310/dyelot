@@ -39,6 +39,7 @@ const ALL_IDS = [
   "D4",
   "P1",
 ];
+const M1_IDS: ReadonlySet<string> = new Set<string>(ALL_IDS);
 
 const SEVERITY = { error: 0, warn: 1, info: 2 } as const;
 const MODE = { light: 0, dark: 1 } as const;
@@ -80,7 +81,8 @@ function brokenSpec(): DesignSpec {
 
 describe("lintSpec", () => {
   it("C-LINT-47 is silent on the base spec except N3 info in both modes", () => {
-    const findings = lintSpec(defaultSpec());
+    // R2-25: M2 adds taste rules, and T2 fires on the base spec, so this case reads M1's ids only.
+    const findings = lintSpec(defaultSpec()).filter((f) => M1_IDS.has(f.id));
     const loud = findings.filter((f) => f.id !== "N3");
     expect(loud).toEqual([]);
     expect(findings.filter((f) => f.id === "N3").map((f) => [f.severity, f.mode])).toEqual([
@@ -90,8 +92,9 @@ describe("lintSpec", () => {
   });
 
   it("C-LINT-43 has exactly the 20 rule ids; every finding has a clean source and finite numbers", () => {
-    expect([...RULE_IDS]).toEqual(ALL_IDS);
-    const findings = lintSpec(brokenSpec());
+    // R2-25: RULE_IDS grows in M2, so its first 20 entries are M1's ids and the findings are M1's.
+    expect([...RULE_IDS].slice(0, ALL_IDS.length)).toEqual(ALL_IDS);
+    const findings = lintSpec(brokenSpec()).filter((f) => M1_IDS.has(f.id));
     expect(new Set(findings.map((f) => f.id))).toEqual(new Set(ALL_IDS));
     for (const finding of findings) {
       expect(finding.source.length).toBeGreaterThan(0);

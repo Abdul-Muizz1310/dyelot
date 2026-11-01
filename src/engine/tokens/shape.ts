@@ -1,7 +1,7 @@
 import { assertFinite, assertOneOf } from "../color/guards";
 
 /** The radius sets, in the order the studio lists them. */
-export const RADIUS_SET_NAMES = ["sharp", "soft", "round"] as const;
+export const RADIUS_SET_NAMES = Object.freeze(["sharp", "soft", "round"] as const);
 
 export type RadiusSet = (typeof RADIUS_SET_NAMES)[number];
 export type RadiusScale = {

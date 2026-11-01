@@ -2,14 +2,14 @@ import { normalizeHue } from "./convert";
 import { assertFinite, assertOneOf } from "./guards";
 
 /** The harmonies of the spec's hue table, in the order of the spec's `Harmony` union. */
-export const HARMONIES = [
+export const HARMONIES = Object.freeze([
   "monochrome",
   "analogous",
   "complementary",
   "split",
   "triadic",
   "tetradic",
-] as const;
+] as const);
 
 export type Harmony = (typeof HARMONIES)[number];
 

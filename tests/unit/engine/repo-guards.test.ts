@@ -4,7 +4,8 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import config from "../../../vitest.config";
 
-// C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9. C-REPO-03
+// C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9, with
+// C-REPO-02 and C-REPO-05 amended by R2-25 of docs/specs/02-studio.md, and C-ENTRY-16 to 18. C-REPO-03
 // lives in environment.test.ts, one copy per folder.
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
@@ -202,10 +203,42 @@ describe("C-REPO-01 the pure core uses no impure API", () => {
   });
 });
 
-describe("C-REPO-02 the engine does not import from the spec", () => {
-  it("lets only src/engine/generate.ts import from src/spec", () => {
+/**
+ * The specifiers of the value imports and re-exports in `source` (comments already stripped): a
+ * statement that starts `import type` or `export type` is a type import and does not count (R2-25).
+ */
+function valueSpecifiers(source: string): string[] {
+  const found: string[] = [];
+  for (const match of source.matchAll(
+    /\b(import|export)\s+(type\s+)?(?:[^;"']*?\bfrom\s*)?["']([^"']+)["']/g,
+  )) {
+    if (match[2] === undefined) found.push(match[3]);
+  }
+  return found;
+}
+
+/** The files of src/engine that may import a value from src/spec (R2-25). */
+const SPEC_VALUE_IMPORTERS = ["generate.ts", "presets.ts", "index.ts"].map((name) =>
+  path.join(ENGINE_DIR, name),
+);
+
+describe("C-REPO-02 the engine reaches the spec only where R2-25 allows", () => {
+  it("lets only generate.ts, presets.ts and index.ts import a value from src/spec", () => {
     const offenders = codeFiles(ENGINE_DIR)
-      .filter((file) => file !== path.join(ENGINE_DIR, "generate.ts"))
+      .filter((file) => !SPEC_VALUE_IMPORTERS.includes(file))
+      .filter((file) =>
+        valueSpecifiers(stripComments(readFileSync(file, "utf8"))).some((specifier) =>
+          importsFromSpec(file, specifier),
+        ),
+      )
+      .map((file) => path.relative(ROOT, file));
+    expect(offenders).toEqual([]);
+  });
+
+  it("C-ENTRY-18 lets the linter import nothing from src/spec, not even a type", () => {
+    const linter = codeFiles(path.join(ENGINE_DIR, "lint"));
+    expect(linter.length).toBeGreaterThan(0);
+    const offenders = linter
       .filter((file) =>
         specifiers(stripComments(readFileSync(file, "utf8"))).some((specifier) =>
           importsFromSpec(file, specifier),
@@ -213,6 +246,18 @@ describe("C-REPO-02 the engine does not import from the spec", () => {
       )
       .map((file) => path.relative(ROOT, file));
     expect(offenders).toEqual([]);
+  });
+
+  it("tells a type import from a value import", () => {
+    expect(valueSpecifiers('import type { A } from "../spec/schema";')).toEqual([]);
+    expect(valueSpecifiers('export type { A } from "../spec/schema";')).toEqual([]);
+    expect(valueSpecifiers('import { type A, b } from "../spec/schema";')).toEqual([
+      "../spec/schema",
+    ]);
+    expect(valueSpecifiers('import { b } from "../spec/schema";')).toEqual(["../spec/schema"]);
+    expect(valueSpecifiers('export { b } from "../spec/schema";')).toEqual(["../spec/schema"]);
+    expect(valueSpecifiers('export * from "./x";\nimport "./side";')).toEqual(["./x", "./side"]);
+    expect(valueSpecifiers("const a = 1;")).toEqual([]);
   });
 
   it("recognizes an import from src/spec however it is written", () => {
@@ -229,24 +274,61 @@ describe("C-REPO-02 the engine does not import from the spec", () => {
   });
 });
 
-describe("C-REPO-05 only toHex and the schema make a Hex", () => {
-  const CAST = /\bas\s+Hex\b/g;
+describe("C-REPO-05 only toHex and the Hex guards make a Hex", () => {
+  // A cast (`as Hex`, `<Hex>x`) or a predicate (`x is Hex`, `asserts x is Hex`).
+  const MAKES_HEX = /\bas\s+Hex\b|<Hex>|\bis\s+Hex\b/g;
 
-  it("finds no cast to Hex in src/engine or src/spec outside toHex", () => {
-    const casts = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)].flatMap((file) =>
-      Array.from(stripComments(readFileSync(file, "utf8")).matchAll(CAST), () =>
-        path.relative(ROOT, file),
+  it("finds a Hex made only by toHex (a cast) and by isHex and assertHex (predicates)", () => {
+    const found = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)].flatMap((file) =>
+      Array.from(
+        stripComments(readFileSync(file, "utf8")).matchAll(MAKES_HEX),
+        (match) => `${path.relative(ROOT, file)}: ${match[0].replace(/\s+/g, " ")}`,
       ),
     );
-    // toHex itself brands the string it builds, once.
-    expect(casts).toEqual(["src/engine/color/convert.ts"]);
+    // toHex brands the string it builds, once; the two predicates of guards.ts are the schema's way in.
+    expect(found).toEqual([
+      "src/engine/color/convert.ts: as Hex",
+      "src/engine/color/guards.ts: is Hex",
+      "src/engine/color/guards.ts: is Hex",
+    ]);
   });
 
-  it("is a grep that sees a cast however it is spaced, and not a longer name", () => {
-    expect("x as Hex;".match(CAST)).toHaveLength(1);
-    expect("x as\n  Hex)".match(CAST)).toHaveLength(1);
-    expect("x as HexColor".match(CAST)).toBeNull();
-    expect("type Hex = string".match(CAST)).toBeNull();
+  it("C-ENTRY-17 sees a cast, an angle cast or a predicate, however spaced, and not a longer name", () => {
+    expect("x as Hex;".match(MAKES_HEX)).toHaveLength(1);
+    expect("x as\n  Hex)".match(MAKES_HEX)).toHaveLength(1);
+    expect("const h = <Hex>x;".match(MAKES_HEX)).toHaveLength(1);
+    expect("function f(v: unknown): v is Hex {".match(MAKES_HEX)).toHaveLength(1);
+    expect("function f(v: unknown): asserts v is  Hex {".match(MAKES_HEX)).toHaveLength(1);
+    expect("x as HexColor".match(MAKES_HEX)).toBeNull();
+    expect("v is HexColor".match(MAKES_HEX)).toBeNull();
+    expect("type Hex = string".match(MAKES_HEX)).toBeNull();
+  });
+});
+
+describe("C-ENTRY-16 each bound has one definition", () => {
+  const sources = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)].map(
+    (file) => [path.relative(ROOT, file), stripComments(readFileSync(file, "utf8"))] as const,
+  );
+  const definitions = (name: string): string[] =>
+    sources
+      .filter(([, code]) => new RegExp(`\\bconst\\s+${name}\\s*=`).test(code))
+      .map(([file]) => file);
+
+  it.each([
+    ["CHROMA_CEILING", "src/engine/color/guards.ts"],
+    ["NAME_MAX", "src/spec/schema.ts"],
+    ["SEED_MAX", "src/spec/schema.ts"],
+  ])("defines %s once, in %s", (name, home) => {
+    expect(definitions(name)).toEqual([home]);
+  });
+
+  it("writes the 0.5 chroma ceiling as a literal nowhere else", () => {
+    const literal = /\.max\(0\.5\)|CHROMA\w*\s*=\s*0\.5\b|\[0, 0\.5\]|to 0\.5\b/;
+    const offenders = sources
+      .filter(([file]) => file !== "src/engine/color/guards.ts")
+      .filter(([, code]) => literal.test(code))
+      .map(([file]) => file);
+    expect(offenders).toEqual([]);
   });
 });
 

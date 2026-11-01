@@ -6,6 +6,7 @@ import {
   assertFinite,
   assertGamut,
   assertMode,
+  CHROMA_CEILING,
   clamp01,
   clampedSrgb,
   describeType,
@@ -13,7 +14,7 @@ import {
 import type { Gamut, Hex, Mode, Oklch, Rgb } from "./types";
 
 /** The eleven steps of every scale, lightest job first (spec section 2). */
-export const STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const;
+export const STEPS = Object.freeze([50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950] as const);
 
 export type Step = (typeof STEPS)[number];
 
@@ -43,7 +44,6 @@ const ENVELOPE = [0.12, 0.22, 0.4, 0.62, 0.85, 1, 1, 0.9, 0.75, 0.6, 0.45] as co
 /** Dark mode multiplies the peak chroma by this: the engine's own dark desaturation. */
 export const DARK_CHROMA_FACTOR = 0.85;
 const GAMUT_CAP = 0.97;
-const MAX_PEAK_CHROMA = 0.5;
 
 /** Bisection on L: 50 iterations, and 24 for the inner `maxChroma` (spec, notes for implementers). */
 const SOLVE_ITERATIONS = 50;
@@ -168,9 +168,9 @@ function checkSettings(input: Omit<ScaleInput, "hue">, name: string): Settings {
     throw new TypeError(`${name} must be an object, got ${describeType(input)}`);
   }
   assertFinite(input.peakChroma, `${name}.peakChroma`);
-  if (input.peakChroma < 0 || input.peakChroma > MAX_PEAK_CHROMA) {
+  if (input.peakChroma < 0 || input.peakChroma > CHROMA_CEILING) {
     throw new RangeError(
-      `${name}.peakChroma must be in [0, ${MAX_PEAK_CHROMA}], got ${input.peakChroma}`,
+      `${name}.peakChroma must be in [0, ${CHROMA_CEILING}], got ${input.peakChroma}`,
     );
   }
   assertMode(input.mode, `${name}.mode`);
@@ -327,9 +327,9 @@ export function stepChroma(palette: Omit<ScaleInput, "page">, index: number, l: 
   }
   const hue = checkHue(palette.hue, "stepChroma: palette.hue");
   assertFinite(palette.peakChroma, "stepChroma: palette.peakChroma");
-  if (palette.peakChroma < 0 || palette.peakChroma > MAX_PEAK_CHROMA) {
+  if (palette.peakChroma < 0 || palette.peakChroma > CHROMA_CEILING) {
     throw new RangeError(
-      `stepChroma: palette.peakChroma must be in [0, ${MAX_PEAK_CHROMA}], got ${palette.peakChroma}`,
+      `stepChroma: palette.peakChroma must be in [0, ${CHROMA_CEILING}], got ${palette.peakChroma}`,
     );
   }
   assertMode(palette.mode, "stepChroma: palette.mode");

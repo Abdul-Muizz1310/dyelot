@@ -7,6 +7,8 @@ import {
   type DirectionParams,
   MOTION_FEELS,
   type MotionFeel,
+  NAME_MAX,
+  SEED_MAX,
   SPEC_VERSION,
 } from "../spec/schema";
 import { pickChartColors } from "./color/chart";
@@ -39,9 +41,6 @@ import { TYPE_CONTEXTS, type TypeContext, typeScale } from "./tokens/type";
 /** The engine that wrote a spec; `meta.engineVersion` records it. */
 export const ENGINE_VERSION = "dyelot.engine/1";
 
-// Bounds of R-20.
-const NAME_MAX = 80;
-const SEED_MAX = 128;
 const UNTITLED = "untitled";
 const SPACE_BASE = 4;
 const SHADOW_STEP = STEPS.indexOf(950);
@@ -185,5 +184,5 @@ export function generateSystem(params: DirectionParams, seed: string): DesignSpe
   };
   // R-02: every stored number through round6, a hue through roundHue. The canonical text does
   // exactly that, so reading it back gives the stored spec, which the schema checks and types.
-  return DesignSpecSchema.parse(JSON.parse(canonicalJson(draft, "spec")));
+  return DesignSpecSchema.parse(JSON.parse(canonicalJson(draft, "spec", "generateSystem")));
 }

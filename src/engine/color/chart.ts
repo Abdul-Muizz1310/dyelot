@@ -69,11 +69,13 @@ function scaleOf(
 ): readonly ScaleStep[] {
   const palette = p[name];
   if (typeof palette !== "object" || palette === null) {
-    throw new RangeError(`pickChartColors: p.${name} is missing`);
+    throw new TypeError(
+      `pickChartColors: p.${name} must be a palette, got ${describeType(palette)}`,
+    );
   }
   const scale = palette[mode];
   if (!Array.isArray(scale) || scale.length !== STEPS.length) {
-    throw new RangeError(`pickChartColors: p.${name}.${mode} must hold ${STEPS.length} steps`);
+    throw new TypeError(`pickChartColors: p.${name}.${mode} must hold ${STEPS.length} steps`);
   }
   return scale;
 }

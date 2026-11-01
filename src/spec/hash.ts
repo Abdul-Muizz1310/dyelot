@@ -1,6 +1,6 @@
 import { strToU8 } from "fflate";
 import { describeType } from "../engine/color/guards";
-import { canonicalize } from "./canonical";
+import { canonicalizeFor } from "./canonical";
 import type { DesignSpec } from "./schema";
 
 // FNV-1a 64: the offset basis 0xcbf29ce484222325 and the prime 2^40 + 0x1b3. The state lives in
@@ -45,5 +45,5 @@ export function fnv1a64(input: string | Uint8Array): string {
 
 /** A spec's identity: FNV-1a 64 of its canonical string (spec R-21), 16 lowercase hex digits. */
 export function specId(spec: DesignSpec): string {
-  return fnv1a64(canonicalize(spec));
+  return fnv1a64(canonicalizeFor(spec, "specId"));
 }

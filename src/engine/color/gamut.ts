@@ -3,6 +3,7 @@ import {
   assertFinite,
   assertGamut,
   assertOklch,
+  CHROMA_CEILING,
   clamp01,
   RGB_TOLERANCE,
   withinUnitCube,
@@ -15,7 +16,6 @@ const JND = 0.02;
 const EPSILON = 1e-4;
 
 // `max_chroma` in core.py: bisection on [0, 0.5], 40 iterations.
-const MAX_CHROMA_SEARCH = 0.5;
 const MAX_CHROMA_ITERATIONS = 40;
 // Past 53 halvings of [0, 0.5] a double cannot move, so 64 is more than any caller needs.
 const MAX_ITERATIONS_ALLOWED = 64;
@@ -110,7 +110,7 @@ export function maxChroma(
   };
   if (!fits(0)) return 0;
   let low = 0;
-  let high = MAX_CHROMA_SEARCH;
+  let high = CHROMA_CEILING;
   for (let i = 0; i < iterations; i++) {
     const middle = (low + high) / 2;
     if (fits(middle)) low = middle;

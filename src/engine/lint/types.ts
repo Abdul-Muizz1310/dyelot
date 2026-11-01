@@ -3,7 +3,7 @@ import type { RoleName } from "../color/roles";
 import type { Hex, Mode } from "../color/types";
 
 /** The 20 rules of the M1 linter (spec section 6.8), in the order the spec lists them. */
-export const RULE_IDS = [
+export const RULE_IDS = Object.freeze([
   "C1",
   "C2",
   "C4",
@@ -24,7 +24,7 @@ export const RULE_IDS = [
   "D3",
   "D4",
   "P1",
-] as const;
+] as const);
 
 export type RuleId = (typeof RULE_IDS)[number];
 

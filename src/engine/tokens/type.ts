@@ -23,7 +23,13 @@ export type TypeStep = {
   trackingEm: number;
 };
 
-export const TYPE_CONTEXTS = ["dense", "product", "marketing", "editorial", "poster"] as const;
+export const TYPE_CONTEXTS = Object.freeze([
+  "dense",
+  "product",
+  "marketing",
+  "editorial",
+  "poster",
+] as const);
 export type TypeContext = (typeof TYPE_CONTEXTS)[number];
 
 /** Each step with its exponent of the ratio, counted from body, and its line-height multiplier. */

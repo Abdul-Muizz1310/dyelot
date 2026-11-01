@@ -1,6 +1,6 @@
 import { ACHROMATIC_CHROMA, hexDigitsToRgb, normalizeHue, rgbToOklch } from "./convert";
 import { ColorParseError } from "./errors";
-import { describeType } from "./guards";
+import { CHROMA_CEILING, describeType } from "./guards";
 import type { Oklch, Rgb } from "./types";
 
 export { ColorParseError };
@@ -24,8 +24,6 @@ const OKLCH = new RegExp(
   String.raw`^oklch\(${WS}*(${NUMBER}%?)${WS}+(${NUMBER})${WS}+(${NUMBER}|none)${WS}*\)$`,
   "i",
 );
-
-const MAX_CHROMA = 0.5;
 
 function isWhitespace(code: number): boolean {
   return code === 0x20 || code === 0x09 || code === 0x0d || code === 0x0a;
@@ -82,8 +80,8 @@ function parseOklch(input: string, text: string): Oklch {
     throw new ColorParseError(input, "L (lightness) runs from 0 to 1, or 0% to 100%.");
   }
   const c = Number(match[2]);
-  if (!(c >= 0 && c <= MAX_CHROMA)) {
-    throw new ColorParseError(input, "C (chroma) runs from 0 to 0.5.");
+  if (!(c >= 0 && c <= CHROMA_CEILING)) {
+    throw new ColorParseError(input, `C (chroma) runs from 0 to ${CHROMA_CEILING}.`);
   }
   // CSS reads a missing hue as 0 in a conversion, so `none` is hue 0 on a chromatic color.
   const h = match[3].toLowerCase() === "none" ? 0 : Number(match[3]);

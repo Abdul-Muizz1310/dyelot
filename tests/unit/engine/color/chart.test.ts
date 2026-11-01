@@ -149,7 +149,7 @@ describe("pickChartColors", () => {
     }
   });
 
-  it("C-CHART-07 throws RangeError for an unknown mode or gamut, or a missing palette", () => {
+  it("C-CHART-07 throws RangeError for an unknown mode or gamut, TypeError for a missing palette or a short scale", () => {
     const palettes = build();
     expect(() => pickChartColors(palettes, "dim" as Mode, "srgb")).toThrow(RangeError);
     expect(() => pickChartColors(palettes, "light", "rec2020" as Gamut)).toThrow(RangeError);
@@ -159,13 +159,13 @@ describe("pickChartColors", () => {
       const { [name]: _missing, ...partial } = palettes;
       expect(() =>
         pickChartColors(partial as Record<PaletteName, Palette>, "light", "srgb"),
-      ).toThrow(RangeError);
+      ).toThrow(TypeError);
     }
     const short = {
       ...palettes,
       primary: { ...palettes.primary, light: palettes.primary.light.slice(1) },
     };
-    expect(() => pickChartColors(short, "light", "srgb")).toThrow(RangeError);
+    expect(() => pickChartColors(short, "light", "srgb")).toThrow(TypeError);
     const notARecord = null as unknown as Record<PaletteName, Palette>;
     expect(() => pickChartColors(notARecord, "light", "srgb")).toThrow(TypeError);
   });

@@ -22,6 +22,29 @@
   },
   "overrides": [
     {
+      "includes": ["src/features/**", "src/app/**", "src/components/**", "src/lib/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "paths": {
+                  "zod": "Import z from src/spec/zod.ts, which turns on jitless mode for the CSP."
+                },
+                "patterns": [
+                  {
+                    "group": ["@/engine/**", "@/spec/**", "**/engine/**", "**/spec/**"],
+                    "message": "Import the engine from @/engine and the spec from @/spec, never from a file inside them."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["src/spec/zod.ts"],
       "linter": { "rules": { "style": { "noRestrictedImports": "off" } } }
     }

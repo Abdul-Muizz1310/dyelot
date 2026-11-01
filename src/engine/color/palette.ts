@@ -9,6 +9,7 @@ import {
   assertMode,
   assertOklch,
   assertOneOf,
+  CHROMA_CEILING,
   describeType,
   STORED_GAMUT_TOLERANCE,
   withinUnitCube,
@@ -18,7 +19,7 @@ import { type ScaleStep, STEPS, type Step, solveEvenScales, solveScale, THRESHOL
 import type { Gamut, Hex, Mode, Oklch, Rgb } from "./types";
 
 /** The eight palettes of a design system, in the order a spec stores them. */
-export const PALETTE_NAMES = [
+export const PALETTE_NAMES = Object.freeze([
   "neutral",
   "primary",
   "secondary",
@@ -27,14 +28,14 @@ export const PALETTE_NAMES = [
   "warning",
   "danger",
   "info",
-] as const;
+] as const);
 
 export type PaletteName = (typeof PALETTE_NAMES)[number];
 
-export const CHROMA_LEVELS = ["muted", "balanced", "vivid"] as const;
-export const NEUTRAL_TINTS = ["none", "warm", "cool", "brand"] as const;
-export const SCALE_MODES = ["standard", "even"] as const;
-export const CONTRAST_LEVELS = ["AA", "AA+", "AAA"] as const;
+export const CHROMA_LEVELS = Object.freeze(["muted", "balanced", "vivid"] as const);
+export const NEUTRAL_TINTS = Object.freeze(["none", "warm", "cool", "brand"] as const);
+export const SCALE_MODES = Object.freeze(["standard", "even"] as const);
+export const CONTRAST_LEVELS = Object.freeze(["AA", "AA+", "AAA"] as const);
 
 export type ContrastLevel = (typeof CONTRAST_LEVELS)[number];
 
@@ -92,7 +93,6 @@ const LIGHT_PAGE = toHex([1, 1, 1]);
 const DARK_PAGE_L = 0.18;
 const DARK_PAGE_CHROMA = 0.012;
 
-const MAX_CHROMA = 0.5;
 const FULL_TURN = 360;
 
 /** A palette's anchor before solving: its hue and peak chroma. */
@@ -140,9 +140,9 @@ export function pageFor(neutral: Palette, mode: Mode): Hex {
   if (neutral.hue < 0 || neutral.hue >= FULL_TURN) {
     throw new RangeError(`pageFor: neutral.hue must be in [0, 360), got ${neutral.hue}`);
   }
-  if (neutral.peakChroma < 0 || neutral.peakChroma > MAX_CHROMA) {
+  if (neutral.peakChroma < 0 || neutral.peakChroma > CHROMA_CEILING) {
     throw new RangeError(
-      `pageFor: neutral.peakChroma must be in [0, 0.5], got ${neutral.peakChroma}`,
+      `pageFor: neutral.peakChroma must be in [0, ${CHROMA_CEILING}], got ${neutral.peakChroma}`,
     );
   }
   assertMode(mode, "pageFor: mode");
@@ -150,15 +150,15 @@ export function pageFor(neutral: Palette, mode: Mode): Hex {
 }
 
 /** The palettes a caller can lock with a seed color, in the order of `ColorParams`. */
-export const LOCKABLE = ["primary", "secondary", "accent"] as const;
+export const LOCKABLE = Object.freeze(["primary", "secondary", "accent"] as const);
 export type Lockable = (typeof LOCKABLE)[number];
 
 /** A seed as passed: an object with l in [0, 1], c in [0, 0.5] and h null or in [0, 360). */
 function checkSeed(seed: Oklch, name: string): void {
   assertOklch(seed, name);
   if (seed.l < 0 || seed.l > 1) throw new RangeError(`${name}.l must be in [0, 1], got ${seed.l}`);
-  if (seed.c < 0 || seed.c > MAX_CHROMA) {
-    throw new RangeError(`${name}.c must be in [0, 0.5], got ${seed.c}`);
+  if (seed.c < 0 || seed.c > CHROMA_CEILING) {
+    throw new RangeError(`${name}.c must be in [0, ${CHROMA_CEILING}], got ${seed.c}`);
   }
   if (seed.h !== null && (seed.h < 0 || seed.h >= FULL_TURN)) {
     throw new RangeError(`${name}.h must be in [0, 360) or null, got ${seed.h}`);
