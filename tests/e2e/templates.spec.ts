@@ -106,27 +106,30 @@ function stateDifferences(pane: Locator): Promise<string[]> {
       }
       return values;
     };
+    // What a part paints, and its structure: never its attributes, values or text (review R2-I3).
+    // A field's text color is the placeholder's while it shows the placeholder, its own otherwise.
     const shows = (part: Element) =>
       [part, ...part.querySelectorAll("*")]
         .map((node) => {
           const style = getComputedStyle(node);
           const field = node as HTMLInputElement;
+          const placeholder =
+            (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) &&
+            field.value === "" &&
+            field.placeholder !== "";
           return [
             node.tagName,
             style.backgroundColor,
             style.backgroundImage,
             style.borderTopColor,
+            style.borderRightColor,
+            style.borderBottomColor,
+            style.borderLeftColor,
             style.borderTopStyle,
             style.boxShadow,
-            style.color,
+            placeholder ? getComputedStyle(node, "::placeholder").color : style.color,
             style.opacity,
             style.animationName,
-            node.getAttribute("aria-busy"),
-            node.getAttribute("aria-invalid"),
-            "value" in field ? field.value : "",
-            "indeterminate" in field ? String(field.indeterminate) : "",
-            node.children.length === 0 ? node.textContent : "",
-            Math.round(node.getBoundingClientRect().width),
           ].join("|");
         })
         .join("\n");
@@ -383,6 +386,24 @@ test.describe("7.5 The kitchen sink", () => {
       // Only the default specimens and the live demos take focus: at most 60 Tab stops per frame.
     }
     expect(await tabStops(page)).toBeLessThanOrEqual(60);
+    // The two readings tables share their columns: each header sits where the other's does.
+    for (const mode of MODES) {
+      const heads = await canvasPane(page, mode).evaluate((pane) =>
+        [...pane.querySelectorAll(".kit-readings table")].map((table) =>
+          // Layout pixels: the frame may be scaled to fit.
+          [...table.querySelectorAll("th")].map((head) => head.offsetLeft),
+        ),
+      );
+      expect(heads, mode).toHaveLength(2);
+      const [first = [], second = []] = heads;
+      expect(second.length, mode).toBe(first.length);
+      for (const [index, left] of first.entries()) {
+        expect(
+          Math.abs(left - (second[index] ?? 0)),
+          `${mode} column ${index}`,
+        ).toBeLessThanOrEqual(1);
+      }
+    }
     // Under 480 px of frame the readings stack as records: the table leaves the accessibility
     // tree, every row keeps its state label on screen, and each forced state still paints.
     const frames = page
@@ -408,7 +429,73 @@ test.describe("7.5 The kitchen sink", () => {
           }),
       );
       expect(labels, mode).toEqual(statesOf("table-row").map((state) => [state, state, true]));
+      // The empty record is two lines, the label and then the sentence, with no separator.
+      const empty = await pane
+        .locator('li[data-kit="table-row"][data-state="empty"]')
+        .evaluate((record) => {
+          const label = record.querySelector("[data-state-label]")?.getBoundingClientRect();
+          const sentence = record.querySelector("[data-empty-text]")?.getBoundingClientRect();
+          return {
+            text: record.textContent ?? "",
+            stacked: label !== undefined && sentence !== undefined && sentence.top >= label.bottom,
+          };
+        });
+      expect(empty.text, mode).not.toContain("·");
+      expect(empty.stacked, mode).toBe(true);
       expect(await stateDifferences(pane), `${mode} at 360`).toEqual([]);
+    }
+    await frames.getByRole("radio", { name: "1280", exact: true }).check();
+  });
+
+  test("F-TPL-38 every text in the kitchen sink sets one step's whole type triple", async () => {
+    const frames = page
+      .getByRole("region", { name: "Canvas toolbar" })
+      .getByRole("group", { name: "Frame", exact: true });
+    for (const frame of ["1280", "360"]) {
+      await frames.getByRole("radio", { name: frame, exact: true }).check();
+      for (const mode of MODES) {
+        const report = await canvasPane(page, mode).evaluate((pane, steps) => {
+          const triple = (element: Element) => {
+            const style = getComputedStyle(element);
+            return `${style.fontSize} ${style.lineHeight} ${style.letterSpacing}`;
+          };
+          // The oracle is the vars: a probe set straight from each step's three variables. A
+          // second probe checks that the step's class sets the same three.
+          const oracle = new Map<string, string>();
+          const classes: string[] = [];
+          for (const step of steps) {
+            const byVars = document.createElement("span");
+            byVars.style.fontSize = `var(--text-${step})`;
+            byVars.style.lineHeight = `var(--leading-${step})`;
+            byVars.style.letterSpacing = `var(--tracking-${step})`;
+            const byClass = document.createElement("span");
+            byClass.className = `kit-t-${step}`;
+            pane.append(byVars, byClass);
+            oracle.set(triple(byVars), step);
+            if (triple(byClass) !== triple(byVars)) classes.push(step);
+            byVars.remove();
+            byClass.remove();
+          }
+          const off = new Map<string, number>();
+          let checked = 0;
+          for (const element of pane.querySelectorAll("*")) {
+            if (element.closest("[inert]") !== null) continue;
+            if (element.getBoundingClientRect().width === 0) continue;
+            const text = [...element.childNodes].some(
+              (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "",
+            );
+            if (!text) continue;
+            checked++;
+            if (oracle.has(triple(element))) continue;
+            const name = `${element.tagName.toLowerCase()}.${[...element.classList].join(".")} ${triple(element)}`;
+            off.set(name, (off.get(name) ?? 0) + 1);
+          }
+          return { checked, classes, off: [...off].map(([name, count]) => `${name} ×${count}`) };
+        }, TYPE_STEPS);
+        expect(report.checked, `${frame} ${mode}`).toBeGreaterThan(150);
+        expect(report.classes, `${frame} ${mode} classes`).toEqual([]);
+        expect(report.off, `${frame} ${mode}`).toEqual([]);
+      }
     }
     await frames.getByRole("radio", { name: "1280", exact: true }).check();
   });

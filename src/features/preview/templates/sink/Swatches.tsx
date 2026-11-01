@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import type { Mode } from "@/engine";
 import type { DesignSpec } from "@/spec";
 import { swatches } from "../../swatches";
+import { roleVar } from "../../vars";
 import { Section } from "./Section";
 
 // The color roles of a pane (F-TPL-01, F-TPL-02): every role with its stored hex and, for a text
@@ -26,11 +27,11 @@ export function Swatches({ spec, mode }: { spec: DesignSpec; mode: Mode }) {
           >
             <span
               aria-hidden="true"
-              className="sink-chip"
+              className="sink-chip kit-t-h4"
               style={
                 pair === null
-                  ? { backgroundColor: `var(--${role})` }
-                  : { backgroundColor: `var(--${pair.fill})`, color: `var(--${role})` }
+                  ? { backgroundColor: roleVar(role) }
+                  : { backgroundColor: roleVar(pair.fill), color: roleVar(role) }
               }
             >
               {pair === null ? null : "Aa"}

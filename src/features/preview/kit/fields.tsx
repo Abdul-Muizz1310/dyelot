@@ -49,7 +49,7 @@ function Message({
   const text = state === "invalid" || state === "success" ? messages[state] : undefined;
   if (text === undefined) return null;
   return (
-    <p id={id} className="kit-message" data-tone={state}>
+    <p id={id} className="kit-message kit-t-caption" data-tone={state}>
       {state === "invalid" ? (
         <CircleAlert aria-hidden="true" />
       ) : (
@@ -64,12 +64,12 @@ export function Input({ label, state, value, placeholder, messages }: FieldProps
   const id = useId();
   return (
     <div className="kit-field">
-      <label htmlFor={id} className="kit-field-label">
+      <label htmlFor={id} className="kit-field-label kit-t-label">
         {label}
       </label>
       <input
         id={id}
-        className="kit-input"
+        className="kit-input kit-t-body-sm"
         data-kit="input"
         type="text"
         defaultValue={state === "placeholder" ? "" : value}
@@ -86,12 +86,12 @@ export function Textarea({ label, state, value, placeholder, messages }: FieldPr
   const id = useId();
   return (
     <div className="kit-field">
-      <label htmlFor={id} className="kit-field-label">
+      <label htmlFor={id} className="kit-field-label kit-t-label">
         {label}
       </label>
       <textarea
         id={id}
-        className="kit-textarea"
+        className="kit-textarea kit-t-body-sm"
         data-kit="textarea"
         rows={2}
         defaultValue={state === "placeholder" ? "" : value}
@@ -120,13 +120,13 @@ export function Select({
   const placeholder = state === "placeholder";
   return (
     <div className="kit-field">
-      <label htmlFor={id} className="kit-field-label">
+      <label htmlFor={id} className="kit-field-label kit-t-label">
         {label}
       </label>
       <span className="kit-select-wrap">
         <select
           id={id}
-          className="kit-select"
+          className="kit-select kit-t-body-sm"
           data-kit="select"
           defaultValue={placeholder ? "" : options[0]}
           {...controlState(state, `${id}-message`)}

@@ -4,7 +4,7 @@ import "./choices.css";
 import { Check, Minus } from "lucide-react";
 import { m } from "motion/react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
-import { useKitTransition } from "./motion";
+import { useKitMotion } from "./motion";
 import type { KitState } from "./states";
 
 // The kit's checkbox, radio, switch and segmented control (section 7.5). Each is a native control or
@@ -17,7 +17,7 @@ export function Checkbox({ label, state }: { label: string; state: KitState }) {
     if (box.current !== null) box.current.indeterminate = state === "indeterminate";
   }, [state]);
   return (
-    <label className="kit-check">
+    <label className="kit-check kit-t-body-sm">
       <span className="kit-check-box">
         <input
           ref={box}
@@ -41,7 +41,7 @@ export function Checkbox({ label, state }: { label: string; state: KitState }) {
 export function Radio({ label, state }: { label: string; state: KitState }) {
   const name = useId();
   return (
-    <label className="kit-check">
+    <label className="kit-check kit-t-body-sm">
       <span className="kit-check-box">
         <input
           type="radio"
@@ -65,13 +65,13 @@ export function Radio({ label, state }: { label: string; state: KitState }) {
  */
 export function Switch({ label, state }: { label: string; state?: KitState }) {
   const [on, setOn] = useState(state === "selected");
-  const transition = useKitTransition();
+  const motion = useKitMotion();
   return (
     <button
       type="button"
       role="switch"
       aria-checked={on}
-      className="kit-switch"
+      className="kit-switch kit-t-label"
       data-kit={state === undefined ? undefined : "switch"}
       data-kit-demo={state === undefined ? "switch" : undefined}
       data-state={state}
@@ -81,11 +81,12 @@ export function Switch({ label, state }: { label: string; state?: KitState }) {
     >
       <span className="kit-switch-track">
         <m.span
+          key={motion.key}
           data-thumb=""
           className="kit-switch-thumb"
           initial={false}
           animate={{ x: on ? "100%" : "0%" }}
-          transition={transition}
+          transition={motion.transition}
         />
       </span>
       {label}
@@ -107,7 +108,7 @@ export function Segmented({ legend, options }: { legend: string; options: readon
       data-roles="muted muted-foreground background foreground"
     >
       {options.map((option) => (
-        <label key={option} className="kit-segment" data-concentric="segment">
+        <label key={option} className="kit-segment kit-t-label" data-concentric="segment">
           <input
             type="radio"
             name={name}

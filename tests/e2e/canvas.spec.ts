@@ -617,6 +617,8 @@ test.describe("7.4 Motion on the canvas", () => {
     );
     expect(new Set(opacities)).toEqual(new Set([1]));
     await expect(box).toBeChecked();
+    // The kit mounted while motion was reduced; with the switch off its springs run again.
+    expect((await thumbPath(page)).length).toBeGreaterThan(2);
   });
 
   test("F-CANVAS-08 prefers-reduced-motion does the same without the switch", async ({ page }) => {

@@ -9,7 +9,7 @@ import {
   statesOf,
 } from "@/features/preview/kit/states";
 import { swatches, TEXT_PAIRS } from "@/features/preview/swatches";
-import { canvasStyle, cssVariables } from "@/features/preview/vars";
+import { canvasStyle, cssVariables, roleVar } from "@/features/preview/vars";
 import { freshParams, resolveParams } from "@/features/studio/params";
 import { densityVars, themeVars } from "@/theme/vars";
 
@@ -102,6 +102,19 @@ describe("canvasStyle (section 7.4, R2-12, F-CANVAS-01, F-CANVAS-06)", () => {
     expect(cssVariables({ "--a": "1" }, { "--b": "2" })).toEqual({ "--a": "1", "--b": "2" });
     expect(() => cssVariables({ color: "inherit" })).toThrow(RangeError);
     expect(() => cssVariables({ color: "inherit" })).toThrow(/cssVariables/);
+  });
+});
+
+describe("roleVar (section 6.10, review R2-I1)", () => {
+  it("gives each role's variable", () => {
+    for (const role of ROLE_NAMES) expect(roleVar(role)).toBe(`var(--${role})`);
+  });
+
+  it("throws RangeError naming roleVar for a name outside ROLE_NAMES, TypeError for a non-string", () => {
+    expect(() => roleVar("panel" as never)).toThrow(RangeError);
+    expect(() => roleVar("panel" as never)).toThrow(/^roleVar: role/);
+    expect(() => roleVar("primary-600" as never)).toThrow(RangeError);
+    expect(() => roleVar(1 as never)).toThrow(TypeError);
   });
 });
 

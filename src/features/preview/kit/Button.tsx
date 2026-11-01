@@ -37,7 +37,7 @@ export function Button({
   return (
     <button
       type="button"
-      className="kit-button"
+      className="kit-button kit-t-label"
       data-kit={state === undefined ? undefined : "button"}
       data-variant={variant}
       data-state={state}

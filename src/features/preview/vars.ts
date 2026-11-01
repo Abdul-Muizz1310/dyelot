@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { Mode } from "@/engine";
+import { type Mode, ROLE_NAMES, type RoleName } from "@/engine";
 import { assertOneOf, assertRecord, assertString } from "@/features/studio/guards";
 import { DENSITIES, VISIONS, type View } from "@/features/studio/view";
 import type { DesignSpec } from "@/spec";
@@ -47,4 +47,13 @@ export function canvasStyle(
       ? themeVars(spec, mode, { units: "cqi" })
       : themeVars(spec, mode, { vision: view.vision, units: "cqi" });
   return cssVariables(theme, densityVars(view.density));
+}
+
+/**
+ * A role's custom property (`var(--primary)` for `primary`): the one place a role variable is built from a name
+ * (spec section 6.10). A name outside `ROLE_NAMES` is a RangeError, a non-string a TypeError.
+ */
+export function roleVar(role: RoleName): string {
+  assertOneOf(role, ROLE_NAMES, "roleVar: role");
+  return `var(--${role})`;
 }

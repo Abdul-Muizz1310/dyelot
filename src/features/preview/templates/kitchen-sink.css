@@ -44,17 +44,12 @@
 
 .sink-section > h3 {
   font-family: var(--font-display);
-  font-size: var(--text-h3);
   font-weight: 650;
-  line-height: var(--leading-h3);
-  letter-spacing: var(--tracking-h3);
 }
 
 .sink-note {
   max-width: 40rem;
   color: var(--muted-foreground);
-  font-size: var(--text-body-sm);
-  line-height: var(--leading-body-sm);
 }
 
 /* Color roles */
@@ -82,9 +77,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-family: var(--font-display);
-  font-size: var(--text-h4);
   font-weight: 650;
-  line-height: 1;
 }
 
 /* Type steps */
@@ -238,10 +231,7 @@
 
 .sink-component > h4 {
   font-family: var(--font-display);
-  font-size: var(--text-h4);
   font-weight: 650;
-  line-height: var(--leading-h4);
-  letter-spacing: var(--tracking-h4);
 }
 
 .sink-variant {

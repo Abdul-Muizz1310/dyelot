@@ -9,9 +9,7 @@
 }
 .kit-field-label {
   color: var(--foreground);
-  font-size: var(--text-label);
   font-weight: 500;
-  line-height: var(--leading-label);
 }
 .kit-input,
 .kit-select,
@@ -24,9 +22,6 @@
   border-radius: var(--radius-sm);
   background-color: var(--background);
   color: var(--foreground);
-  font: inherit;
-  font-size: var(--text-body-sm);
-  line-height: var(--leading-body-sm);
   transition-property: border-color, box-shadow;
   transition-duration: var(--duration-fast);
   transition-timing-function: var(--ease-standard);
@@ -82,8 +77,6 @@
   align-items: center;
   gap: var(--space-1);
   color: var(--muted-foreground);
-  font-size: var(--text-caption);
-  line-height: var(--leading-caption);
 }
 .kit-message[data-tone="invalid"] {
   color: var(--destructive-subtle-foreground);

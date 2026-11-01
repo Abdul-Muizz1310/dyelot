@@ -316,7 +316,7 @@ export function Components({ copy }: { copy: CanvasCopy }) {
 function Component({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="sink-component">
-      <h4>{title}</h4>
+      <h4 className="kit-t-h4">{title}</h4>
       {children}
     </div>
   );

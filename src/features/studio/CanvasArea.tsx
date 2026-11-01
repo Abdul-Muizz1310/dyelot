@@ -1,8 +1,8 @@
 "use client";
 
-import { type RefObject, useContext, useLayoutEffect } from "react";
+import { type RefObject, useLayoutEffect } from "react";
 import { Canvas } from "@/features/preview/Canvas";
-import { FitContext, useFrameFit } from "@/features/preview/useFrameFit";
+import { useFitStore, useFrameFit } from "@/features/preview/useFrameFit";
 import { type StudioStore, useStudio } from "./store";
 
 // The canvas region (spec section 7.1, `<main aria-label="Canvas">`): the one part of the shell that
@@ -24,10 +24,10 @@ export function CanvasArea({
   const spec = useStudio(store, (studio) => studio.spec);
   const view = useStudio(store, (studio) => studio.view);
   const { stageRef, fit } = useFrameFit(view.frame);
-  const fitStore = useContext(FitContext);
+  const fitStore = useFitStore();
   // Before paint, so the switcher never shows a stale fit.
   useLayoutEffect(() => {
-    fitStore?.set(fit);
+    fitStore.set(fit);
   }, [fitStore, fit]);
   return (
     <main

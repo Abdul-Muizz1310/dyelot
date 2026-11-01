@@ -14,8 +14,8 @@ export function Section({
 }) {
   return (
     <div className="sink-section">
-      <h3>{title}</h3>
-      {note !== undefined && <p className="sink-note">{note}</p>}
+      <h3 className="kit-t-h3">{title}</h3>
+      {note !== undefined && <p className="sink-note kit-t-body-sm">{note}</p>}
       {children}
     </div>
   );

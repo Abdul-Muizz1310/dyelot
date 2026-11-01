@@ -16,7 +16,7 @@ export function MotionDemos({ vars }: { vars: Readonly<Record<string, string>> }
   return (
     <Section title="Motion">
       <div className="sink-motion-head">
-        <p className="sink-note">
+        <p className="sink-note kit-t-body-sm">
           Durations run on the standard easing; easings run over the slow duration.
         </p>
         <Button

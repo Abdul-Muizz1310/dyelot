@@ -69,8 +69,9 @@
   font-family: var(--font-mono);
 }
 
-/* Icons: one library, one stroke width (F-TPL-07). Zero specificity, so a part's own size wins. */
-:where([data-canvas]) svg.lucide {
+/* Icons: one library, one stroke width (F-TPL-07). Zero specificity, so a part's own size wins
+ * whatever order the stylesheets load in. */
+:where([data-canvas] svg.lucide) {
   flex: none;
   width: 1.125em;
   height: 1.125em;

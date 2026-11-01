@@ -44,8 +44,8 @@ export function Card({ title, meta, state }: { title: string; meta: string; stat
         <WavesHorizontal aria-hidden="true" />
       </span>
       <span className="kit-card-body">
-        <span className="kit-card-title">{title}</span>
-        <span className="kit-card-meta">{meta}</span>
+        <span className="kit-card-title kit-t-body">{title}</span>
+        <span className="kit-card-meta kit-t-caption">{meta}</span>
       </span>
     </button>
   );
@@ -77,7 +77,7 @@ export function Alert({ state }: { state: keyof typeof ALERTS }) {
   const Icon = state === "default" ? Info : state === "success" ? CircleCheck : CircleAlert;
   return (
     <div
-      className="kit-alert"
+      className="kit-alert kit-t-body-sm"
       data-kit="alert"
       data-state={state}
       data-tone={alert.tone}
@@ -100,7 +100,7 @@ export function Tooltip() {
       <span
         role="tooltip"
         id={id}
-        className="kit-tooltip"
+        className="kit-tooltip kit-t-caption"
         data-kit="tooltip"
         data-state="default"
         data-roles="foreground background"
@@ -124,7 +124,7 @@ export function DialogStage({ title }: { title: string }) {
         data-state="default"
         data-roles="popover popover-foreground border"
       >
-        <p id={`${id}-title`} className="kit-dialog-title">
+        <p id={`${id}-title`} className="kit-dialog-title kit-t-h4">
           {title}
         </p>
         <p className="kit-t-body-sm">
@@ -153,15 +153,15 @@ export function SheetStage({ items }: { items: readonly string[] }) {
         data-roles="popover popover-foreground border"
       >
         <span className="kit-sheet-grabber" aria-hidden="true" />
-        <p id={`${id}-title`} className="kit-dialog-title">
+        <p id={`${id}-title`} className="kit-dialog-title kit-t-h4">
           Saved places
         </p>
         {items.length === 0 ? (
-          <div data-list="" data-empty="" className="kit-list-empty">
+          <div data-list="" data-empty="" className="kit-list-empty kit-t-body-sm">
             No saved places yet. Save a place from its tide table.
           </div>
         ) : (
-          <ul data-list="" className="kit-list">
+          <ul data-list="" className="kit-list kit-t-body-sm">
             {items.map((item) => (
               <li key={item} data-list-item="">
                 {item}
@@ -192,7 +192,7 @@ export function Toast({ state }: { state: keyof typeof TOASTS }) {
   return (
     <div
       role="status"
-      className="kit-toast"
+      className="kit-toast kit-t-body-sm"
       data-kit="toast"
       data-state={state}
       data-roles={toast.roles}

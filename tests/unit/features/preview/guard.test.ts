@@ -86,6 +86,14 @@ describe("C-GUARD-01 findViolations flags every color that is not a spec variabl
     ["box-shadow: 0 0 0 1px var(--border-bright)", OUTSIDE],
     // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
     ["`var(--chrome-${name})`", OUTSIDE],
+    // A template's fixed prefix must end in "-": an empty or open prefix names anything.
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
+    ["`var(--${role})`", OUTSIDE],
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
+    ["`var(--p${x})`", OUTSIDE],
+    ["text-(color:--panel)", OUTSIDE],
+    ["bg-(color:--fg-muted)", OUTSIDE],
+    ["color: VAR(--panel)", OUTSIDE],
   ])("also flags %s as a %s", (source, rule) => {
     expect(findViolations(source)).toContainEqual(expect.stringContaining(rule));
   });
@@ -131,9 +139,12 @@ describe("C-GUARD-02 findViolations passes the spec's variables and the color ke
     'style={{ "--kit-value": `${value}%` }}',
     // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
     "`var(--text-${step})`",
-    // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
-    "`var(--${role})`",
     "font-family: var(--font-display); stroke-width: var(--icon-stroke);",
+    "text-(color:--primary)",
+    "style={{ backgroundColor: roleVar(fill), color: roleVar(ink) }}",
+    // roleVar is the one place a role's variable is built from a name; it checks the name (R-05).
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: a source sample, not a template
+    'export function roleVar(role: RoleName): string {\n  assertOneOf(role, ROLE_NAMES, "roleVar: role");\n  return `var(--${role})`;\n}\n',
   ])("passes %s", (source) => {
     expect(findViolations(source)).toEqual([]);
   });
@@ -212,5 +223,29 @@ describe("C-GUARD-05 madder stays on the focus ring, the active state and the pr
   it("keeps the madder focus ring in globals.css outside the canvas", () => {
     const css = readFileSync(path.join(ROOT, "src/app/globals.css"), "utf8");
     expect(css).toMatch(/:focus-visible\s*\{\s*outline:\s*2px solid var\(--accent-madder\)/);
+  });
+});
+
+describe("F-TPL-38 the type steps come only from their .kit-t-<step> classes", () => {
+  it("sets --text-<step> in no CSS rule but its step's class, and no style object sets fontSize", () => {
+    const offenders: string[] = [];
+    for (const file of previewFiles(PREVIEW)) {
+      const source = readFileSync(file, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+      const name = path.relative(ROOT, file);
+      if (file.endsWith(".css")) {
+        for (const match of source.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+          const [, selector = "", body = ""] = match;
+          const sets = [...body.matchAll(/font-size:\s*var\(--text-([a-z0-9-]+)\)/g)];
+          for (const [, step] of sets) {
+            // The canvas root keeps the body triple; every other text takes its step's class.
+            const allowed = [`.kit-t-${step}`, ...(step === "body" ? ["[data-canvas]"] : [])];
+            if (!allowed.includes(selector.trim())) offenders.push(`${name}: ${selector.trim()}`);
+          }
+        }
+      } else if (/\bfontSize\s*:/.test(source)) {
+        offenders.push(`${name}: fontSize`);
+      }
+    }
+    expect(offenders).toEqual([]);
   });
 });

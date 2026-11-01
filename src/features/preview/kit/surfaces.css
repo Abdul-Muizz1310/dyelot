@@ -11,7 +11,6 @@
   border-radius: var(--radius-xl);
   background-color: var(--card);
   color: var(--card-foreground);
-  font: inherit;
   text-align: start;
   cursor: pointer;
   transition-property: box-shadow, transform, border-color;
@@ -37,13 +36,7 @@
 }
 .kit-card-title {
   font-family: var(--font-display);
-  font-size: var(--text-body);
   font-weight: 600;
-  line-height: var(--leading-body);
-}
-.kit-card-meta {
-  font-size: var(--text-caption);
-  line-height: var(--leading-caption);
 }
 .kit-card:is(:hover:not(:disabled), [data-state="hover"]) {
   box-shadow: var(--shadow-2);
@@ -70,8 +63,6 @@
   border-radius: var(--radius-lg);
   background-color: var(--info-subtle);
   color: var(--info-subtle-foreground);
-  font-size: var(--text-body-sm);
-  line-height: var(--leading-body-sm);
 }
 .kit-alert[data-tone="success"] {
   background-color: var(--success-subtle);
@@ -100,7 +91,6 @@
   background-color: var(--popover);
   color: var(--popover-foreground);
   box-shadow: var(--shadow-3);
-  font-size: var(--text-body-sm);
 }
 .kit-toast[data-state="success"] {
   border-color: var(--success);
@@ -126,8 +116,6 @@
   background-color: var(--foreground);
   color: var(--background);
   box-shadow: var(--shadow-2);
-  font-size: var(--text-caption);
-  line-height: var(--leading-caption);
 }
 
 /* ── Dialog and sheet, each on a stage behind a scrim ────── */
@@ -188,9 +176,7 @@
 }
 .kit-dialog-title {
   font-family: var(--font-display);
-  font-size: var(--text-h4);
   font-weight: 650;
-  line-height: var(--leading-h4);
 }
 .kit-actions {
   display: flex;
@@ -210,8 +196,4 @@
   align-items: center;
   gap: var(--space-2);
   border-bottom: 1px solid var(--border);
-  font-size: var(--text-body-sm);
-}
-.kit-list-empty {
-  font-size: var(--text-body-sm);
 }

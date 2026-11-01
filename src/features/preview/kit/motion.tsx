@@ -63,10 +63,17 @@ export function Entrance({ className, children }: { className: string; children:
 const INSTANT: Transition = { duration: 0 };
 
 /**
- * The transition of a live kit part: instant while motion is reduced, otherwise the spec's spring
- * from MotionConfig. Motion reads `reducedMotion` when a part mounts, so a part that stays mounted
- * across the canvas switch reads it here, on every render.
+ * The motion of a stateless leaf animator (the switch's thumb, the tab indicator). Motion reads
+ * `reducedMotion` once, when a part mounts, so a key that changes with it remounts the leaf: a leaf
+ * mounted while motion was reduced springs again once it is not. The leaf's state lives in its
+ * parent and it sets `initial={false}`, so the remount never jumps. While reduced, the transition
+ * is instant as well. Never key `MotionConfig` or `Entrance`: that would remount the template.
  */
-export function useKitTransition(): Transition | undefined {
-  return useReducedMotionConfig() === true ? INSTANT : undefined;
+export function useKitMotion(): {
+  key: "reduced" | "full";
+  transition: Transition | undefined;
+} {
+  return useReducedMotionConfig() === true
+    ? { key: "reduced", transition: INSTANT }
+    : { key: "full", transition: undefined };
 }

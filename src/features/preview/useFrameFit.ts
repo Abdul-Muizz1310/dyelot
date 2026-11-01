@@ -51,6 +51,13 @@ export function createFitStore(): FitStore {
 
 export const FitContext = createContext<FitStore | null>(null);
 
+/** The nearest fit store; the canvas area that writes it must render inside a `FitContext`. */
+export function useFitStore(): FitStore {
+  const store = useContext(FitContext);
+  if (store === null) throw new Error("CanvasArea: render inside a FitContext");
+  return store;
+}
+
 /** The fit the canvas area measured, from the nearest `FitContext`. */
 export function useFitReading(): FitReading {
   const store = useContext(FitContext);

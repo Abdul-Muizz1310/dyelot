@@ -17,8 +17,6 @@
   border-radius: var(--radius-sm) var(--radius-sm) 0 0;
   background: none;
   color: var(--muted-foreground);
-  font: inherit;
-  font-size: var(--text-label);
   font-weight: 500;
   cursor: pointer;
   transition: color var(--duration-fast) var(--ease-standard);
@@ -55,7 +53,6 @@
 .kit-tab-panel {
   padding-block: var(--space-3);
   color: var(--foreground);
-  font-size: var(--text-body-sm);
 }
 
 /* ── Menu ─────────────────────────────────────────────────── */
@@ -76,7 +73,6 @@
   gap: var(--space-2);
   padding-inline: var(--space-2);
   border-radius: max(0px, calc(var(--radius-lg) - var(--space-1)));
-  font-size: var(--text-body-sm);
   cursor: default;
 }
 .kit-menu-item:is(:hover:not([aria-disabled="true"]), [data-state="hover"]) {

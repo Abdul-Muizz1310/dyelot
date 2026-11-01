@@ -4,7 +4,7 @@ import "./navigation.css";
 import { Bookmark, Check } from "lucide-react";
 import { m } from "motion/react";
 import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from "react";
-import { useKitTransition } from "./motion";
+import { useKitMotion } from "./motion";
 import type { KitState } from "./states";
 
 // The kit's tabs and menu (section 7.5). A specimen shows one tab or one menu item in a forced
@@ -20,7 +20,7 @@ export function TabSpecimen({ label, state }: { label: string; state: KitState }
         type="button"
         role="tab"
         aria-selected={state === "selected"}
-        className="kit-tab"
+        className="kit-tab kit-t-label"
         data-kit="tab"
         data-state={state}
         data-roles={TAB_ROLES}
@@ -51,7 +51,7 @@ export function TabsDemo() {
   const tabs = useRef<(HTMLButtonElement | null)[]>([]);
   const [selected, setSelected] = useState(0);
   const [bar, setBar] = useState({ x: 0, width: 0 });
-  const transition = useKitTransition();
+  const motion = useKitMotion();
 
   useLayoutEffect(() => {
     const measure = () => {
@@ -97,7 +97,7 @@ export function TabsDemo() {
             aria-selected={selected === index}
             aria-controls={`${id}-panel`}
             tabIndex={selected === index ? 0 : -1}
-            className="kit-tab"
+            className="kit-tab kit-t-label"
             data-roles={TAB_ROLES}
             onClick={() => setSelected(index)}
           >
@@ -105,18 +105,19 @@ export function TabsDemo() {
           </button>
         ))}
         <m.span
+          key={motion.key}
           aria-hidden="true"
           className="kit-tabs-indicator"
           initial={false}
           animate={{ x: bar.x, width: bar.width }}
-          transition={transition}
+          transition={motion.transition}
         />
       </div>
       <div
         role="tabpanel"
         id={`${id}-panel`}
         aria-labelledby={`${id}-tab-${selected}`}
-        className="kit-tab-panel"
+        className="kit-tab-panel kit-t-body-sm"
       >
         {TABS[selected]?.body}
       </div>
@@ -126,7 +127,7 @@ export function TabsDemo() {
 
 export function MenuSpecimen({ state }: { state: KitState }) {
   const shared = {
-    className: "kit-menu-item",
+    className: "kit-menu-item kit-t-body-sm",
     "data-kit": "menu-item",
     "data-state": state,
     "data-roles": "popover popover-foreground accent accent-foreground",

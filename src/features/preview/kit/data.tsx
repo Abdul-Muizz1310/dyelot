@@ -75,11 +75,11 @@ function ReadingEntry({
     <li {...marks(state)} className="kit-record">
       <p className="kit-record-place kit-word">{place}</p>
       <dl className="kit-record-pairs">
-        <dt>{OBSERVER}</dt>
+        <dt className="kit-t-caption">{OBSERVER}</dt>
         <dd className="kit-word">{person}</dd>
-        <dt>{READING}</dt>
+        <dt className="kit-t-caption">{READING}</dt>
         <dd className="kit-num">{amount}</dd>
-        <dt>{STATE}</dt>
+        <dt className="kit-t-caption">{STATE}</dt>
         <dd>
           <StateLabel state={state} />
         </dd>
@@ -90,37 +90,52 @@ function ReadingEntry({
 
 /** The `empty` state: no reading saved, in either layout. */
 function EmptyEntry({ layout }: { layout: Layout }) {
-  const content = (
-    <>
-      <StateLabel state="empty" /> · {NONE_SAVED}
-    </>
-  );
+  const sentence = <span data-empty-text="">{NONE_SAVED}</span>;
   if (layout === "row") {
     return (
       <tr {...marks("empty")}>
-        <td colSpan={4}>{content}</td>
+        <td colSpan={4}>
+          <StateLabel state="empty" /> · {sentence}
+        </td>
       </tr>
     );
   }
+  // A record stacks: the label on one line and the sentence on the next, with no separator.
   return (
     <li {...marks("empty")} className="kit-record">
-      {content}
+      <StateLabel state="empty" />
+      {sentence}
     </li>
   );
 }
 
+/** The columns both readings tables share, so their headers line up (review R2-M2). */
 function Head() {
   return (
-    <thead>
-      <tr>
-        <th scope="col">{STATE}</th>
-        <th scope="col">Place</th>
-        <th scope="col">{OBSERVER}</th>
-        <th scope="col" className="kit-num">
-          {READING}
-        </th>
-      </tr>
-    </thead>
+    <>
+      <colgroup>
+        <col className="kit-col-state" />
+        <col className="kit-col-place" />
+        <col className="kit-col-observer" />
+        <col />
+      </colgroup>
+      <thead>
+        <tr>
+          <th scope="col" className="kit-t-caption">
+            {STATE}
+          </th>
+          <th scope="col" className="kit-t-caption">
+            Place
+          </th>
+          <th scope="col" className="kit-t-caption">
+            {OBSERVER}
+          </th>
+          <th scope="col" className="kit-num kit-t-caption">
+            {READING}
+          </th>
+        </tr>
+      </thead>
+    </>
   );
 }
 
@@ -154,22 +169,22 @@ export function Readings({
     ));
   return (
     <div className="kit-readings">
-      <table className="kit-table" aria-label="Sample readings">
+      <table className="kit-table kit-t-body-sm" aria-label="Sample readings">
         <Head />
         <tbody>{entries("row")}</tbody>
       </table>
-      <ul className="kit-records" aria-label="Sample readings">
+      <ul className="kit-records kit-t-body-sm" aria-label="Sample readings">
         {entries("record")}
       </ul>
       {states.includes("empty") && (
         <>
-          <table className="kit-table" aria-label="Sample readings, none saved">
+          <table className="kit-table kit-t-body-sm" aria-label="Sample readings, none saved">
             <Head />
             <tbody>
               <EmptyEntry layout="row" />
             </tbody>
           </table>
-          <ul className="kit-records" aria-label="Sample readings, none saved">
+          <ul className="kit-records kit-t-body-sm" aria-label="Sample readings, none saved">
             <EmptyEntry layout="record" />
           </ul>
         </>
@@ -208,7 +223,7 @@ export function Badge({
 }) {
   return (
     <span
-      className="kit-badge"
+      className="kit-badge kit-t-caption"
       data-kit="badge"
       data-state="default"
       data-tone={tone}
@@ -226,7 +241,7 @@ export function Chip({ label, state }: { label: string; state: KitState }) {
     <button
       type="button"
       aria-pressed={on}
-      className="kit-chip"
+      className="kit-chip kit-t-label"
       data-kit="chip"
       data-state={state}
       data-roles={on ? "accent accent-foreground" : "background foreground border"}
@@ -254,7 +269,7 @@ export function Avatar({ person, state }: { person: string; state: KitState }) {
       <span
         role="img"
         aria-label="Loading a photo"
-        className="kit-avatar kit-shimmer"
+        className="kit-avatar kit-shimmer kit-t-label"
         data-kit="avatar"
         data-state="loading"
         data-roles="muted"
@@ -266,7 +281,7 @@ export function Avatar({ person, state }: { person: string; state: KitState }) {
       <span
         role="img"
         aria-label="No photo"
-        className="kit-avatar"
+        className="kit-avatar kit-t-label"
         data-kit="avatar"
         data-state="empty"
         data-roles="muted muted-foreground"
@@ -279,7 +294,7 @@ export function Avatar({ person, state }: { person: string; state: KitState }) {
     <span
       role="img"
       aria-label={person}
-      className="kit-avatar"
+      className="kit-avatar kit-t-label"
       data-kit="avatar"
       data-state={state}
       data-roles="secondary secondary-foreground"

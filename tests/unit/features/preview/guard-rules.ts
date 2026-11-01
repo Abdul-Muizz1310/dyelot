@@ -94,7 +94,11 @@ const DECLARATION = /(?<![\w-])(["']?)(--[\w-]+|-?[A-Za-z][\w-]*)\1\s*(:|=)(?!=)
 /** A `var()` without a fallback: the only form a value may drop before it is read for colors. */
 const PLAIN_VAR = /var\(--[\w-]+\)/g;
 /** The name read by a `var()` or a Tailwind `(--x)` shorthand, a template part included. */
-const VARIABLE = /(?:var\(\s*|(?<=[\w])-\()--((?:[\w-]|\$\{[^}]*\})*)/g;
+/**
+ * The name a `var()` reads (any letter case: CSS function names are case-insensitive), or a
+ * Tailwind shorthand reads, plain `bg-(--x)` or typed `text-(color:--x)`; a template part included.
+ */
+const VARIABLE = /(?:var\(\s*|(?<=[\w])-\((?:[a-z-]+:)?)--((?:[\w-]|\$\{[^}]*\})*)/gi;
 const KIT_LOCAL = "kit-";
 const VAR_ONLY = /^var\(--[a-z0-9-]+\)$/i;
 
@@ -189,18 +193,32 @@ export function bridgeVariables(): ReadonlySet<string> {
 const BRIDGE = bridgeVariables();
 
 /** Whether `name` (after `--`) is the bridge's or a kit local; a template part reads as a prefix. */
+/**
+ * Whether `name` (after `--`) is the bridge's or a kit local. A template's fixed prefix must close
+ * a group, ending in "-", and start a bridge name: `--text-${step}` passes, while `--${role}` and
+ * `--p${x}` could name anything (`--panel`) and fail. A role's variable comes from `roleVar`.
+ *
+ * A group prefix is still not airtight: Tailwind writes `--shadow-sm` and `--text-sm` on `:root`,
+ * which `--shadow-${level}` could reach. The typed step, level and token lists the templates
+ * iterate (`STEPS`, `ELEVATIONS`, `DURATIONS` and the rest) are what keep those names inside the
+ * bridge.
+ */
 function allowedVariable(name: string): boolean {
   const template = name.indexOf("${");
   if (template === -1) return name.startsWith(KIT_LOCAL) || BRIDGE.has(`--${name}`);
   const prefix = name.slice(0, template);
+  if (prefix === "" || !prefix.endsWith("-")) return false;
   return (
     prefix.startsWith(KIT_LOCAL) || [...BRIDGE].some((known) => known.startsWith(`--${prefix}`))
   );
 }
 
-/** Every `var(--x)` or `(--x)` whose name the bridge does not write. */
+/** The body of `roleVar`, the one function allowed to build a role's variable from a name. */
+const ROLE_VAR = /function roleVar\([^)]*\)[^{]*\{[^}]*\}/g;
+
+/** Every `var(--x)` or `(--x)` whose name the bridge does not write, `roleVar`'s body aside. */
 function variableHits(source: string): string[] {
-  return [...source.matchAll(VARIABLE)]
+  return [...source.replace(ROLE_VAR, "").matchAll(VARIABLE)]
     .filter((match) => !allowedVariable(match[1] ?? ""))
     .map((match) => `variable outside the bridge --${match[1] ?? ""}`);
 }
