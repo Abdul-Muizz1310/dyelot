@@ -149,8 +149,9 @@ export function pageFor(neutral: Palette, mode: Mode): Hex {
   return mode === "light" ? LIGHT_PAGE : darkPage(neutral);
 }
 
-const LOCKABLE = ["primary", "secondary", "accent"] as const;
-type Lockable = (typeof LOCKABLE)[number];
+/** The palettes a caller can lock with a seed color, in the order of `ColorParams`. */
+export const LOCKABLE = ["primary", "secondary", "accent"] as const;
+export type Lockable = (typeof LOCKABLE)[number];
 
 /** A seed as passed: an object with l in [0, 1], c in [0, 0.5] and h null or in [0, 360). */
 function checkSeed(seed: Oklch, name: string): void {
@@ -326,7 +327,7 @@ function keepsOrder(scale: readonly ScaleStep[], index: number, l: number, mode:
 function placeSeed(scale: readonly ScaleStep[], seed: Seed, mode: Mode, page: Rgb): number | null {
   const ratio = wcagRatio(hexToRgb(seed.hex), page);
   const gap = (index: number) => Math.abs(scale[index].oklch.l - seed.placed.l);
-  const order = STEPS.map((_, index) => index).sort((a, b) => gap(a) - gap(b) || a - b);
+  const order = STEPS.map((_, index) => index).sort((a, b) => gap(a) - gap(b));
   for (const index of order) {
     const threshold = THRESHOLDS[STEPS[index]];
     if (!keepsOrder(scale, index, seed.placed.l, mode)) continue;

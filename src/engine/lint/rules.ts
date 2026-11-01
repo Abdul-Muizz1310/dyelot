@@ -2,7 +2,7 @@ import { perceptualLc, wcagRatio } from "../color/contrast";
 import { ACHROMATIC_CHROMA, hexToRgb, oklchToRgb, rgbToOklch } from "../color/convert";
 import { minPairwiseDeltaE, VIEWS } from "../color/deltae";
 import { STORED_GAMUT_TOLERANCE } from "../color/guards";
-import { PALETTE_NAMES, type PaletteName, seedHex } from "../color/palette";
+import { LOCKABLE, PALETTE_NAMES, type PaletteName, seedHex } from "../color/palette";
 import type { RoleName } from "../color/roles";
 import { DARK_CHROMA_FACTOR, type ScaleStep, STEPS, stepChroma } from "../color/scale";
 import type { Gamut, Mode, Oklch } from "../color/types";
@@ -225,8 +225,6 @@ function expectedChroma(spec: LintedSpec, name: PaletteName, mode: Mode, index: 
     }),
   );
 }
-
-const LOCKABLE = ["primary", "secondary", "accent"] as const;
 
 /**
  * The step indexes of `mode` that hold each palette's locked seed (R-10): `seedStep[mode]` when

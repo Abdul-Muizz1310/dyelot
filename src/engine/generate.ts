@@ -17,6 +17,8 @@ import {
   CHROMA_LEVELS,
   CONTRAST_LEVELS,
   type ColorParams,
+  LOCKABLE,
+  type Lockable,
   NEUTRAL_TINTS,
   normalizeSeed,
   type Palette,
@@ -43,9 +45,7 @@ const SEED_MAX = 128;
 const UNTITLED = "untitled";
 const SPACE_BASE = 4;
 const SHADOW_STEP = STEPS.indexOf(950);
-const LOCKABLE = ["primary", "secondary", "accent"] as const;
-
-type Seeds = Partial<Record<(typeof LOCKABLE)[number], Oklch>>;
+type Seeds = Partial<Record<Lockable, Oklch>>;
 
 /** The parameters, read once and checked: what the generator builds from. */
 type Parsed = {
