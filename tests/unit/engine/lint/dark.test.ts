@@ -5,7 +5,7 @@ import type { DesignSpec } from "@/spec/schema";
 import { DEFAULT_PARAMS, defaultSpec } from "../../spec/support";
 import { copyOf, expectFinding, expectSilent, lightnessOf, loose, withId } from "./support";
 
-// D1 to D4: the dark-mode rules (C-LINT-32 to 39, 51 and 52). They report mode "dark" only.
+// D1 to D4: the dark-mode rules (C-LINT-32 to 39, 51, 52, 56 and 57). They report mode "dark" only.
 
 /** The engine's own dark desaturation: dark chroma is at most 0.85 times the peak. */
 const DARK_FACTOR = 0.85;
@@ -27,7 +27,6 @@ describe("D1 the dark page is not black", () => {
   it("C-LINT-33 warns for a #000000 dark background", () => {
     const spec = copyOf();
     loose(spec).color.roles.dark.background = "#000000";
-    loose(spec).color.roles.light.background = "#000000";
     const found = expectFinding(spec, {
       id: "D1",
       severity: "warn",
@@ -38,6 +37,20 @@ describe("D1 the dark page is not black", () => {
     });
     expect(found.source).toBe("Material dark theme guidance");
     expect(withId(lintSpec(spec), "D1")).toHaveLength(1);
+  });
+
+  it("C-LINT-57 runs D1 to D4 in dark mode only: light roles that would fail them raise nothing", () => {
+    const spec = copyOf();
+    const light = loose(spec).color.roles.light;
+    light.background = "#000000"; // D1
+    light.foreground = "#ffffff"; // D2
+    light.card = light.background; // D4
+    for (const palette of Object.values(loose(spec).color.palettes)) {
+      for (const step of (palette as { light: { oklch: { c: number } }[] }).light) step.oklch.c = 0;
+    } // D3 compares dark against light: a light chroma of 0 must not create a light finding
+    const dark = lintSpec(spec).filter((f) => f.id.startsWith("D"));
+    expect(dark.every((f) => f.mode === "dark")).toBe(true);
+    expect(dark.some((f) => f.id === "D1" || f.id === "D2" || f.id === "D4")).toBe(false);
   });
 });
 
@@ -142,6 +155,19 @@ describe("D3 dark fills carry no more chroma than max(light chroma, 0.85 × peak
       expect(Number.isFinite(finding.measured), finding.subject).toBe(true);
       expect(Number.isFinite(finding.threshold), finding.subject).toBe(true);
     }
+  });
+
+  it("C-LINT-56 checks all 21 palette-step pairs: seven palettes at steps 500, 600 and 700", () => {
+    const spec = copyOf();
+    for (const palette of Object.values(loose(spec).color.palettes)) {
+      for (const step of (palette as { dark: { oklch: { c: number } }[] }).dark) step.oklch.c = 0.4;
+    }
+    const names = ["primary", "secondary", "accent", "success", "warning", "danger", "info"];
+    const expected = names.flatMap((name) => [500, 600, 700].map((step) => `${name}-${step}`));
+    const found = withId(lintSpec(spec), "D3");
+    expect(found.map((f) => f.subject).sort()).toEqual(expected.sort());
+    expect(found).toHaveLength(21);
+    for (const finding of found) expect(finding.measured).toBe(0.4);
   });
 
   it("ignores the neutral palette and steps outside 500 to 700", () => {

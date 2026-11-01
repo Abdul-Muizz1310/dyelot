@@ -61,7 +61,7 @@ function brokenSpec(): DesignSpec {
   light.warning = "#ffd166"; // C2
   light["primary-foreground"] = light.primary; // C5
   light.input = "#eeeeee"; // N1
-  light["chart-2"] = light["chart-1"]; // N2? no: S1
+  light["chart-2"] = light["chart-1"]; // S1
   light["chart-3"] = "#fafafa"; // N2
   light.ring = "#f0f0f0"; // F1
   light.success = light.destructive; // S2

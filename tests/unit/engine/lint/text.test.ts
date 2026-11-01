@@ -5,7 +5,7 @@ import { lintSpec } from "@/engine/lint";
 import { defaultSpec } from "../../spec/support";
 import { copyOf, expectFinding, expectSilent, hex, loose, ratioOf, withId } from "./support";
 
-// C1, C2, C4 and C5: the text rules (C-LINT-01 to 08 and C-LINT-49).
+// C1, C2, C4 and C5: the text rules (C-LINT-01 to 08, 49 and 55).
 
 describe("C1 text pairs reach 4.5", () => {
   it("C-LINT-01 stays silent for #767676 on white (4.5422)", () => {
@@ -48,13 +48,69 @@ describe("C1 text pairs reach 4.5", () => {
     });
   });
 
-  it("checks all 13 pairs in both modes", () => {
+  it("C-LINT-55 checks every listed pair and role: one gray for every role fails each one", () => {
     const spec = copyOf();
     for (const mode of ["light", "dark"] as const) {
       const roles = loose(spec).color.roles[mode];
       for (const name of Object.keys(roles)) roles[name] = "#808080";
     }
-    expect(withId(lintSpec(spec), "C1")).toHaveLength(26);
+    const findings = lintSpec(spec);
+    // The lists of spec sections 6.5 and 6.8, written out here apart from the implementation.
+    const charts = ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5"];
+    const views = ["none", "protan", "deutan", "tritan"];
+    const expected: Record<string, readonly string[]> = {
+      C1: [
+        "foreground/background",
+        "card-foreground/card",
+        "popover-foreground/popover",
+        "sidebar-foreground/sidebar",
+        "muted-foreground/muted",
+        "muted-foreground/background",
+        "secondary-foreground/secondary",
+        "accent-foreground/accent",
+        "sidebar-accent-foreground/sidebar-accent",
+        "success-subtle-foreground/success-subtle",
+        "warning-subtle-foreground/warning-subtle",
+        "info-subtle-foreground/info-subtle",
+        "destructive-subtle-foreground/destructive-subtle",
+      ],
+      C2: ["primary", "destructive", "success", "warning", "info"].map((r) => `${r}/background`),
+      C4: [
+        "foreground/background",
+        "card-foreground/card",
+        "popover-foreground/popover",
+        "sidebar-foreground/sidebar",
+      ],
+      C5: [
+        "primary-foreground/primary",
+        "sidebar-primary-foreground/sidebar-primary",
+        "destructive-foreground/destructive",
+        "success-foreground/success",
+        "warning-foreground/warning",
+        "info-foreground/info",
+      ],
+      N1: ["input/background", "input/card"],
+      N2: charts.flatMap((chart) => [`${chart}/background`, `${chart}/card`]),
+      N3: ["border/background"],
+      F1: ["ring/background", "ring/card", "ring/muted"],
+      S1: ["status", "chart"].flatMap((set) => views.map((view) => `${set}/${view}`)),
+      S2: ["destructive/success"],
+    };
+    for (const [id, subjects] of Object.entries(expected)) {
+      for (const mode of ["light", "dark"] as const) {
+        const found = findings.filter((f) => f.id === id && f.mode === mode).map((f) => f.subject);
+        expect(found.sort(), `${id} ${mode}`).toEqual([...subjects].sort());
+      }
+    }
+    // Counts as the review computed them: C2 10, C4 8, C5 12, N1 4, N2 20, F1 6, both modes.
+    const count = (id: string) => withId(findings, id).length;
+    expect([count("C1"), count("C2"), count("C4"), count("C5")]).toEqual([26, 10, 8, 12]);
+    expect([count("N1"), count("N2"), count("N3"), count("F1")]).toEqual([4, 20, 2, 6]);
+    expect([count("S1"), count("S2")]).toEqual([16, 2]);
+    // The dark-mode role rules: a mid-gray foreground is not off-white, and the card meets the page.
+    expect(findings.filter((f) => f.id.startsWith("D")).map((f) => `${f.id} ${f.subject}`)).toEqual(
+      ["D2 foreground", "D4 card/background"],
+    );
   });
 });
 
