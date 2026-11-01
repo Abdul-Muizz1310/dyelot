@@ -31,7 +31,11 @@ describe("the global error page", () => {
     const retry = vi.fn();
     mount(new Error("boom"), retry);
     // The name is exact: the `$ ` before the command is decoration, and a screen reader skips it.
-    fireEvent.click(screen.getByRole("button", { name: "retry" }));
+    const button = screen.getByRole("button", { name: "retry" });
+    // The marker keeps its space: the button reads "$ retry", never "$retry".
+    expect(button.textContent).toBe("$ retry");
+    expect(button.querySelector('[aria-hidden="true"]')).toHaveClass("whitespace-pre");
+    fireEvent.click(button);
     expect(retry).toHaveBeenCalledTimes(1);
   });
 

@@ -21,7 +21,10 @@ describe("the error page", () => {
   it("names the retry button by the command alone, not by its decorative prompt marker", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     render(<ErrorPage error={new Error("boom")} retry={() => {}} />);
-    expect(screen.getByRole("button", { name: "retry" })).toBeInTheDocument();
+    const button = screen.getByRole("button", { name: "retry" });
+    // The marker keeps its space: the button reads "$ retry", never "$retry".
+    expect(button.textContent).toBe("$ retry");
+    expect(button.querySelector('[aria-hidden="true"]')).toHaveClass("whitespace-pre");
   });
 
   it("logs the thrown value for the developer, once per error", () => {
