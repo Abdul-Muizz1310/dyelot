@@ -6,8 +6,9 @@
 
 Status: written 2026-11-01 as Task 2.1 of the M2 plan (`docs/plans/2026-11-01-dyelot-m2-studio.md` in the meta-repo).
 Section 2 copies the plan's decisions word for word. Section 3 lists rulings that close gaps in the decisions
-(R2-01 to R2-24); the owner can overturn any of them by editing this file before the task that uses it starts. Tasks
-2.2 to 2.10 implement against the cases in sections 6 and 7.
+(R2-01 to R2-30); the owner can overturn any of them by editing this file before the task that uses it starts. Tasks
+2.2 to 2.10 implement against the cases in sections 6 and 7. Revised the same day after the spec review (fix round 1): rulings
+R2-25 to R2-30 are new, and R2-03, R2-05, R2-06, R2-08 to R2-10, R2-12, R2-13, R2-15, R2-17 and R2-23 changed.
 
 ## 1. Purpose and scope
 
@@ -17,7 +18,7 @@ measured value, and shares it by URL. M2 adds five things to the pure core and o
 
 ```text
 DirectionParams + seed --generateSystem--> DesignSpec --themeVars--> CSS custom properties on [data-canvas]
-DesignSpec --lintSpec (M1 rules + T1..T5)--> Finding[]
+DesignSpec --lintSpec (M1 rules + T1..T4)--> Finding[]
 Preset --applyPreset--> DirectionParams        seed --choosePairing--> PairingId --> type.families
 Studio store --worker--> generateSystem        store --#s=encodeSpec--> URL hash       store --> localStorage draft
 ```
@@ -26,7 +27,7 @@ Studio store --worker--> generateSystem        store --#s=encodeSpec--> URL hash
 |---|---|
 | 2.2 | The two public entry points, `normalizeSpec`, and the M1 final-review cleanups |
 | 2.3 | The font catalog, the 20 pairings, the genericness score, the copy script and the font loader |
-| 2.4 | Presets, pairing choice, taste rules T1 to T5, color names |
+| 2.4 | Presets, pairing choice, taste rules T1 to T4, color names |
 | 2.5 | The theme bridge, the studio store, the worker, URL state and drafts |
 | 2.6 | The studio shell: layout, inputs panel, lot tag, keyboard |
 | 2.7 | The canvas, the frame switcher and the preview kit with the kitchen sink |
@@ -45,8 +46,8 @@ deferred item to a milestone.
 |---|---|---|
 | §6 Presets: about 20 styles | 14 presets: the 13 styles of the plan plus a neutral default (section 5.3) | The plan fixes the list |
 | §6 Presets: each carries accessibility guards | Each preset carries `guards` (checked by tests) and `unexpressed` (what `dyelot.spec/1` cannot yet hold) | Hard offset shadows, blur and grain have no field in the spec |
-| §6 Taste rules: seven flags with fixes | Five rules T1 to T5 (section 5.4); the type-size count, the measure and decorative glass wait | The plan fixes the list |
-| §6 Motion: durations 50 to 500 ms | The bridge scales durations by the motion feel (R2-08) | M1 stores one token set whatever the feel says (M1 R-18) |
+| §6 Taste rules: seven flags with fixes | Four rules T1 to T4 (section 5.4; the mixed-radius rule T5 is dropped, R2-26); the type-size count, the measure and decorative glass wait | The plan fixes the list |
+| §6 Motion: durations 50 to 500 ms | The bridge scales durations by the motion feel and caps them at 500 ms (R2-08) | M1 stores one token set whatever the feel says (M1 R-18) |
 | §8 Right: the color-blindness view in the inspector | The color-vision view is a canvas toggle that recomputes every color through `simulate` | The plan puts it on the canvas |
 | §8 Left: brief, image drop, import | Not shown in M2 | Later milestones |
 | §8 Canvas: increased contrast toggle | Not in M2 | The plan lists six canvas toggles and increased contrast is not one |
@@ -57,7 +58,8 @@ deferred item to a milestone.
 
 ## 2. Decisions M2 implements
 
-These are the plan's decisions, copied word for word.
+These are the plan's decisions, copied word for word. Where a ruling in section 3 changes one (the T5 rule, the
+fix for K3, the font files, the lock behavior), the ruling wins and names the decision it changes.
 
 - **Public entry points.** `src/engine/index.ts` exports `generateSystem`, `DirectionParams`,
   `lintSpec`, `LintedSpec`, `Finding`, `parseColor`, `formatOklch`, `oklchToRgb`, `gamutMap`, `wcagRatio`,
@@ -149,21 +151,26 @@ error classes and the hex conversions, so the entries export these too and nothi
 lists in section 6.1; types are checked by the compiler. `DirectionParams` gains one optional field (R2-05).
 
 **R2-03 · The font catalog's facts.**
-1. The catalog holds 41 families: the 39 families of the 20 pairings in research D2 and `geist` and `geist-mono` (section
-   5.2 lists them). The two Geist faces are the chrome's, not in any pairing.
+1. The catalog holds 40 families: the 38 families of the 20 pairings in research D2 (D2's Recursive is replaced by a true
+   monospace, R2-04) and `geist` and `geist-mono` (section 5.2 lists them). The two Geist faces are not in any pairing.
 2. A family id is its Google Fonts name lowercased with spaces turned into `-` (`Source Serif 4` is `source-serif-4`).
 3. `variable` and `weights` are fixed by Task 2.3 from the installed Fontsource metadata. The table in 5.2 gives the
-   planned values: a family that Fontsource ships in one weight, or in fixed weights only, is `variable: false`. A
-   mismatch changes that table and this ruling's count of static families, not the shape. For a variable family
-   `weights` is `[min, max]`; for a static family it is the ascending list of shipped weights.
+   planned values, checked on 2026-11-01 against the Google Fonts metadata: a family without a `wght` axis is
+   `variable: false`. A mismatch changes that table, not the shape. `axes` lists only `wght` for a variable family and
+   nothing for a static one, because the copied file holds that one axis (item 5). For a variable family `weights` is
+   `[min, max]`; for a static family it is the ascending list of the weights copied: 400 and, when the family has it, 700.
 4. The copy script reads `@fontsource-variable/<id>` for a variable family and `@fontsource/<id>` for a static one. The
-   plan names only the first; static families (Gloock, Young Serif, Courier Prime, Fragment Mono, Redaction, Tiny5) have no
+   plan names only the first; static families (Gloock, Young Serif, Courier Prime, Fragment Mono, Redaction) have no
    variable package.
-5. Files land in `public/fonts/<id>/`: `<id>.woff2` for a variable family, `<id>-<weight>.woff2` per weight for a static
-   one, and `OFL.txt` for both.
+5. Files land in `<out>/<id>/` (`public/fonts/<id>/` by default; `--out <dir>` changes it): the Latin file
+   `<id>-latin-wght-normal.woff2` for a variable family, `<id>-latin-400-normal.woff2` and, when the family has a bold,
+   `<id>-latin-700-normal.woff2` for a static one, and `OFL.txt` for both. `public/fonts/` is generated by `predev` and
+   `prebuild` and is git-ignored. Tests run the script with `--out <tmp>`, because CI runs Vitest before any build.
 6. `popularity` is the value from `fonts.google.com/metadata/fonts` on the day Task 2.3 runs, written into `catalog.ts` as a
-   literal integer. A family the metadata lacks (Redaction, new in October 2026) takes 200, which scores 0. The
-   catalog never fetches at runtime or in a test.
+   literal integer. The metadata of 2026-11-01 holds every catalog family, Redaction included (1036). A family the
+   metadata lacks takes 200, which scores 0. The catalog never fetches at runtime or in a test. Measured on that day:
+   Archivo is 27 (genericness 0.869), so a design that uses it raises T1; every other display face of the 20 pairings is
+   at 68 or above, and `geist` is 31.
 7. The high-genericness list is the research's list, as names. A family is on it when its name equals an entry, or, for
    the four prefix entries `IBM Plex`, `Cormorant`, `Crimson` and `DM Serif`, when it starts with that entry and a space.
    `Inter Tight` is not on it. Of the catalog only `geist` and `geist-mono` are.
@@ -173,20 +180,27 @@ lists in section 6.1; types are checked by the compiler. `DirectionParams` gains
    `ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace`.
 
 **R2-04 · Pairing ids and monos.** A pairing id is the short slug in the table in 5.2. A pairing whose D2 row has no mono
-(rows 2, 3, 4, 5, 8, 9, 10, 12, 16, 20) takes `fragment-mono`, M1's mono, so every pairing fills all three families.
+(rows 2, 3, 4, 5, 8, 9, 10, 12, 16, 20) takes `fragment-mono`, M1's mono, so every pairing fills all three families. Row 19
+lists Recursive as its mono, which needs the `MONO` axis set to 1 to render monospaced and the copied `wght` file does
+not carry that axis, so pairing 19 takes `spline-sans-mono`, a true monospace of the catalog. Recursive leaves the catalog.
 
 **R2-05 · `pairing` is a direction parameter.** `DirectionParams` gains `readonly pairing?: PairingId`. Absent, the
 generator writes M1's default pairing, so every M1 golden stays valid. The studio keeps `pairing` absent to mean
 "auto": the store resolves it with `choosePairing(seed)` before it calls the generator. A pairing picked from the list or
 set by a preset is explicit and survives regeneration. `choosePairing` draws from `seededRandom(seed + ":pairing")`, a
-stream apart from the one `buildPalettes` uses, so choosing a pairing never moves a color.
+stream apart from the one `buildPalettes` uses, so choosing a pairing never moves a color. The spec records the three families and not whether the choice was automatic,
+so `paramsOfSpec` decides: when the families equal the pairing `choosePairing(meta.seed)` picks, `pairing` stays absent
+(auto); when they equal another pairing, that pairing is explicit; otherwise the fonts are custom (R2-14 item 4). A link
+or draft that reloads therefore keeps auto as auto, except that an explicit choice equal to the auto pick reads back as
+auto, which changes nothing on screen.
 
 **R2-06 · Preset shape.** `Preset = { id, label, summary, params, view, guards, unexpressed }`. `params` is the
 `PresetParams` patch: `harmony`, `chroma`, `neutralTint`, `contrastLevel`, `scaleMode`, `type.context`, `radius`,
 `depth`, `motion` and `pairing` (absent for `default`, meaning auto). `view` is `{ mode, density }`: the studio's view
 settings, which a preset sets once when applied. A preset never sets `primary`, `secondary`, `accent`, `name` or
-`type.ratio`. `applyPreset` leaves locked colors and `name` alone and removes `type.ratio`, because the preset's
-context fixes the ratio. `guards` are the accessibility notes the preset's values answer; `unexpressed` lists what the
+`type.ratio`. `applyPreset` leaves locked colors and `name` alone, removes `type.ratio` because the preset's context
+fixes the ratio, and never lowers the contrast level: the result's `contrastLevel` is the higher of the user's level and
+the preset's (`AA` < `AA+` < `AAA`). `guards` are the accessibility notes the preset's values answer; `unexpressed` lists what the
 style needs that `dyelot.spec/1` cannot hold (hard offset shadows, blur, grain). The studio shows both.
 
 **R2-07 · Density is a view setting.** `DesignSpec` has no density field and the link holds only the spec, so density
@@ -199,34 +213,50 @@ of motion tokens whatever `depth.style` and `motion.feel` say (M1 R-18, and the 
 the generator as it is, so no golden changes, and applies the choice in `themeVars`:
 - `depth.style` `flat`: `--shadow-1` to `--shadow-5` are `none`. `soft`: the stored layers. `layered`: each stored
   layer with `offsetY` and `blur` times 1.5 and `alpha` times 1.5 (capped at 1), all through `round6`.
-- `motion.feel` scales the stored durations: `calm` times 1.25, `brisk` times 1, `playful` times 1, each then rounded
-  to the nearest 5 ms. The feel picks the spring: `calm` is `smooth`, `brisk` is `snappy`, `playful` is `bouncy`,
+- `motion.feel` scales the stored durations: `calm` times 1.25, `brisk` times 1, `playful` times 1, each then rounded to
+  the nearest millisecond (a tie rounds up) and capped at 500 ms, the umbrella's range (calm gives 63, 125, 188, 250,
+  375, 500, 500). The feel picks the spring: `calm` is `smooth`, `brisk` is `snappy`, `playful` is `bouncy`,
   written as `--spring-duration` (seconds) and `--spring-bounce`. The preview kit reads the same spring through the pure
   `feelSpring(motion)` that `src/theme/vars.ts` exports.
 - M3's `theme.css` export reuses `themeVars`, so a download matches the canvas.
 
-**R2-09 · Taste rules read more of the spec.** The M1 `LintedSpec` holds the color section. T1, T4 and T5 need the
-type and shape sections, so `LintedSpec` gains the optional `type: { families: { display }, context, steps }` (each
-step `{ name, sizePx }`) and `shape: { radiusSet, radii: { md } }`; every `DesignSpec` is still one. A rule whose input
-is absent does not run, so every M1 caller keeps working. `lintSpec(spec, options?)` takes
-`LintOptions = { pills?: boolean; catalog?: readonly FontEntry[] }`: `pills` says that the canvas draws pill-shaped
-parts (chips, switches, avatars) with `--radius-full`, which the spec cannot say (T5); `catalog` replaces
+**R2-09 · Taste rules read more of the spec.** The M1 `LintedSpec` holds the color section. T1 and T4 need the type
+section, so `LintedSpec` gains the optional `type: { families: { display }, context, steps }` (each step
+`{ name, sizePx }`); every `DesignSpec` is still one. A rule whose input is absent does not run, so every M1 caller keeps
+working. `lintSpec(spec, options?)` takes `LintOptions = { catalog?: readonly FontEntry[] }`; `catalog` replaces
 `FONT_CATALOG` for tests. The rules:
 - A rule that has no mode reports `mode: "light"`.
 - T1 skips a display family that is not in the catalog (it cannot be measured).
 - T2 reports `threshold` as the nearer bound of [265, 300].
-- T3 fires on an exact hex match. `measured` and `threshold` are both 0 (ΔEOK to the matching default). The table holds
-  the 22 chromatic and gray palettes of Tailwind v4, 11 steps each, 242 hexes; `black` and `white` are not in it
-  because `onFill` picks them.
+- T3 fires on an exact hex match at the steps 300, 400, 500, 600, 700 and 800 of every palette in both modes. `measured`
+  and `threshold` are both 0 (ΔEOK to the matching default). The reason for the step range: the near-white and
+  near-black ends (light 50 and 100, dark 950) collide with a Tailwind default by chance. Over 300 default designs
+  (`s0` to `s299`) 20 specs (6.7%) had a hit, every one at light 50, light 100 or dark 950, and none had a hit at steps 300
+  to 800.
 - T4 reads the `body` step.
-- T5 reads `radii.md`; it fires when `pills` is true, `radiusSet` is `sharp` and `radii.md` is below 4. `measured` is
-  `radii.md` and `threshold` is 4. The studio passes `pills: true`, because every kit template draws pills.
-- `RULE_IDS` grows from 20 to 25 entries, T1 to T5 last.
+- `RULE_IDS` grows from 20 to 24 entries, T1 to T4 last.
+
+The Tailwind table is derived, not typed: `src/engine/lint/tailwind.ts` holds the hexes that come from every
+`--color-<palette>-<step>: oklch(...)` line of `node_modules/tailwindcss/theme.css` (version 4.3.3: 26 palettes, 286
+entries; the four newest are `mauve`, `olive`, `mist` and `taupe`), each mapped with `toHex(gamutMap(color, "srgb"))`.
+95 of the 286 are outside sRGB, so `toHex(oklchToRgb(...))` would throw. Four entries (`amber-400`, `amber-500`,
+`yellow-400`, `yellow-500`) differ by one code between gamut mapping and plain clipping; the table uses gamut mapping,
+like the engine. The 286 entries give 283 distinct hexes (for example `zinc-50` equals `neutral-50`). `black` and `white`
+are not in the table because `onFill` picks them. The test regenerates the table from the file, derives the palette
+names from it, and asserts the module's set equals the derived set; the preview guard (section 6.10) takes its
+palette-name list from the same derivation.
 
 **R2-10 · The fix table.** The decisions map K3 to the even scale mode, but K3 is not a rule of the M1 linter (M1 spec
-section 9 defers it). M2 ships the four fixes that exist: C1, C5, N1 and F1 raise the contrast level one step
-(`AA` to `AA+`, `AA+` to `AAA`). At `AAA` the action is disabled and says the level is the highest. When K3 arrives a
-later milestone adds its row. The owner can instead map K4 to the even mode by editing this ruling.
+section 9 defers it). M2 ships the four fixes that exist, each to the lowest level that clears the finding it names: C1 to
+`AA+` (it moves only `muted-foreground` against `muted` and `background`), and C5, N1 and F1 to `AAA`. A scan of the engine
+found no generated design that raises any of the four at `AA`: 576 designs (3 chroma levels × 4 neutral tints × 2 gamuts × 2
+scale modes × seeds `s0` to `s11`, `DEFAULT_PARAMS` otherwise) gave 0 findings of C1, C5, N1 or F1. These findings reach the
+studio only through an opened link whose roles were made elsewhere. The fix therefore means "regenerate the design from its
+parameters at a higher contrast level", which replaces every role, and the button says so (section 7.8). The inspector
+regenerates in memory at the target level first and offers the action only when that spec no longer has the finding (same
+`id`, `subject` and `mode`); otherwise the finding shows "No automatic fix clears this." A fix whose target is not above the
+current level is disabled. When K3 arrives a later milestone adds its row. The owner can instead map K4 to the even mode by
+editing this ruling.
 
 **R2-11 · Color names API.** `names.ts` is pure and never imports the list. `indexNames(list)` takes
 `readonly { name: string; hex: string }[]`, validates it and returns a frozen index with each color's OKLab
@@ -235,18 +265,22 @@ keeps the earlier entry in list order. The UI loads `color-name-list/bestof` wit
 inspector opens, in `src/features/studio/names.ts`. The inspector names the 8 palettes (light step 500) and
 `chart-1` to `chart-5`.
 
-**R2-12 · Theme bridge details.** The exact property names are in section 6.6. `themeVars` returns a frozen record of
+**R2-12 · Theme bridge details.** The exact property names are in section 5.6. `themeVars` returns a frozen record of
 204 properties. It validates before it emits: a color value must be a lowercase `#rrggbb`, a family id must match
 `^[a-z0-9-]{1,64}$`, and a value that holds `;`, `{`, `}` or `<` throws, so a bad spec never reaches a style
-attribute. `themeVars(spec, mode, options?)` takes `options.vision?: Deficiency`; when set, every color-valued property
-becomes `toHex(simulate(hexToRgb(hex), vision))`. Without it every color is a stored hex.
+attribute. `themeVars(spec, mode, options?)` takes `options.vision?: Deficiency` and `options.units?: "vw" | "cqi"`. When `vision`
+is set, every color-valued property becomes `toHex(simulate(hexToRgb(hex), vision))`; without it every color is a stored
+hex. `units` defaults to `vw`, the spec's own fluid unit, which exports keep. The canvas passes `"cqi"`: `--text-display`
+then has every `vw` of the `clamp` string written as `cqi`, so the fluid size follows the canvas frame (a container with
+`container-type: inline-size`) and not the browser window.
 
 **R2-13 · Store protocol.**
 1. `createStudioStore(deps)` takes `{ client, storage, clock, newSeed, location, history }`; nothing is a module
    singleton, so tests build as many stores as they need. A zustand hook wraps the store for React.
 2. The worker protocol lives in `src/features/studio/protocol.ts`: the types and the pure `runGenerate(request)`, which
    never throws. `generate.worker.ts` only wires `onmessage` to it. An inline client runs `runGenerate` on a microtask
-   when `Worker` is missing or throws on construction, so tests and locked-down browsers behave the same.
+   when `Worker` is missing or throws on construction, so tests and locked-down browsers behave the same. Both clients
+   come from `createGenerateClient(post)`, which keeps one request in flight and at most one pending (R2-29).
 3. The stale rule is monotonic. The store numbers requests 1, 2, 3 and keeps `lastApplied`. A reply applies when
    `reply.id > lastApplied`, and it then sets `lastApplied`. Any other reply is dropped. The decision says "stale replies are
    dropped"; this form also lets a long drag show progress, and when every reply has arrived the canvas always holds the
@@ -254,12 +288,16 @@ becomes `toHex(simulate(hexToRgb(hex), vision))`. Without it every color is a st
    replies already in flight cannot overwrite them.
 4. Every applied reply passes through `normalizeSpec` before the store keeps it. A reply that fails is dropped and sets
    a failed status.
-5. A change is committed when its reply is applied. Committing pushes the previous snapshot `{ params, seed, spec }`
+5. `newSeed` defaults to two 32-bit draws from `crypto.getRandomValues`, written `a.toString(36) + b.toString(36)`, so an
+   e2e init script can replace `getRandomValues` with a counter and know every seed (F-KEY-02).
+6. A change is committed when its reply is applied. Committing pushes the previous snapshot `{ params, seed, spec }`
    onto `history` and clears `future`. A change made with a `coalesce` key merges into the previous commit, instead of
    pushing, when that commit had the same key and happened at most 1,000 ms earlier by `clock`. Holding Space and
-   dragging a slider each use a key, so one gesture is one undo step. `history` holds at most 100 snapshots; the oldest
-   falls off.
-6. `mode` and the other view settings are not in a snapshot and not in the link.
+   a drag in the native color input each use a key (`regenerate`, `seed:<slot>`), so one gesture is one undo step.
+   `history` holds at most 100 snapshots; the oldest falls off.
+7. `mode` and the other view settings are not in a snapshot and not in the link.
+8. `startFresh` sets `lastApplied` to the newest issued id before it issues its own request, so the replies of the
+   requests it replaces cannot apply after it.
 
 **R2-14 · The link, the hash and the first load.**
 1. The hash grammar is `#s=` followed by the link and nothing else. An empty hash, `#`, or any hash that does not start
@@ -269,7 +307,7 @@ becomes `toHex(simulate(hexToRgb(hex), vision))`. Without it every color is a st
 3. The banner (`role="alert"`) has two sentences and two buttons. Its first sentence per reason is in section 6.8, C-HASH-10.
    The second sentence is "The studio opened your last draft instead." or "The studio opened a fresh design instead."
    The buttons are "Start fresh" (the one primary chrome action) and "Dismiss".
-4. A link whose type families match no pairing opens normally and shows a polite notice that editing resets the fonts to
+4. A link whose type families match no pairing, and are not the automatic pick for its seed (R2-05), opens normally and shows a polite notice that editing resets the fonts to
    the automatic pairing.
 5. `hashchange` to another link loads it like a first load, except that the previous design goes onto `history`.
 
@@ -280,12 +318,14 @@ the gaps:
 2. Space, ← and → also do nothing when focus sits on a control that uses the key itself: a `button`, a `summary`, a link, an
    element with role `button`, `switch`, `checkbox`, `radio`, `tab`, `slider`, `menuitem` or `option`, or inside an open
    drawer's focus trap. Space on the page body, the canvas frame or the header regenerates.
-3. A chord with Ctrl or Meta fires only for Mod+S, and Alt only for Alt+T. A held key repeats: Space regenerates on every
+3. A chord with Ctrl or Meta fires only for Mod+S, and Alt only for Alt+T, matched on `event.code` (`KeyT`), because Alt changes the character on some layouts. A held key repeats: Space regenerates on every
    repeat, and the worker's stale rule (R2-13) keeps the canvas current.
 4. `L` fires only when focus is on a seed row's swatch button, native color input or lock toggle. It never fires from the
    hex field, which is a text field.
-5. Escape is exempt from the text-field rule. A modal drawer must close from every control inside it.
-6. Mod+S always calls `preventDefault` when it fires, so the browser's save dialog does not open. In a text field it does
+5. A global shortcut is also ignored when the event target is inside `[data-canvas]`, so a preview control that uses a key
+   keeps it.
+6. Escape is exempt from the text-field rule. A modal drawer must close from every control inside it.
+7. Mod+S always calls `preventDefault` when it fires, so the browser's save dialog does not open. In a text field it does
    not fire, and the browser's own behavior stands.
 
 **R2-16 · Layout details.**
@@ -296,9 +336,18 @@ the gaps:
    scales down with `transform: scale(<available / frame>)`. The switcher shows the scale ("fit 91%"). At 360 px the
    page never scrolls sideways.
 
-**R2-17 · Locking a color.** Locking an unlocked seed sets it to `normalizeSeed(parseColor(hex))`, where `hex` is the
-current light `primary`, `secondary` or `accent` role of the spec. Unlocking removes the key from `params`. Both
-regenerate and commit.
+**R2-17 · Locking a color.** Locking an unlocked seed must not move the canvas, so it locks the color the palette already
+holds, at the palette's own hue. For `primary` the seed is `normalizeSeed({ l, c, h })` with `l` and `c` from
+`rgbToOklch(hexToRgb(roles.light.primary))` and `h` from `palettes.primary.hue`. For `secondary` and `accent` it is the
+palette's light step 500: `l` and `c` from that step's stored `oklch`, `h` from the palette's `hue`. The step-100 tint
+that a role such as `secondary` shows is never the source, and the drifted hue of a step is never the seed's hue (a
+seed hue off the palette's hue moves the harmony hues). Unlocking removes the key from `params`. Both regenerate and
+commit. Measured over `seed-1` to `seed-20` with `DEFAULT_PARAMS`: locking `secondary` or `accent` left all 46 roles
+of both modes identical in 20 of 20 seeds; locking `primary` left them identical in 15 of 20 seeds, and in the other five
+the four roles `primary`, `ring`, `sidebar-primary` and `sidebar-ring` moved by one 8-bit code in one channel, because a
+seed step's hex is `toHex(gamutMap(oklch))`, which the M1 spec allows to differ by one code from the solved hex (M1 R-01).
+The case C-STORE-34 therefore asserts equality within one code per channel for every role, and equality of all roles in
+at least 15 of 20 seeds for `primary` and 20 of 20 for `secondary` and `accent`.
 
 **R2-18 · Where the Review Focus 1 e2e lives.** The plan names Task 2.5 for the bad-link e2e, but the page that shows the
 banner arrives in Task 2.6. The pure parts of Review Focus 1 (reasons, copy, state) are tested in Task 2.5; the e2e that
@@ -321,14 +370,55 @@ unbroken word, a 90-character title, a name with diacritics, the number `1,234,5
 single-character label. `vision` is `none`, `protan`, `deutan` or `tritan`.
 
 **R2-22 · New pure folders.** `src/theme/**` joins the pure-core test project (`tests/unit/theme/**` runs in `node`) and the
-coverage floors of 95 for lines, statements and functions and 90 for branches. The same floors cover `src/engine/fonts/**`.
-The font loader and every file under `src/features/**` run in jsdom or Playwright.
+coverage floors of 95 for lines, statements and functions and 90 for branches. The same floors cover `src/engine/fonts/**`
+and the pure helper files of the studio: `src/features/studio/{protocol,url,drafts,params,lot,inspect,fixes,client}.ts` and
+`src/features/fonts/load.ts`, which the coverage include lists by name. The rest of `src/features/**` runs in jsdom or
+Playwright and is covered by the flows.
 
-**R2-23 · Fonts are the chrome's too.** Geist and Geist Mono come from the catalog's files, not from `next/font`, once the
-catalog exists; the chrome loads them with the same loader and a stack ending in the catalog fallback.
+**R2-23 · The chrome keeps `next/font`.** Geist and Geist Mono for the chrome stay on `next/font`, which downloads and
+self-hosts them at build time, so the browser makes no request to Google. The catalog entries `geist` and `geist-mono` are for
+the canvas, where a spec may name them. `src/app/layout.tsx` is unchanged by M2 in this respect.
 
 **R2-24 · Home link.** The home page gets a third link element, `open the studio`, with `href="/studio"`, in the same style and
 list as the GitHub link. It carries no other change.
+
+**R2-25 · The M1 cases that change.** The taste rules add findings to the M1 base spec (`seed-1` has primary hue 289, a white
+page and no locked seed, so T2 fires), the generator-importing guard has to admit new importers, and `RULE_IDS` grows. Three
+M1 cases change, and every other M1 case passes unmodified:
+- **C-LINT-43** compares the first 20 entries of `RULE_IDS` with M1's 20 ids, and its checks on `source`, `measured` and
+  `threshold` read the findings whose id is one of those 20.
+- **C-LINT-47** filters the findings of the base spec to M1's 20 ids before it asserts silence and the N3 info findings.
+- **C-REPO-02** allows an `import type` from `src/spec` anywhere under `src/engine`, and a value import from `src/spec` in
+  `generate.ts`, `presets.ts` and `index.ts`; the linter files still import nothing from `src/spec` (C-ENTRY-18).
+I-M2-08 says this: every M1 case passes unmodified except these three, and every M1 golden holds.
+
+**R2-26 · T5 is dropped; T3 reads steps 300 to 800.** T5 (mixed radius languages) fired on every `sharp` design, since the
+spec cannot say whether a pill is drawn, and it had no fix. The decision's T5 is removed, T1 to T4 stay, and the `pills` option
+of `lintSpec` goes with it. The T3 range and the Tailwind table are in R2-09.
+
+**R2-27 · The font loader's result.** The plan's test names `loadFamily` and a result `{ loaded: false }`. The spec renames
+them: `createFontLoader(deps).load(id)` resolves `{ id, status: "loaded" }` or `{ id, status: "failed", reason }`, because the
+inspector needs the reason and the loader needs a status per family. The plan's Task 2.3 text should say `load` and
+`status`.
+
+**R2-28 · The selected preset is state.** The store holds `preset: PresetId | null`. `applyPreset` sets it. Any change of a
+parameter the preset owns (`harmony`, `chroma`, `neutralTint`, `contrastLevel`, `scaleMode`, `type.context`, `radius`, `depth`,
+`motion`, `pairing`) to a different value, and any change of `view.density`, sets it to `null`; changing a seed color, the mode,
+the frame or another view setting does not. The preset select shows "Custom" when it is `null`, and the preset notes show
+only for a non-null preset. The draft stores the preset id. `DesignSpec` has no preset or `direction` field, so the share
+link does not carry it: a design opened from a link has `preset: null`.
+
+**R2-29 · One request in flight.** Generation takes about 0.2 s, and a worker queues messages in order, so holding Space would
+line stale work behind the newest request. `createGenerateClient(post)` posts a request only when none is in flight. While one
+is in flight, a new request replaces the one pending, so a superseded request is never posted. When a reply arrives, the
+client posts the pending request, if any. Request ids stay monotonic and the store's rule (R2-13 item 3) is unchanged.
+
+**R2-30 · The canvas is isolated from the chrome.** Inside `[data-canvas]`: `color-scheme` is set per mode (`light` or `dark`)
+so native controls follow the spec's mode and not the chrome's dark scheme; the focus ring is `outline: 2px solid var(--ring)`;
+`::selection` uses `--primary` with `--primary-foreground`, the caret uses `--primary`, and the scrollbar uses `--border` and
+`--muted`; the fluid display size follows the canvas (R2-12). The only madder inside the canvas is the highlight overlay of
+"Show me" (R2-20). The chrome-only accessibility cases (the madder focus ring, the achromatic chrome) apply outside
+`[data-canvas]`.
 
 ## 4. Conventions and invariants
 
@@ -358,16 +448,19 @@ list as the GitHub link. It carries no other change.
   request that was not superseded by `undo`, `redo` or a load.
 - **I-M2-03 · The chrome never shows a raw error.** Every failure is a labeled message with a next step: a banner, a field
   message, an inspector note or a toast.
-- **I-M2-04 · The canvas holds only the spec's colors.** Every color painted inside `[data-canvas]` comes from a custom
-  property that `themeVars` wrote; the guard (section 6.10) enforces it in source, and the e2e enforces it in the DOM.
+- **I-M2-04 · The canvas holds only the spec's colors.** Every color the preview source writes is a custom property that
+  `themeVars` wrote; the guard (section 6.10) enforces it in source. In the DOM, no computed color inside `[data-canvas]`
+  equals a chrome color (madder, the page, the panel or a house neutral); F-CANVAS-01 checks that. The one overlay is the
+  "Show me" outline (R2-20).
 - **I-M2-05 · Storage and clipboard are optional.** The studio works with `localStorage`, `history.replaceState` and
   `navigator.clipboard` each missing or throwing.
-- **I-M2-06 · No request goes to Google.** No source or build file names `fonts.googleapis.com` or `fonts.gstatic.com`; the e2e
-  records no request to either.
+- **I-M2-06 · No request goes to Google at runtime.** No source file names `fonts.googleapis.com` or `fonts.gstatic.com`; the e2e
+  records no request to either. The chrome's `next/font` self-hosts at build time (R2-23).
 - **I-M2-07 · The pure core stays pure.** `src/engine`, `src/spec` and `src/theme` read no DOM, storage or network and import
   nothing from `src/features`, `src/app` or `src/components`.
-- **I-M2-08 · M1 is unchanged.** Every M1 case passes unmodified, and every M1 golden (spec ids, share links) holds,
-  because the generator's output is the same when `pairing` is absent.
+- **I-M2-08 · M1 is unchanged except three cases.** Every M1 case passes unmodified except C-LINT-43, C-LINT-47 and C-REPO-02,
+  which R2-25 amends, and every M1 golden (spec ids, share links) holds, because the generator's output is the same when
+  `pairing` is absent.
 
 ## 5. Public API of the new pure modules
 
@@ -401,13 +494,13 @@ type FontEntry = {
   readonly family: string;             // the Google Fonts name
   readonly category: FontCategory;
   readonly variable: boolean;
-  readonly axes: readonly string[];    // ["wght"], ["wght", "wdth", "opsz"], ...
-  readonly weights: readonly number[]; // variable: [min, max]; static: ascending list
+  readonly axes: readonly string[];    // ["wght"] for a variable family, [] for a static one (R2-03 item 3)
+  readonly weights: readonly number[]; // variable: [min, max]; static: ascending subset of [400, 700]
   readonly license: "OFL-1.1";
   readonly popularity: number;         // integer >= 1, lower = more common
   readonly fallback: string;           // R2-03 item 8
 };
-const FONT_CATALOG: readonly FontEntry[];             // frozen, 41 entries, in the table's order
+const FONT_CATALOG: readonly FontEntry[];             // frozen, 40 entries, in the table's order
 function genericnessOf(popularity: number): number;   // 1 - clamp((popularity - 1) / 199, 0, 1)
 function genericness(id: string): number;             // 1 on the high list, else genericnessOf(popularity)
 const HIGH_GENERICNESS_FAMILIES: readonly string[];   // the research list, frozen
@@ -430,48 +523,49 @@ function choosePairing(seed: string, pairings?: readonly Pairing[], catalog?: re
 `seededRandom(seed + ":pairing")` and walks the cumulative weights to `u × total` (R2-05). `genericness` throws
 `RangeError` for an unknown id and `TypeError` for a non-string.
 
-The 41 families and the 20 pairings (research D2). `var` is the planned `variable` flag (R2-03 item 3).
+The 40 families and the 20 pairings (research D2). `var` is the planned `variable` flag (R2-03 item 3); the flags were
+checked against the Google Fonts metadata of 2026-11-01. A variable family's `axes` is `wght` alone, because the copied file
+holds that axis only; the research's other axes (`wdth`, `opsz`, `ROND`) are out of reach in M2.
 
 | id | Family | Category | var | Axes (planned) | In pairing |
 |---|---|---|---|---|---|
 | `host-grotesk` | Host Grotesk | sans | yes | wght | 1 (display, body) |
 | `fragment-mono` | Fragment Mono | mono | no | none | 1 (mono); the default mono of R2-04 |
 | `schibsted-grotesk` | Schibsted Grotesk | sans | yes | wght | 2 (display) |
-| `source-serif-4` | Source Serif 4 | serif | yes | wght, opsz | 2 (body) |
+| `source-serif-4` | Source Serif 4 | serif | yes | wght | 2 (body) |
 | `gloock` | Gloock | serif | no | none | 3 (display) |
 | `albert-sans` | Albert Sans | sans | yes | wght | 3, 19 (body) |
 | `young-serif` | Young Serif | serif | no | none | 4 (display) |
 | `onest` | Onest | sans | yes | wght | 4 (body) |
-| `bodoni-moda` | Bodoni Moda | serif | yes | wght, opsz | 5 (display) |
+| `bodoni-moda` | Bodoni Moda | serif | yes | wght | 5 (display) |
 | `familjen-grotesk` | Familjen Grotesk | sans | yes | wght | 5 (body) |
-| `literata` | Literata | serif | yes | wght, opsz | 6 (display) |
+| `literata` | Literata | serif | yes | wght | 6 (display) |
 | `spline-sans` | Spline Sans | sans | yes | wght | 6, 13 (body) |
-| `spline-sans-mono` | Spline Sans Mono | mono | yes | wght | 6, 13 (mono) |
-| `hubot-sans` | Hubot Sans | sans | yes | wght, wdth | 7 (display) |
-| `mona-sans` | Mona Sans | sans | yes | wght, wdth | 7 (body) |
-| `martian-mono` | Martian Mono | mono | yes | wght, wdth | 7 (mono) |
+| `spline-sans-mono` | Spline Sans Mono | mono | yes | wght | 6, 13, 19 (mono) |
+| `hubot-sans` | Hubot Sans | sans | yes | wght | 7 (display) |
+| `mona-sans` | Mona Sans | sans | yes | wght | 7 (body) |
+| `martian-mono` | Martian Mono | mono | yes | wght | 7 (mono) |
 | `funnel-display` | Funnel Display | display | yes | wght | 8 (display) |
 | `funnel-sans` | Funnel Sans | sans | yes | wght | 8 (body) |
 | `zalando-sans-expanded` | Zalando Sans Expanded | sans | yes | wght | 9 (display) |
 | `zalando-sans` | Zalando Sans | sans | yes | wght | 9 (body) |
 | `unbounded` | Unbounded | display | yes | wght | 10 (display) |
 | `golos-text` | Golos Text | sans | yes | wght | 10 (body) |
-| `archivo` | Archivo | sans | yes | wght, wdth | 11 (display, body) |
+| `archivo` | Archivo | sans | yes | wght | 11 (display, body) |
 | `courier-prime` | Courier Prime | mono | no | none | 11 (mono) |
 | `big-shoulders` | Big Shoulders | display | yes | wght | 12 (display) |
 | `red-hat-text` | Red Hat Text | sans | yes | wght | 12, 14, 15 (body) |
-| `tiny5` | Tiny5 | display | no | none | 13 (display) |
-| `doto` | Doto | display | yes | wght, ROND | 14 (display) |
+| `tiny5` | Tiny5 | display | yes | wght | 13 (display) |
+| `doto` | Doto | display | yes | wght | 14 (display) |
 | `red-hat-mono` | Red Hat Mono | mono | yes | wght | 14, 15 (mono) |
 | `redaction` | Redaction | serif | no | none | 15 (display) |
-| `commissioner` | Commissioner | sans | yes | wght, FLAR, VOLM | 16 (display, body) |
+| `commissioner` | Commissioner | sans | yes | wght | 16 (display, body) |
 | `atkinson-hyperlegible-next` | Atkinson Hyperlegible Next | sans | yes | wght | 17 (display, body) |
 | `atkinson-hyperlegible-mono` | Atkinson Hyperlegible Mono | mono | yes | wght | 17 (mono) |
-| `google-sans-flex` | Google Sans Flex | sans | yes | wght, wdth, ROND | 18 (display, body) |
+| `google-sans-flex` | Google Sans Flex | sans | yes | wght | 18 (display, body) |
 | `google-sans-code` | Google Sans Code | mono | yes | wght | 18 (mono) |
-| `anybody` | Anybody | display | yes | wght, wdth | 19 (display) |
-| `recursive` | Recursive | mono | yes | wght, MONO, CASL | 19 (mono) |
-| `science-gothic` | Science Gothic | display | yes | wght, wdth, CTRS | 20 (display) |
+| `anybody` | Anybody | display | yes | wght | 19 (display) |
+| `science-gothic` | Science Gothic | display | yes | wght | 20 (display) |
 | `hanken-grotesk` | Hanken Grotesk | sans | yes | wght | 20 (body) |
 | `geist` | Geist | sans | yes | wght | none (the chrome) |
 | `geist-mono` | Geist Mono | mono | yes | wght | none (the chrome) |
@@ -488,7 +582,7 @@ The 41 families and the 20 pairings (research D2). `var` is the planned `variabl
 | 8 | `funnel` | funnel-display | funnel-sans | fragment-mono | startup marketing | low |
 | 9 | `zalando` | zalando-sans-expanded | zalando-sans | fragment-mono | e-commerce | low |
 | 10 | `unbounded-golos` | unbounded | golos-text | fragment-mono | Y2K, retro-futurism | low |
-| 11 | `archivo-courier` | archivo | archivo | courier-prime | neo-brutalism, zine | med |
+| 11 | `archivo-courier` | archivo | archivo | courier-prime | neo-brutalism, zine (Archivo has genericness 0.869, so T1 flags it and `choosePairing` weights it down) | med |
 | 12 | `shoulders-redhat` | big-shoulders | red-hat-text | fragment-mono | sports, industrial, events | low |
 | 13 | `tiny5-spline` | tiny5 | spline-sans | spline-sans-mono | dithering, pixel | low |
 | 14 | `doto-redhat` | doto | red-hat-text | red-hat-mono | retro-tech, dashboards | low |
@@ -496,7 +590,7 @@ The 41 families and the 20 pairings (research D2). `var` is the planned `variabl
 | 16 | `commissioner` | commissioner | commissioner | fragment-mono | organic, calm | low |
 | 17 | `atkinson` | atkinson-hyperlegible-next | atkinson-hyperlegible-next | atkinson-hyperlegible-mono | accessible, public sector, health | low |
 | 18 | `google-flex` | google-sans-flex | google-sans-flex | google-sans-code | M3-Expressive-like | med |
-| 19 | `anybody-albert` | anybody | albert-sans | recursive | kinetic typography | low |
+| 19 | `anybody-albert` | anybody | albert-sans | spline-sans-mono | kinetic typography | low |
 | 20 | `science-hanken` | science-gothic | hanken-grotesk | fragment-mono | sci-fi, HUD | low |
 
 The loader (`src/features/fonts/load.ts`) is a factory so tests inject the browser API:
@@ -515,8 +609,9 @@ function createFontLoader(deps: { FontFace?: typeof FontFace; fonts?: FontFaceSe
 const fontLoader: FontLoader; // the browser instance: timeoutMs 8000
 ```
 
-A variable family loads one `FontFace(family, "url(/fonts/<id>/<id>.woff2) format('woff2')", { weight: "<min> <max>",
-display: "swap" })`; a static family loads one face per weight. A loaded face joins `document.fonts`.
+A variable family loads one `FontFace(family, "url(/fonts/<id>/<id>-latin-wght-normal.woff2) format('woff2')", { weight:
+"<min> <max>", display: "swap" })`; a static family loads one face per copied weight, from
+`<id>-latin-<weight>-normal.woff2`. A loaded face joins `document.fonts`.
 
 ### 5.3 Presets (Task 2.4)
 
@@ -544,18 +639,20 @@ function applyPreset(params: DirectionParams, id: PresetId): DirectionParams; //
 
 The parameters of each preset. Every value comes from research D3's row for the style, and R2-06 to R2-08 explain the
 cells where D3 gives a range. Contrast levels answer each style's guard: styles whose pitfall is low contrast take `AA+`
-or `AAA`.
+or `AAA`. `neo-brutalism` takes `anybody-albert` (width and weight extremes, display genericness 0 at popularity 655)
+and not `archivo-courier`, whose Archivo scores 0.869 and would raise T1 on every design. `applyPreset` keeps the higher of
+the user's contrast level and the preset's (R2-06).
 
 | Id | Harmony | Chroma | Tint | Contrast | Scale | Type context | Radius | Depth | Motion | Pairing | Mode | Density |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | `default` | analogous | balanced | brand | AA | standard | product | soft | soft | brisk | auto | light | comfortable |
 | `minimal-swiss` | monochrome | muted | none | AA+ | standard | product | sharp | flat | brisk | `host-grotesk` | light | comfortable |
 | `editorial` | analogous | muted | warm | AA+ | standard | editorial | sharp | flat | calm | `schibsted-serif` | light | comfortable |
-| `neo-brutalism` | triadic | vivid | none | AA+ | even | product | sharp | flat | brisk | `archivo-courier` | light | comfortable |
+| `neo-brutalism` | triadic | vivid | none | AA+ | even | product | sharp | flat | brisk | `anybody-albert` | light | comfortable |
 | `glass` | analogous | balanced | cool | AAA | standard | marketing | round | layered | calm | `funnel` | light | comfortable |
 | `dark-dev-tool` | analogous | balanced | brand | AA+ | standard | dense | soft | flat | brisk | `hubot-mona` | dark | dense |
 | `bento` | analogous | balanced | brand | AA | standard | product | round | soft | brisk | `commissioner` | light | comfortable |
-| `aurora` | analogous | vivid | cool | AA+ | standard | marketing | round | soft | calm | `anybody-albert` | light | comfortable |
+| `aurora` | analogous | vivid | cool | AA+ | standard | marketing | round | soft | calm | `zalando` | light | comfortable |
 | `retro-futurism` | split | vivid | cool | AA+ | even | marketing | round | layered | playful | `unbounded-golos` | dark | comfortable |
 | `tactile` | analogous | balanced | warm | AA | standard | product | soft | layered | brisk | `shoulders-redhat` | light | comfortable |
 | `maximalism` | tetradic | vivid | none | AA+ | even | poster | soft | layered | playful | `bodoni-familjen` | light | comfortable |
@@ -584,11 +681,11 @@ The `guards` and `unexpressed` notes of each preset (a test asserts both lists a
 
 ### 5.4 Taste rules (Task 2.4)
 
-Files: `src/engine/lint/{types,rules,index}.ts`, `src/engine/lint/tailwind.ts` (the 242 hexes, not exported from the entry).
+Files: `src/engine/lint/{types,rules,index}.ts`, `src/engine/lint/tailwind.ts` (the derived Tailwind hexes of R2-09, not exported from the entry).
 
 ```ts
-type RuleId = /* M1's 20 */ | "T1" | "T2" | "T3" | "T4" | "T5";
-type LintOptions = { readonly pills?: boolean; readonly catalog?: readonly FontEntry[] };
+type RuleId = /* M1's 20 */ | "T1" | "T2" | "T3" | "T4";
+type LintOptions = { readonly catalog?: readonly FontEntry[] };
 function lintSpec(spec: LintedSpec, options?: LintOptions): readonly Finding[]; // R2-09
 ```
 
@@ -596,11 +693,10 @@ function lintSpec(spec: LintedSpec, options?: LintOptions): readonly Finding[]; 
 |---|---|---|---|---|---|---|---|
 | T1 | Genericness of `type.families.display` | genericness ≥ 0.8 | warn | light | `display` | genericness / 0.8 | `research D2, D4: overused display face` |
 | T2 | `palettes.primary.hue`, with the light `background` and `color.params.primary` | hue in [265, 300], light `background` is `#ffffff`, and `params.primary` is absent | warn | light | `primary` | hue / nearer bound (265 or 300) | `research D4: purple on white` |
-| T3 | Each light and dark step of the 8 palettes against the 242 Tailwind v4 hexes | the step's `hex` equals a default hex | warn | the scale's mode | `<palette>-<step>` | 0 / 0 | `research D4: Tailwind defaults used verbatim` |
+| T3 | Steps 300 to 800 of the 8 palettes, light and dark, against the derived Tailwind v4 hexes (R2-09) | the step's `hex` equals a default hex | warn | the scale's mode | `<palette>-<step>` | 0 / 0 | `research D4: Tailwind defaults used verbatim` |
 | T4 | `type.steps` entry `body`, `sizePx` | `sizePx` < 16 and `type.context` is not `dense` | warn | light | `body` | sizePx / 16 | `research D1 rule 20: body size floor` |
-| T5 | `shape.radii.md`, with `options.pills` | `pills` is true, `shape.radiusSet` is `sharp` and `radii.md` < 4 | info | light | `radius` | `radii.md` / 4 | `research D4: one radius language` |
 
-Findings sort as in M1 (severity, id, mode, subject). The fix for T1 to T5 is a studio action, not a field of `Finding`.
+Findings sort as in M1 (severity, id, mode, subject). The fix for T1 to T4 is a studio action, not a field of `Finding`.
 
 ### 5.5 Color names (Task 2.4)
 
@@ -619,7 +715,7 @@ File: `src/theme/vars.ts`. Every function is pure and imports the engine and spe
 
 ```ts
 type ThemeVars = Readonly<Record<string, string>>;
-function themeVars(spec: DesignSpec, mode: Mode, options?: { vision?: Deficiency }): ThemeVars;
+function themeVars(spec: DesignSpec, mode: Mode, options?: { vision?: Deficiency; units?: "vw" | "cqi" }): ThemeVars;
 function densityVars(density: Density): ThemeVars;
 function feelSpring(motion: DesignSpec["motion"]): { visualDuration: number; bounce: number };
 ```
@@ -630,23 +726,23 @@ function feelSpring(motion: DesignSpec["motion"]): { visualDuration: number; bou
 |---|---|---|---|
 | Roles | `--background`, `--foreground`, `--card`, `--card-foreground`, … every name in `ROLE_NAMES` as `--<role>` (`--primary-foreground`, `--destructive-subtle`, `--sidebar-ring`, `--chart-1` to `--chart-5`) | 46 | `spec.color.roles[mode][role]` |
 | Scales | `--<palette>-<step>` for the 8 palettes of `PALETTE_NAMES` and the 11 steps of `STEPS` (`--neutral-50` … `--info-950`, `--primary-600`, `--danger-500`) | 88 | the `hex` of that mode's scale step |
-| Type | `--text-<step>`, `--leading-<step>`, `--tracking-<step>` for the 10 steps `caption`, `label`, `body-sm`, `body`, `lead`, `h4`, `h3`, `h2`, `h1`, `display` | 30 | `<sizePx>px` (the `clamp` string for a fluid `display`), `<lineHeightPx>px`, `<trackingEm>em` |
+| Type | `--text-<step>`, `--leading-<step>`, `--tracking-<step>` for the 10 steps `caption`, `label`, `body-sm`, `body`, `lead`, `h4`, `h3`, `h2`, `h1`, `display` | 30 | `<sizePx>px` (the `clamp` string for a fluid `display`, with `vw` written as `cqi` under `units: "cqi"`), `<lineHeightPx>px`, `<trackingEm>em` |
 | Families | `--font-display`, `--font-body`, `--font-mono` | 3 | `fontStack(id)`; an id outside the catalog gets the category fallback (sans for display and body, mono for mono) |
 | Space | `--space-<unit>` for units 0, 1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 32 | 12 | `<px>px`, with `--space-0` as `0px` |
 | Radius | `--radius-sm`, `--radius-md`, `--radius-lg`, `--radius-xl`, `--radius-2xl`, `--radius-full` | 6 | `<px>px`, `--radius-full` as `9999px` |
 | Shadows | `--shadow-1` … `--shadow-5` | 5 | by `depth.style` (R2-08): `none`, or `<key>, <ambient>` |
-| Durations | `--duration-instant`, `-fast`, `-quick`, `-base`, `-slow`, `-slower`, `-slowest` | 7 | `<ms>ms`, scaled by the feel (R2-08) |
+| Durations | `--duration-instant`, `-fast`, `-quick`, `-base`, `-slow`, `-slower`, `-slowest` | 7 | `<ms>ms`, scaled by the feel and capped at 500 (R2-08) |
 | Easings | `--ease-standard`, `--ease-decelerate`, `--ease-accelerate`, `--ease-emphasized` | 4 | `cubic-bezier(<a>, <b>, <c>, <d>)` |
 | Springs | `--spring-duration`, `--spring-bounce` | 2 | the feel's spring: seconds, and the bounce |
 | Icons | `--icon-stroke` | 1 | `String(components.icons.strokePx)` |
 
 A shadow layer is `0 <offsetY>px <blur>px 0 <color>` with `<color>` as `formatOklch(layer.color)` with ` / <alpha>`
 before the closing parenthesis (`oklch(0.2000 0.0100 262.00 / 0.1)`). A fluid `display` keeps the spec's `clamp`
-string. Numbers are written with `String`, so `0.1` stays `0.1`.
+string, except that `units: "cqi"` rewrites its `vw` as `cqi`. Numbers are written with `String`, so `0.1` stays `0.1`.
 
 ### 5.7 Studio state (Task 2.5)
 
-Files: `src/features/studio/{store,protocol,generate.worker,url,drafts,params,lot}.ts`.
+Files: `src/features/studio/{store,protocol,client,generate.worker,url,drafts,params,lot}.ts`.
 
 ```ts
 type Notice =
@@ -655,18 +751,22 @@ type Notice =
   | { kind: "custom-fonts" }
   | { kind: "copy-blocked" };
 type Status = { phase: "idle" | "generating" | "failed"; notice: Notice | null; draft: "on" | "off" };
-type Snapshot = { params: DirectionParams; seed: string; spec: DesignSpec };
+type ParamsPatch = DeepPartial<DirectionParams>;      // `type` merges by key; `pairing: undefined` means auto
+type TemplateId = "landing" | "dashboard" | "settings" | "mobile" | "editorial" | "kitchen-sink";
+type Highlight = { roles: readonly string[]; cells: readonly { palette: PaletteName; step: Step }[] };
+type Snapshot = { params: DirectionParams; seed: string; spec: DesignSpec; preset: PresetId | null };
 type View = { mode: Mode; density: Density; frame: 360 | 768 | 1280; template: TemplateId;
               reducedMotion: boolean; copy: "real" | "edge"; vision: "none" | Deficiency;
               highlight: Highlight | null };
 type StudioState = Snapshot & { history: Snapshot[]; future: Snapshot[]; status: Status; view: View };
+// `preset` follows R2-28; a pairing absent from `params` is auto (R2-05)
 
 type StudioActions = {
   setParams(patch: ParamsPatch, options?: { coalesce?: string }): void;
   applyPreset(id: PresetId): void;
   regenerate(): void;                                   // new seed from deps.newSeed; coalesce "regenerate"
   toggleLock(slot: Lockable): void;                     // R2-17
-  setSeedColor(slot: Lockable, text: string): { ok: true } | { ok: false; message: string };
+  setSeedColor(slot: Lockable, text: string, options?: { coalesce?: string }): { ok: true } | { ok: false; message: string };
   undo(): void; redo(): void;
   toggleMode(): void;                                   // view.mode, no history, no request
   setView(patch: Partial<View>): void;
@@ -685,6 +785,11 @@ type GenerateReply =
   | { id: number; ok: true; spec: DesignSpec }
   | { id: number; ok: false; error: { name: string; message: string } };
 function runGenerate(request: GenerateRequest): GenerateReply; // never throws
+// client.ts (R2-29)
+function createGenerateClient(post: (request: GenerateRequest) => void): {
+  request(request: GenerateRequest): void;   // posts now, or replaces the one pending request
+  reply(reply: GenerateReply): void;          // call when a reply arrives: posts the pending request, if any
+};
 // url.ts
 type HashResult = { kind: "none" } | { kind: "spec"; spec: DesignSpec }
                 | { kind: "error"; reason: "corrupt" | "version" | "schema"; issues?: readonly string[] };
@@ -692,19 +797,23 @@ function readHash(hash: string): HashResult;
 function writeHash(spec: DesignSpec): string;           // `#s=<encodeSpec(spec)>`
 function linkUrl(origin: string, spec: DesignSpec): string; // `<origin>/studio#s=...`
 function bannerFor(notice: Notice): { message: string; detail: string };
-// drafts.ts
-function readDraft(storage: StorageLike | null): DesignSpec | null;
-function writeDraft(storage: StorageLike | null, spec: DesignSpec): { ok: boolean };
+// drafts.ts: the value under `dyelot:draft` is `{ v: 1, link, preset }`
+function safeStorage(win: { localStorage?: unknown } | undefined): StorageLike | null; // null when the accessor throws
+function readDraft(storage: StorageLike | null): { spec: DesignSpec; preset: PresetId | null } | null;
+function writeDraft(storage: StorageLike | null, spec: DesignSpec, preset: PresetId | null): { ok: boolean };
 function clearDraft(storage: StorageLike | null): void;
 // params.ts
 function paramsOfSpec(spec: DesignSpec): { params: DirectionParams; customFonts: boolean };
+function resolveParams(params: DirectionParams, seed: string): DirectionParams; // fills an absent pairing with choosePairing(seed)
 // lot.ts
 function lotTag(id: string): string;                    // "0123456789abcdef" -> "0123·4567"
 ```
 
 `paramsOfSpec` reads `color.params`, `type.context`, `type.ratio`, `shape.radiusSet`, `depth.style`, `motion.feel` and
-`meta.name`, and finds the pairing whose three families equal `type.families`; with no match `pairing` is absent and
-`customFonts` is true.
+`meta.name`, and finds the pairing whose three families equal `type.families`. When that pairing is the one
+`choosePairing(meta.seed)` picks, `pairing` stays absent (auto, R2-05); when it is another pairing, `pairing` is that id;
+with no match `pairing` is absent and `customFonts` is true. `safeStorage(window)` reads `window.localStorage` inside
+try/catch, because in some browsers the accessor itself throws.
 
 ### 5.8 Inspector helpers (Task 2.10)
 
@@ -722,6 +831,7 @@ function formatLc(lc: number): string;                       // "+76", "−33", 
 function groupFindings(findings: readonly Finding[]): { error: Finding[]; warn: Finding[]; info: Finding[] };
 function showMe(finding: Finding): { roles: readonly string[]; cells: readonly { palette: PaletteName; step: Step }[] };
 function fixFor(finding: Finding, level: ContrastLevel): { label: string; patch: ParamsPatch } | { label: string; disabled: true } | null;
+// C1 targets "AA+"; C5, N1 and F1 target "AAA"; any other id gives null (R2-10)
 function findingTitle(id: RuleId): string;
 ```
 
@@ -731,7 +841,7 @@ function findingTitle(id: RuleId): string;
 
 Tests: `tests/unit/engine/entry.test.ts`, `tests/unit/spec/normalize.test.ts`, `tests/unit/engine/repo-guards.test.ts`.
 
-The runtime keys of `src/engine/index.ts`, sorted: `ColorParseError`, `DEFICIENCIES`, `DEPTH_STYLES`, `ENGINE_VERSION`,
+The runtime keys of `src/engine/index.ts` (a set; the tests compare as a set, so order does not matter): `ColorParseError`, `DEFICIENCIES`, `DEPTH_STYLES`, `ENGINE_VERSION`,
 `FONT_CATALOG`, `GAMUTS`, `HARMONIES`, `HIGH_GENERICNESS_FAMILIES`, `LOCKABLE`, `MOTION_FEELS`, `NEUTRAL_TINTS`,
 `PAIRINGS`, `PAIRING_IDS`, `PALETTE_NAMES`, `PRESETS`, `PRESET_IDS`, `RADIUS_SET_NAMES`, `ROLE_NAMES`, `RULE_IDS`,
 `SCALE_MODES`, `STEPS`, `TYPE_CONTEXTS`, `UnsatisfiableTargetError`, `CHROMA_LEVELS`, `CONTRAST_LEVELS`, `applyPreset`,
@@ -744,9 +854,9 @@ the signatures in section 5 name. The runtime keys of `src/spec/index.ts`: `Desi
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-ENTRY-01 | pass | `Object.keys` of the engine entry equals the list above exactly, and every named function and table is the same object its home module exports | plan, ruling |
+| C-ENTRY-01 | pass | The key set of the engine entry equals the set above exactly, and every named function and table is the same object its home module exports | plan, ruling |
 | C-ENTRY-02 | failure | The engine entry does not export `multiply`, `runRules`, `tryOklchToRgb` or `gamutExcess`; importing any of them from the entry is `undefined` | plan |
-| C-ENTRY-03 | pass | `Object.keys` of the spec entry equals the list above exactly | plan, ruling |
+| C-ENTRY-03 | pass | The key set of the spec entry equals the set above exactly | plan, ruling |
 | C-ENTRY-04 | failure | The spec entry does not export `SPEC_VERSION`, `fnv1a64` or `canonicalJson` | added |
 | C-ENTRY-05 | pass | `Object.isFrozen` holds for `STEPS`, `PALETTE_NAMES`, `ROLE_NAMES`, `RULE_IDS`, `HARMONIES`, `GAMUTS`, `CHROMA_LEVELS`, `NEUTRAL_TINTS`, `SCALE_MODES`, `CONTRAST_LEVELS`, `TYPE_CONTEXTS`, `RADIUS_SET_NAMES`, `DEPTH_STYLES`, `MOTION_FEELS`, `DEFICIENCIES`, `LOCKABLE`, `PRESET_IDS`, `PAIRING_IDS` | plan, decision |
 | C-ENTRY-06 | pass | `PRESETS`, `PAIRINGS`, `FONT_CATALOG`, `HIGH_GENERICNESS_FAMILIES` are frozen, and so is every entry and every array inside an entry (deep) | decision |
@@ -755,14 +865,14 @@ the signatures in section 5 name. The runtime keys of `src/spec/index.ts`: `Desi
 | C-ENTRY-09 | pass | A type test compiles: `DirectionParams`, `LintedSpec`, `Finding`, `DesignSpec` import as types from the entries, and a `DesignSpec` is assignable to `LintedSpec` | decision |
 | C-ENTRY-10 | failure | A Biome check on a file under `src/features` that imports `@/engine/color/palette` fails with `noRestrictedImports`; so do `@/spec/schema` and `../../engine/generate` | plan |
 | C-ENTRY-11 | pass | A Biome check on a file under `src/features` that imports `@/engine` and `@/spec` passes | plan |
-| C-ENTRY-12 | pass | `src/engine` and `src/spec` files may import their own siblings and each other (the generator imports the schema) | added |
+| C-ENTRY-12 | pass | `src/engine` and `src/spec` files may import their own siblings and each other as R2-25 says: an `import type` from `src/spec` anywhere under `src/engine`, a value import from `src/spec` in `generate.ts`, `presets.ts` and `index.ts` only | ruling |
 | C-ENTRY-13 | pass | `simulate(rgb, "protan")` still works, and `simulate(rgb, "x")` throws `RangeError` naming `simulate` through `assertOneOf` | plan |
 | C-ENTRY-14 | failure | A palette missing from a role or chart input, or a scale of 10 steps, throws `TypeError` naming the public entry function | plan |
 | C-ENTRY-15 | pass | A public error message names the public entry (`generateSystem`, `lintSpec`, `encodeSpec`), never an inner function | plan |
 | C-ENTRY-16 | pass | The 0.5 chroma ceiling and the name and seed bounds exist once in the schema module and every other module imports them (source scan finds no second literal) | plan |
 | C-ENTRY-17 | pass | C-REPO-05 now fails on a source line that casts `as Hex`, `<Hex>x` or declares `x is Hex` outside `convert.ts` and the schema | plan |
 | C-ENTRY-18 | pass | The linter's source does not import `src/spec` (the reworded guard) | plan |
-| C-NORM-01 | pass | A spec with `palettes.primary.light[0].oklch.l = 0.97123456789` normalizes to `0.971235` | plan |
+| C-NORM-01 | pass | A spec with `color.palettes.primary.light[0].oklch.l = 0.97123456789` normalizes to `0.971235` | plan |
 | C-NORM-02 | pass | `decodeSpec(encodeSpec(normalizeSpec(s)))` deep-equals `normalizeSpec(s)`, for that spec and for `SPEC` | plan |
 | C-NORM-03 | pass | `normalizeSpec(SPEC)` deep-equals `SPEC` (a generated spec is already normal) | decision |
 | C-NORM-04 | pass | Idempotent: `normalizeSpec(normalizeSpec(s))` deep-equals `normalizeSpec(s)`. Property, 50 runs, over `generateSystem` with every enum and random seeds | decision |
@@ -781,12 +891,12 @@ Tests: `tests/unit/engine/fonts/{catalog,pairings}.test.ts`, `tests/unit/feature
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-FONT-01 | pass | The catalog has 41 entries; every id matches `^[a-z0-9-]+$`; ids are unique | plan |
-| C-FONT-02 | pass | The catalog's ids are exactly the 41 ids of the table in 5.2, in that order | decision |
+| C-FONT-01 | pass | The catalog has 40 entries; every id matches `^[a-z0-9-]+$`; ids are unique | plan |
+| C-FONT-02 | pass | The catalog's ids are exactly the 40 ids of the table in 5.2, in that order | decision |
 | C-FONT-03 | pass | Every entry has `id`, `family`, `category`, `variable`, `axes`, `weights`, `license: "OFL-1.1"`, `popularity` and `fallback`, each of the right type; `popularity` is an integer ≥ 1 | decision |
-| C-FONT-04 | pass | Every family of every pairing in `PAIRINGS` exists in the catalog, and the catalog holds no family that no pairing and not `geist` or `geist-mono` uses | plan |
+| C-FONT-04 | pass | Every family of every pairing in `PAIRINGS` exists in the catalog, and the catalog holds no family that no pairing uses, apart from `geist` and `geist-mono` | plan |
 | C-FONT-05 | pass | `host-grotesk`, `fragment-mono`, `geist` and `geist-mono` exist | plan |
-| C-FONT-06 | pass | A variable entry has two weights, `weights[0] < weights[1]`, and `axes` contains `wght`. A static entry has ascending weights, each a multiple of 100 from 100 to 900 | added |
+| C-FONT-06 | pass | A variable entry has `axes` exactly `["wght"]` and two weights with `weights[0] < weights[1]`. A static entry has empty `axes` and ascending weights that are a subset of 400 and 700 containing 400 | ruling |
 | C-FONT-07 | pass | `fallback` is the stack of R2-03 item 8 for the entry's category | ruling |
 | C-FONT-08 | failure | `validateCatalog` reports a duplicate id, an id with an uppercase letter or a space, a license other than `OFL-1.1`, a popularity of 0 or 1.5, an empty `fallback`, and a variable entry with one weight; a valid catalog reports nothing | plan |
 | C-FONT-09 | pass | `genericnessOf(1)` is 1, `genericnessOf(200)` is 0, `genericnessOf(100)` ≈ 0.50251, `genericnessOf(41)` ≈ 0.79899, `genericnessOf(40)` ≈ 0.80402, `genericnessOf(500)` is 0 (clamped) | plan, decision |
@@ -796,13 +906,14 @@ Tests: `tests/unit/engine/fonts/{catalog,pairings}.test.ts`, `tests/unit/feature
 | C-FONT-13 | failure | `genericness("nope")` throws `RangeError` naming `genericness`; `genericness(3)` throws `TypeError`; `genericnessOf(0)` and `genericnessOf(NaN)` throw `RangeError` | added |
 | C-FONT-14 | pass | `fontStack("host-grotesk")` is `"Host Grotesk", ` plus the sans fallback; a family name with a quote or a backslash cannot occur because ids come from the catalog | added |
 | C-FONT-15 | failure | `fontStack("nope")` throws `RangeError`; a non-string throws `TypeError` | added |
-| C-FONT-16 | pass | `fontFiles("host-grotesk")` is `["host-grotesk.woff2", "OFL.txt"]`; for a static family with weights 400 and 700 it is `["<id>-400.woff2", "<id>-700.woff2", "OFL.txt"]` | ruling |
-| C-FONT-17 | pass | After `scripts/copy-fonts.mjs`, every catalog entry has every file of `fontFiles` under `public/fonts/<id>/`, non-empty | plan |
+| C-FONT-16 | pass | `fontFiles("host-grotesk")` is `["host-grotesk-latin-wght-normal.woff2", "OFL.txt"]`; for a static family with weights 400 and 700 it is `["<id>-latin-400-normal.woff2", "<id>-latin-700-normal.woff2", "OFL.txt"]`, and with 400 alone it has one woff2 | ruling |
+| C-FONT-17 | pass | Running `scripts/copy-fonts.mjs --out <tmp dir>` (no build, no `public/`) gives every catalog entry every file of `fontFiles`, non-empty | plan, ruling |
 | C-FONT-18 | pass | Every `.woff2` starts with the bytes `wOF2`, and every `OFL.txt` contains `SIL OPEN FONT LICENSE` | added |
-| C-FONT-19 | pass | `public/fonts/` holds exactly the 41 catalog directories and nothing else | added |
-| C-FONT-20 | failure | The script exits non-zero and names the id when its Fontsource package is missing (a fixture `node_modules` without one package) | added |
+| C-FONT-19 | pass | The output directory holds exactly the 40 catalog directories and nothing else | added |
+| C-FONT-20 | failure | With `--out <tmp>`, the script exits non-zero and names the id when its Fontsource package is missing (a fixture `node_modules` without one package) | added |
 | C-FONT-21 | pass | Running the script twice leaves every file byte-identical | added |
-| C-FONT-22 | pass | `package.json` runs the script in `predev` and `prebuild`, and lists `@fontsource-variable/*` or `@fontsource/*` in `devDependencies` for every catalog id | plan |
+| C-FONT-22 | pass | `package.json` runs the script in `predev` and `prebuild`, and lists `@fontsource-variable/<id>` (variable) or `@fontsource/<id>` (static) in `devDependencies` for every catalog id; `.gitignore` lists `public/fonts/` | plan, ruling |
+| C-FONT-23 | pass | From the Google Fonts metadata of 2026-11-01 (a fixture holding each family's `popularity`), the display face of every pairing except `archivo-courier` has genericness below 0.8, and `archivo` has genericness ≈ 0.869 (popularity 27) | ruling |
 | C-PAIR-01 | pass | `PAIRINGS` has 20 entries with unique ids, in the order of the table in 5.2; every display, body and mono is a catalog id | plan |
 | C-PAIR-02 | pass | The ten pairings without a D2 mono (2, 3, 4, 5, 8, 9, 10, 12, 16, 20) take `fragment-mono` | ruling |
 | C-PAIR-03 | pass | The pairing `host-grotesk` is `host-grotesk` / `host-grotesk` / `fragment-mono`, M1's default | decision |
@@ -817,8 +928,9 @@ Tests: `tests/unit/engine/fonts/{catalog,pairings}.test.ts`, `tests/unit/feature
 | C-PAIR-12 | pass | With a fixture list where every genericness is 0, each of the 20 pairings is picked between 2% and 8% of 20,000 seeds | decision |
 | C-PAIR-13 | pass | `choosePairing` draws from a stream apart from the palette stream: `generateSystem` colors for one seed are the same whatever it returns | ruling |
 | C-PAIR-14 | failure | A non-string seed throws `TypeError`; an empty list throws `RangeError` naming `choosePairing` | added |
-| C-LOAD-01 | pass | `load("host-grotesk")` with a stub `FontFace` whose `load` resolves returns `{ id, status: "loaded" }`, builds the face with `url(/fonts/host-grotesk/host-grotesk.woff2) format('woff2')`, weight `"<min> <max>"` and `display: "swap"`, and adds it to the stub `fonts` set | plan |
-| C-LOAD-02 | pass | A static family builds one face per weight, each with its own file and weight | added |
+| C-PAIR-15 | pass | Pairing 19 (`anybody-albert`) has `spline-sans-mono` as its mono, and `recursive` is not in the catalog | ruling |
+| C-LOAD-01 | pass | `load("host-grotesk")` with a stub `FontFace` whose `load` resolves returns `{ id, status: "loaded" }`, builds the face with `url(/fonts/host-grotesk/host-grotesk-latin-wght-normal.woff2) format('woff2')`, weight `"<min> <max>"` and `display: "swap"`, and adds it to the stub `fonts` set | plan |
+| C-LOAD-02 | pass | A static family builds one face per copied weight, each from `<id>-latin-<weight>-normal.woff2` with its own weight | added |
 | C-LOAD-03 | pass | `status(id)` is `idle`, then `loading` while pending, then `loaded`; `subscribe` calls the listener on each change and the returned function unsubscribes | added |
 | C-LOAD-04 | pass | A second `load` of a loaded family builds no new face and returns the same result | added |
 | C-LOAD-05 | failure | A face whose `load` rejects makes `load` resolve `{ id, status: "failed", reason: "load" }`, never throw; no face joins `fonts`; `status(id)` is `failed` | RF3 |
@@ -837,18 +949,19 @@ Tests: `tests/unit/engine/presets.test.ts`.
 | C-PRESET-01 | pass | `PRESET_IDS` is `default`, `minimal-swiss`, `editorial`, `neo-brutalism`, `glass`, `dark-dev-tool`, `bento`, `aurora`, `retro-futurism`, `tactile`, `maximalism`, `organic`, `dithering-pixel`, `m3-expressive`; `PRESETS` has exactly those keys | decision |
 | C-PRESET-02 | pass | Each preset's `params` and `view` equal its row in the table of 5.3 (parametrized over the 14 rows) | ruling |
 | C-PRESET-03 | pass | Each preset is a valid patch: every field is in its domain, `pairing` is in `PAIRING_IDS` when present, and `applyPreset(DEFAULT_PARAMS, id)` is a valid `DirectionParams` that `generateSystem` accepts | plan |
-| C-PRESET-04 | pass | For every preset, `generateSystem(applyPreset(DEFAULT_PARAMS, id), seed)` over 50 seeds raises zero findings of severity `error` from `lintSpec` | plan |
+| C-PRESET-04 | pass | For every preset, `generateSystem(applyPreset(DEFAULT_PARAMS, id), seed)` over 50 seeds raises zero findings of severity `error` from `lintSpec`. Measured on the M1 engine with seeds `s0` to `s49`: 0 errors for each of the 13 styles and for `default` | plan, measured |
 | C-PRESET-05 | pass | `applyPreset` keeps locked `primary`, `secondary` and `accent`; an absent one stays absent | plan, decision |
 | C-PRESET-06 | pass | `applyPreset` keeps `name` and removes `type.ratio` | ruling |
-| C-PRESET-07 | pass | `applyPreset(p, "default")` leaves `pairing` absent; every other preset sets an explicit `pairing` | ruling |
+| C-PRESET-07 | pass | `applyPreset(p, "default")` leaves `pairing` absent; every other preset sets an explicit `pairing`; `neo-brutalism` sets `anybody-albert` and `aurora` sets `zalando` | ruling |
 | C-PRESET-08 | pass | `applyPreset` does not mutate its input, returns a new object, and applying the same preset twice gives a deep-equal result | added |
 | C-PRESET-09 | pass | A preset has no `primary`, `secondary`, `accent`, `name`, `type.ratio` or `density` key in `params`; `view.density` is in `Density` | ruling |
 | C-PRESET-10 | pass | Every preset except `default` has non-empty `guards` and `unexpressed`, `label` and `summary`; `default` has empty lists | ruling |
 | C-PRESET-11 | pass | The guard values hold: `glass` and `dithering-pixel` are `AAA`; `minimal-swiss`, `editorial`, `neo-brutalism`, `dark-dev-tool`, `aurora`, `retro-futurism`, `maximalism` and `organic` are `AA+` or higher | decision |
-| C-PRESET-12 | pass | For every preset and 20 seeds, `lintSpec(spec, { pills: true })` raises no T1 and no T4; any T5 is `info` | decision |
-| C-PRESET-13 | pass | A preset's display face has genericness below 0.8 (no preset invites T1) | decision |
+| C-PRESET-12 | pass | For every preset and 50 seeds (`s0` to `s49`), `lintSpec(spec)` raises no T1, no T3 and no T4; a T2 warning is allowed (the hue comes from the seed). Measured: 0 T3 hits at steps 300 to 800 for the 13 styles | decision, measured |
+| C-PRESET-13 | pass | A preset's display face has genericness below 0.8 (no preset invites T1); for `neo-brutalism` that is `anybody` | decision, ruling |
 | C-PRESET-14 | failure | `applyPreset(p, "nope")` throws `RangeError` naming `applyPreset`; a non-string id or a non-object `params` throws `TypeError` | added |
 | C-PRESET-15 | pass | `PRESETS` is deeply frozen (C-ENTRY-06 covers writes) | decision |
+| C-PRESET-16 | pass | `applyPreset` never lowers the contrast level: user `AAA` with a preset at `AA` stays `AAA`; user `AA` with a preset at `AAA` becomes `AAA`; user `AA+` with a preset at `AA` stays `AA+`; every other preset field is the preset's | ruling |
 
 ### 6.4 Taste rules (Task 2.4)
 
@@ -857,7 +970,7 @@ case asserts the exact `id`, `severity`, `mode`, `subject`, `measured`, `thresho
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-TASTE-01 | pass | `RULE_IDS` is M1's 20 ids followed by `T1`, `T2`, `T3`, `T4`, `T5` (25) | ruling |
+| C-TASTE-01 | pass | `RULE_IDS` is M1's 20 ids followed by `T1`, `T2`, `T3`, `T4` (24) | ruling |
 | C-TASTE-02 | pass | T1 passes: display `host-grotesk` (genericness below 0.8) raises no T1 | plan |
 | C-TASTE-03 | failure | T1 fails: display `geist` raises one `T1`, `warn`, `light`, subject `display`, measured 1, threshold 0.8 | plan |
 | C-TASTE-04 | pass | T1 boundary with a fixture catalog: popularity 40 (genericness 0.80402) fires, popularity 41 (0.79899) does not | plan |
@@ -866,19 +979,19 @@ case asserts the exact `id`, `severity`, `mode`, `subject`, `measured`, `thresho
 | C-TASTE-07 | pass | T2 boundaries: hue 265 and 300 fire; 264.99 and 300.01 do not | plan |
 | C-TASTE-08 | pass | T2 is silent when `params.primary` is locked, and when the light `background` is not `#ffffff` | plan, decision |
 | C-TASTE-09 | pass | T2 never reports `mode: "dark"` | added |
-| C-TASTE-10 | failure | T3 fails: setting `palettes.primary.light[6].hex` to the Tailwind v4 `indigo-500` hex (computed by the test from `oklch(58.5% 0.233 277.117)`) raises one `T3`, `warn`, `light`, subject `primary-600`, measured 0, threshold 0 | plan |
+| C-TASTE-10 | failure | T3 fails: setting `palettes.primary.light[6].hex` (step 600) to the Tailwind v4 `indigo-500` hex (read by the test from `theme.css` and mapped as R2-09 says) raises one `T3`, `warn`, `light`, subject `primary-600`, measured 0, threshold 0 | plan |
 | C-TASTE-11 | pass | T3 reads dark steps too, reports the scale's mode, and covers all 8 palettes (one fixture per palette) | added |
-| C-TASTE-12 | pass | The Tailwind table has 242 distinct hexes, none of them `#000000` or `#ffffff`, and equals a regeneration from `node_modules/tailwindcss/theme.css` converted with `oklchToRgb` and `toHex` (±1 per channel only where the conversion differs; the test lists any difference) | decision, ruling |
-| C-TASTE-13 | pass | T3 raises nothing for `generateSystem(DEFAULT_PARAMS, seed)` over 50 seeds | added |
+| C-TASTE-12 | pass | The derived Tailwind table has 26 palettes and 286 entries in `node_modules/tailwindcss/theme.css` and 283 distinct hexes after `toHex(gamutMap(color, "srgb"))`; none is `#000000` or `#ffffff`; the module's set equals the set the test derives from the file; `toHex(oklchToRgb(...))` is not used (it throws for 95 entries) | decision, ruling |
+| C-TASTE-13 | pass | T3 raises nothing for `generateSystem(DEFAULT_PARAMS, "s" + i)`, i from 0 to 299. Measured: 0 hits at steps 300 to 800 (with all steps, 20 of 300 specs hit, all at light 50, light 100 or dark 950) | added, measured |
 | C-TASTE-14 | failure | T4 fails: `type.context: "product"` with `body.sizePx` 15 raises one `T4`, `warn`, `light`, subject `body`, measured 15, threshold 16 | plan |
 | C-TASTE-15 | pass | T4 boundaries: 16 does not fire, 15.999 does; `type.context: "dense"` with 14 does not | plan |
-| C-TASTE-16 | failure | T5 fails: `pills: true`, `radiusSet: "sharp"`, `radii.md` 2 raises one `T5`, `info`, `light`, subject `radius`, measured 2, threshold 4 | plan |
-| C-TASTE-17 | pass | T5 is silent without `pills`, with `pills: false`, with `soft` or `round`, and with `radii.md` 4 | plan |
-| C-TASTE-18 | pass | Without `type` or `shape` in the spec, T1, T4 and T5 do not run, and `lintSpec(spec)` equals the M1 result | ruling |
-| C-TASTE-19 | pass | Findings sort by severity, id, mode, subject: a fixture raising `C4`, `K2`, `T1` (all `warn`) and `N3`, `T5` (`info`) returns them in that order | decision |
+| C-TASTE-16 | pass | T3 reads steps 300 to 800 only: a default hex written to step 300 or 800 raises a finding; written to step 50, 100, 200, 900 or 950 it raises none | ruling |
+| C-TASTE-17 | pass | On `SPEC` (`seed-1`, primary hue 289, white page, no lock) T2 fires and the base spec carries that finding; this is why C-LINT-47 filters to M1 ids (R2-25) | ruling, measured |
+| C-TASTE-18 | pass | Without `type` in the spec, T1 and T4 do not run: for `generateSystem({ ...DEFAULT_PARAMS, primary: <the color #1f6f5b> }, "seed-1")`, which locks the primary so T2 stays silent, `lintSpec` of the color section alone raises no finding whose id starts with `T`, and its M1 findings equal those of the full spec | ruling |
+| C-TASTE-19 | pass | Findings sort by severity, id, mode, subject: a fixture raising `C4`, `K2` and `T1` (all `warn`) and `N3` (`info`) returns them in that order | decision |
 | C-TASTE-20 | failure | A `type` whose `families.display` is not a string, or whose `steps` lacks `body`, throws `TypeError` naming `lintSpec`; a non-finite `sizePx` throws `RangeError` | added |
 | C-TASTE-21 | pass | `lintSpec` does not mutate its input and gives the same result twice | added |
-| C-TASTE-22 | pass | Every M1 lint case passes unmodified | I-M2-08 |
+| C-TASTE-22 | pass | Every M1 lint case passes unmodified except C-LINT-43 and C-LINT-47, which R2-25 amends | I-M2-08 |
 | C-TASTE-23 | pass | `lintSpec(generateSystem(DEFAULT_PARAMS, "seed-1"))` accepts a full `DesignSpec` and reads its `type` and `shape` | decision |
 
 ### 6.5 Color names (Task 2.4)
@@ -916,7 +1029,7 @@ Tests: `tests/unit/theme/vars.test.ts`, in the `node` project (R2-22).
 | C-THEME-11 | pass | With `depth.style: "soft"`, `--shadow-2` is two layers `0 4px 8px 0 oklch(... / 0.1), 0 2px 4px 0 oklch(... / 0.06)` (key, ambient) and matches the shadow pattern of 5.6 | decision |
 | C-THEME-12 | pass | With `flat`, `--shadow-1` to `--shadow-5` are `none`; with `layered`, `--shadow-2` has `offsetY` 6 and `blur` 12 for the key layer and alpha 0.15 (1.5 times the stored values) | ruling |
 | C-THEME-13 | pass | The shadow color is `formatOklch` of the layer's color with the alpha written inside the parentheses | decision |
-| C-THEME-14 | pass | `--duration-*` equal the stored durations for `brisk` and `playful`, and 1.25 times, rounded to 5 ms, for `calm` (`base` 200 becomes 250) | ruling |
+| C-THEME-14 | pass | `--duration-*` equal the stored durations for `brisk` and `playful`; for `calm` they are 1.25 times, rounded to the nearest ms (a tie rounds up) and capped at 500: 63, 125, 188, 250, 375, 500, 500 | ruling |
 | C-THEME-15 | pass | `--ease-*` equal `cubic-bezier(0.2, 0, 0, 1)`, `(0, 0, 0, 1)`, `(0.3, 0, 1, 1)` and `(0.05, 0.7, 0.1, 1)` | decision |
 | C-THEME-16 | pass | `--spring-duration` and `--spring-bounce` follow the feel: `calm` 0.4 and 0, `brisk` 0.25 and 0.1, `playful` 0.5 and 0.35; `feelSpring` returns the same spring | ruling |
 | C-THEME-17 | pass | `--icon-stroke` is `String(components.icons.strokePx)` | decision |
@@ -930,6 +1043,8 @@ Tests: `tests/unit/theme/vars.test.ts`, in the `node` project (R2-22).
 | C-THEME-25 | failure | A spec that is not an object, or lacks `color.roles`, throws `TypeError` naming `themeVars` | added |
 | C-THEME-26 | failure | A role value that is not a lowercase `#rrggbb` (`"red"`, `"#FFF"`, `"#fff;x"`) throws `RangeError` naming the role; a family id with `;` or a space throws `RangeError` | ruling |
 | C-THEME-27 | pass | `src/theme/vars.ts` imports only `@/engine` and `@/spec`, reads no DOM and no React, and runs in the `node` project | I-M2-07 |
+| C-THEME-28 | pass | With `units: "cqi"`, `--text-display` of a `marketing` or `editorial` spec holds the `clamp` string with every `vw` written as `cqi` and no `vw`; without it, or with `"vw"`, the string equals the spec's `clamp`; a context with no fluid `display` is unchanged | ruling |
+| C-THEME-29 | failure | `units: "px"` throws `RangeError` naming `themeVars`; a non-string `units` throws `TypeError` | added |
 | C-DENSITY-01 | pass | `densityVars("comfortable")` is `--density-offset: 0px`, `--control-height: 40px`; `compact` is `-4px`, `36px`; `dense` is `-8px`, `32px` | ruling |
 | C-DENSITY-02 | pass | Every control height is at least 24 px (WCAG 2.5.8) | decision |
 | C-DENSITY-03 | failure | An unknown density throws `RangeError` naming `densityVars`; a non-string throws `TypeError` | added |
@@ -940,11 +1055,11 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-STORE-01 | pass | `FRESH`: `params` are the `default` preset's with `pairing` resolved by `choosePairing("seed-1")`, `seed` is `"seed-1"`, `spec` equals `generateSystem` of those, `history` and `future` are empty, `status` is `{ phase: "idle", notice: null, draft: "on" }`, `view.mode` is `light` | decision |
+| C-STORE-01 | pass | `FRESH`: `params` are the `default` preset's with `pairing` absent (auto, R2-05), `preset` is `"default"`, `seed` is `"seed-1"`, `spec` equals `generateSystem(resolveParams(params, "seed-1"), "seed-1")` (its families are the pairing `choosePairing("seed-1")` picks), `history` and `future` are empty, `status` is `{ phase: "idle", notice: null, draft: "on" }`, `view.mode` is `light` | decision, ruling |
 | C-STORE-02 | pass | I-M2-01: after any sequence of actions, every `spec` in the state, `history` and `future` satisfies `decodeSpec(encodeSpec(spec))` deep-equals `spec`. Property, 25 runs | decision |
 | C-STORE-03 | pass | `setParams({ chroma: "vivid" })` changes `params` at once, posts one request with id 1 and the resolved params, and after the reply `spec` changes and `status.phase` returns to `idle` | plan |
 | C-STORE-04 | pass | `setParams` merges `type` by key: `{ type: { context: "dense" } }` keeps `type.ratio` | added |
-| C-STORE-05 | pass | `applyPreset("dark-dev-tool")` sets the preset's params, sets `view.mode` to `dark` and `view.density` to `dense`, keeps locked colors and adds one history entry | decision, ruling |
+| C-STORE-05 | pass | `applyPreset("dark-dev-tool")` sets the preset's params and `preset: "dark-dev-tool"`, sets `view.mode` to `dark` and `view.density` to `dense`, keeps locked colors, keeps a higher user contrast level, and adds one history entry | decision, ruling |
 | C-STORE-06 | pass | `regenerate` takes a new seed from `deps.newSeed`, keeps locked colors, changes the unlocked palettes, re-chooses an automatic pairing from the new seed, and keeps an explicit one | decision, ruling |
 | C-STORE-07 | pass | `toggleMode` flips `view.mode`, posts no request and adds no history entry | plan |
 | C-STORE-08 | pass | Undo and redo round-trip: after n commits, n undos restore each earlier `params`, `seed` and `spec` exactly, and n redos return | plan |
@@ -954,7 +1069,7 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-STORE-12 | pass | Five `setParams` calls with the same `coalesce` key within 1,000 ms commit as one history entry; undo returns to the state before the first | ruling |
 | C-STORE-13 | pass | Calls with different keys, no key, or a gap above 1,000 ms (by the fake `clock`) commit separately | ruling |
 | C-STORE-14 | pass | `undo` and `redo` mark in-flight replies stale: a reply for a request issued before the undo is dropped | ruling |
-| C-STORE-15 | pass | `toggleLock("primary")` on an unlocked primary sets `params.primary` to `normalizeSeed(parseColor(roles.light.primary))` and the next spec records the seed; on a locked primary it removes the key | ruling |
+| C-STORE-15 | pass | `toggleLock("primary")` on an unlocked primary sets `params.primary` to `normalizeSeed({ l, c, h })` with `l` and `c` from `rgbToOklch(hexToRgb(roles.light.primary))` and `h` from `palettes.primary.hue`; `toggleLock("secondary")` and `toggleLock("accent")` use the palette's light step 500 `l` and `c` and the palette's `hue` (R2-17); on a locked seed the key is removed | ruling |
 | C-STORE-16 | pass | `setSeedColor("primary", "#1f6f5b")` sets `params.primary` from `parseColor` and returns `{ ok: true }`; `oklch(0.6 0.15 250)` also works | decision |
 | C-STORE-17 | failure | `setSeedColor("primary", "banana")` returns `{ ok: false, message }` with a message that names the accepted forms, and changes nothing | I-M2-03 |
 | C-STORE-18 | failure | A worker error reply for the newest request (an `UnsatisfiableTargetError`) sets `status.phase: "failed"` and a `generation` notice, keeps the previous `spec` on the canvas and adds no history entry | plan, I-M2-03 |
@@ -969,10 +1084,17 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-STORE-27 | pass | `dispose` stops the client; replies that arrive afterwards change nothing | added |
 | C-STORE-28 | pass | A loaded spec whose families match no pairing gives `paramsOfSpec` `customFonts: true` and the store a `custom-fonts` notice; the next `setParams` regenerates with the automatic pairing | ruling |
 | C-STORE-29 | pass | `setView({ frame: 768 })` and the other view settings change `view` only: no request, no history entry | added |
-| C-STORE-30 | pass | `paramsOfSpec` inverts generation: for 25 specs from `generateSystem(applyPreset(DEFAULT_PARAMS, id), seed)` over all presets, `generateSystem(paramsOfSpec(spec).params, spec.meta.seed)` deep-equals the spec | added |
-| C-STORE-31 | pass | `paramsOfSpec` finds the pairing for `host-grotesk` families and returns `pairing: "host-grotesk"`; unmatched families give no `pairing` | ruling |
+| C-STORE-30 | pass | `paramsOfSpec` inverts generation: for 25 specs from `generateSystem(resolveParams(applyPreset(DEFAULT_PARAMS, id), seed), seed)` over all presets, `generateSystem(resolveParams(paramsOfSpec(spec).params, spec.meta.seed), spec.meta.seed)` deep-equals the spec | added |
+| C-STORE-31 | pass | `paramsOfSpec` returns `pairing` absent when the families are the automatic pick for `meta.seed`, the explicit pairing id when they equal another pairing, and absent with `customFonts: true` when they match none; a spec generated with an explicit `host-grotesk` whose seed does not pick it back gives `pairing: "host-grotesk"` | ruling |
 | C-STORE-32 | pass | `lotTag("0123456789abcdef")` is `0123·4567`; the middle dot is U+00B7 | decision |
 | C-STORE-33 | failure | `lotTag` of a string that is not 16 lowercase hex digits throws `RangeError`; a non-string throws `TypeError` | added |
+| C-STORE-34 | pass | Locking leaves the canvas where it was (R2-17): over `seed-1` to `seed-20` with `DEFAULT_PARAMS`, after `toggleLock` of each slot every role of both modes equals its old hex within one code per channel; for `secondary` and `accent` all 46 roles of both modes are identical in 20 of 20 seeds; for `primary` they are identical in at least 15 of 20 (measured 15; the other five differ in `primary`, `ring`, `sidebar-primary` and `sidebar-ring` by one code, M1 R-01) | ruling, measured |
+| C-STORE-35 | pass | `preset` becomes `null` when `setParams` changes a preset-owned field to a different value, or `view.density` changes; it stays when a seed color, the mode, the frame or another view setting changes, or when `setParams` writes the value a field already has | ruling |
+| C-STORE-36 | pass | `undo` and `redo` restore `preset` with the rest of the snapshot | ruling |
+| C-STORE-37 | pass | Five `setSeedColor` calls with the same `coalesce` key (a drag in the native color input) within 1,000 ms commit as one history entry; a call without a key commits alone | ruling |
+| C-STORE-38 | pass | An auto pairing stays auto through a reload: after a committed change the link `loadFromHash(writeHash(spec))` gives `params.pairing` absent, and a following `regenerate` picks a new automatic pairing for the new seed; an explicit pairing stays explicit and `regenerate` keeps it | ruling |
+| C-STORE-39 | pass | A draft restore gives the draft's `preset`; a link load gives `preset: null` (the spec has no preset field) | ruling |
+| C-STORE-40 | pass | `startFresh` sets `lastApplied` before it issues its own request: a reply for a request issued before `startFresh` and arriving after it is dropped, and the reply for the `startFresh` request applies | ruling |
 | C-WORK-01 | pass | `runGenerate({ id: 7, params, seed })` returns `{ id: 7, ok: true, spec }`, `spec` deep-equals `generateSystem(params, seed)`, and `structuredClone(spec)` deep-equals it | plan |
 | C-WORK-02 | failure | `runGenerate` with bad params returns `{ id, ok: false, error: { name, message } }` and never throws | I-M2-03 |
 | C-WORK-03 | pass | RF4: requests 1, 2 and 3 are posted; replies arrive 2, 3, 1; the final `spec` is request 3's, reply 1 changes nothing, and two replies applied | RF4, plan |
@@ -985,6 +1107,10 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-WORK-10 | pass | The inline client gives the same results and the same id handling, asynchronously, when `Worker` is undefined or its constructor throws | ruling |
 | C-WORK-11 | pass | `generate.worker.ts` imports only `@/engine` and `./protocol`: no DOM, React or zustand | ruling |
 | C-WORK-12 | pass | The worker's replies echo the request ids | plan |
+| C-WORK-13 | pass | `createGenerateClient`: five `request` calls while the first is in flight post request 1 at once and, after its reply, only request 5; requests 2 to 4 are never posted | ruling |
+| C-WORK-14 | pass | A reply with no pending request posts nothing; a reply with a pending request posts it exactly once | ruling |
+| C-WORK-15 | pass | Ids stay increasing across superseded requests: after ids 1 to 5 the next request is 6, and the store's reply rule (C-WORK-03 to C-WORK-05) holds with this client in front of a stub post | ruling |
+| C-WORK-16 | pass | With the client in front of a slow stub (a reply takes 200 ms of fake time), 30 `request` calls in 1 second post at most 6 requests, and the last reply applied is request 30's | RF4, ruling |
 | C-HASH-01 | pass | `readHash(writeHash(SPEC))` is `{ kind: "spec", spec }` with `spec` deep-equal to `SPEC`; `writeHash` starts `#s=` | plan |
 | C-HASH-02 | pass | `""`, `"#"`, `"#foo"` and `"#S=abc"` give `{ kind: "none" }` | ruling |
 | C-HASH-03 | failure | A link with one changed character in the middle gives `reason: "corrupt"` | RF1, plan |
@@ -1000,11 +1126,11 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-HASH-13 | pass | A pending hash write flushes at once on `pagehide` and on `visibilitychange` to hidden | added |
 | C-HASH-14 | pass | A `hashchange` to a valid link loads it and pushes the previous design onto `history`; to an invalid one it sets the notice and keeps the spec | R2-14 |
 | C-HASH-15 | failure | A `replaceState` that throws (a sandboxed frame) is swallowed; the store goes on | I-M2-05 |
-| C-HASH-16 | pass | First load priority: a valid hash beats a draft; a draft beats a fresh design; a bad hash with a draft opens the draft and the banner says so; a bad hash without one opens a fresh design | R2-14 |
+| C-HASH-16 | pass | First load priority: a valid hash beats a draft; a draft beats a fresh design; a bad hash with a draft opens the draft and the banner says so; a bad hash without one opens a fresh design. A hash load has `preset: null`; a draft load has the draft's preset | R2-14 |
 | C-HASH-17 | pass | A first load with a valid hash writes nothing to the draft until the first commit | added |
-| C-DRAFT-01 | pass | `writeDraft` stores JSON `{ "v": 1, "link": "<encodeSpec>" }` under `dyelot:draft`; `readDraft` returns a spec deep-equal to the one written | decision |
+| C-DRAFT-01 | pass | `writeDraft` stores JSON `{ "v": 1, "link": "<encodeSpec>", "preset": <id or null> }` under `dyelot:draft`; `readDraft` returns `{ spec, preset }` with a spec deep-equal to the one written | decision, ruling |
 | C-DRAFT-02 | pass | An empty storage gives `readDraft` `null` | added |
-| C-DRAFT-03 | failure | RF2: a storage whose property access throws `SecurityError` (the accessor `window.localStorage` itself) gives `readDraft` `null` and `writeDraft` `{ ok: false }`, never a throw | RF2, plan |
+| C-DRAFT-03 | failure | RF2: `safeStorage(win)` returns `null` when reading `win.localStorage` throws `SecurityError` (the accessor itself throws before `readDraft` gets a storage); `readDraft(null)` gives `null` and `writeDraft(null, spec, null)` gives `{ ok: false }`, never a throw | RF2, plan |
 | C-DRAFT-04 | failure | RF2: `setItem` that throws `QuotaExceededError` gives `{ ok: false }` and the store sets `status.draft` to `off`; a later successful write sets it to `on` | RF2, plan |
 | C-DRAFT-05 | failure | A stored value that is not JSON gives `null` and removes the key (inside try/catch) | added |
 | C-DRAFT-06 | failure | A stored `v: 2`, a tampered link, or a link that fails the schema gives `null`, removes the key and shows no banner | added |
@@ -1018,10 +1144,12 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-INSPECT-01 | pass | `fixFor` for a `C1`, `C5`, `N1` or `F1` finding at level `AA` gives the label "Raise contrast to AA+" and the patch `{ contrastLevel: "AA+" }`; at `AA+` it gives "Raise contrast to AAA" and `{ contrastLevel: "AAA" }` | decision, ruling |
-| C-INSPECT-02 | pass | At `AAA` the action is `{ label: "Contrast is already AAA", disabled: true }` | ruling |
+| C-INSPECT-01 | pass | `fixFor` for a `C1` finding at level `AA` gives the label "Raise contrast to AA+" and the patch `{ contrastLevel: "AA+" }`; for a `C5`, `N1` or `F1` finding at `AA` or `AA+` it gives "Raise contrast to AAA" and `{ contrastLevel: "AAA" }` | decision, ruling |
+| C-INSPECT-02 | pass | When the target is not above the current level the action is `{ label: "Contrast is already <level>", disabled: true }`: C1 at `AA+` or `AAA`, and C5, N1 and F1 at `AAA` | ruling |
 | C-INSPECT-03 | pass | `fixFor` returns `null` for every other rule id, including `K4` and the T rules | ruling |
-| C-INSPECT-04 | pass | Applying the fix to a spec whose `ring` role was set to `#f4f4f4` on a `#ffffff` page (an F1 finding, built by the test and opened through a link) regenerates the design and the F1 finding for `ring/background` is gone | plan |
+| C-INSPECT-04 | pass | A link built by the test holds a spec with `color.params.contrastLevel: "AA"` and `roles.light.ring` set to `#f4f4f4` on the `#ffffff` page. The inspector shows the F1 finding for `ring/background` in light mode. The fix "Raise contrast to AAA" regenerates the design from its parameters at `AAA`, which replaces every role: the new spec's `color.params.contrastLevel` is `AAA`, the F1 finding is gone, and the ratio of `ring` to `background` is at least 3 in both modes. The case states that regeneration, not an edit of the ring, clears the finding (R2-10) | plan, ruling |
+| C-INSPECT-16 | pass | The scan behind R2-10 holds as a recorded measurement: for 3 chroma levels × 4 neutral tints × 2 gamuts × 2 scale modes × seeds `s0` to `s11` at `AA`, the engine raises no C1, C5, N1 or F1 finding (0 of 576 designs) | measured |
+| C-INSPECT-17 | pass | The inspector offers a fix only when the spec regenerated in memory at the target level no longer has the finding; when it still has it, `fixFor`'s caller shows "No automatic fix clears this." and no button | ruling |
 
 ### 6.9 Inspector helpers (Task 2.10)
 
@@ -1047,7 +1175,6 @@ fill)`, and `lcText` is `formatLc(lc)`.
 | T1 | `font-display` (the kit marks display headings with this token) | none |
 | T2 | `primary` | the primary scale's 600 step |
 | T4 | `font-body` | none |
-| T5 | `radius-full` | none |
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -1060,7 +1187,7 @@ fill)`, and `lcText` is `formatLc(lc)`.
 | C-INSPECT-11 | pass | `groupFindings` splits by severity, keeps the linter's order inside a group, and drops nothing | plan |
 | C-INSPECT-12 | pass | `showMe` maps each rule id as the table says; a pair subject gives two roles; a step pair gives two cells | plan |
 | C-INSPECT-13 | failure | `showMe` of a finding with an unknown subject shape gives empty `roles` and `cells` and does not throw | added |
-| C-INSPECT-14 | pass | `findingTitle` gives a non-empty plain-language title for each of the 25 rule ids (C1 "Text under 4.5:1", C2 "Large text under 3:1", C4 "Body text under the advisory score", C5 "Text on a fill under 4.5:1", N1 "Input border under 3:1", N2 "Chart color under 3:1", N3 "Border under 3:1", F1 "Focus ring under 3:1", S1 "Colors too close under color-blind views", S2 "Danger and success too close in lightness", K1 "Scale steps out of order", K2 "Adjacent steps too close", K4 "Chroma off its curve", G1 "Color outside the gamut", G3 "Gray color with a hue", D1 "Dark page too light", D2 "Dark text off-white", D3 "Dark accent too saturated", D4 "Dark card not lighter than the page", P1 "Color in the disliked yellow-green zone", T1 "Overused display font", T2 "Purple on white default", T3 "Tailwind default color", T4 "Body text under 16 px", T5 "Sharp corners with pill parts") | added |
+| C-INSPECT-14 | pass | `findingTitle` gives a non-empty plain-language title for each of the 24 rule ids (C1 "Text under 4.5:1", C2 "Large text under 3:1", C4 "Body text under the advisory score", C5 "Text on a fill under 4.5:1", N1 "Input border under 3:1", N2 "Chart color under 3:1", N3 "Border under 3:1", F1 "Focus ring under 3:1", S1 "Colors too close under color-blind views", S2 "Danger and success too close in lightness", K1 "Scale steps out of order", K2 "Adjacent steps too close", K4 "Chroma off its curve", G1 "Color outside the gamut", G3 "Gray color with a hue", D1 "Dark page too light", D2 "Dark text off-white", D3 "Dark accent too saturated", D4 "Dark card not lighter than the page", P1 "Color in the disliked yellow-green zone", T1 "Overused display font", T2 "Purple on white default", T3 "Tailwind default color", T4 "Body text under 16 px") | added |
 | C-INSPECT-15 | pass | No title uses "simply", "just", "easy", "obviously" or "basically" and none ends with an exclamation mark | added |
 
 ### 6.10 Source guards
@@ -1069,22 +1196,25 @@ Tests: `tests/unit/features/preview/guard.test.ts`, `tests/unit/engine/repo-guar
 
 The preview guard is a function `findViolations(source: string): readonly string[]` that the test runs over every file
 under `src/features/preview/` and over fixtures. It flags: a Tailwind palette class (`bg|text|border|ring|fill|stroke|from|via|to|divide|outline|decoration|shadow|accent|caret|placeholder`
-followed by one of the 22 palette names and a step), `bg-white`, `bg-black`, `text-white`, `text-black`, the `dark:` variant,
-an arbitrary value holding a color (`[#abc]`, `[rgb(...)]`), a hex literal, any of `rgb(`, `rgba(`, `hsl(`, `hsla(`, `hwb(`,
-`lab(`, `lch(`, `oklab(`, `oklch(`, `color(`, and a CSS named color used as a value. `transparent`, `currentColor`,
-`inherit`, `color-mix(in oklab, var(--x) 20%, transparent)` and `var(--x)` pass.
+followed by one of the Tailwind palette names and a step; the names come from the same derivation as T3's table, the 26
+`--color-<palette>-<step>` palettes of `node_modules/tailwindcss/theme.css`, and not from a typed list), `bg-white`,
+`bg-black`, `text-white`, `text-black`, the `dark:` variant, an arbitrary value holding a color (`[#abc]`, `[rgb(...)]`), a hex
+literal, any of `rgb(`, `rgba(`, `hsl(`, `hsla(`, `hwb(`, `lab(`, `lch(`, `oklab(`, `oklch(`, `color(`, and a CSS named color used
+as a value. `transparent`, `currentColor`, `inherit` and `var(--x)` pass. `color-mix(...)` passes only when every color
+argument is `var(--x)` or `transparent` (`color-mix(in oklab, var(--primary) 20%, transparent)`); a literal color inside it
+is a violation.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-GUARD-01 | failure | `findViolations` flags `bg-indigo-500`, `text-slate-700`, `border-red-200`, `ring-blue-500/50`, `dark:bg-black`, `bg-white`, `bg-[#fff]`, `color: #fff`, `fill: rgb(0 0 0 / 0.1)`, `stroke: oklch(0.6 0.1 20)`, `color: rebeccapurple`, and `style={{ color: "red" }}` | plan |
-| C-GUARD-02 | pass | `findViolations` passes `bg-(--primary)`, `text-[var(--foreground)]`, `fill="currentColor"`, `background: transparent`, `color-mix(in oklab, var(--primary) 20%, transparent)`, and `border-border` only when the Tailwind theme maps `border` to a variable (the guard lists the allowed utility names it knows: the role names of `ROLE_NAMES`) | plan |
+| C-GUARD-01 | failure | `findViolations` flags `bg-indigo-500`, `bg-mauve-500` (a palette Tailwind added after 4.0), `text-slate-700`, `border-red-200`, `ring-blue-500/50`, `dark:bg-black`, `bg-white`, `bg-[#fff]`, `color: #fff`, `fill: rgb(0 0 0 / 0.1)`, `stroke: oklch(0.6 0.1 20)`, `color: rebeccapurple`, `color-mix(in oklab, #fff 20%, transparent)`, and `style={{ color: "red" }}` | plan |
+| C-GUARD-02 | pass | `findViolations` passes `bg-(--primary)`, `text-[var(--foreground)]`, `fill="currentColor"`, `background: transparent`, `color-mix(in oklab, var(--primary) 20%, transparent)`, and `border-border` only when the Tailwind theme maps `border` to a variable (the guard lists the utility names it allows: the role names of `ROLE_NAMES`) | plan |
 | C-GUARD-03 | pass | No file under `src/features/preview/` has a violation | plan |
 | C-GUARD-04 | pass | Every `.css`, `.ts` and `.tsx` file under `src/features/preview/` is scanned, including `kit/` and `templates/`; the test fails when the folder is empty or unreadable | added |
 | C-GUARD-05 | pass | The only chrome files that name madder `#f66c6d` or its token are the focus ring, the active state and the primary action styles (a scan lists them) | decision |
-| C-REPO-M2-01 | pass | No file under `src`, `scripts` or `public` (outside `public/fonts` binaries) contains `fonts.googleapis.com`, `fonts.gstatic.com`, `next/font/google` or `fontshare` | I-M2-06 |
+| C-REPO-M2-01 | pass | No file under `src`, `scripts` or `public` (outside `public/fonts` binaries) contains `fonts.googleapis.com`, `fonts.gstatic.com` or `fontshare`; `next/font` is allowed for the chrome (R2-23) | I-M2-06 |
 | C-REPO-M2-02 | pass | `src/engine`, `src/spec` and `src/theme` import nothing from `src/features`, `src/app`, `src/components` or `src/lib` | I-M2-07 |
-| C-REPO-M2-03 | pass | `vitest.config.ts` runs `tests/unit/theme/**` in the `node` project, and its coverage include and floors cover `src/theme/**` and `src/engine/fonts/**` at 95 and 90 | R2-22 |
-| C-REPO-M2-04 | pass | The M1 repository guards C-REPO-01 to C-REPO-05 pass unmodified, apart from C-REPO-05's wider scan | plan |
+| C-REPO-M2-03 | pass | `vitest.config.ts` runs `tests/unit/theme/**` in the `node` project, and its coverage include and floors cover `src/theme/**`, `src/engine/fonts/**` and the named pure helper files of R2-22 at 95 and 90 | R2-22 |
+| C-REPO-M2-04 | pass | The M1 repository guards C-REPO-01 to C-REPO-05 pass unmodified, apart from C-REPO-02 (R2-25) and C-REPO-05's wider scan | plan |
 
 ## 7. Flows (UI, covered by Playwright)
 
@@ -1096,8 +1226,10 @@ the computed custom properties on `[data-canvas]`.
 
 The studio is a client page at `/studio`. Its regions are landmarks: the inputs panel (`<aside aria-label="Inputs">`), the
 canvas (`<main aria-label="Canvas">`) and the inspector (`<aside aria-label="Inspector">`). The page has one `h1`,
-visually hidden, "dyelot studio". A toolbar above the canvas holds the frame switcher, the template switcher, the view
-toggles, the undo and redo buttons, a "Copy link" button and, below 1024 px, the drawer buttons "Inputs" and "Inspector".
+visually hidden, "dyelot studio". The toolbar above the canvas has one order, in the DOM and for Tab: below 1024 px the drawer buttons "Inputs" and
+"Inspector" first, then the frame switcher, the template switcher, the mode toggle, the density group, "Reduce motion", the
+copy group, the vision group, "Undo", "Redo" and "Copy link". The DOM order of the page is: skip link, header, inputs panel,
+canvas toolbar, canvas, inspector.
 The header holds the wordmark, the lot tag and the swatch strip. The lot tag reads `LOT` and `lotTag(specId(spec))` in
 Geist Mono. The strip is a group labeled "Primary scale, 11 steps" with 11 swatches, each titled with its step and hex.
 
@@ -1116,12 +1248,12 @@ Geist Mono. The strip is a group labeled "Primary scale, 11 steps" with 11 swatc
 | F-STUDIO-11 | pass | RF1: "Start fresh" opens a new design, clears the banner and the hash, and the lot tag changes; "Dismiss" hides the banner and keeps the design | RF1, ruling |
 | F-STUDIO-12 | pass | RF1: with a saved draft, a bad link opens the draft and the banner's second sentence says so | RF1, R2-14 |
 | F-STUDIO-13 | pass | A valid `#s=` link opens that design: the canvas variables equal `themeVars` of the decoded spec and the lot tag equals its id | decision |
-| F-STUDIO-14 | pass | After a change the URL hash becomes `#s=<link>` within 400 ms and reloading the page restores the same design | decision |
+| F-STUDIO-14 | pass | After a change the URL hash becomes `#s=<link>` within 400 ms of the canvas variables changing (the 300 ms debounce plus 100 ms), and reloading the page restores the same design | decision |
 | F-STUDIO-15 | pass | "Copy link" and Mod+S copy `<origin>/studio#s=<link>` to the clipboard and show a toast "Link copied" (`role="status"`) | decision |
 | F-STUDIO-16 | failure | With clipboard writing denied, the same actions show "Copy blocked. Select the link below." and a read-only field holding the link, already selected | I-M2-05 |
 | F-STUDIO-17 | pass | RF2: with `localStorage` replaced by an object that throws on every access (an init script), the studio loads, edits, undoes and updates the hash, and the toolbar shows "Drafts off" | RF2, I-M2-05 |
 | F-STUDIO-18 | pass | With a draft saved, reloading `/studio` with no hash restores it and shows the dismissible notice "Restored your last draft." | decision |
-| F-STUDIO-19 | pass | A generation failure (a seed that makes the solver unsatisfiable, forced through a locked extreme color) shows a labeled message with a "Revert" button, keeps the old canvas, and "Revert" restores the control | I-M2-03 |
+| F-STUDIO-19 | pass | Fault injection: an init script replaces `window.Worker` with a stub class that answers every request with `{ id, ok: false, error: { name: "RangeError", message: "forced" } }` once the test sets `window.__dyelotFault`. Changing a control then shows a labeled message with a "Revert" button, keeps the old canvas, and "Revert" restores the control. Pages are fixed, so no input can trigger this from the UI | I-M2-03 |
 | F-STUDIO-20 | pass | No network request goes to a host other than the page's origin; none to `fonts.googleapis.com` or `fonts.gstatic.com` | I-M2-06 |
 | F-STUDIO-21 | pass | The page loads with `worker-src 'self' blob:` allowed by the CSP and generation runs in a worker (the test sees a `Worker` created) | R2-13 |
 | F-STUDIO-22 | pass | A link whose families match no pairing shows the polite notice that editing resets the fonts | R2-14 |
@@ -1153,47 +1285,51 @@ sets are a native `select`. The one primary chrome action of the panel, "Regener
 |---|---|---|---|
 | F-INPUT-01 | pass | The panel holds exactly the controls of the table, in that order, and no brief, image or import control | decision |
 | F-INPUT-02 | pass | Each control has an accessible name equal to its label (the lock toggle "Lock primary", "Lock secondary", "Lock accent") | plan |
-| F-INPUT-03 | pass | Changing harmony changes `--secondary-600` on the canvas; chroma changes `--primary-600`; neutral tint changes `--neutral-500`; contrast level changes `--primary-foreground` or another role for a seed where it differs (the test picks one by scanning); gamut changes at least one scale step; scale mode changes a step; type context changes `--text-body`; radius changes `--radius-md`; depth changes `--shadow-2`; density changes `--control-height`; motion feel changes `--duration-base` (calm) and `--spring-bounce` (playful) | plan |
+| F-INPUT-03 | pass | Changing harmony changes `--secondary-600` on the canvas; chroma changes `--primary-600`; neutral tint changes `--neutral-500`; contrast level changes at least one role (the test picks a seed where it does, by scanning); gamut changes at least one scale step; scale mode changes a step; type context changes `--text-body`; radius changes `--radius-md`; depth changes `--shadow-2`; density changes `--control-height`; motion feel changes `--duration-base` (calm) and `--spring-bounce` (playful) | plan |
 | F-INPUT-04 | pass | Pairing changes `--font-display`; "Auto" shows the chosen pairing's name | plan, ruling |
-| F-INPUT-05 | pass | Choosing a preset sets the controls it fixes, keeps the locked seeds, sets the mode and density, and shows its guard notes and `unexpressed` list under the select | decision, ruling |
+| F-INPUT-05 | pass | Choosing a preset sets the controls it fixes, keeps the locked seeds, keeps a higher contrast level, sets the mode and density, and shows its guard notes and `unexpressed` list under the select; the select shows the preset's label | decision, ruling |
 | F-INPUT-06 | pass | Typing `#1f6f5b` into the primary hex field and blurring locks primary: the lock toggle is pressed, `--primary-600` follows the color, and the native color input shows the same color | decision |
-| F-INPUT-07 | pass | Choosing a color in the native color input updates the hex field and locks the seed | decision |
+| F-INPUT-07 | pass | Choosing a color in the native color input updates the hex field and locks the seed; dragging in the picker (many `input` events) is one undo step | decision, ruling |
 | F-INPUT-08 | pass | The lock toggle on an unlocked seed locks it at the current color and the canvas does not jump; toggling again unlocks | ruling |
 | F-INPUT-09 | failure | An invalid hex ("banana") shows a field message "Enter a color like #3a6ea5 or oklch(0.6 0.15 250)." linked with `aria-describedby`, sets `aria-invalid`, and leaves the canvas unchanged | I-M2-03 |
 | F-INPUT-10 | pass | An unlocked seed's field shows the generated color as a placeholder-styled value and "Auto" next to it | added |
 | F-INPUT-11 | pass | "Regenerate" changes the unlocked colors, keeps the locked ones, and changes the lot tag | decision |
 | F-INPUT-12 | pass | Numbers in the lot tag, hex fields and the ratios use Geist Mono with `font-variant-numeric: tabular-nums` | decision |
-| F-INPUT-13 | pass | A control that drives a slider-like drag (none in M2) is absent; every control is a discrete choice or a text field, so holding Space is the only rapid input | added |
+| F-INPUT-13 | pass | There is no slider in M2; the two rapid inputs are holding Space and dragging in the native color input (F-INPUT-15) | added |
+| F-INPUT-14 | pass | After a preset is chosen, changing any control it owns (for example Radius) makes the Preset select show "Custom" and hides the preset notes; changing a seed color or the mode does not | ruling |
+| F-INPUT-15 | pass | Holding Space is rapid input, as is a drag in the native color input; both coalesce into one undo step each | RF4, ruling |
 
 ### 7.3 Keyboard (Task 2.6)
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
 | F-KEY-01 | pass | Space on the page body regenerates the unlocked colors; the lot tag changes | plan |
-| F-KEY-02 | pass | Holding Space for 1 second (repeats) leaves the canvas on the newest spec: the canvas variables equal `themeVars` of the spec behind the final lot tag | RF4 |
+| F-KEY-02 | pass | RF4: an init script replaces `crypto.getRandomValues` so that call n fills `[n, 0]` (seed `n.toString(36) + "0"`) and counts calls in `window.__seedCalls`. Holding Space for 1 second leaves the canvas on the newest request's design: within 2 s of the last key event the lot tag equals the id that the test computes in Node for the seed of call `window.__seedCalls` (`specId(generateSystem(resolveParams(params, seed), seed))`) | RF4, ruling |
 | F-KEY-03 | pass | ← undoes and → redoes; the lot tag follows | plan |
 | F-KEY-04 | pass | Alt+T flips light and dark; the canvas variables change and no history entry is added | decision |
 | F-KEY-05 | pass | Mod+S copies the share link and prevents the browser's save dialog | decision |
-| F-KEY-06 | pass | L with focus on the primary row's swatch button toggles the lock; with focus on the secondary row's lock toggle it toggles secondary | decision, ruling |
+| F-KEY-06 | pass | L with focus on the primary row's swatch button toggles the lock; with focus on the secondary row's lock toggle it toggles secondary; Alt+T is matched on `event.code` `KeyT` | decision, ruling |
 | F-KEY-07 | failure | With focus in the hex field, the harmony select or any text field, Space, L, ←, → and Alt+T do nothing to the design | plan, ruling |
 | F-KEY-08 | failure | L with focus in the primary hex field does not lock it | ruling |
 | F-KEY-09 | failure | Space with focus on a button activates the button and does not regenerate; ← and → on a radio group move the radio and do not undo | ruling |
 | F-KEY-10 | pass | Escape closes an open drawer, also from a text field inside it | decision, ruling |
-| F-KEY-11 | pass | Keyboard-only: from a fresh load, Tab reaches in order the skip link, the toolbar buttons, every control of the inputs panel, the canvas toolbar, the canvas region, and every inspector control and finding action, with a visible 2 px madder focus ring on each | RF5, plan |
+| F-KEY-11 | pass | Keyboard-only: from a fresh load, Tab follows the DOM order of 7.1 and reaches the skip link, the header, every control of the inputs panel in the order of 7.2, the canvas toolbar in its order, the canvas region, and every inspector control and finding action, with a visible 2 px madder focus ring on each chrome control (inside the canvas the ring is `--ring`, R2-30) | RF5, plan |
 | F-KEY-12 | pass | At 360 px, keyboard-only: the same controls are reachable by opening the drawers with Enter and Space on their buttons, and Escape closes them | RF5, plan |
+| F-KEY-13 | failure | With focus inside `[data-canvas]` (a preview checkbox, the kit's tab list), Space, ←, →, L and Alt+T do not reach the studio shortcuts, and the preview control keeps the key | ruling |
 
 ### 7.4 The canvas (Task 2.7)
 
 The canvas is a framed specimen on the house dot grid. The frame is an element `[data-canvas]` that carries
 `themeVars(spec, view.mode, { vision })` and `densityVars(view.density)` as inline custom properties, `data-mode`,
 `data-density`, `data-reduced-motion` and `data-copy`, and has `container-type: inline-size`. Templates size themselves
-with container queries. The toolbar holds: a frame switcher (radio group "Frame": 360, 768, 1280), a template switcher
+with container queries. The toolbar is the one of section 7.1, in that order: a frame switcher (radio group "Frame": 360, 768, 1280), a template switcher
 (`landing`, `dashboard`, `settings`, `mobile`, `editorial`, `kitchen sink`), a mode toggle, a density group, a "Reduce
-motion" switch, a copy group ("Real copy", "Edge-case copy") and a vision group ("Vision": none, protan, deutan, tritan).
+motion" switch, a copy group ("Real copy", "Edge-case copy") and a vision group ("Vision": none, protan, deutan, tritan),
+then Undo, Redo and Copy link. The canvas passes `{ vision, units: "cqi" }` to `themeVars`.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| F-CANVAS-01 | pass | The canvas frame carries exactly the 204 properties of `themeVars(spec, mode)` plus the two density properties; every other color painted inside it traces to one of them (a computed-style walk finds no color outside the set of their values, `transparent` and `currentColor` aside) | I-M2-04, plan |
+| F-CANVAS-01 | pass | The canvas frame carries exactly the 204 properties of `themeVars(spec, mode, { units: "cqi" })` plus the two density properties. A computed-style walk of every element inside it finds no `color`, `background-color`, `border-*-color`, `outline-color`, `fill`, `stroke` or `box-shadow` color equal to a chrome color (the values declared in the `:root` block of `src/app/globals.css`, madder `#f66c6d`, `#0a0a0a`, `#12121a` and the house neutrals), except on the "Show me" overlay; a spec color that equals a chrome value by chance is skipped by value | I-M2-04, plan |
 | F-CANVAS-02 | pass | The frame switcher sets the frame width to 360, 768 or 1280 px; the template's layout changes through container queries and no media query inside the preview changes it (resizing the viewport at fixed frame leaves the layout alone) | decision, plan |
 | F-CANVAS-03 | pass | A frame wider than the canvas area scales down with `transform: scale` and the switcher shows the fit ("fit 91%"); the page never scrolls sideways | ruling |
 | F-CANVAS-04 | pass | The mode toggle switches the canvas variables between the light and dark `themeVars`, and Alt+T does the same | decision |
@@ -1204,8 +1340,9 @@ motion" switch, a copy group ("Real copy", "Edge-case copy") and a vision group 
 | F-CANVAS-09 | pass | "Edge-case copy" swaps in the long word, the long title, the diacritics, the large number, the empty list and the one-character label, and no template overflows its frame | ruling |
 | F-CANVAS-10 | pass | The template switcher shows each of the six templates; the choice is kept across edits and view changes | decision |
 | F-CANVAS-11 | pass | "Show me" (section 7.8) outlines the elements whose `data-roles` hold the role, in madder, 2 px dashed with a 2 px offset, and clears when another is chosen or the finding is dismissed | decision |
-| F-CANVAS-12 | pass | The canvas's selection color, caret color, scrollbar color, `text-underline-offset` and tabular numerals come from spec variables (selection from `--primary` and its foreground, caret from `--primary`, scrollbar from `--border` and `--muted`) | research D1 rule 25 |
+| F-CANVAS-12 | pass | Inside the canvas `color-scheme` is `light` or `dark` by the mode (so native controls follow the spec), the focus ring is `--ring`, `::selection` uses `--primary` and `--primary-foreground`, the caret uses `--primary`, the scrollbar uses `--border` and `--muted`, and `text-underline-offset` and tabular numerals are set | research D1 rule 25, R2-30 |
 | F-CANVAS-13 | pass | The canvas region is keyboard-scrollable (`tabindex="0"` when it scrolls) and axe finds no scrollable-region violation | I-M2-03 |
+| F-CANVAS-14 | pass | The fluid display size follows the frame, not the window: with the `marketing` context, the computed `font-size` of a display heading differs between the 360 and 1280 frames at the same viewport width, and equals the `clamp` evaluated at the frame's width | ruling |
 
 ### 7.5 The kitchen sink (Task 2.7)
 
@@ -1223,7 +1360,7 @@ invalid, success, placeholder, empty, as the component supports them. A forced s
 | F-TPL-01 | pass | The kitchen sink renders every role, every type step, every radius, every shadow and every motion token, in both modes | plan |
 | F-TPL-02 | pass | Every swatch's printed hex equals the spec's stored hex; every printed ratio equals `wcagRatio` of its pair to two decimals | plan |
 | F-TPL-03 | pass | Every kit component renders in every state it supports, each marked with its `data-state` and a visible label | plan |
-| F-TPL-04 | pass | The five button variants use `primary`, `secondary`, `muted`/ghost, `destructive` and `link` roles; each carries `data-roles` | R2-20 |
+| F-TPL-04 | pass | The five button variants use `primary`, `secondary`, ghost (transparent fill, `foreground` text, `muted` on hover), `destructive` and link (`primary` text with an underline); each carries `data-roles` | R2-20 |
 | F-TPL-05 | pass | Motion demos run at the printed duration and easing, and stop under reduced motion | plan |
 | F-TPL-06 | pass | The kitchen sink fits the 360, 768 and 1280 px frames without horizontal overflow | plan |
 | F-TPL-07 | pass | The kit uses icons from `lucide-react` only, each with `stroke-width` equal to `--icon-stroke` | decision |
@@ -1236,7 +1373,7 @@ one product moment on the right, two actions, one filled); features as a list be
 fictional person; a pricing teaser; an FAQ (accordion); a footer. Copy is labeled "sample".
 
 Editorial article "The long thread", an essay on natural dyes: H1 to H4, body at a 60 to 75 character measure, a blockquote, an
-inline code span and a code block, a figure with a caption, footnotes, links and visited links, and a table of contents.
+inline code span and a code block, a figure with a caption, footnotes, links (`primary` text, underlined), and a table of contents.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -1244,14 +1381,14 @@ inline code span and a code block, a figure with a caption, footnotes, links and
 | F-TPL-10 | pass | The editorial article renders in all three frames without overflow | plan |
 | F-TPL-11 | pass | The editorial body paragraph measure is 60 to 75 characters: its computed `max-width` divided by the width of `1ch` in its font falls in [60, 75] | plan, research D1 rule 19 |
 | F-TPL-12 | pass | Both templates pass axe with zero violations in light and in dark, at 360 and at 1280 px | plan |
-| F-TPL-13 | pass | The landing features block (`data-block="features"`) is a list beside a product moment and does not hold three or more siblings of equal size that each hold an icon | plan, decision |
+| F-TPL-13 | pass | The landing features block (`data-block="features"`) is a list beside a product moment and does not hold three or more siblings of equal size that each hold an icon; the same check passes on the dashboard's KPI row, which does not hold three or more equal icon cards | plan, decision |
 | F-TPL-14 | pass | No element in either template has `background-clip: text` with a transparent text fill (no gradient text) | plan, decision |
 | F-TPL-15 | pass | No text node in any template holds an emoji or other pictograph (`\p{Extended_Pictographic}`), and icons are `lucide-react` SVGs | decision |
 | F-TPL-16 | pass | The landing page has no logo row, no "trusted by" text and no hero-metric block; sample content carries the label "sample" | decision |
 | F-TPL-17 | pass | Each template has exactly one orchestrated entrance (`data-entrance` appears once) and it does not run under reduced motion | decision |
 | F-TPL-18 | pass | The landing page has one `h1`; headings descend without gaps; the article's H1 to H4 exist in order | plan |
 | F-TPL-19 | pass | Radius and spacing vary by hierarchy: the landing page uses at least three distinct radius tokens and three distinct spacing tokens in its computed styles | decision |
-| F-TPL-20 | pass | The editorial template shows links in `--link` (or the role the spec names) and a visited link in the visited role, and its selection uses the spec's selection colors | research D5 |
+| F-TPL-20 | pass | The editorial template shows links as `primary` text with an underline (there is no link role and no visited style), and its selection uses the spec's `--primary` and `--primary-foreground` | research D5, ruling |
 | F-TPL-21 | pass | The FAQ accordion opens and closes by keyboard, with `aria-expanded` | I-M2-03 |
 
 ### 7.7 The dashboard, settings and mobile templates (Tasks 2.9 and 2.10)
@@ -1280,7 +1417,7 @@ detail with a bottom sheet, and a tab bar.
 | F-TPL-34 | pass | The detail frame's bottom sheet opens and closes by button and Escape; it uses `--shadow-4` and `--radius-2xl` on its top corners | decision |
 | F-TPL-35 | pass | The mobile tab bar is a `tablist` with roles and selection state, reachable by keyboard | I-M2-03 |
 | F-TPL-36 | pass | The mobile template passes axe in light and dark | plan |
-| F-TPL-37 | pass | Every template stays free of the anti-slop list's other items: no colored left border on cards and alerts, no gradient text, no identical fade-up, one icon library, one stroke width | decision |
+| F-TPL-37 | pass | Every template stays free of the anti-slop list's other items: no card or alert whose left border differs in color from its other sides at 2 px or more, no `background-clip: text`, at most one section group animates on mount (at most one element carries `data-entrance`), one icon library and one `stroke-width` | decision |
 
 ### 7.8 The inspector (Task 2.10)
 
@@ -1301,12 +1438,12 @@ top for font failures.
 | F-INSP-01 | pass | The inspector shows all 8 scales with 11 steps each, and each step's contrast equals the spec's `contrast` to two decimals | plan |
 | F-INSP-02 | pass | The role table shows 32 rows; for each row and each mode the WCAG ratio, the pass level and the signed advisory score equal `roleRows(spec)` | plan |
 | F-INSP-03 | pass | The advisory score shows its sign: `+` for positive, `−` (U+2212) for negative, and the column header says "advisory" | plan, decision |
-| F-INSP-04 | pass | Color names appear for the 8 palettes and the 5 chart colors after the lazy list loads; the first load does not request the list (the network log shows no request for it until the Names section opens or the inspector first renders) | plan, decision |
+| F-INSP-04 | pass | Color names appear for the 8 palettes and the 5 chart colors once the lazy list loads. The list's chunk is absent from the page's initial requests; the request starts after first paint, when the Names section is shown, and the section reads "Loading names" until it arrives | plan, decision |
 | F-INSP-05 | failure | When the name list fails to load, the Names section says "Names unavailable. The rest of the inspector works." and nothing else breaks | I-M2-03 |
 | F-INSP-06 | pass | Findings group by severity with a count each, in the linter's order; with no findings the section says "No findings." | plan |
 | F-INSP-07 | pass | "Show me" on a pair finding outlines the elements with those roles on the canvas; on a step finding it outlines the scale cells in the inspector and scrolls them into view | plan, decision |
 | F-INSP-08 | pass | A taste finding appears: a spec opened through a link with display family `geist` shows a T1 warning titled "Overused display font", and a locked-seed-free purple primary shows T2 | decision |
-| F-INSP-09 | pass | A fix action raises the contrast level one step and clears the finding it fixes (the F1 fixture of C-INSPECT-04, opened through a link) | plan |
+| F-INSP-09 | pass | A fix action regenerates the design at the fix's contrast level and clears the finding it fixes (the tampered-link F1 fixture of C-INSPECT-04: "Raise contrast to AAA"); the button label names the level and the inspector note says the colors are regenerated | plan, ruling |
 | F-INSP-10 | pass | At contrast level AAA the fix button is disabled and says "Contrast is already AAA" | ruling |
 | F-INSP-11 | pass | RF3: when a family fails to load (the font request is aborted by the test), the inspector shows "<Family> did not load. The canvas uses <first fallback font> instead." with `role="status"`; the canvas keeps rendering with the fallback stack and does not overflow its frame | RF3, plan |
 | F-INSP-12 | pass | RF3: the same font failure leaves `document.documentElement.scrollWidth` at most the viewport width and the canvas's layout shift (CLS measured through the Layout Instability API) at most 0.1 | RF3 |
@@ -1319,8 +1456,8 @@ top for font failures.
 |---|---|---|---|
 | F-A11Y-01 | pass | axe finds 0 violations on `/` and on `/studio`, in the default state and with each drawer open at 360 px | decision |
 | F-A11Y-02 | pass | Every interactive element in the chrome has a hit area of at least 24 × 24 px and an accessible name | decision |
-| F-A11Y-03 | pass | Every focusable element shows a 2 px madder focus ring (`outline`) with at least a 3:1 change against its neighbor | decision |
-| F-A11Y-04 | pass | The chrome stays achromatic: no computed color in the chrome outside the canvas has a chroma above 0.02 except madder on focus rings, the active state and the primary action | decision |
+| F-A11Y-03 | pass | Every focusable element outside `[data-canvas]` shows a 2 px madder focus ring (`outline`) with at least a 3:1 change against its neighbor; inside the canvas the ring is the spec's `--ring` | decision, ruling |
+| F-A11Y-04 | pass | The chrome stays achromatic: no computed color outside `[data-canvas]` has a chroma above 0.02 except madder on focus rings, the active state and the primary action, and the data swatches (elements with `data-swatch`: the lot strip, seed swatches, scale cells), which show spec colors by design | decision, ruling |
 | F-A11Y-05 | pass | At 360 px no route scrolls horizontally | RF5, plan |
 | F-A11Y-06 | pass | With `prefers-reduced-motion: reduce`, the chrome's own transitions (drawers, toasts) run at 0.01 ms or less | decision |
 | F-A11Y-07 | pass | Chrome text meets 4.5:1 and chrome non-text parts meet 3:1 against `#0a0a0a` and `#12121a` (a measured pass over the chrome's own tokens) | decision |
@@ -1353,7 +1490,9 @@ Each row lists the cases that carry the item. Every case with the item's tag in 
 | Hard offset shadows, blur, grain and the other `unexpressed` style traits in the spec | R2-06 | M3 (spec fields) |
 | P1 and P2 templates (auth, pricing, product page, docs, states, charts page, email) | research D5 | Not scheduled |
 | Anomalous color-vision severities | M1 spec §8 | Not scheduled |
-| Fonts beyond the 41 families | umbrella §6 ("about 40") | Not scheduled |
+| The `MONO` axis, `wdth`, `opsz` and `ROND` axes of the catalog's families (M2 copies the `wght` file only) | R2-03 | Not scheduled |
+| A fix for the taste rules T1 to T4 | R2-26 | Not scheduled |
+| Fonts beyond the 40 families | umbrella §6 ("about 40") | Not scheduled |
 
 ## 10. Done when
 
