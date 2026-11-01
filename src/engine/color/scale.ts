@@ -204,7 +204,7 @@ function solveLightness(index: number, hue: number, ceiling: number, settings: S
   const aim = TARGETS[step] + (threshold === undefined ? 0 : THRESHOLD_MARGIN);
   const light = settings.mode === "light";
   const at = (l: number): Solution => {
-    const c = Math.min(ceiling, GAMUT_CAP * maxChroma(l, hue, settings.gamut, CAP_ITERATIONS));
+    const c = cappedChroma(ceiling, l, hue, settings.gamut);
     return { l, c, rgb: gamutMap({ l, c, h: hue }, "srgb") };
   };
   // The extreme meets the nominal target (checked first) but may miss the solved one: take it.
@@ -236,6 +236,11 @@ function finish(index: number, hue: number, solution: Solution, settings: Settin
     hex,
     contrast: round6(wcagRatio(hexToRgb(hex), settings.page)),
   };
+}
+
+/** A step's chroma: `ceiling`, capped at 0.97 of the gamut's maximum at (l, hue). */
+function cappedChroma(ceiling: number, l: number, hue: number, gamut: Gamut): number {
+  return Math.min(ceiling, GAMUT_CAP * maxChroma(l, hue, gamut, CAP_ITERATIONS));
 }
 
 /** The drifted hue of step `index` (0 to 10) for a base hue in [0, 360). */
@@ -304,4 +309,31 @@ export function solveEvenScales(
   );
   const shared = STEPS.map((_, index) => Math.min(...reached.map((chromas) => chromas[index])));
   return checked.map((hue) => solveWith(hue, settings, (index) => shared[index]));
+}
+
+/**
+ * The chroma that `solveScale` gives step `index` (0 to 10) of a palette at lightness `l`:
+ * `min(peak × envelope × k, 0.97 × maxChroma(l, drifted hue, gamut))` (spec section 6.4). Lint
+ * rule K4 measures stored chroma against it, so the solver and the rule share one formula.
+ */
+export function stepChroma(palette: Omit<ScaleInput, "page">, index: number, l: number): number {
+  if (typeof palette !== "object" || palette === null) {
+    throw new TypeError(`stepChroma: palette must be an object, got ${describeType(palette)}`);
+  }
+  const hue = checkHue(palette.hue, "stepChroma: palette.hue");
+  assertFinite(palette.peakChroma, "stepChroma: palette.peakChroma");
+  assertMode(palette.mode, "stepChroma: palette.mode");
+  assertGamut(palette.gamut, "stepChroma: palette.gamut");
+  assertFinite(index, "stepChroma: index");
+  if (!Number.isInteger(index) || index < 0 || index >= STEPS.length) {
+    throw new RangeError(`stepChroma: index must be a whole number from 0 to 10, got ${index}`);
+  }
+  assertFinite(l, "stepChroma: l");
+  const k = palette.mode === "dark" ? DARK_CHROMA_FACTOR : 1;
+  return cappedChroma(
+    palette.peakChroma * ENVELOPE[index] * k,
+    l,
+    hueAt(hue, index),
+    palette.gamut,
+  );
 }

@@ -9,6 +9,7 @@ import {
   STEPS,
   solveEvenScales,
   solveScale,
+  stepChroma,
   TARGETS,
   UnsatisfiableTargetError,
 } from "@/engine/color/scale";
@@ -177,6 +178,43 @@ describe("solveScale", () => {
   it("C-SCALE-06 stores chroma as the envelope capped at 0.97 of the gamut's maximum", () => {
     for (const [mode, page] of MODES) {
       for (const hue of HUES) expectChroma(solve(hue, mode, page), hue, PEAK, mode, "srgb");
+    }
+  });
+
+  it("stepChroma gives the stored chroma of every step, the formula lint rule K4 reads", () => {
+    for (const [mode, page] of MODES) {
+      for (const hue of HUES) {
+        solve(hue, mode, page).forEach((entry, index) => {
+          const expected = Math.min(
+            PEAK * ENVELOPE[index] * (mode === "dark" ? 0.85 : 1),
+            0.97 * maxChroma(entry.oklch.l, (entry.oklch.h ?? hue) as number, "srgb"),
+          );
+          const shared = stepChroma(
+            { hue, peakChroma: PEAK, mode, gamut: "srgb" },
+            index,
+            entry.oklch.l,
+          );
+          expect(shared).toBeCloseTo(expected, 5);
+          expect(shared).toBeCloseTo(entry.oklch.c, 5);
+        });
+      }
+    }
+  });
+
+  it("stepChroma rejects bad input", () => {
+    const ok = { hue: 20, peakChroma: 0.1, mode: "light", gamut: "srgb" } as const;
+    expect(() => stepChroma(null as unknown as typeof ok, 0, 0.5)).toThrow(TypeError);
+    for (const [palette, index, l] of [
+      [{ ...ok, hue: Number.NaN }, 0, 0.5],
+      [{ ...ok, peakChroma: Number.POSITIVE_INFINITY }, 0, 0.5],
+      [{ ...ok, mode: "dim" }, 0, 0.5],
+      [{ ...ok, gamut: "rec2020" }, 0, 0.5],
+      [ok, 11, 0.5],
+      [ok, 1.5, 0.5],
+      [ok, -1, 0.5],
+      [ok, 0, Number.NaN],
+    ] as const) {
+      expect(() => stepChroma(palette as typeof ok, index, l)).toThrow(RangeError);
     }
   });
 

@@ -1,0 +1,342 @@
+import { perceptualLc, wcagRatio } from "../color/contrast";
+import { ACHROMATIC_CHROMA, hexToRgb, oklchToRgb, rgbToOklch } from "../color/convert";
+import { minPairwiseDeltaE, VIEWS } from "../color/deltae";
+import { STORED_GAMUT_TOLERANCE } from "../color/guards";
+import { PALETTE_NAMES, type PaletteName } from "../color/palette";
+import type { RoleName } from "../color/roles";
+import { type ScaleStep, STEPS, stepChroma } from "../color/scale";
+import type { Gamut, Mode, Oklch } from "../color/types";
+import type { Finding, LintedSpec, RuleId, Severity } from "./types";
+
+// The rule table of spec section 6.8: thresholds, severities and sources.
+const TEXT = 4.5;
+const LARGE_TEXT = 3;
+const NON_TEXT = 3;
+const BODY_LC = 75;
+const SEPARATION = 0.08;
+const SEPARATION_ERROR = 0.05;
+const DANGER_SUCCESS_L = 0.1;
+const ADJACENT_L = 0.008;
+const CHROMA_DRIFT = 0.01;
+const DARK_PAGE_L = 0.15;
+const DARK_TEXT_L = [0.92, 0.96] as const;
+const DISLIKED = { hueFrom: 90, hueTo: 111, chroma: 0.04, lightness: 0.65 } as const;
+
+const SOURCES: Readonly<Record<RuleId, string>> = {
+  C1: "WCAG 2.2 SC 1.4.3, 1.4.6",
+  C2: "WCAG 2.2 SC 1.4.3 (large text)",
+  C4: "perceptual contrast guidance (advisory)",
+  C5: "WCAG 2.2 SC 1.4.3",
+  N1: "WCAG 2.2 SC 1.4.11",
+  N2: "WCAG 2.2 SC 1.4.11",
+  N3: "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)",
+  F1: "WCAG 2.2 SC 1.4.11, 2.4.13",
+  S1: "calibrated against Okabe-Ito (RR-0028)",
+  S2: "red and green collapse under protan and deutan (RR-0028)",
+  K1: "invariant",
+  K2: "CSS JND; Radix measured",
+  K4: "computed (RR-0028)",
+  G1: "CSS Color 4",
+  G3: "CSS Color 4 (powerless hue)",
+  D1: "Material dark theme guidance",
+  D2: "off-white body text (Radix, Material)",
+  D3: "Material guidance on dark-mode accents",
+  D4: "Material 3 tonal elevation",
+  P1: "Palmer and Schloss, via Material Color Utilities",
+};
+
+/** A text pair: foreground over fill (spec section 6.5). */
+type Pair = readonly [foreground: RoleName, fill: RoleName];
+
+const C1_PAIRS: readonly Pair[] = [
+  ["foreground", "background"],
+  ["card-foreground", "card"],
+  ["popover-foreground", "popover"],
+  ["sidebar-foreground", "sidebar"],
+  ["muted-foreground", "muted"],
+  ["muted-foreground", "background"],
+  ["secondary-foreground", "secondary"],
+  ["accent-foreground", "accent"],
+  ["sidebar-accent-foreground", "sidebar-accent"],
+  ["success-subtle-foreground", "success-subtle"],
+  ["warning-subtle-foreground", "warning-subtle"],
+  ["info-subtle-foreground", "info-subtle"],
+  ["destructive-subtle-foreground", "destructive-subtle"],
+];
+const C4_PAIRS: readonly Pair[] = C1_PAIRS.slice(0, 4);
+const C5_PAIRS: readonly Pair[] = [
+  ["primary-foreground", "primary"],
+  ["sidebar-primary-foreground", "sidebar-primary"],
+  ["destructive-foreground", "destructive"],
+  ["success-foreground", "success"],
+  ["warning-foreground", "warning"],
+  ["info-foreground", "info"],
+];
+const LARGE_TEXT_ROLES: readonly RoleName[] = [
+  "primary",
+  "destructive",
+  "success",
+  "warning",
+  "info",
+];
+const CHARTS: readonly RoleName[] = ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5"];
+const STATUS: readonly RoleName[] = ["success", "warning", "destructive", "info"];
+const ACCENTED: readonly PaletteName[] = [
+  "primary",
+  "secondary",
+  "accent",
+  "success",
+  "warning",
+  "danger",
+  "info",
+];
+const BRAND: readonly PaletteName[] = ["primary", "secondary", "accent"];
+const STATUS_PALETTES: readonly PaletteName[] = ["success", "warning", "danger", "info"];
+const D3_STEPS = [500, 600, 700] as const;
+const MODES: readonly Mode[] = ["light", "dark"];
+
+/** One rule's findings in one mode. */
+type Rule = (spec: LintedSpec, mode: Mode) => Finding[];
+
+function finding(
+  id: RuleId,
+  severity: Severity,
+  mode: Mode,
+  subject: string,
+  measured: number,
+  threshold: number,
+): Finding {
+  return { id, severity, mode, subject, measured, threshold, source: SOURCES[id] };
+}
+
+const rgbOf = (spec: LintedSpec, mode: Mode, role: RoleName) =>
+  hexToRgb(spec.color.roles[mode][role]);
+
+const ratio = (spec: LintedSpec, mode: Mode, [a, b]: Pair) =>
+  wcagRatio(rgbOf(spec, mode, a), rgbOf(spec, mode, b));
+
+/** OKLCH lightness of a role's hex. */
+const lightness = (spec: LintedSpec, mode: Mode, role: RoleName) =>
+  rgbToOklch(rgbOf(spec, mode, role), "srgb").l;
+
+/** A WCAG rule over pairs: one finding per pair below `threshold`. */
+function wcagRule(id: RuleId, severity: Severity, pairs: readonly Pair[], threshold: number): Rule {
+  return (spec, mode) =>
+    pairs.flatMap((pair) => {
+      const measured = ratio(spec, mode, pair);
+      return measured < threshold
+        ? [finding(id, severity, mode, `${pair[0]}/${pair[1]}`, measured, threshold)]
+        : [];
+    });
+}
+
+const against = (roles: readonly RoleName[], fills: readonly RoleName[]): Pair[] =>
+  roles.flatMap((role) => fills.map((fill): Pair => [role, fill]));
+
+const C4: Rule = (spec, mode) =>
+  C4_PAIRS.flatMap(([text, fill]) => {
+    const measured = Math.abs(perceptualLc(rgbOf(spec, mode, text), rgbOf(spec, mode, fill)));
+    return measured < BODY_LC
+      ? [finding("C4", "warn", mode, `${text}/${fill}`, measured, BODY_LC)]
+      : [];
+  });
+
+/** S1: the smallest pairwise ΔEOK of each set under each view, the measure of chart picking. */
+const S1: Rule = (spec, mode) => {
+  const sets = [
+    ["status", STATUS],
+    ["chart", CHARTS],
+  ] as const;
+  return sets.flatMap(([set, roles]) => {
+    const smallest = minPairwiseDeltaE(roles.map((role) => rgbOf(spec, mode, role)));
+    return VIEWS.flatMap((view) => {
+      const measured = smallest[view];
+      if (measured >= SEPARATION) return [];
+      const severity = measured < SEPARATION_ERROR ? "error" : "warn";
+      return [finding("S1", severity, mode, `${set}/${view}`, measured, SEPARATION)];
+    });
+  });
+};
+
+const S2: Rule = (spec, mode) => {
+  const measured = Math.abs(
+    lightness(spec, mode, "destructive") - lightness(spec, mode, "success"),
+  );
+  return measured < DANGER_SUCCESS_L
+    ? [finding("S2", "warn", mode, "destructive/success", measured, DANGER_SUCCESS_L)]
+    : [];
+};
+
+/** Each adjacent step pair of each palette in one mode. */
+function adjacent(
+  spec: LintedSpec,
+  mode: Mode,
+  check: (a: ScaleStep, b: ScaleStep, subject: string) => Finding[],
+) {
+  return PALETTE_NAMES.flatMap((name) => {
+    const scale = spec.color.palettes[name][mode];
+    return scale.slice(1).flatMap((b, i) => {
+      const a = scale[i];
+      return check(a, b, `${name}-${a.step}/${name}-${b.step}`);
+    });
+  });
+}
+
+const K1: Rule = (spec, mode) =>
+  adjacent(spec, mode, (a, b, subject) => {
+    const movement = mode === "light" ? a.oklch.l - b.oklch.l : b.oklch.l - a.oklch.l;
+    return movement <= 0 ? [finding("K1", "error", mode, subject, movement, 0)] : [];
+  });
+
+const K2: Rule = (spec, mode) =>
+  adjacent(spec, mode, (a, b, subject) => {
+    const gap = Math.abs(a.oklch.l - b.oklch.l);
+    return gap < ADJACENT_L ? [finding("K2", "warn", mode, subject, gap, ADJACENT_L)] : [];
+  });
+
+/**
+ * The even groups of R-11: the four status palettes, always; primary and accent when their peak
+ * chroma is equal; every other palette alone. Standard mode puts every palette alone.
+ */
+function groupOf(spec: LintedSpec, name: PaletteName): readonly PaletteName[] {
+  if (spec.color.params.scaleMode !== "even") return [name];
+  if (STATUS_PALETTES.includes(name)) return STATUS_PALETTES;
+  const { primary, accent } = spec.color.palettes;
+  const paired = primary.peakChroma === accent.peakChroma;
+  return paired && (name === "primary" || name === "accent") ? ["primary", "accent"] : [name];
+}
+
+/** K4's expected chroma: the step's formula, or in even mode the smallest over its group. */
+function expectedChroma(spec: LintedSpec, name: PaletteName, mode: Mode, index: number): number {
+  const { gamut } = spec.color.params;
+  return Math.min(
+    ...groupOf(spec, name).map((member) => {
+      const palette = spec.color.palettes[member];
+      const l = palette[mode][index].oklch.l;
+      return stepChroma(
+        { hue: palette.hue, peakChroma: palette.peakChroma, mode, gamut },
+        index,
+        l,
+      );
+    }),
+  );
+}
+
+const K4: Rule = (spec, mode) =>
+  PALETTE_NAMES.flatMap((name) =>
+    spec.color.palettes[name][mode].flatMap((entry, index) => {
+      const drift = Math.abs(entry.oklch.c - expectedChroma(spec, name, mode, index));
+      return drift > CHROMA_DRIFT
+        ? [finding("K4", "warn", mode, `${name}-${entry.step}`, drift, CHROMA_DRIFT)]
+        : [];
+    }),
+  );
+
+/**
+ * G1's measure: how far the color's largest channel in `gamut` lies outside [0, 1], or 0 inside.
+ * Rounding to 6 digits leaves a stored seed up to 1.347e-4 outside, so G1 allows 2e-4 (R-10).
+ */
+export function gamutExcess(color: Oklch, gamut: Gamut): number {
+  const rgb = oklchToRgb(color, gamut);
+  return Math.max(0, -rgb[0], -rgb[1], -rgb[2], rgb[0] - 1, rgb[1] - 1, rgb[2] - 1);
+}
+
+/** A rule over every step of every palette in one mode. */
+function eachStep(
+  spec: LintedSpec,
+  mode: Mode,
+  check: (entry: ScaleStep, subject: string) => Finding[],
+) {
+  return PALETTE_NAMES.flatMap((name) =>
+    spec.color.palettes[name][mode].flatMap((entry) => check(entry, `${name}-${entry.step}`)),
+  );
+}
+
+const G1: Rule = (spec, mode) =>
+  eachStep(spec, mode, (entry, subject) => {
+    const excess = gamutExcess(entry.oklch, spec.color.params.gamut);
+    return excess > STORED_GAMUT_TOLERANCE
+      ? [finding("G1", "error", mode, subject, excess, STORED_GAMUT_TOLERANCE)]
+      : [];
+  });
+
+const G3: Rule = (spec, mode) =>
+  eachStep(spec, mode, (entry, subject) =>
+    entry.oklch.c <= ACHROMATIC_CHROMA && entry.oklch.h !== null
+      ? [finding("G3", "error", mode, subject, entry.oklch.c, ACHROMATIC_CHROMA)]
+      : [],
+  );
+
+const D1: Rule = (spec) => {
+  const l = lightness(spec, "dark", "background");
+  return l < DARK_PAGE_L ? [finding("D1", "warn", "dark", "background", l, DARK_PAGE_L)] : [];
+};
+
+const D2: Rule = (spec) => {
+  const l = lightness(spec, "dark", "foreground");
+  const [low, high] = DARK_TEXT_L;
+  if (l < low) return [finding("D2", "warn", "dark", "foreground", l, low)];
+  if (l > high) return [finding("D2", "warn", "dark", "foreground", l, high)];
+  return [];
+};
+
+const D3: Rule = (spec) =>
+  ACCENTED.flatMap((name) =>
+    D3_STEPS.flatMap((step) => {
+      const index = STEPS.indexOf(step);
+      const palette = spec.color.palettes[name];
+      const dark = palette.dark[index].oklch.c;
+      const light = palette.light[index].oklch.c;
+      return dark > light ? [finding("D3", "warn", "dark", `${name}-${step}`, dark, light)] : [];
+    }),
+  );
+
+const D4: Rule = (spec) => {
+  const card = lightness(spec, "dark", "card");
+  const page = lightness(spec, "dark", "background");
+  return card <= page ? [finding("D4", "warn", "dark", "card/background", card, page)] : [];
+};
+
+const P1: Rule = (spec, mode) =>
+  BRAND.flatMap((name) =>
+    spec.color.palettes[name][mode].flatMap(({ step, oklch: { l, c, h } }) => {
+      const disliked =
+        h !== null &&
+        h >= DISLIKED.hueFrom &&
+        h <= DISLIKED.hueTo &&
+        c > DISLIKED.chroma &&
+        l < DISLIKED.lightness;
+      return disliked
+        ? [finding("P1", "info", mode, `${name}-${step}`, l, DISLIKED.lightness)]
+        : [];
+    }),
+  );
+
+/** Rules that run in both modes, then the dark-mode rules, which run once. */
+const BOTH_MODES: readonly Rule[] = [
+  wcagRule("C1", "error", C1_PAIRS, TEXT),
+  wcagRule("C2", "error", against(LARGE_TEXT_ROLES, ["background"]), LARGE_TEXT),
+  C4,
+  wcagRule("C5", "error", C5_PAIRS, TEXT),
+  wcagRule("N1", "error", against(["input"], ["background", "card"]), NON_TEXT),
+  wcagRule("N2", "error", against(CHARTS, ["background", "card"]), NON_TEXT),
+  wcagRule("N3", "info", [["border", "background"]], NON_TEXT),
+  wcagRule("F1", "error", against(["ring"], ["background", "card", "muted"]), NON_TEXT),
+  S1,
+  S2,
+  K1,
+  K2,
+  K4,
+  G1,
+  G3,
+  P1,
+];
+const DARK_ONLY: readonly Rule[] = [D1, D2, D3, D4];
+
+/** Every finding of every rule, unsorted. */
+export function runRules(spec: LintedSpec): Finding[] {
+  return [
+    ...MODES.flatMap((mode) => BOTH_MODES.flatMap((rule) => rule(spec, mode))),
+    ...DARK_ONLY.flatMap((rule) => rule(spec, "dark")),
+  ];
+}
