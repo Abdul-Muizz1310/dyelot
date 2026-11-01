@@ -317,11 +317,14 @@ table; with tint `none` the neutral takes the primary's hue, which never shows b
 0, so the scale is gray. With `neutralTint: "brand"`, an achromatic primary gives the neutral palette chroma 0.
 
 **R-10 · Seed records.** The seed is gamut-mapped to the spec's gamut, then placed in each mode's scale by the rule in
-section 2. The seed "had to be gamut-mapped" when the seed as passed, before rounding, fails `inGamut` for the spec's
-gamut, with its tolerance of 1e-6 per channel. Only then does the engine map the rounded seed and place the result; an
-in-gamut seed is placed as rounded. Rounding alone never counts: `round6` leaves a locked `#0000ff` about 1.8e-6 outside
-`[0, 1]` (C-LINT-48), but the seed as passed is in gamut, so it records no `seedDeviation` and its hex stays `#0000ff`
-(C-PAL-20). `seedStep` is present when both modes place the seed. When a mode rejects it, that mode's scale stays as
+section 2. The seed "had to be gamut-mapped" when its stored form, the rounded seed that `color.params` keeps, lies
+outside the spec's gamut by more than 2e-4 in some channel: the tolerance of lint rule G1, not the 1e-6 of `inGamut`.
+(This replaces the earlier wording, which tested the seed as passed with `inGamut`.) Only then does the engine map the
+rounded seed and place the result; any other seed is placed as rounded. Rounding alone never counts: `round6` leaves a
+locked `#0000ff` about 1.8e-6 outside `[0, 1]`, `#ff00ff` 4.9e-6, `#00ff00` 4.3e-5, and `#00fd1b`, the worst 8-bit color,
+1.347e-4 (C-LINT-48, C-LINT-50), all inside 2e-4, so they record no `seedDeviation` and keep their hex (C-PAL-20).
+Because the test reads the stored seed, a seed passed back in from a spec's `color.params` gets the same decision, and
+regenerating from what a spec records gives the identical spec (C-GEN-13). `seedStep` is present when both modes place the seed. When a mode rejects it, that mode's scale stays as
 solved, `seedStep` is absent and `seedDeviation` is present, even when the other mode placed the seed verbatim (C-PAL-09):
 the type of `seedStep` needs both modes, and a consumer finds an accepted placement by looking for the seed's hex in that
 mode's scale. `seedDeviation` describes the light mode, unless only the dark mode rejects the seed. Its `deltaEOK` is the ΔEOK between the original seed (before gamut mapping) and the color that
@@ -946,7 +949,9 @@ Contract:
   the chroma is at most 4e-6. Each mode's scales solve against that page with `solveScale`, or with `solveEvenScales`
   in even mode (R-11).
 - **Seeds.** R-10 and the seed rule in section 2. A locked seed's own chroma never changes `peakChroma`. The engine rounds
-  and normalizes a seed before use: `round6`, `roundHue`, then the achromatic rule of R-03 (R-02).
+  and normalizes a seed before use: `round6`, `roundHue`, then the achromatic rule of R-03 (R-02). The gamut test of R-10
+  then reads that rounded seed with a tolerance of 2e-4, so the seed as passed and the seed as stored give the same
+  palettes.
 - **`resolveRoles`.** The sources in section 2, with the level moves: AA+ puts `muted-foreground` on neutral-800; AAA also
   puts `primary`, `sidebar-primary`, `ring`, `sidebar-ring` and `input` on step 700. `destructive` stays on danger-600 at
   every level, and `destructive-subtle` (danger-100) and `destructive-subtle-foreground` (danger-900) carry 7:1 text.
@@ -977,7 +982,7 @@ Contract:
 | C-PAL-17 | failure | Invalid input throws `RangeError` naming the field: an unknown `harmony`, `chroma`, `neutralTint`, `gamut`, `scaleMode` or `contrastLevel`; a seed with a non-finite field, `l` outside `[0, 1]`, `c` outside `[0, 0.5]` or `h` outside `[0, 360)`; a `random` that returns NaN or a value outside `[0, 1)`. A value of the wrong type (a number or `null` for an enum field, a seed that is not an object) throws `TypeError` naming the field (R-05) | RF3, added |
 | C-PAL-18 | pass | A hue that rounds to 360. A locked primary with hue `359.99999999999994` gives `palettes.primary.hue === 0`, and every step's `oklch.h`, and the seed step's, is below 360 (R-02) | ruling |
 | C-PAL-19 | pass | The achromatic test runs after rounding. A locked primary `{ l: 0.6, c: 0.0000040000004, h: 120 }` becomes `c: 4e-6` and `h: null` in `color.params`, and gives an achromatic primary: `peakChroma` 0, `hue` 0 (R-03, R-09) | ruling |
-| C-PAL-20 | pass | Rounding alone does not count as gamut mapping (R-10). A locked `#0000ff` primary in sRGB, whose stored seed `round6` leaves about 1.8e-6 outside `[0, 1]`, records no `seedDeviation`, and both modes hold it verbatim: `light[seedStep.light].hex` and `dark[seedStep.dark].hex` are `#0000ff` (steps 700 and 400 with `DEFAULT_PARAMS`) | ruling, RF5 |
+| C-PAL-20 | pass | Rounding alone does not count as gamut mapping (R-10). A locked `#0000ff` primary in sRGB, whose stored seed `round6` leaves about 1.8e-6 outside `[0, 1]`, records no `seedDeviation`, and both modes hold it verbatim: `light[seedStep.light].hex` and `dark[seedStep.dark].hex` are `#0000ff` (steps 700 and 400 with `DEFAULT_PARAMS`). `#00ff00` (4.3e-5 outside after rounding) and `#ff00ff` (4.9e-6) also record no `seedDeviation`, because each stays within the 2e-4 of R-10, and passing the stored seed (`normalizeSeed` of the color) back in gives deep-equal palettes. A seed whose stored form lies 1e-4 outside is placed as rounded, and one 3e-4 outside is mapped and records a `seedDeviation` | ruling, RF5 |
 | C-ROLE-01 | pass | `resolveRoles` returns exactly the 46 role names, each a `Hex` | decision, ruling |
 | C-ROLE-02 | pass | For every mode and level, each role equals the hex of its source in section 2 (`background` is the page hex; every `*-foreground` on a solid fill is `onFill` of that fill; `chart-n` is the n-th chart color) | decision |
 | C-ROLE-03 | pass | AA and AA+ differ only in `muted-foreground`. Between AA+ and AAA, only `primary`, `sidebar-primary`, `ring`, `sidebar-ring`, `input` and the foregrounds on `primary` and `sidebar-primary` may change, and the five fills do change. `destructive`, its foreground and its subtle pair never change with the level | decision |
@@ -1211,7 +1216,8 @@ Contract:
   (R-02). The result always passes `DesignSpecSchema`. It rounds `type.ratio` with `round6` before use, so the stored
   ratio and the stored steps agree; a ratio outside `(1, 2]`, or one that rounds to 1 (any ratio below 1.000005), throws
   `RangeError`. `color.params` holds the seeds after the normalization of section 6.5's Seeds bullet (`normalizeSeed`),
-  while `buildPalettes` receives them as passed, because R-10 tests the seed as passed for gamut mapping.
+  and `buildPalettes` builds from those same seeds; R-10 tests the stored seed, so this changes nothing. Generating again
+  from what a spec records gives the identical spec (C-GEN-13).
 
 | ID | Kind | Case | Origin |
 |---|---|---|---|
@@ -1270,6 +1276,7 @@ Contract:
 | C-GEN-10 | failure | Invalid parameters throw `RangeError` naming the field: an unknown enum value; `type.ratio` outside `(1, 2]` or rounding to 1; `name` empty or over 80 characters; `seed` empty or over 128; a seed color out of range | RF3, ruling |
 | C-GEN-11 | pass | `generateSystem` accepts a deep-frozen `params` object and does not mutate it | I-01 |
 | C-GEN-12 | pass | A hue that rounds to 360. A locked primary `oklch(0.7 0.17 359.99999999999994)` gives a spec that passes `DesignSpecSchema`, with every stored hue below 360: the palette hues, the step hues and `color.params.primary.h` (R-02) | ruling |
+| C-GEN-13 | pass | Regenerating is idempotent. `generateSystem` of the parameters a spec records (`color.params`, `type.context` and `type.ratio`, `shape.radiusSet`, `depth.style`, `motion.feel` and `meta.name`), with `meta.seed`, deep-equals the spec. Fixed cases: `#0000ff`, `#00ff00` and `#ff00ff` locked as primary and as accent with `DEFAULT_PARAMS` (none records a `seedDeviation`). Property (50 runs): every enum, locked seeds drawn from `#0000ff`, `#00ff00`, `#ff00ff`, `#ffffff`, `#000000`, `EXTREME_SEEDS` and random in-range colors, and random seed strings | ruling |
 
 ### 6.8 The color linter (Task 1.9)
 
@@ -1328,7 +1335,8 @@ Contract:
   S1, S2, K1, K2, K4, G1, G3, D1, D2 and D4. N3 reports info in both modes. D3 may warn. A locked seed can raise K2 and K4
   at its own step, because the seed keeps its own lightness and chroma; M1 reports those warnings. The palette's
   `seedStep` names that step when both modes place the seed. When only one mode places it, `seedStep` is absent (R-10),
-  and the seed's hex in that mode's scale marks the step. A locked seed raises no G1. Rounding can leave a stored seed
+  and the seed's hex in that mode's scale marks the step. A locked seed raises no G1, because R-10 maps every seed
+  whose stored form lies more than 2e-4 outside, the bound G1 checks. Rounding can leave a stored seed
   outside the gamut by up to 1.347e-4 (a locked `#0000ff` by 1.8e-6, `#00ff00` by 4.3e-5, and `#00fd1b`, the worst of
   all 16,777,216 8-bit colors, by 1.347e-4), and G1 allows 2e-4. Only the 390,152 colors with a 00 or ff channel can
   leave the gamut at all; the other 16,387,064 stay inside. Gamut-mapped seeds behave alike: 20,000 random out-of-gamut
