@@ -284,23 +284,38 @@ then has every `vw` of the `clamp` string written as `cqi`, so the fluid size fo
 
 **R2-13 · Store protocol.**
 1. `createStudioStore(deps)` takes `{ client, storage, clock, newSeed, location, history }`; nothing is a module
-   singleton, so tests build as many stores as they need. A zustand hook wraps the store for React.
+   singleton, so tests build as many stores as they need. A zustand hook (`useStudio`) wraps the store for React, and
+   `bindStudioWindow(store, window)` connects `hashchange` (item 5 of R2-14), `pagehide` and a hidden page (`flush()`,
+   C-HASH-13); it returns the function that disconnects them.
 2. The worker protocol lives in `src/features/studio/protocol.ts`: the types and the pure `runGenerate(request)`, which
    never throws. `generate.worker.ts` only wires `onmessage` to it. An inline client runs `runGenerate` on a microtask
    when `Worker` is missing or throws on construction, so tests and locked-down browsers behave the same. Both clients
-   come from `createGenerateClient(post)`, which keeps one request in flight and at most one pending (R2-29).
+   come from `createGenerateClient(post)`, which keeps one request in flight and at most one pending (R2-29). The
+   store's `deps.client` is a `StudioClient` (section 5.7) built over that flow. Its `generateNow(params, seed)` runs
+   the generator on the calling thread once, for the first load's fresh design: the store needs a spec before any
+   reply (C-STORE-01 is `idle`), and the first posted request is id 1 (C-STORE-03). Every change goes through `request`.
+   A worker message is read by `parseReply`, which checks the envelope only (the id, `ok`, the error's shape, a spec
+   that is a record); item 4's `normalizeSpec` stays the one schema check of every reply. A worker that fails at run
+   time (`error`, `messageerror`, an unreadable reply) is ended with one `console.error`, and the client reruns the
+   request in flight inline and stays inline, so no reply is waited for forever.
 3. The stale rule is monotonic. The store numbers requests 1, 2, 3 and keeps `lastApplied`. A reply applies when
    `reply.id > lastApplied`, and it then sets `lastApplied`. Any other reply is dropped. The decision says "stale replies are
    dropped"; this form also lets a long drag show progress, and when every reply has arrived the canvas always holds the
-   newest request's spec. `undo`, `redo`, `loadFromHash` and `startFresh` set `lastApplied` to the newest issued id, so
-   replies already in flight cannot overwrite them.
+   newest request's spec. `undo`, `redo`, `loadFromHash`, `startFresh` and `revert` set `lastApplied` to the newest issued
+   id, so replies already in flight cannot overwrite them, and they call the client's `drop()`, so a pending request
+   that is now stale is never posted. (`revert` is added because it restores the committed snapshot just as `undo`
+   does.) An error reply for a request older than the newest issued one is ignored: the newer request's reply decides
+   what the canvas shows. An error reply for the newest request sets a failed status.
 4. Every applied reply passes through `normalizeSpec` before the store keeps it. A reply that fails is dropped and sets
    a failed status.
 5. `newSeed` defaults to two 32-bit draws from `crypto.getRandomValues`, written `a.toString(36) + b.toString(36)`, so an
    e2e init script can replace `getRandomValues` with a counter and know every seed (F-KEY-02).
 6. A change is committed when its reply is applied. Committing pushes the previous snapshot `{ params, seed, spec }`
    onto `history` and clears `future`. A change made with a `coalesce` key merges into the previous commit, instead of
-   pushing, when that commit had the same key and happened at most 1,000 ms earlier by `clock`. Holding Space and
+   pushing, when that commit had the same key and happened at most 1,000 ms earlier by `clock`. The times compared are the
+   times the changes were issued (the user's gesture), not the times their replies arrived, so worker speed never splits
+   or joins a gesture; and the window is chained: each merged change becomes the commit the next one is compared with,
+   so a held key of any length is one undo step. Holding Space and
    a drag in the native color input each use a key (`regenerate`, `seed:<slot>`), so one gesture is one undo step.
    `history` holds at most 100 snapshots; the oldest falls off.
 7. `mode` and the other view settings are not in a snapshot and not in the link.
@@ -362,7 +377,7 @@ key from `params`. Both regenerate and commit.
 What the promise is, measured on 2026-11-01 with `DEFAULT_PARAMS` and `AA` or `AAA`:
 - Locking `secondary` or `accent` left all 46 roles of both modes identical in every seed: 20 of 20 for `seed-1` to
   `seed-20` and 40 of 40 for `s0` to `s39`, at `AA` and at `AAA`.
-- Locking `primary` keeps the primary role itself within ΔEOK 0.0016 (`seed-1` to `seed-20`) and 0.0074 (`s0` to `s39`,
+- Locking `primary` keeps the primary role itself within ΔEOK 0.0017 (`seed-1` to `seed-20`) and 0.0074 (`s0` to `s39`,
   the larger of the two levels); other non-chart roles move by at most 10 codes in one channel. All 46 roles are identical in
   15 of 20 seeds at `AA` and 13 of 20 at `AAA` for `seed-1` to `seed-20`, and in 27 of 40 at `AA` and 14 of 40 at `AAA` for `s0`
   to `s39`.
@@ -372,9 +387,12 @@ What the promise is, measured on 2026-11-01 with `DEFAULT_PARAMS` and `AA` or `A
   sits on its step exactly) can choose a different chart color. This is the cause; it is not 8-bit rounding of the seed hex.
 - The promise that matters is that later regenerations keep the locked color. For a locked primary over `s0` to `s39`, three
   regenerations each (120 runs per level), the locked hex sits in a scale of the new spec with no `seedDeviation` in 99 runs
-  at `AA` and 105 at `AAA`; in the other 21 and 15 the spec records a `seedDeviation` (largest ΔEOK 0.0191 at `AA`, 0.0095 at
+  at `AA` and 105 at `AAA`; in the other 21 and 15 the spec records a `seedDeviation` (largest ΔEOK 0.0192 at `AA`, 0.0095 at
   `AAA`), as M1 R-10 says; no run drops the seed. `params.primary` is never changed by a regeneration.
-The lock toggle shows no warning text; C-STORE-34 and C-STORE-41 assert these bounds.
+The lock toggle shows no warning text; C-STORE-34 and C-STORE-41 assert these bounds. Each ΔEOK bound above is the measured
+maximum rounded up to four decimals, and the tests assert it at full precision: the primary role 0.0017 (measured 0.001635,
+`seed-1` to `seed-20` at `AAA`) and 0.0074 (0.007360, `s0` to `s39` at `AAA`), the largest `seedDeviation` 0.0192 (0.019136 at
+`AA`) and 0.0095 (0.009452 at `AAA`). Re-measured through the store's `toggleLock` and `regenerate` in Task 2.5.
 
 **R2-18 · Where the Review Focus 1 e2e lives.** The plan names Task 2.5 for the bad-link e2e, but the page that shows the
 banner arrives in Task 2.6. The pure parts of Review Focus 1 (reasons, copy, state) are tested in Task 2.5; the e2e that
@@ -398,7 +416,7 @@ single-character label. `vision` is `none`, `protan`, `deutan` or `tritan`.
 
 **R2-22 · New pure folders.** `src/theme/**` joins the pure-core test project (`tests/unit/theme/**` runs in `node`) and the
 coverage floors of 95 for lines, statements and functions and 90 for branches. The same floors cover `src/engine/fonts/**`
-and the pure helper files of the studio: `src/features/studio/{protocol,url,drafts,params,lot,inspect,fixes,client}.ts` (`fixes.ts` holds `fixFor`, section 5.8) and
+and the pure helper files of the studio: `src/features/studio/{protocol,url,drafts,params,lot,inspect,fixes,client,guards,view}.ts` (`fixes.ts` holds `fixFor`, section 5.8; `guards.ts` holds the R-05 checks the helpers share, because the engine entry does not export its own; `view.ts` holds the view settings and `mergeView`) and
 `src/features/fonts/load.ts`, which the coverage include lists by name. The rest of `src/features/**` runs in jsdom or
 Playwright and is covered by the flows.
 
@@ -777,25 +795,30 @@ string, except that `units: "cqi"` rewrites its `vw` as `cqi`. Numbers are writt
 
 ### 5.7 Studio state (Task 2.5)
 
-Files: `src/features/studio/{store,protocol,client,generate.worker,url,drafts,params,lot}.ts`.
+Files: `src/features/studio/{store,protocol,client,generate.worker,url,drafts,params,lot,fixes,guards,view}.ts`.
+`guards.ts` holds the R-05 checks the helpers share (`describeType`, `assertRecord`, `assertOneOf` and the rest),
+because the engine entry does not export its own; `view.ts` holds the view settings, kept apart from the store so their
+checks sit under the pure floors (R2-22).
 
 ```ts
 type Notice =
-  | { kind: "link"; reason: "corrupt" | "version" | "schema"; issues?: readonly string[]; fallback: "draft" | "fresh" }
+  | { kind: "link"; reason: "corrupt" | "version" | "schema"; issues?: readonly string[];
+      fallback: "draft" | "fresh" | "current" }
   | { kind: "generation"; message: string }
   | { kind: "custom-fonts" }
+  | { kind: "draft-restored" }
   | { kind: "copy-blocked" };
 type Status = { phase: "idle" | "generating" | "failed"; notice: Notice | null; draft: "on" | "off" };
 type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
-type ParamsPatch = DeepPartial<DirectionParams>;      // `type` merges by key; `pairing: undefined` means auto
+type ParamsPatch = DeepPartial<DirectionParams>;      // `type` merges by key; an optional key set to undefined is removed (`pairing: undefined` means auto)
 type TemplateId = "landing" | "dashboard" | "settings" | "mobile" | "editorial" | "kitchen-sink";
 type Highlight = { roles: readonly string[]; cells: readonly { palette: PaletteName; step: Step }[] };
 type Snapshot = { params: DirectionParams; seed: string; spec: DesignSpec; preset: PresetId | null };
 type View = { mode: Mode; density: Density; frame: 360 | 768 | 1280; template: TemplateId;
               reducedMotion: boolean; copy: "real" | "edge"; vision: "none" | Deficiency;
               highlight: Highlight | null };
-type StudioState = Snapshot & { history: Snapshot[]; future: Snapshot[]; status: Status; view: View };
+type StudioState = Snapshot & { history: readonly Snapshot[]; future: readonly Snapshot[]; status: Status; view: View };
 // `preset` follows R2-28; a pairing absent from `params` is auto (R2-05)
 
 type StudioActions = {
@@ -809,9 +832,33 @@ type StudioActions = {
   setView(patch: Partial<View>): void;
   loadFromHash(hash: string): void;
   startFresh(): void; revert(): void; dismissNotice(): void;
+  flush(): void;                                        // writes a pending hash and draft now (C-HASH-13)
+  dispose(): void;                                      // saves a pending draft, never the hash
+};
+type StudioClient = {
+  generateNow(params: DirectionParams, seed: string): DesignSpec; // the first load's fresh design only (R2-13 item 2)
+  request(request: GenerateRequest): void;
+  subscribe(listener: (reply: GenerateReply) => void): () => void;
+  drop(): void;                                         // forgets the pending request (R2-13 item 3)
   dispose(): void;
 };
+type StudioDeps = { client: StudioClient; storage: StorageLike | null; clock: () => number; newSeed: () => string;
+                    location: Pick<Location, "hash" | "pathname" | "search">; history: Pick<History, "replaceState"> };
+function createStudioStore(deps: StudioDeps): StoreApi<StudioState & StudioActions>;
+function useStudio<T>(store: StoreApi<StudioState & StudioActions>, selector: (studio: StudioState & StudioActions) => T): T;
+function bindStudioWindow(store: StoreApi<StudioState & StudioActions>, win: Window): () => void; // hashchange, pagehide, visibilitychange
+function randomSeed(source?: Pick<Crypto, "getRandomValues">): string; // the default newSeed (R2-13 item 5)
 ```
+
+Why the notice and the actions grew past the decisions:
+- `draft-restored` is the notice F-STUDIO-18 shows ("Restored your last draft.") when a draft opens with no hash.
+- The link fallback `current` is for a bad link that arrives by `hashchange` mid-session: the studio keeps the design it
+  holds, and the banner's second sentence says "The studio kept the current design." (C-STORE-22, C-HASH-14).
+- `flush()` and `bindStudioWindow` let `pagehide` and a hidden page write the pending hash and draft at once (C-HASH-13),
+  with the listeners tested in Task 2.5 and only wired by the page in Task 2.6.
+- On a first load the notices rank: a link that failed (`link`, Review Focus 1), then `custom-fonts` (R2-14 item 4, a
+  warning about what editing does), then `draft-restored`.
+- `status.draft` starts `off` when there is no storage or its read throws (`loadDraft`), and follows each write after.
 
 The pure helpers:
 
@@ -821,12 +868,17 @@ type GenerateRequest = { id: number; params: DirectionParams; seed: string };
 type GenerateReply =
   | { id: number; ok: true; spec: DesignSpec }
   | { id: number; ok: false; error: { name: string; message: string } };
-function runGenerate(request: GenerateRequest): GenerateReply; // never throws
+function runGenerate(request: GenerateRequest): GenerateReply; // never throws; a request with no readable id gets id 0
+function parseReply(data: unknown): GenerateReply | null;    // the envelope only; null when the id cannot be read (R2-13 item 2)
 // client.ts (R2-29)
 function createGenerateClient(post: (request: GenerateRequest) => void): {
   request(request: GenerateRequest): void;   // posts now, or replaces the one pending request
   reply(reply: GenerateReply): void;          // call when a reply arrives: posts the pending request, if any
+  drop(): void;                               // forgets the pending request
 };
+function clientOver(open: (deliver: (reply: GenerateReply) => void) => { send(request: GenerateRequest): void; close(): void }): StudioClient;
+function createInlineClient(): StudioClient;
+function createStudioClient(spawn?: () => WorkerLike): StudioClient; // a Web Worker, or inline when it cannot start
 // url.ts
 type HashResult = { kind: "none" } | { kind: "spec"; spec: DesignSpec }
                 | { kind: "error"; reason: "corrupt" | "version" | "schema"; issues?: readonly string[] };
@@ -834,15 +886,28 @@ function readHash(hash: string): HashResult;
 function writeHash(spec: DesignSpec): string;           // `#s=<encodeSpec(spec)>`
 function linkUrl(origin: string, spec: DesignSpec): string; // `<origin>/studio#s=...`
 function bannerFor(notice: Notice): { message: string; detail: string };
+function encodeLink(spec: DesignSpec, caller: string): string; // `encodeSpec`, its errors named for `caller`
 // drafts.ts: the value under `dyelot:draft` is `{ v: 1, link, params, preset }`; `params` keep an absent pairing absent (auto)
 function safeStorage(win: { localStorage?: unknown } | undefined): StorageLike | null; // null when the accessor throws
 type Draft = { spec: DesignSpec; params: DirectionParams | null; seed: string; preset: PresetId | null };
-function readDraft(storage: StorageLike | null): Draft | null; // params null when they fail the domain check
+function readDraft(storage: StorageLike | null): Draft | null; // params null when they fail the domain check or do not regenerate the spec
+function loadDraft(storage: StorageLike | null): { draft: Draft | null; readable: boolean }; // readDraft, and whether the read worked
 function writeDraft(storage: StorageLike | null, snapshot: Snapshot): { ok: boolean };
 function clearDraft(storage: StorageLike | null): void;
 // params.ts
+const DIRECTION_PARAM_KEYS: readonly (keyof DirectionParams)[]; // the one key list of parseParams and setParams
+function freshParams(): DirectionParams;                // the default preset's params, sRGB, pairing absent
 function paramsOfSpec(spec: DesignSpec): { params: DirectionParams; customFonts: boolean };
 function resolveParams(params: DirectionParams, seed: string): DirectionParams; // fills an absent pairing with choosePairing(seed)
+function parseParams(value: unknown): DirectionParams | null; // R2-14 item 2's domain check
+function paramsMatchSpec(params: DirectionParams, spec: DesignSpec): boolean; // R2-14 item 2's agreement
+function mergeParams(params: DirectionParams, patch: ParamsPatch, caller?: string): DirectionParams; // setParams's merge
+function withSeed(params: DirectionParams, slot: Lockable, seed: Oklch | undefined): DirectionParams;
+function lockSeed(spec: DesignSpec, slot: Lockable): Oklch; // R2-17
+function touchesPreset(before: DirectionParams, after: DirectionParams): boolean; // R2-28
+// view.ts
+const DEFAULT_VIEW: View;
+function mergeView(view: View, patch: Partial<View>, caller?: string): View; // setView's checked merge
 // lot.ts
 function lotTag(id: string): string;                    // "0123456789abcdef" -> "0123·4567"
 ```
@@ -850,8 +915,12 @@ function lotTag(id: string): string;                    // "0123456789abcdef" ->
 `paramsOfSpec` reads `color.params`, `type.context`, `type.ratio`, `shape.radiusSet`, `depth.style`, `motion.feel` and
 `meta.name`, and finds the pairing whose three families equal `type.families`. When that pairing is the one
 `choosePairing(meta.seed)` picks, `pairing` stays absent (auto, R2-05); when it is another pairing, `pairing` is that id;
-with no match `pairing` is absent and `customFonts` is true. `safeStorage(window)` reads `window.localStorage` inside
-try/catch, because in some browsers the accessor itself throws.
+with no match `pairing` is absent and `customFonts` is true. It leaves `name` out when it is the generator's default
+`"untitled"`, so a design made without a name reads back without one and its draft agrees with its spec.
+`safeStorage(window)` reads `window.localStorage` inside try/catch, because in some browsers the accessor itself throws.
+`mergeParams` checks keys and shapes, never values: an unknown key is a `RangeError`, a removed required key or a seed
+that is not a whole color a `TypeError`, and a value outside its set reaches the generator and ends in a `generation`
+notice (C-STORE-20). A patch that changes nothing posts no request.
 
 ### 5.8 Inspector helpers (Task 2.10)
 
@@ -1096,7 +1165,10 @@ Tests: `tests/unit/theme/vars.test.ts`, in the `node` project (R2-22).
 
 ### 6.7 Studio state: the store, the worker, links and drafts (Task 2.5)
 
-Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.ts`.
+Tests: `tests/unit/features/studio/{store,store-replies,store-persist,store-property,protocol,client,url,drafts,params,view,lot}.test.ts`,
+and `store-lock-{seeds,pair-aa,pair-aaa,primary-aa,primary-aaa}.test.ts` for C-STORE-34 and C-STORE-41 (about 800
+generations through the store, split so they run in parallel). Section 6.8's C-INSPECT-01 to 04 are in `fixes.test.ts`
+and `store-fix.test.ts`.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -1133,14 +1205,14 @@ Tests: `tests/unit/features/studio/{store,protocol,url,drafts,params,lot}.test.t
 | C-STORE-31 | pass | `paramsOfSpec` returns `pairing` absent when the families are the automatic pick for `meta.seed`, the explicit pairing id when they equal another pairing, and absent with `customFonts: true` when they match none; a spec generated with an explicit `host-grotesk` whose seed does not pick it back gives `pairing: "host-grotesk"` | ruling |
 | C-STORE-32 | pass | `lotTag("0123456789abcdef")` is `0123·4567`; the middle dot is U+00B7 | decision |
 | C-STORE-33 | failure | `lotTag` of a string that is not 16 lowercase hex digits throws `RangeError`; a non-string throws `TypeError` | added |
-| C-STORE-34 | pass | Locking keeps the locked color (R2-17). After `toggleLock` of `secondary` or `accent`, all 46 roles of both modes are identical in 20 of 20 seeds (`seed-1` to `seed-20`) and 40 of 40 (`s0` to `s39`), at `AA` and `AAA`. After `toggleLock("primary")`: the primary role of each mode stays within ΔEOK 0.0016 for `seed-1` to `seed-20` and 0.0074 for `s0` to `s39`; every non-chart role stays within 10 codes per channel; at least 15 of 20 (`AA`) and 13 of 20 (`AAA`) seeds of `seed-1` to `seed-20` have all roles identical, and at least 27 of 40 (`AA`) and 14 of 40 (`AAA`) of `s0` to `s39`; any chart role may differ (measured up to 187 codes) | ruling, measured |
+| C-STORE-34 | pass | Locking keeps the locked color (R2-17). After `toggleLock` of `secondary` or `accent`, all 46 roles of both modes are identical in 20 of 20 seeds (`seed-1` to `seed-20`) and 40 of 40 (`s0` to `s39`), at `AA` and `AAA`. After `toggleLock("primary")`: the primary role of each mode stays within ΔEOK 0.0017 for `seed-1` to `seed-20` and 0.0074 for `s0` to `s39`; every non-chart role stays within 10 codes per channel; at least 15 of 20 (`AA`) and 13 of 20 (`AAA`) seeds of `seed-1` to `seed-20` have all roles identical, and at least 27 of 40 (`AA`) and 14 of 40 (`AAA`) of `s0` to `s39`; any chart role may differ (measured up to 187 codes) | ruling, measured |
 | C-STORE-35 | pass | `preset` becomes `null` when `setParams` changes a preset-owned field to a different value, or `view.density` changes; it stays when a seed color, the mode, the frame or another view setting changes, or when `setParams` writes the value a field already has | ruling |
 | C-STORE-36 | pass | `undo` and `redo` restore `preset` with the rest of the snapshot | ruling |
 | C-STORE-37 | pass | Five `setSeedColor` calls with the same `coalesce` key (a drag in the native color input) within 1,000 ms commit as one history entry; a call without a key commits alone | ruling |
 | C-STORE-38 | pass | An auto pairing stays auto through a reload: after a committed change the link `loadFromHash(writeHash(spec))` gives `params.pairing` absent, and a following `regenerate` picks a new automatic pairing for the new seed; an explicit pairing stays explicit and `regenerate` keeps it | ruling |
 | C-STORE-39 | pass | A draft restore with no hash gives the draft's `params`, `seed` and `preset`; a link load gives `params` from `paramsOfSpec` and `preset: null` (the spec has no preset field) unless the draft matches (C-HASH-16) | ruling |
 | C-STORE-40 | pass | `startFresh` sets `lastApplied` before it issues its own request: a reply for a request issued before `startFresh` and arriving after it is dropped, and the reply for the `startFresh` request applies | ruling |
-| C-STORE-41 | pass | Later regenerations keep the locked color: after `toggleLock("primary")`, each of three `regenerate` calls over `s0` to `s39`, with `newSeed` stubbed to return `${seed}-r1`, `${seed}-r2` and `${seed}-r3` in turn, leaves `params.primary` unchanged, and the new spec holds the seed's hex in a scale with no `seedDeviation` in at least 99 of 120 runs at `AA` and 105 of 120 at `AAA`; in every other run the spec records a `seedDeviation` (largest ΔEOK 0.0191), and in none is the seed dropped | ruling, measured |
+| C-STORE-41 | pass | Later regenerations keep the locked color: after `toggleLock("primary")`, each of three `regenerate` calls over `s0` to `s39`, with `newSeed` stubbed to return `${seed}-r1`, `${seed}-r2` and `${seed}-r3` in turn, leaves `params.primary` unchanged, and the new spec holds the seed's hex in a scale with no `seedDeviation` in at least 99 of 120 runs at `AA` and 105 of 120 at `AAA`; in every other run the spec records a `seedDeviation` (largest ΔEOK 0.0192), and in none is the seed dropped | ruling, measured |
 | C-WORK-01 | pass | `runGenerate({ id: 7, params, seed })` returns `{ id: 7, ok: true, spec }`, `spec` deep-equals `generateSystem(params, seed)`, and `structuredClone(spec)` deep-equals it | plan |
 | C-WORK-02 | failure | `runGenerate` with bad params returns `{ id, ok: false, error: { name, message } }` and never throws | I-M2-03 |
 | C-WORK-03 | pass | RF4: requests 1, 2 and 3 are posted; replies arrive 2, 3, 1; the final `spec` is request 3's, reply 1 changes nothing, and two replies applied | RF4, plan |
