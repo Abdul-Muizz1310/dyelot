@@ -8,6 +8,7 @@ import { type Harmony, harmonyHues } from "@/engine/color/harmony";
 import {
   buildPalettes,
   type ColorParams,
+  normalizeSeed,
   PALETTE_NAMES,
   type Palette,
   type PaletteName,
@@ -554,6 +555,54 @@ describe("buildPalettes: modes, gamut and purity", () => {
     const second = buildPalettes(params, seededRandom("seed-1"));
     expect(second).toEqual(first);
     expect(params.accent).toEqual(parseColor("#f66c6d"));
+  });
+});
+
+describe("normalizeSeed", () => {
+  it("C-PAL-19 rounds a seed, then applies the achromatic rule (R-02, R-03)", () => {
+    expect(normalizeSeed({ l: 0.6, c: 0.0000040000004, h: 120 })).toEqual({
+      l: 0.6,
+      c: 4e-6,
+      h: null,
+    });
+    expect(normalizeSeed({ l: 0.7002508346689501, c: 0.17, h: 359.99999999999994 })).toEqual({
+      l: 0.700251,
+      c: 0.17,
+      h: 0,
+    });
+    // A chromatic color with no hue reads it as 0, as a CSS conversion does.
+    expect(normalizeSeed({ l: 0.6, c: 0.1, h: null })).toEqual({ l: 0.6, c: 0.1, h: 0 });
+    expect(normalizeSeed({ l: 1, c: 0, h: null })).toEqual({ l: 1, c: 0, h: null });
+  });
+
+  it("C-PAL-17 rejects a seed out of its domain instead of building a value (I-02, I-04)", () => {
+    const cases: ReadonlyArray<readonly [Oklch, string]> = [
+      [{ l: 1.5, c: 0.1, h: 20 }, "seed.l"],
+      [{ l: -0.2, c: 0.1, h: 20 }, "seed.l"],
+      [{ l: 0.5, c: 0.9, h: 720 }, "seed.c"],
+      [{ l: 0.5, c: 0.1, h: 720 }, "seed.h"],
+      [{ l: 0.5, c: 0.1, h: Number.NaN }, "seed.h"],
+    ];
+    for (const [seed, field] of cases) {
+      expect(() => normalizeSeed(seed), JSON.stringify(seed)).toThrow(RangeError);
+      expect(() => normalizeSeed(seed), JSON.stringify(seed)).toThrow(field);
+    }
+    expect(() => normalizeSeed(null as unknown as Oklch)).toThrow(TypeError);
+    expect(() => normalizeSeed({ l: "0.5", c: 0.1, h: 20 } as unknown as Oklch)).toThrow(TypeError);
+  });
+
+  it("C-PAL-10 places a seed mapped to the white corner without leaving l in [0, 1]", () => {
+    // gamutMap sends l 1 to white, whose OKLab l is 1.0000000000000002 before rounding.
+    for (const gamut of ["srgb", "p3"] as const) {
+      const seed: Oklch = { l: 1, c: 0.3, h: 100 };
+      const palettes = build({ primary: seed, gamut });
+      expectPalette(palettes, "primary", gamut, seed);
+      const held = [...palettes.primary.light, ...palettes.primary.dark].filter(
+        (entry) => entry.hex === "#ffffff",
+      );
+      expect(held.length).toBeGreaterThan(0);
+      for (const entry of held) expect(entry.oklch.l).toBe(1);
+    }
   });
 });
 

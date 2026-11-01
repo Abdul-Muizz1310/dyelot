@@ -97,18 +97,24 @@ const FULL_TURN = 360;
 type Anchor = { readonly hue: number; readonly peakChroma: number };
 
 /**
- * A locked seed as the engine uses it: rounded with `round6` and `roundHue`, then made
- * achromatic when its rounded chroma is at most 4e-6 (spec R-02, R-03). A chromatic color with a
- * null hue reads its hue as 0, as a CSS conversion does.
+ * R-02 and R-03 on a color already in a seed's domain: `round6` and `roundHue`, then the achromatic
+ * rule on the rounded chroma. A chromatic color with a null hue reads its hue as 0, as a CSS
+ * conversion does. Rounding keeps the domain: `round6` of a lightness in [0, 1] stays in [0, 1].
+ */
+function roundSeed(seed: Oklch): Oklch {
+  const c = round6(seed.c);
+  return { l: round6(seed.l), c, h: c <= ACHROMATIC_CHROMA ? null : roundHue(seed.h ?? 0) };
+}
+
+/**
+ * A locked seed as the engine uses and stores it (spec R-25). It checks the seed's domain first
+ * (l in [0, 1], c in [0, 0.5], h null or in [0, 360)) and throws RangeError naming the field, or
+ * TypeError for a value of the wrong type, so it never builds a value from bad input. Then it
+ * rounds the seed and applies the achromatic rule (R-02, R-03).
  */
 export function normalizeSeed(seed: Oklch): Oklch {
-  assertOklch(seed, "normalizeSeed: seed");
-  const c = round6(seed.c);
-  return {
-    l: Math.min(1, Math.max(0, round6(seed.l))),
-    c,
-    h: c <= ACHROMATIC_CHROMA ? null : roundHue(seed.h ?? 0),
-  };
+  checkSeed(seed, "normalizeSeed: seed");
+  return roundSeed(seed);
 }
 
 function darkPage(anchor: Anchor): Hex {
@@ -277,9 +283,10 @@ type Seed = {
  * Its hex is `toHex(gamutMap(placed, "srgb"))` of the stored color (R-01).
  */
 function prepareSeed(raw: Oklch, gamut: Gamut): Seed {
-  const original = normalizeSeed(raw);
+  const original = roundSeed(raw);
   const mapped = !inGamut(raw, gamut);
-  const placed = mapped ? normalizeSeed(rgbToOklch(gamutMap(original, gamut), gamut)) : original;
+  // A mapped color is in gamut: its l is at most a rounding error above 1, which round6 writes as 1.
+  const placed = mapped ? roundSeed(rgbToOklch(gamutMap(original, gamut), gamut)) : original;
   return { original, placed, hex: toHex(gamutMap(placed, "srgb")), mapped };
 }
 
