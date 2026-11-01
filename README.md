@@ -35,7 +35,7 @@ the full reasoning.
 ## 🎯 What it will do
 
 The goal comes from the [design spec](docs/specs/00-design.md). There is no studio yet, so none of this reaches a
-visitor today. M1 built the engine underneath the second and fifth bullets; the next section says what it does.
+visitor today. M1 built the engine underneath the second and fifth bullets. The next section says what it does.
 
 - 🎨 **Start from anything** — a color, a few words, an image, a curated system or an existing DESIGN.md
 - 🧮 **Computed, accessible systems** — color roles and scales for light and dark mode, plus type, space, shape, depth and motion, solved for WCAG 2.2 contrast
@@ -70,9 +70,9 @@ receipt and the export bundle come in later milestones.
 ```mermaid
 flowchart LR
     Input["color · brief · image"] --> Params[DirectionParams]
-    Params --> Engine["engine.generate(params, seed)"]
+    Params --> Engine["generateSystem(params, seed)"]
     Engine --> Spec[DesignSpec]
-    Spec --> Lint["engine.lint(spec)"]
+    Spec --> Lint["lintSpec(spec)"]
     Lint --> Receipt[receipt.json]
     Spec --> Preview[live previews]
     Spec --> Export[export bundle]
@@ -95,7 +95,7 @@ src/
     ├── site/               the validated site config and the metadata modules
     └── links.ts            the repository address
 tests/
-├── unit/                   Vitest; engine and spec tests run in plain Node
+├── unit/                   Vitest, with engine and spec tests in plain Node
 └── e2e/                    Playwright
 docs/specs/
 ├── 00-design.md            the design spec (the umbrella)
@@ -154,12 +154,13 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | 734 Vitest tests in 46 files, in `tests/unit/`. Engine and spec tests run in plain Node; the rest run in jsdom with Testing Library. An exhaustive sweep of all 16,777,216 8-bit seeds runs only with `DYELOT_EXHAUSTIVE=1` |
-| Spec cases | Each case in [`01-color-engine.md`](docs/specs/01-color-engine.md) has a test that carries its id, such as `C-SCALE-02` |
+| Unit | 738 Vitest tests in 46 files, in `tests/unit/`. Engine and spec tests run in plain Node. The rest run in jsdom with Testing Library. An exhaustive sweep of all 16,777,216 8-bit seeds runs only with `DYELOT_EXHAUSTIVE=1` |
+| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md) has a test that carries its id, such as `C-SCALE-02`: 344 of 344 at the M1 close |
 | Property tests | fast-check over arbitrary color strings, every parameter, random seeds and share-link tampering |
 | End to end | Playwright on Chromium against `next build` and `next start`, with axe accessibility checks on the home and 404 pages and checks on the security headers |
-| Coverage floors | 80% lines and statements, 75% functions and 70% branches overall; 95% lines, statements and functions and 90% branches on `src/engine/` and `src/spec/` |
-| Coverage at the M1 close | 100% statements, functions and lines, 99.7% branches |
+| Coverage scope | `src/engine/`, `src/spec/` and `src/lib/site/`, the pure modules. The end-to-end tier covers the components and routes |
+| Coverage floors | 80% lines and statements, 75% functions and 70% branches over that scope. `src/engine/` and `src/spec/` hold 95% lines, statements and functions and 90% branches |
+| Coverage at the M1 close | 100% statements, functions and lines, 99.85% branches, over that scope. `src/engine/` and `src/spec/` are at 100% on all four |
 | Static checks | Biome, and `tsc` in strict mode |
 
 ```bash
@@ -174,10 +175,10 @@ pnpm test:e2e                    # builds, serves and drives Chromium
 
 | Principle | How it shows up |
 |---|---|
-| 🔴 **Spec-TDD** | `docs/specs/01-color-engine.md` lists every case, pass and failure, before the code. Each test carries its case id, and each fix starts with a failing test. |
-| 🚫 **Negative-space programming** | Every public function checks its input: a wrong type throws `TypeError`, a value outside its domain `RangeError`, and color, scale and link failures have their own error types. No function returns NaN or Infinity. |
-| 🔒 **Typed everything** | TypeScript strict with no `any`. A `Hex` is a branded string that only `toHex` and the schema make, and the schema is where a decoded link becomes a typed spec. |
-| 🧊 **Pure core, imperative shell** | `src/engine/` and `src/spec/` use no DOM, no Node API, no `Date` and no `Math.random`; their tests run in plain Node to prove it. Randomness comes only from a seeded generator, so a seed gives the same spec on every platform. |
+| 🔴 **Spec-TDD** | `docs/specs/01-color-engine.md` lists every case, pass and failure, before the code. Every spec case has a test that carries its id. Tests come first. |
+| 🚫 **Negative-space programming** | Public functions check their input, and the spec's failure cases test the checks. A wrong type throws `TypeError` and a value outside its domain `RangeError`. Color parsing, scale solving and link decoding have their own error types. A property over random parameters finds no NaN or Infinity in a generated spec. One internal kernel, the 3 by 3 matrix product, checks nothing. Its callers check first, and its comment says so. |
+| 🔒 **Typed everything** | TypeScript strict with no `any`. A `Hex` is a branded string. In the core only `toHex` and the schema make one, and a guard test fails on any other cast. The schema is where a decoded link becomes a typed spec. |
+| 🧊 **Pure core, imperative shell** | `src/engine/` and `src/spec/` use no DOM, no Node API, no `Date` and no `Math.random`. A grep test enforces it, and their tests run in plain Node, where a DOM call fails. Randomness comes only from a seeded generator. The same seed gives the same spec on every run in Node, and a golden spec id pins it. Browsers are not measured yet: the engine uses `Math.cbrt`, `Math.exp` and other functions whose last bits ECMAScript leaves to each engine. |
 | 🧾 **Measure what ships** | Contrast is measured on the 8-bit hex the engine emits, never rounded, so a ratio of 4.499 fails 4.5. |
 | 📦 **One responsibility per module** | Parsing, conversion, gamut, contrast, scales, palettes, roles, charts, tokens, the schema, the canonical form, the hash and the link codec each have their own file. |
 
