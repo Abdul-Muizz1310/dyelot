@@ -8,6 +8,7 @@ import {
   anySeedText,
   defaultSpec,
   graySpec,
+  leaves,
   PROPERTY_TIMEOUT,
   richSpec,
   shuffled,
@@ -30,6 +31,29 @@ function objects(value: unknown): Array<Record<string, unknown>> {
 }
 
 describe("canonicalize", () => {
+  it("R-21 rounds by key: every hue in the schema sits under h or hue, and nothing else does", () => {
+    // canonicalize sends a number under the key h or hue through roundHue. A hue stored under
+    // another key would round to 360, and a key named h that held another number would wrap.
+    for (const spec of [defaultSpec(), richSpec(), graySpec()]) {
+      const keyed = leaves(spec).filter(([path]) => /hue|^h$/i.test(String(path[path.length - 1])));
+      expect(keyed.length).toBeGreaterThan(100);
+      for (const [path, value] of keyed) {
+        const key = String(path[path.length - 1]);
+        expect(["h", "hue"], path.join(".")).toContain(key);
+        if (value !== null) {
+          expect(typeof value, path.join(".")).toBe("number");
+          expect(value as number).toBeGreaterThanOrEqual(0);
+          expect(value as number).toBeLessThan(360);
+        }
+      }
+      // Every Oklch in the spec (an object with l, c and h) keeps its hue under h.
+      const oklchHues = leaves(spec).filter(([path]) => path[path.length - 1] === "c");
+      for (const [path] of oklchHues) {
+        expect(keyed.map(([p]) => p.join("."))).toContain([...path.slice(0, -1), "h"].join("."));
+      }
+    }
+  });
+
   it(
     "C-CANON-01 writes the same string for any key order at every level",
     () => {
