@@ -63,3 +63,22 @@ export function withinUnitCube(rgb: Rgb, tolerance: number): boolean {
     rgb[2] <= high
   );
 }
+
+const clamp01 = (channel: number): number => Math.min(1, Math.max(0, channel));
+
+/**
+ * Checks an sRGB color for the functions that measure it, and returns it with every channel
+ * clamped into 0 to 1. The color needs three finite channels, each within `RGB_TOLERANCE` of that
+ * range, the tolerance of `toHex`: rounding at the edge of the gamut passes, and a color outside
+ * the gamut throws. The clamp keeps a negative channel away from a fractional power, which is
+ * NaN, and keeps a luminance ratio inside its range.
+ */
+export function clampedSrgb(rgb: Rgb, name: string): Rgb {
+  assertRgb(rgb, name);
+  if (!withinUnitCube(rgb, RGB_TOLERANCE)) {
+    throw new RangeError(
+      `${name} must have every channel within ${RGB_TOLERANCE.toExponential(0)} of [0, 1], got [${rgb.join(", ")}]`,
+    );
+  }
+  return [clamp01(rgb[0]), clamp01(rgb[1]), clamp01(rgb[2])];
+}

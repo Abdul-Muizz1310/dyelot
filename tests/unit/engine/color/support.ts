@@ -1,5 +1,6 @@
 import fc from "fast-check";
 import { expect } from "vitest";
+import { hexToRgb } from "@/engine/color/convert";
 import type { Hex, Oklch, Rgb } from "@/engine/color/types";
 
 export type Tolerance = { readonly l: number; readonly c: number; readonly h: number };
@@ -45,4 +46,57 @@ export const rgb8: fc.Arbitrary<readonly [number, number, number]> = fc.tuple(by
 export function hexOf([r, g, b]: readonly [number, number, number]): Hex {
   const part = (value: number) => value.toString(16).padStart(2, "0");
   return `#${part(r)}${part(g)}${part(b)}` as Hex;
+}
+
+/** The sRGB channels of a `#rrggbb` literal. */
+export function rgbOfHex(hex: string): Rgb {
+  return hexToRgb(hex as Hex);
+}
+
+/** The three 8-bit channels of a `#rrggbb` string. */
+function bytesOf(hex: string): readonly [number, number, number] {
+  const byteAt = (at: number) => Number.parseInt(hex.slice(at, at + 2), 16);
+  return [byteAt(1), byteAt(3), byteAt(5)];
+}
+
+/** Asserts two hexes agree within `tolerance` codes per channel (the spec's "±1 per channel"). */
+export function expectHexClose(actual: string, expected: string, tolerance = 1): void {
+  const got = bytesOf(actual);
+  const want = bytesOf(expected);
+  for (let i = 0; i < 3; i++) {
+    expect(
+      Math.abs(got[i] - want[i]),
+      `channel ${i} of ${actual}, expected ${expected} within ${tolerance}`,
+    ).toBeLessThanOrEqual(tolerance);
+  }
+}
+
+const unit = fc.double({ min: 0, max: 1, noNaN: true });
+const grid = fc.integer({ min: 0, max: 255 }).map((value) => value / 255);
+const channel = fc.oneof(unit, grid);
+
+/** Any color in gamut: each channel from the continuum or from the 8-bit grid. */
+export const anyRgb: fc.Arbitrary<Rgb> = fc.tuple(channel, channel, channel);
+
+const tolerated = fc.double({ min: -1e-6, max: 1 + 1e-6, noNaN: true });
+
+/** A color whose channels may sit up to 1e-6 outside 0 to 1, the tolerance of `toHex`. */
+export const edgeRgb: fc.Arbitrary<Rgb> = fc.tuple(tolerated, tolerated, tolerated);
+
+/** Channel values that every measuring function must reject, whatever their position. */
+export const BAD_CHANNELS: readonly number[] = [
+  -1.1e-6,
+  1 + 1.1e-6,
+  -0.5,
+  1.5,
+  Number.NaN,
+  Number.POSITIVE_INFINITY,
+  Number.NEGATIVE_INFINITY,
+];
+
+/** `base` with `value` written into channel `index`. */
+export function withChannel(base: Rgb, index: 0 | 1 | 2, value: number): Rgb {
+  const channels: [number, number, number] = [base[0], base[1], base[2]];
+  channels[index] = value;
+  return channels;
 }

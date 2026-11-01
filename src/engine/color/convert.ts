@@ -12,8 +12,8 @@ import type { Gamut, Hex, Oklab, Oklch, Rgb } from "./types";
 /** A color with chroma at or below this has no hue, and carries `h: null` (spec R-03). */
 export const ACHROMATIC_CHROMA = 4e-6;
 
-type Vec3 = readonly [number, number, number];
-type Mat3 = readonly [Vec3, Vec3, Vec3];
+export type Vec3 = readonly [number, number, number];
+export type Mat3 = readonly [Vec3, Vec3, Vec3];
 
 // The matrices of the CSS Color 4 sample code, written as in core.py.
 const SRGB_TO_XYZ: Mat3 = [
@@ -57,7 +57,8 @@ const OKLAB_TO_LMS: Mat3 = [
   [1.0, -0.0894841775298119, -1.2914855480194092],
 ];
 
-function multiply(m: Mat3, v: Vec3): Vec3 {
+/** A 3 by 3 matrix times a column vector. */
+export function multiply(m: Mat3, v: Vec3): Vec3 {
   return [
     m[0][0] * v[0] + m[0][1] * v[1] + m[0][2] * v[2],
     m[1][0] * v[0] + m[1][1] * v[1] + m[1][2] * v[2],
