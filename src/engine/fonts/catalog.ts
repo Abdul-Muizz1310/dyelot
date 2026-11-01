@@ -178,6 +178,9 @@ function lookup(id: string, name: string, catalog: readonly FontEntry[]): FontEn
 
 /** 1 for a family on the high list, else the score of its popularity. */
 export function genericness(id: string, catalog: readonly FontEntry[] = FONT_CATALOG): number {
+  if (!Array.isArray(catalog as unknown)) {
+    throw new TypeError(`genericness: catalog must be an array, got ${describeType(catalog)}`);
+  }
   const font = lookup(id, "genericness", catalog);
   return isHighGenericnessFamily(font.family) ? 1 : genericnessOf(font.popularity);
 }
@@ -204,12 +207,19 @@ export function validateCatalog(entries: readonly FontEntry[]): readonly string[
   }
   const problems: string[] = [];
   const seen = new Set<string>();
-  for (const font of entries) {
+  entries.forEach((font, index) => {
+    if (typeof font !== "object" || font === null) {
+      problems.push(`entry ${index} must be an object, got ${describeType(font)}`);
+      return;
+    }
     const label = `"${font.id}"`;
     if (seen.has(font.id)) problems.push(`duplicate id ${label}`);
     seen.add(font.id);
-    if (!/^[a-z0-9-]+$/.test(font.id)) {
+    if (typeof font.id !== "string" || !/^[a-z0-9-]+$/.test(font.id)) {
       problems.push(`id ${label} must match ^[a-z0-9-]+$`);
+    }
+    if (typeof font.family !== "string" || font.family === "" || /["\\]/.test(font.family)) {
+      problems.push(`${label}: family must be a non-empty name without a quote or a backslash`);
     }
     if (!CATEGORIES.includes(font.category)) problems.push(`${label}: unknown category`);
     if (font.license !== "OFL-1.1") problems.push(`${label}: license must be OFL-1.1`);
@@ -219,24 +229,28 @@ export function validateCatalog(entries: readonly FontEntry[]): readonly string[
     if (typeof font.fallback !== "string" || font.fallback.length === 0) {
       problems.push(`${label}: fallback must not be empty`);
     }
+    const axes: unknown = font.axes;
+    const weights: unknown = font.weights;
+    if (!Array.isArray(axes)) problems.push(`${label}: axes must be an array`);
+    if (!Array.isArray(weights)) problems.push(`${label}: weights must be an array`);
+    if (!Array.isArray(axes) || !Array.isArray(weights)) return;
+    const list = weights as readonly number[];
     if (font.variable) {
-      if (font.axes.length !== 1 || font.axes[0] !== "wght") {
+      if (axes.length !== 1 || axes[0] !== "wght") {
         problems.push(`${label}: a variable family has the axes ["wght"]`);
       }
-      const [min, max] = font.weights;
-      if (font.weights.length !== 2 || min === undefined || max === undefined || min >= max) {
+      const [min, max] = list;
+      if (list.length !== 2 || min === undefined || max === undefined || min >= max) {
         problems.push(`${label}: a variable family has two weights, min below max`);
       }
     } else {
-      if (font.axes.length !== 0) problems.push(`${label}: a static family has no axes`);
-      const ordered = font.weights.every(
-        (weight, i) => i === 0 || weight > (font.weights[i - 1] ?? 0),
-      );
-      const allowed = font.weights.every((weight) => weight === 400 || weight === 700);
-      if (font.weights[0] !== 400 || !ordered || !allowed) {
+      if (axes.length !== 0) problems.push(`${label}: a static family has no axes`);
+      const ordered = list.every((weight, i) => i === 0 || weight > (list[i - 1] ?? 0));
+      const allowed = list.every((weight) => weight === 400 || weight === 700);
+      if (list[0] !== 400 || !ordered || !allowed) {
         problems.push(`${label}: a static family has ascending weights from 400 and 700 only`);
       }
     }
-  }
+  });
   return problems;
 }

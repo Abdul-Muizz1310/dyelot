@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createFontLoader, type FontLoaderDeps } from "@/features/fonts/load";
+import { FONT_CATALOG } from "@/engine";
+import { createFontLoader, FONT_TIMEOUT_MS, type FontLoaderDeps } from "@/features/fonts/load";
 
 // Cases are the C-LOAD-nn rows of docs/specs/02-studio.md, section 6.2 (review focus RF3).
 
@@ -24,7 +25,14 @@ function stubs(behavior: (family: string, source: string) => Behavior = () => "r
     }
   }
   const added: unknown[] = [];
-  const fonts = { add: (face: unknown) => added.push(face) };
+  const fonts = {
+    add: (face: unknown) => added.push(face),
+    delete: (face: unknown) => {
+      const at = added.indexOf(face);
+      if (at !== -1) added.splice(at, 1);
+      return at !== -1;
+    },
+  };
   const deps = {
     FontFace: StubFontFace as unknown as typeof FontFace,
     fonts: fonts as unknown as FontFaceSet,
@@ -240,6 +248,103 @@ describe("createFontLoader().load", () => {
     } finally {
       vi.unstubAllGlobals();
       Reflect.deleteProperty(document, "fonts");
+    }
+  });
+
+  it("C-LOAD-09 names a null id in the TypeError", () => {
+    const loader = createFontLoader(stubs().deps);
+    expect(() => loader.load(null as never)).toThrow("load: id must be a string, got null");
+  });
+
+  it("C-LOAD-11 resolves failed with reason unsupported when there is no document", async () => {
+    const { deps } = stubs();
+    vi.stubGlobal("document", undefined);
+    try {
+      const loader = createFontLoader({ FontFace: deps.FontFace });
+      await expect(loader.load("onest")).resolves.toEqual({
+        id: "onest",
+        status: "failed",
+        reason: "unsupported",
+      });
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("C-LOAD-12 resolves failed with reason load when fonts.add throws, and removes the faces added", async () => {
+    const { built, added, deps } = stubs();
+    let calls = 0;
+    const fonts = {
+      add: (face: unknown) => {
+        calls += 1;
+        if (calls === 2) throw new Error("quota");
+        added.push(face);
+      },
+      delete: (face: unknown) => {
+        const at = added.indexOf(face);
+        if (at !== -1) added.splice(at, 1);
+        return at !== -1;
+      },
+    };
+    const loader = createFontLoader({ ...deps, fonts: fonts as unknown as FontFaceSet });
+    await expect(loader.load("courier-prime")).resolves.toEqual({
+      id: "courier-prime",
+      status: "failed",
+      reason: "load",
+    });
+    expect(built).toHaveLength(2);
+    expect(added).toHaveLength(0);
+    expect(loader.status("courier-prime")).toBe("failed");
+  });
+
+  it("C-LOAD-13 survives a listener that throws", async () => {
+    const { deps } = stubs();
+    const loader = createFontLoader(deps);
+    const seen: string[] = [];
+    loader.subscribe(() => {
+      throw new Error("listener bug");
+    });
+    loader.subscribe(() => seen.push(loader.status("onest")));
+    await expect(loader.load("onest")).resolves.toEqual({ id: "onest", status: "loaded" });
+    expect(loader.status("onest")).toBe("loaded");
+    expect(seen).toEqual(["loading", "loaded"]);
+  });
+
+  it("C-LOAD-14 shares the in-flight load with a load called from a listener", async () => {
+    const { built, deps } = stubs();
+    const loader = createFontLoader(deps);
+    const inner: Promise<unknown>[] = [];
+    loader.subscribe(() => {
+      if (loader.status("onest") === "loading") inner.push(loader.load("onest"));
+    });
+    const outer = await loader.load("onest");
+    expect(await inner[0]).toEqual(outer);
+    expect(built).toHaveLength(1);
+  });
+
+  it("C-LOAD-15 gives the browser instance one default timeout of 8000 ms", async () => {
+    expect(FONT_TIMEOUT_MS).toBe(8000);
+    vi.useFakeTimers();
+    const { deps } = stubs(() => "hang");
+    const loader = createFontLoader({ FontFace: deps.FontFace, fonts: deps.fonts });
+    const pending = loader.load("onest");
+    await vi.advanceTimersByTimeAsync(7999);
+    expect(loader.status("onest")).toBe("loading");
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(pending).resolves.toMatchObject({ status: "failed", reason: "timeout" });
+  });
+
+  it("C-LOAD-02 pairs every face's weight with the weight in its file name", async () => {
+    for (const font of FONT_CATALOG) {
+      const { built, deps } = stubs();
+      await createFontLoader(deps).load(font.id);
+      for (const face of built) {
+        const named = /-latin-(\w+)-normal\.woff2/.exec(face.source)?.[1];
+        const expected = font.variable ? "wght" : face.descriptors.weight;
+        expect(named, font.id).toBe(expected);
+        if (font.variable)
+          expect(face.descriptors.weight).toBe(`${font.weights[0]} ${font.weights[1]}`);
+      }
     }
   });
 });

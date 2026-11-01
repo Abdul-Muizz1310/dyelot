@@ -246,6 +246,36 @@ describe("validateCatalog", () => {
     expect(validateCatalog([staticAxes]).some((problem) => /axes/.test(problem))).toBe(true);
   });
 
+  it("C-FONT-08 reports a null or non-object entry as a problem, never a crash", () => {
+    for (const bad of [null, undefined, 3, "x"]) {
+      const problems = validateCatalog([bad as never]);
+      expect(problems, String(bad)).toHaveLength(1);
+      expect(problems[0]).toMatch(/entry 0 must be an object/);
+    }
+  });
+
+  it("C-FONT-08 reports a missing or non-array axes and weights as a problem", () => {
+    const noAxes = { ...entry(), axes: undefined } as unknown as FontEntry;
+    const noWeights = { ...entry(), weights: "400" } as unknown as FontEntry;
+    expect(validateCatalog([noAxes]).some((problem) => /axes/.test(problem))).toBe(true);
+    expect(validateCatalog([noWeights]).some((problem) => /weights/.test(problem))).toBe(true);
+    const staticNoWeights = { ...entry({ variable: false }), axes: [], weights: null };
+    expect(
+      validateCatalog([staticNoWeights as unknown as FontEntry]).some((p) => /weights/.test(p)),
+    ).toBe(true);
+  });
+
+  it("C-FONT-08 reports a family with a quote or a backslash", () => {
+    for (const family of ['Bad "Font"', "Bad\\Font"]) {
+      const problems = validateCatalog([entry({ family })]);
+      expect(
+        problems.some((problem) => /family/.test(problem)),
+        family,
+      ).toBe(true);
+    }
+    expect(validateCatalog([entry({ family: "" })]).some((p) => /family/.test(p))).toBe(true);
+  });
+
   it("C-FONT-08 throws TypeError for a catalog that is not an array", () => {
     expect(() => validateCatalog(null as never)).toThrow(TypeError);
     expect(() => validateCatalog(null as never)).toThrow(/^validateCatalog:/);
@@ -290,6 +320,13 @@ describe("genericness", () => {
     for (const name of ["Inter Tight", "Host Grotesk", "Albert Sans", "IBM", "Cormorantx"]) {
       expect(isHighGenericnessFamily(name), name).toBe(false);
     }
+  });
+
+  it("C-FONT-13 throws TypeError when the catalog is not an array", () => {
+    expect(() => genericness("onest", null as never)).toThrow(TypeError);
+    expect(() => genericness("onest", {} as never)).toThrow(
+      /^genericness: catalog must be an array/,
+    );
   });
 
   it("C-FONT-13 throws TypeError when the family is not a string", () => {
@@ -352,9 +389,8 @@ describe("genericness", () => {
   });
 
   it("C-FONT-23 scores the display faces against the 2026-11-01 metadata", () => {
-    // The spec's text says archivo is 27 and every other display face is 68 or above. The
-    // metadata fetched on 2026-11-01 says archivo is 14 and bodoni-moda is 40, so both pass the
-    // T1 line (0.8). This case pins what the catalog holds; the report names the difference.
+    // R2-03 item 6 as amended: the metadata of 2026-11-01 gives archivo 14 and bodoni-moda 40,
+    // so both display faces sit at or above the T1 line (0.8). This case pins what the catalog holds.
     const over = [];
     for (const pairing of PAIRINGS) {
       if (genericness(pairing.display) >= 0.8) over.push(pairing.display);

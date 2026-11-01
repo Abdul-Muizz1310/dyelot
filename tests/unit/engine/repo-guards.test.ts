@@ -1,5 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { builtinModules } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import config from "../../../vitest.config";
@@ -414,19 +415,79 @@ describe("C-REPO-04 the coverage floors", () => {
   });
 });
 
-describe("the font guards", () => {
-  const FORBIDDEN = ["fonts.googleapis.com", "fonts.gstatic.com", "fontshare"];
+const BINARY = /\.(woff2?|ttf|otf|png|ico|jpe?g|webp|avif|gif)$/i;
+const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com", "fontshare"];
 
+/** Every regular file under `directory` that is text: font and image binaries and `public/fonts` are skipped. */
+function textFiles(directory: string): string[] {
+  try {
+    return readdirSync(directory, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && !BINARY.test(entry.name))
+      .map((entry) => path.join(entry.parentPath, entry.name))
+      .filter((file) => !file.split(path.sep).join("/").includes("public/fonts/"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+/** The text files under `roots` that name a Google Fonts or Fontshare host. */
+function hostViolations(roots: readonly string[]): { file: string; host: string }[] {
+  const hits: { file: string; host: string }[] = [];
+  for (const file of roots.flatMap(textFiles)) {
+    const source = readFileSync(file, "utf8").toLowerCase();
+    for (const host of FONT_HOSTS) if (source.includes(host)) hits.push({ file, host });
+  }
+  return hits;
+}
+
+describe("the font guards", () => {
   it("C-REPO-M2-01 keeps every Google, gstatic and Fontshare host out of src, scripts and public", () => {
+    const roots = ["src", "scripts", "public"].map((folder) => path.join(ROOT, folder));
+    expect(hostViolations(roots)).toEqual([]);
+  });
+
+  it("C-REPO-M2-01 reads CSS, SVG, JSON and other text files, not only code", () => {
     const files = ["src", "scripts", "public"].flatMap((folder) =>
-      codeFiles(path.join(ROOT, folder)),
+      textFiles(path.join(ROOT, folder)).map((file) => path.relative(ROOT, file)),
     );
-    expect(files.length).toBeGreaterThan(0);
-    for (const file of files) {
-      const source = readFileSync(file, "utf8").toLowerCase();
-      for (const host of FORBIDDEN) {
-        expect(source.includes(host), `${path.relative(ROOT, file)} names ${host}`).toBe(false);
-      }
+    expect(files).toContain("src/app/globals.css");
+    expect(files.some((file) => file.endsWith(".svg") || file.endsWith(".json"))).toBe(true);
+    expect(files.some((file) => file.startsWith("public/fonts/"))).toBe(false);
+    expect(files.some((file) => /\.(woff2?|ttf|otf|png|ico|jpe?g|webp|avif|gif)$/.test(file))).toBe(
+      false,
+    );
+  });
+
+  it("C-REPO-M2-01 flags a host in a CSS import, an SVG and a manifest, and skips a binary", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "dyelot-guard-"));
+    try {
+      mkdirSync(path.join(dir, "public/fonts/x"), { recursive: true });
+      writeFileSync(path.join(dir, "a.css"), '@import url("https://fonts.googleapis.com/css2");');
+      writeFileSync(path.join(dir, "b.svg"), "<svg><!-- https://fonts.gstatic.com/s/x --></svg>");
+      writeFileSync(path.join(dir, "c.webmanifest"), '{"x":"https://www.fontshare.com"}');
+      writeFileSync(path.join(dir, "d.png"), "fonts.googleapis.com");
+      writeFileSync(path.join(dir, "public/fonts/x/e.txt"), "fonts.googleapis.com");
+      writeFileSync(path.join(dir, "ok.ts"), "export const x = 1;\n");
+      const found = hostViolations([dir]).map((hit) => path.relative(dir, hit.file));
+      expect(found.sort()).toEqual(["a.css", "b.svg", "c.webmanifest"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("the font coverage and project config", () => {
+  it("measures the font loader and holds it to the pure-core floors", () => {
+    expect(config.test?.coverage?.include).toContain("src/features/fonts/load.ts");
+    expect(config.test?.coverage?.thresholds).toMatchObject({
+      "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
+    });
+  });
+
+  it("runs the script tests in the node project", () => {
+    const projects = config.test?.projects as { test?: { name?: string; include?: string[] } }[];
+    const core = projects.find((project) => project.test?.name === "core");
+    expect(core?.test?.include).toContain("tests/unit/scripts/**/*.test.{ts,tsx}");
   });
 });

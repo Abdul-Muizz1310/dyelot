@@ -20,11 +20,8 @@ import { FONT_CATALOG, fontFiles } from "@/engine/fonts/catalog";
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const SCRIPT = path.join(ROOT, "scripts/copy-fonts.mjs");
 
-function run(out: string, cwd = ROOT, extra: string[] = []) {
-  return spawnSync(process.execPath, [SCRIPT, "--out", out, ...extra], {
-    cwd,
-    encoding: "utf8",
-  });
+function run(out: string) {
+  return spawnSync(process.execPath, [SCRIPT, "--out", out], { cwd: ROOT, encoding: "utf8" });
 }
 
 function snapshot(dir: string): Record<string, string> {
@@ -118,9 +115,49 @@ describe("scripts/copy-fonts.mjs", () => {
     expect(result.stderr).toContain("@fontsource-variable/onest");
   });
 
+  /** Runs the script with `args` from an empty temp cwd, so a relative `--out` can never land in the repo. */
+  function runRejected(args: readonly string[]) {
+    const cwd = mkdtempSync(path.join(tmpdir(), "dyelot-copy-fonts-args-"));
+    try {
+      const result = spawnSync(process.execPath, [SCRIPT, ...args], { cwd, encoding: "utf8" });
+      return { result, written: readdirSync(cwd) };
+    } finally {
+      rmSync(cwd, { recursive: true, force: true });
+    }
+  }
+
   it("exits non-zero for --out without a directory", () => {
-    const result = spawnSync(process.execPath, [SCRIPT, "--out"], { cwd: ROOT, encoding: "utf8" });
+    const { result, written } = runRejected(["--out"]);
     expect(result.status).not.toBe(0);
     expect(result.stderr).toContain("--out");
+    expect(written).toEqual([]);
+  });
+
+  it.each([
+    [["--out=dir"]],
+    [["--bogus"]],
+    [["stray"]],
+    [["--out", "dir", "extra"]],
+    [["--out", "a", "--out", "b"]],
+  ])("exits non-zero, names the argument and writes nothing for %j", (args) => {
+    const { result, written } = runRejected(args);
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toMatch(/^copy-fonts: /);
+    expect(result.stderr).toMatch(/unknown argument|usage/);
+    expect(written).toEqual([]);
+  });
+
+  it("git tracks no font binary except the share card's (src/lib/site/fonts, M0)", () => {
+    const tracked = spawnSync("git", ["ls-files", "*.woff2", "*.woff", "*.ttf", "*.otf"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    expect(tracked.error).toBeUndefined();
+    expect(tracked.status).toBe(0);
+    const stray = tracked.stdout
+      .split("\n")
+      .filter(Boolean)
+      .filter((file) => !file.startsWith("src/lib/site/fonts/"));
+    expect(stray).toEqual([]);
   });
 });

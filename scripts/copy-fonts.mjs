@@ -3,7 +3,9 @@
 //   variable family (@fontsource-variable/<id>): <id>-latin-wght-normal.woff2
 //   static family (@fontsource/<id>):             <id>-latin-400-normal.woff2, and -700- when it has one
 // The families are the Fontsource devDependencies of package.json; a test ties them to the
-// catalog. Run by `predev` and `prebuild`; `--out <dir>` redirects the output for tests.
+// catalog. The script adds and overwrites; it removes nothing, so "exactly the catalog's directories"
+// (C-FONT-19) holds for a fresh output directory, which `prebuild` on CI and Vercel always has.
+// Run by `predev` and `prebuild`; `--out <dir>` redirects the output for tests.
 import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -15,11 +17,15 @@ function fail(message) {
   process.exit(1);
 }
 
+const USAGE = "usage: node scripts/copy-fonts.mjs [--out <dir>]";
+
+/** The output directory: `public/fonts` by default, or the one value of `--out <dir>`. */
 function outputDir(argv) {
-  const at = argv.indexOf("--out");
-  if (at === -1) return path.join(root, "public", "fonts");
-  const value = argv[at + 1];
-  if (value === undefined || value.startsWith("--")) fail("--out needs a directory");
+  if (argv.length === 0) return path.join(root, "public", "fonts");
+  const [flag, value, ...rest] = argv;
+  if (flag !== "--out") fail(`unknown argument "${flag}"; ${USAGE}`);
+  if (value === undefined || value.startsWith("--")) fail(`--out needs a directory; ${USAGE}`);
+  if (rest.length > 0) fail(`unknown argument "${rest[0]}"; ${USAGE}`);
   return path.resolve(value);
 }
 

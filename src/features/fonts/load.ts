@@ -22,6 +22,9 @@ export type FontLoader = {
   subscribe(listener: () => void): () => void;
 };
 
+/** How long a family may take before it counts as failed: the one default, 8 seconds. */
+export const FONT_TIMEOUT_MS = 8000;
+
 export type FontLoaderDeps = {
   readonly FontFace?: typeof FontFace;
   readonly fonts?: FontFaceSet;
@@ -57,7 +60,7 @@ function find(id: string, name: string): FontEntry {
 }
 
 export function createFontLoader(deps: FontLoaderDeps): FontLoader {
-  const timeoutMs = deps.timeoutMs ?? 8000;
+  const timeoutMs = deps.timeoutMs ?? FONT_TIMEOUT_MS;
   const states = new Map<string, FontStatus>();
   const results = new Map<string, FontResult>();
   const pending = new Map<string, Promise<FontResult>>();
@@ -65,7 +68,13 @@ export function createFontLoader(deps: FontLoaderDeps): FontLoader {
 
   const setStatus = (id: string, status: FontStatus): void => {
     states.set(id, status);
-    for (const listener of [...listeners]) listener();
+    for (const listener of [...listeners]) {
+      try {
+        listener();
+      } catch {
+        // A listener's bug never rejects a load or strands a family at "loading".
+      }
+    }
   };
 
   async function run(font: FontEntry): Promise<void> {
@@ -94,14 +103,22 @@ export function createFontLoader(deps: FontLoaderDeps): FontLoader {
         timeout,
       ]);
       // All faces joined together or none: a family never half-loads.
-      for (const face of loaded) set.add(face);
+      const added: FontFace[] = [];
+      try {
+        for (const face of loaded) {
+          set.add(face);
+          added.push(face);
+        }
+      } catch {
+        for (const face of added) set.delete(face);
+        throw new LoadFailure("load");
+      }
     } finally {
       clearTimeout(timer);
     }
   }
 
   async function start(font: FontEntry): Promise<FontResult> {
-    setStatus(font.id, "loading");
     let result: FontResult;
     try {
       await run(font);
@@ -123,8 +140,11 @@ export function createFontLoader(deps: FontLoaderDeps): FontLoader {
       if (done?.status === "loaded") return Promise.resolve(done);
       const running = pending.get(id);
       if (running !== undefined) return running;
+      // Register the load before any listener hears "loading": a load called from a listener
+      // then shares this promise.
       const started = start(font);
       pending.set(id, started);
+      setStatus(id, "loading");
       return started;
     },
     status(id) {
@@ -141,4 +161,4 @@ export function createFontLoader(deps: FontLoaderDeps): FontLoader {
 }
 
 /** The browser instance: a family that has not loaded in 8 seconds counts as failed. */
-export const fontLoader: FontLoader = createFontLoader({ timeoutMs: 8000 });
+export const fontLoader: FontLoader = createFontLoader({ timeoutMs: FONT_TIMEOUT_MS });

@@ -534,7 +534,8 @@ type FontEntry = {
 };
 const FONT_CATALOG: readonly FontEntry[];             // frozen, 40 entries, in the table's order
 function genericnessOf(popularity: number): number;   // 1 - clamp((popularity - 1) / 199, 0, 1)
-function genericness(id: string): number;             // 1 on the high list, else genericnessOf(popularity)
+function genericness(id: string, catalog?: readonly FontEntry[]): number; // 1 on the high list, else genericnessOf(popularity); a non-array catalog is a TypeError
+function isHighGenericnessFamily(family: string): boolean; // by name, with the four prefix entries (R2-03 item 7); internal, not on the entry
 const HIGH_GENERICNESS_FAMILIES: readonly string[];   // the research list, frozen
 function fontStack(id: string): string;               // `"Host Grotesk", <fallback>`
 function fontFiles(id: string): readonly string[];    // R2-03 item 5, relative to /fonts/<id>/
@@ -936,36 +937,37 @@ Tests: `tests/unit/engine/fonts/{catalog,pairings}.test.ts`, `tests/unit/feature
 | C-FONT-05 | pass | `host-grotesk`, `fragment-mono`, `geist` and `geist-mono` exist | plan |
 | C-FONT-06 | pass | A variable entry has `axes` exactly `["wght"]` and two weights with `weights[0] < weights[1]`. A static entry has empty `axes` and ascending weights that are a subset of 400 and 700 containing 400 | ruling |
 | C-FONT-07 | pass | `fallback` is the stack of R2-03 item 8 for the entry's category | ruling |
-| C-FONT-08 | failure | `validateCatalog` reports a duplicate id, an id with an uppercase letter or a space, a license other than `OFL-1.1`, a popularity of 0 or 1.5, an empty `fallback`, and a variable entry with one weight; a valid catalog reports nothing | plan |
+| C-FONT-08 | failure | `validateCatalog` reports a duplicate id, an id with an uppercase letter or a space, a license other than `OFL-1.1`, a popularity of 0 or 1.5, an empty `fallback`, and a variable entry with one weight; an entry that is not an object, a missing or non-array `axes` or `weights`, and a family that is empty or holds a quote or a backslash are problems too, never a crash; a valid catalog reports nothing | plan |
 | C-FONT-09 | pass | `genericnessOf(1)` is 1, `genericnessOf(200)` is 0, `genericnessOf(100)` ≈ 0.50251, `genericnessOf(41)` ≈ 0.79899, `genericnessOf(40)` ≈ 0.80402, `genericnessOf(500)` is 0 (clamped) | plan, decision |
 | C-FONT-10 | pass | `genericness("geist")` and `genericness("geist-mono")` are 1 whatever their `popularity` is (a catalog fixture sets 999) | plan, decision |
 | C-FONT-11 | pass | The high list matches by name: `Inter`, `Roboto`, `Open Sans`, `Space Grotesk`, `Instrument Serif`, `IBM Plex Sans` (prefix), `Cormorant Garamond` (prefix), `DM Serif Display` (prefix) are on it; `Inter Tight`, `Host Grotesk`, `Albert Sans` are not | ruling |
 | C-FONT-12 | pass | `HIGH_GENERICNESS_FAMILIES` holds the research list: Inter, Roboto, Open Sans, Lato, Montserrat, Poppins, Nunito, DM Sans, Plus Jakarta Sans, Outfit, Manrope, Figtree, Geist, Geist Mono, Space Grotesk, Space Mono, Fraunces, Playfair Display, Cormorant, Lora, Crimson, Newsreader, Syne, IBM Plex, DM Serif, Instrument Sans, Instrument Serif | decision |
-| C-FONT-13 | failure | `genericness("nope")` throws `RangeError` naming `genericness`; `genericness(3)` throws `TypeError`; `genericnessOf(0)` and `genericnessOf(NaN)` throw `RangeError` | added |
+| C-FONT-13 | failure | `genericness("nope")` throws `RangeError` naming `genericness`; `genericness(3)` throws `TypeError`; `genericnessOf(0)` and `genericnessOf(NaN)` throw `RangeError`; a `catalog` argument that is not an array throws `TypeError` naming `genericness` | added |
 | C-FONT-14 | pass | `fontStack("host-grotesk")` is `"Host Grotesk", ` plus the sans fallback; a family name with a quote or a backslash cannot occur because ids come from the catalog | added |
 | C-FONT-15 | failure | `fontStack("nope")` throws `RangeError`; a non-string throws `TypeError` | added |
 | C-FONT-16 | pass | `fontFiles("host-grotesk")` is `["host-grotesk-latin-wght-normal.woff2", "OFL.txt"]`; for a static family with weights 400 and 700 it is `["<id>-latin-400-normal.woff2", "<id>-latin-700-normal.woff2", "OFL.txt"]`, and with 400 alone it has one woff2 | ruling |
 | C-FONT-17 | pass | Running `scripts/copy-fonts.mjs --out <tmp dir>` (no build, no `public/`) gives every catalog entry every file of `fontFiles`, non-empty | plan, ruling |
 | C-FONT-18 | pass | Every `.woff2` starts with the bytes `wOF2`, and every `OFL.txt` contains `SIL OPEN FONT LICENSE` | added |
-| C-FONT-19 | pass | The output directory holds exactly the 40 catalog directories and nothing else | added |
+| C-FONT-19 | pass | The output directory holds exactly the 40 catalog directories and nothing else (a fresh output directory: the script adds and overwrites, and removes nothing) | added |
 | C-FONT-20 | failure | With `--out <tmp>`, the script exits non-zero and names the id when its Fontsource package is missing (a fixture `node_modules` without one package) | added |
 | C-FONT-21 | pass | Running the script twice leaves every file byte-identical | added |
 | C-FONT-22 | pass | `package.json` runs the script in `predev` and `prebuild`, and lists `@fontsource-variable/<id>` (variable, 34 entries) or `@fontsource/<id>` (static, 6 entries including `tiny5`) in `devDependencies` for every catalog id; every listed package resolves in `node_modules` after install; `.gitignore` lists `public/fonts/` | plan, ruling |
 | C-FONT-23 | pass | From the Google Fonts metadata of 2026-11-01 (a fixture holding each family's `popularity`), the display face of every pairing except `archivo-courier` and `bodoni-familjen` has genericness below 0.8, `archivo` has genericness ≈ 0.935 (popularity 14) and `bodoni-moda` ≈ 0.804 (popularity 40) | ruling |
+| C-FONT-24 | failure | The script exits non-zero with `copy-fonts: unknown argument` for `--out=dir`, `--bogus`, a stray word or a repeated `--out`, and with `--out needs a directory` for a bare `--out` | review |
 | C-PAIR-01 | pass | `PAIRINGS` has 20 entries with unique ids, in the order of the table in 5.2; every display, body and mono is a catalog id | plan |
 | C-PAIR-02 | pass | The ten pairings without a D2 mono (2, 3, 4, 5, 8, 9, 10, 12, 16, 20) take `fragment-mono` | ruling |
 | C-PAIR-03 | pass | The pairing `host-grotesk` is `host-grotesk` / `host-grotesk` / `fragment-mono`, M1's default | decision |
-| C-PAIR-04 | pass | `generateSystem` without `pairing` writes the M1 families, and every M1 golden spec id is unchanged | decision |
-| C-PAIR-05 | pass | `generateSystem({ ...DEFAULT_PARAMS, pairing: "gloock-albert" }, "seed-1")` writes `gloock`, `albert-sans`, `fragment-mono`, and equals the default spec in every other field | ruling |
-| C-PAIR-06 | pass | Colors do not depend on the pairing: `color` of the specs for every pairing is identical | ruling |
-| C-PAIR-07 | failure | `pairing: "nope"` throws `RangeError` naming `generateSystem: params.pairing`; `pairing: 3` throws `TypeError` | ruling |
-| C-PAIR-08 | pass | `choosePairing` is deterministic: the same seed gives the same id on every call; the seed `""` is valid | plan |
-| C-PAIR-09 | pass | Over 500 distinct seeds `choosePairing` picks at least 10 distinct pairings | added |
-| C-PAIR-10 | pass | Over 1,000 seeds the real catalog's picks have a display face with genericness ≥ 0.8 at most 10% of the time | plan |
-| C-PAIR-11 | pass | With a fixture list of 20 pairings of which 5 have a display face of genericness 1 and a fixture catalog to match, 20,000 seeds pick a generic face between 7.6% and 10.6% of the time (analytic 9.09%, against 25% without the penalty) | decision |
-| C-PAIR-12 | pass | With a fixture list where every genericness is 0, each of the 20 pairings is picked between 2% and 8% of 20,000 seeds | decision |
-| C-PAIR-13 | pass | `choosePairing` draws from a stream apart from the palette stream: `generateSystem` colors for one seed are the same whatever it returns | ruling |
-| C-PAIR-14 | failure | A non-string seed throws `TypeError`; an empty list throws `RangeError` naming `choosePairing` | added |
+| C-PAIR-04 | pass | (Task 2.4) `generateSystem` without `pairing` writes the M1 families, and every M1 golden spec id is unchanged | decision |
+| C-PAIR-05 | pass | (Task 2.4) `generateSystem({ ...DEFAULT_PARAMS, pairing: "gloock-albert" }, "seed-1")` writes `gloock`, `albert-sans`, `fragment-mono`, and equals the default spec in every other field | ruling |
+| C-PAIR-06 | pass | (Task 2.4) Colors do not depend on the pairing: `color` of the specs for every pairing is identical | ruling |
+| C-PAIR-07 | failure | (Task 2.4) `pairing: "nope"` throws `RangeError` naming `generateSystem: params.pairing`; `pairing: 3` throws `TypeError` | ruling |
+| C-PAIR-08 | pass | (Task 2.4) `choosePairing` is deterministic: the same seed gives the same id on every call; the seed `""` is valid | plan |
+| C-PAIR-09 | pass | (Task 2.4) Over 500 distinct seeds `choosePairing` picks at least 10 distinct pairings | added |
+| C-PAIR-10 | pass | (Task 2.4) Over 1,000 seeds the real catalog's picks have a display face with genericness ≥ 0.8 at most 10% of the time | plan |
+| C-PAIR-11 | pass | (Task 2.4) With a fixture list of 20 pairings of which 5 have a display face of genericness 1 and a fixture catalog to match, 20,000 seeds pick a generic face between 7.6% and 10.6% of the time (analytic 9.09%, against 25% without the penalty) | decision |
+| C-PAIR-12 | pass | (Task 2.4) With a fixture list where every genericness is 0, each of the 20 pairings is picked between 2% and 8% of 20,000 seeds | decision |
+| C-PAIR-13 | pass | (Task 2.4) `choosePairing` draws from a stream apart from the palette stream: `generateSystem` colors for one seed are the same whatever it returns | ruling |
+| C-PAIR-14 | failure | (Task 2.4) A non-string seed throws `TypeError`; an empty list throws `RangeError` naming `choosePairing` | added |
 | C-PAIR-15 | pass | Pairing 19 (`anybody-albert`) has `spline-sans-mono` as its mono, and `recursive` is not in the catalog | ruling |
 | C-LOAD-01 | pass | `load("host-grotesk")` with a stub `FontFace` whose `load` resolves returns `{ id, status: "loaded" }`, builds the face with `url(/fonts/host-grotesk/host-grotesk-latin-wght-normal.woff2) format('woff2')`, weight `"<min> <max>"` and `display: "swap"`, and adds it to the stub `fonts` set | plan |
 | C-LOAD-02 | pass | A static family builds one face per copied weight, each from `<id>-latin-<weight>-normal.woff2` with its own weight | added |
@@ -975,8 +977,13 @@ Tests: `tests/unit/engine/fonts/{catalog,pairings}.test.ts`, `tests/unit/feature
 | C-LOAD-06 | failure | A `load` that never settles resolves `{ status: "failed", reason: "timeout" }` after `timeoutMs` (fake timers) | RF3, added |
 | C-LOAD-07 | failure | A `FontFace` constructor that throws, or a missing `FontFace`, resolves `{ status: "failed", reason: "unsupported" }` | RF3, added |
 | C-LOAD-08 | pass | A failed family retries on the next `load` call and can then reach `loaded` | added |
-| C-LOAD-09 | failure | `load("nope")` throws `RangeError`; `load(3)` throws `TypeError`; these are the only throws | added |
+| C-LOAD-09 | failure | `load("nope")` throws `RangeError`; `load(3)` and `load(null)` throw `TypeError`; these are the only throws | added |
 | C-LOAD-10 | pass | Two loaders built from different stubs do not share state | added |
+| C-LOAD-11 | failure | With no `document` and no injected `fonts`, `load` resolves `{ status: "failed", reason: "unsupported" }` | review |
+| C-LOAD-12 | failure | A `fonts.add` that throws makes `load` resolve `{ status: "failed", reason: "load" }`; the faces already added are removed (`fonts.delete`) and none stay | review |
+| C-LOAD-13 | pass | A listener that throws neither rejects `load` nor leaves the family at `loading`; the other listeners still hear every change | review |
+| C-LOAD-14 | pass | A `load(id)` called from a listener while `id` is loading shares the in-flight promise and builds no second face | review |
+| C-LOAD-15 | pass | The default timeout is the single constant `FONT_TIMEOUT_MS` (8000 ms); the browser instance uses it | review |
 
 ### 6.3 Presets and pairing choice (Task 2.4)
 
