@@ -5,6 +5,7 @@ import Link from "next/link";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { CanvasFrame } from "./CanvasFrame";
 import { createStudioClient } from "./client";
+import { DraftsAnnouncer } from "./DraftsAnnouncer";
 import { safeStorage } from "./drafts";
 import { InputsPanel } from "./InputsPanel";
 import { LotTag } from "./LotTag";
@@ -184,6 +185,7 @@ function StudioShell({ store }: { store: StudioStore }) {
         <div aria-hidden="true" className="studio-backdrop" onClick={closeDrawer} />
       )}
       <Toast state={toast} onClose={() => setToast(null)} fallbackFocus={copyButton} />
+      <DraftsAnnouncer store={store} />
     </div>
   );
 }

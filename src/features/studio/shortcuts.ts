@@ -73,6 +73,21 @@ export function usesKey(element: Element): boolean {
   return role !== null && KEY_ROLES.has(role);
 }
 
+/**
+ * Mod+S: Ctrl or Meta with the key "s" or the code `KeyS` (S types another letter on some layouts),
+ * without Alt or Shift. The share field uses it too, to keep the save dialog shut (F-STUDIO-16).
+ */
+export function isSaveChord(
+  press: Pick<KeyPress, "key" | "code" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">,
+): boolean {
+  return (
+    (press.ctrlKey || press.metaKey) &&
+    !press.altKey &&
+    !press.shiftKey &&
+    (press.key.toLowerCase() === "s" || press.code === "KeyS")
+  );
+}
+
 function checkPress(press: KeyPress): void {
   assertRecord(press, "shortcutFor: press");
   assertString(press.key, "shortcutFor: press.key");
@@ -117,10 +132,8 @@ export function shortcutFor(
   if (target?.closest(CANVAS_REGION)) return null;
   const inText = target !== null && isTextField(target);
   if (ctrlKey || metaKey) {
-    // The key or the code: S types another letter on some layouts. A repeat copies again, so a
-    // held chord never opens the save dialog (item 7).
-    const save = (key.toLowerCase() === "s" || code === "KeyS") && !altKey && !shiftKey;
-    return save && !inText ? { kind: "copy-link" } : null;
+    // A repeat copies again, so a held chord never opens the save dialog (item 7).
+    return isSaveChord(press) && !inText ? { kind: "copy-link" } : null;
   }
   if (altKey) {
     // Matched on the code: Alt changes the character on some layouts (item 3). A held toggle

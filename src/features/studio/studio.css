@@ -71,6 +71,11 @@ body:has(.studio-surround)::before {
   visibility: hidden;
   overscroll-behavior: contain;
   box-shadow: var(--window-shadow);
+}
+
+/* It slides only while it opens or closes (`data-motion`), never when the window crosses a
+ * breakpoint and a column becomes a drawer (F-STUDIO-25). Closing hides it after the slide. */
+.studio-panel[data-drawer][data-motion] {
   transition:
     transform 220ms cubic-bezier(0.2, 0, 0, 1),
     visibility 0s linear 220ms;
@@ -91,6 +96,9 @@ body:has(.studio-surround)::before {
 .studio-panel[data-drawer][data-open] {
   visibility: visible;
   transform: none;
+}
+
+.studio-panel[data-drawer][data-motion][data-open] {
   transition:
     transform 220ms cubic-bezier(0.2, 0, 0, 1),
     visibility 0s;

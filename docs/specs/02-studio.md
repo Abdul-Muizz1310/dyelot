@@ -921,6 +921,7 @@ const SEED_SLOT = "data-seed-slot";                     // on each seed row's co
 function isTextField(element: Element): boolean;        // R2-15 item 1
 function usesKey(element: Element): boolean;            // R2-15 item 2
 function shortcutFor(press: KeyPress, target: Element | null, context: { drawerOpen: boolean }): Shortcut | null;
+function isSaveChord(press: Pick<KeyPress, "key" | "code" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">): boolean; // Mod+S
 // inputs.ts (Task 2.6)
 const SEED_FIELD_MESSAGE = "Enter a color like #3a6ea5 or oklch(0.6 0.15 250).";
 const GAMUT_LABELS: Readonly<Record<Gamut, string>>;    // "sRGB", "Display P3"
@@ -1416,15 +1417,16 @@ Geist Mono. The strip is a group labeled "Primary scale, 11 steps" with 11 swatc
 | F-STUDIO-13 | pass | A valid `#s=` link opens that design: the canvas variables equal `themeVars` of the decoded spec and the lot tag equals its id | decision |
 | F-STUDIO-14 | pass | After a change the URL hash becomes `#s=<link>` within 400 ms of the canvas variables changing (the 300 ms debounce plus 100 ms), and reloading the page restores the same design | decision |
 | F-STUDIO-15 | pass | "Copy link" and Mod+S copy `<origin>/studio#s=<link>` to the clipboard and show a toast "Link copied" (`role="status"`) | decision |
-| F-STUDIO-16 | failure | With clipboard writing denied, the same actions show "Copy blocked. Select the link below." and a read-only field holding the link, already selected | I-M2-05 |
+| F-STUDIO-16 | failure | With clipboard writing denied, the same actions show "Copy blocked. Select the link below." and a read-only field holding the link, already selected; a held Mod+S never opens the browser's save dialog, also once focus has moved into the share field (the field takes Mod+S itself) | I-M2-05 |
 | F-STUDIO-17 | pass | RF2: with `localStorage` replaced by an object that throws on every access (an init script), the studio loads, edits, undoes and updates the hash, and the toolbar shows "Drafts off" | RF2, I-M2-05 |
 | F-STUDIO-18 | pass | With a draft saved, reloading `/studio` with no hash restores it and shows the dismissible notice "Restored your last draft." | decision |
 | F-STUDIO-19 | pass | Fault injection: an init script replaces `window.Worker` with a stub class that answers every request with `{ id, ok: false, error: { name: "RangeError", message: "forced" } }` once the test sets `window.__dyelotFault`. Changing a control then shows a labeled message with a "Revert" button, keeps the old canvas, and "Revert" restores the control. Pages are fixed, so no input can trigger this from the UI | I-M2-03 |
 | F-STUDIO-20 | pass | No network request goes to a host other than the page's origin; none to `fonts.googleapis.com` or `fonts.gstatic.com` | I-M2-06 |
 | F-STUDIO-21 | pass | The page loads with `worker-src 'self' blob:` allowed by the CSP and generation runs in a worker (the test sees a `Worker` created) | R2-13 |
 | F-STUDIO-22 | pass | A link whose families match no pairing shows the polite notice that editing resets the fonts | R2-14 |
-| F-STUDIO-23 | pass | Focus never falls to the page body when the studio removes the focused control: after "Start fresh", "Dismiss" or "Revert" focus moves to the canvas region; closing the copy-blocked toast returns focus to the element that had it when the toast opened, or to "Copy link" when that was the body; with a drawer open, a copy-blocked toast announces itself (`role="status"`) and focus stays in the drawer | I-M2-03, review |
-| F-STUDIO-24 | pass | "Drafts off" is a disclosure any user can open (keyboard, touch, screen reader) to read why: "This browser does not let the studio save a draft. The link in the address bar still holds the design."; when drafts turn off mid-session (a `setItem` that starts throwing) a polite live region says "Drafts off" | RF2, review |
+| F-STUDIO-23 | pass | Focus never falls to the page body when the studio removes the focused control: after "Start fresh", "Dismiss" or "Revert" focus moves to the canvas region; closing the copy-blocked toast returns focus to the element that had it when the toast opened, or to "Copy link" when that was the body; with a drawer open, a copy-blocked toast announces itself (`role="status"`) and focus stays in the drawer; a toast opened while focus was inside it (Mod+S on its Close button) gives focus to "Copy link" on close, never to its own button | I-M2-03, review |
+| F-STUDIO-24 | pass | "Drafts off" is a disclosure any user can open (keyboard, touch, screen reader) to read why: "This browser does not let the studio save a draft. The link in the address bar still holds the design."; when drafts turn off mid-session (a `setItem` that starts throwing) a polite live region says "Drafts off"; the region sits outside every part of the page a drawer makes inert, so it speaks while a drawer is open | RF2, review |
+| F-STUDIO-25 | pass | A panel that turns into a drawer, or back into a column, when the window crosses 1024 or 1280 px does not slide: it takes its place at once (no running transition); the slide runs only while a drawer opens or closes, and under reduced motion it lasts 0.01 ms | R2-16, review |
 
 ### 7.2 The inputs panel (Task 2.6)
 

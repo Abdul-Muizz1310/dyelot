@@ -21,6 +21,9 @@ const DRAWER_QUERY: Readonly<Record<DrawerName, string>> = {
   inspector: "(max-width: 1279.98px)",
 };
 
+/** How long a drawer's slide runs (studio.css: 220 ms), with room for the last frame. */
+const SLIDE_MS = 300;
+
 /** Elements a Tab can reach inside a drawer. */
 const FOCUSABLE =
   "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex='-1'])";
@@ -64,6 +67,8 @@ function trapFocus(event: ReactKeyboardEvent<HTMLElement>): void {
 export type PanelState = {
   readonly "data-drawer": "" | undefined;
   readonly "data-open": "" | undefined;
+  /** Set while the drawer opens or closes: the only time it slides (F-STUDIO-25). */
+  readonly "data-motion": "" | undefined;
   readonly inert: boolean;
   readonly onKeyDown: ((event: ReactKeyboardEvent<HTMLElement>) => void) | undefined;
 };
@@ -86,6 +91,14 @@ export function useDrawers(): Drawers {
     inspector: useMedia(DRAWER_QUERY.inspector),
   };
   const [requested, setRequested] = useState<DrawerName | null>(null);
+  // The drawer that is opening or closing. A panel that becomes a drawer, or a column, because the
+  // window crossed a breakpoint takes its place at once (F-STUDIO-25).
+  const [moving, setMoving] = useState<DrawerName | null>(null);
+  useEffect(() => {
+    if (moving === null) return;
+    const timer = setTimeout(() => setMoving(null), SLIDE_MS);
+    return () => clearTimeout(timer);
+  }, [moving]);
   // A drawer whose width turned it back into a column is no longer open, and stays closed if the
   // window narrows again.
   const open = requested !== null && isDrawer[requested] ? requested : null;
@@ -112,15 +125,18 @@ export function useDrawers(): Drawers {
     headings: { inputs: inputsHeading, inspector: inspectorHeading },
     openDrawer(name, button) {
       opener.current = button;
+      setMoving(name);
       setRequested(name);
     },
     closeDrawer() {
+      setMoving(open);
       setRequested(null);
     },
     panelState(name) {
       return {
         "data-drawer": isDrawer[name] ? "" : undefined,
         "data-open": open === name ? "" : undefined,
+        "data-motion": isDrawer[name] && moving === name ? "" : undefined,
         // A closed drawer is inert; a column is inert while the other drawer is open.
         inert: isDrawer[name] ? open !== name : open !== null,
         onKeyDown: open === name ? trapFocus : undefined,

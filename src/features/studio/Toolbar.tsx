@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, type RefObject, useEffect, useRef, useState } from "react";
+import type { ReactNode, RefObject } from "react";
 import { BUTTON } from "./chrome";
 import { type StudioStore, useStudio } from "./store";
 import type { DrawerName } from "./useDrawers";
@@ -102,27 +102,7 @@ export function Toolbar({
           </p>
         </details>
       )}
-      <DraftsAnnouncer off={draftsOff} />
     </section>
-  );
-}
-
-/**
- * A polite live region that says "Drafts off" when drafts turn off during the session (a storage
- * that starts refusing writes). A studio that starts with drafts off shows the disclosure instead.
- */
-function DraftsAnnouncer({ off }: { off: boolean }) {
-  const [message, setMessage] = useState("");
-  const was = useRef(off);
-  useEffect(() => {
-    if (off && !was.current) setMessage("Drafts off");
-    if (!off) setMessage("");
-    was.current = off;
-  }, [off]);
-  return (
-    <span role="status" className="sr-only">
-      {message}
-    </span>
   );
 }
 

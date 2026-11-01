@@ -2,6 +2,7 @@
 
 import { type RefObject, useEffect, useEffectEvent, useRef } from "react";
 import { BUTTON } from "./chrome";
+import { isSaveChord } from "./shortcuts";
 import { bannerFor } from "./url";
 
 // The copy-link answer (spec F-STUDIO-15, F-STUDIO-16, F-STUDIO-23): "Link copied", or, when the
@@ -24,12 +25,15 @@ export type ToastState =
 /** How long "Link copied" stays. */
 const COPIED_MS = 3000;
 
-/** Whether focus can go back to `element`: still in the page, not the body, not inert. */
+/**
+ * Whether focus can go back to `element`: still in the page, not the body, not inert, and not in the
+ * toast itself, which is about to close (Mod+S pressed on its own Close button).
+ */
 function canHoldFocus(element: HTMLElement | null): element is HTMLElement {
   return (
     element?.isConnected === true &&
     element !== document.body &&
-    element.closest("[inert]") === null
+    element.closest("[inert], [data-toast]") === null
   );
 }
 
@@ -81,6 +85,11 @@ export function Toast({ state, onClose, fallbackFocus }: ToastProps) {
               aria-label="Share link"
               value={state.link}
               onFocus={(event) => event.currentTarget.select()}
+              onKeyDown={(event) => {
+                // Mod+S here means this link: the browser's save dialog stays shut, also on the
+                // repeats of a held chord whose first press moved focus here (F-STUDIO-16).
+                if (isSaveChord(event)) event.preventDefault();
+              }}
               className="min-h-8 min-w-0 flex-1 rounded-md border border-control-edge bg-page px-2 font-mono text-xs tabular-nums"
             />
             <button type="button" onClick={() => closeBlocked(state.returnTo)} className={BUTTON}>

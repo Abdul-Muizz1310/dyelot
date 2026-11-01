@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   CANVAS_REGION,
+  isSaveChord,
   isTextField,
   type KeyPress,
   SEED_SLOT,
@@ -220,6 +221,16 @@ describe("Mod+S copies the link (R2-15 items 3 and 7)", () => {
     expect(shortcutFor(press("ы", "KeyS", { ctrlKey: true }), build("<input>"), NO_DRAWER)).toBe(
       null,
     );
+  });
+
+  it("C-KEYS-07 isSaveChord is Ctrl or Meta with s or KeyS, without Alt or Shift, wherever focus is", () => {
+    expect(isSaveChord(CTRL_S)).toBe(true);
+    expect(isSaveChord(META_S)).toBe(true);
+    expect(isSaveChord(press("ы", "KeyS", { ctrlKey: true, repeat: true }))).toBe(true);
+    expect(isSaveChord({ ...CTRL_S, altKey: true })).toBe(false);
+    expect(isSaveChord({ ...CTRL_S, shiftKey: true })).toBe(false);
+    expect(isSaveChord(press("s", "KeyS"))).toBe(false);
+    expect(isSaveChord(press("d", "KeyD", { ctrlKey: true }))).toBe(false);
   });
 
   it("C-KEYS-07 a held Mod+S keeps copying, so the save dialog stays shut on every repeat", () => {

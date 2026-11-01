@@ -64,6 +64,28 @@ const modeSwitch = (page: Page) => page.getByRole("switch", { name: "Dark mode",
 /** The studio's alert banner, in the header (Next.js keeps its own route announcer as an alert). */
 const banner = (page: Page) => page.locator("header").getByRole("alert");
 
+/** What a stray shortcut would change, read at once: the lot, Redo, the mode, a lock, the seeds. */
+function shortcutState(page: Page) {
+  return page.evaluate(() => ({
+    lot: document.querySelector("[data-lot-id]")?.textContent,
+    redo: document
+      .querySelector('button[aria-keyshortcuts="ArrowRight"]')
+      ?.getAttribute("aria-disabled"),
+    mode: document.querySelector('[role="switch"]')?.getAttribute("aria-checked"),
+    lock: document.querySelector('button[aria-label="Lock primary"]')?.getAttribute("aria-pressed"),
+    seeds: (window as unknown as { __seedCalls: number }).__seedCalls,
+  }));
+}
+
+/** Presses each key and asserts after every single press that the studio's state did not move. */
+async function pressEachUnmoved(page: Page, keys: readonly string[]): Promise<void> {
+  const before = await shortcutState(page);
+  for (const key of keys) {
+    await page.keyboard.press(key);
+    expect(await shortcutState(page), key).toEqual(before);
+  }
+}
+
 /** The hash of the page now. */
 const hashOf = (page: Page) => page.evaluate(() => window.location.hash);
 
@@ -461,6 +483,32 @@ test.describe("7.1 Layout and the shell", () => {
     });
   }
 
+  test("F-STUDIO-16 a held Mod+S never opens the save dialog, also from the share field", async ({
+    page,
+  }) => {
+    await page.addInitScript(() =>
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined }),
+    );
+    await openStudio(page);
+    await page.evaluate(() => {
+      const record = window as unknown as { __saves: boolean[] };
+      record.__saves = [];
+      window.addEventListener("keydown", (event) => {
+        if (event.code === "KeyS") record.__saves.push(event.defaultPrevented);
+      });
+    });
+    await focusBody(page);
+    await page.keyboard.down("ControlOrMeta");
+    await page.keyboard.down("s");
+    // The first press moved focus into the share field; the held key repeats there.
+    await expect(field(page, "Share link")).toBeFocused();
+    for (let i = 0; i < 3; i++) await page.keyboard.down("s");
+    await page.keyboard.up("s");
+    await page.keyboard.up("ControlOrMeta");
+    const saves = await page.evaluate(() => (window as unknown as { __saves: boolean[] }).__saves);
+    expect(saves).toEqual([true, true, true, true]);
+  });
+
   test("F-STUDIO-17 with a throwing localStorage the studio works and says drafts are off", async ({
     page,
   }) => {
@@ -643,6 +691,22 @@ test.describe("7.1 Focus and drafts after the review", () => {
     await expect(button(page, "Copy link")).toBeFocused();
   });
 
+  test("F-STUDIO-23 a toast reopened from its own Close button gives focus to Copy link", async ({
+    page,
+  }) => {
+    await page.addInitScript(() =>
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined }),
+    );
+    await openStudio(page);
+    await button(page, "Copy link").click();
+    await expect(field(page, "Share link")).toBeFocused();
+    await button(page, "Close").focus();
+    await page.keyboard.press("ControlOrMeta+s");
+    await expect(field(page, "Share link")).toBeFocused();
+    await button(page, "Close").click();
+    await expect(button(page, "Copy link")).toBeFocused();
+  });
+
   test("F-STUDIO-23 with a drawer open, a copy-blocked toast announces itself and keeps focus", async ({
     page,
   }) => {
@@ -688,10 +752,69 @@ test.describe("7.1 Focus and drafts after the review", () => {
       };
     });
     await openStudio(page);
-    const live = page.locator("[data-toolbar]").getByRole("status");
+    const live = page.locator("[data-drafts-announcer]");
     await expect(live).toHaveText("");
+    await expect(live).toHaveAttribute("role", "status");
     await changeDesign(page, () => radio(page, "Chroma", "vivid").check());
     await expect(live).toHaveText("Drafts off");
+  });
+
+  test("F-STUDIO-24 drafts that turn off while a drawer is open are announced", async ({
+    page,
+  }) => {
+    await page.addInitScript(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      };
+    });
+    await page.setViewportSize(PHONE);
+    await openStudio(page);
+    await button(page, "Inputs").click();
+    await expect(inputsAside(page)).toBeVisible();
+    await radio(page, "Chroma", "vivid").check();
+    // In the accessibility tree (nothing inert around it), with the message.
+    await expect(page.getByRole("status").filter({ hasText: "Drafts off" })).toHaveCount(1);
+    const live = page.locator("[data-drafts-announcer]");
+    expect(await live.evaluate((el) => el.closest("[inert]") === null)).toBe(true);
+    await expect(inputsAside(page)).toBeVisible();
+  });
+
+  test("F-STUDIO-25 crossing a breakpoint moves no panel, and a drawer still slides open", async ({
+    page,
+  }) => {
+    /** Waits for the panels to settle into `drawer` (or column) state and reads their motion. */
+    const motion = (drawer: boolean) =>
+      page.evaluate(
+        (wanted) =>
+          new Promise<{ running: number; visibility: string[] }>((resolve) => {
+            const asides = [...document.querySelectorAll("aside")];
+            const check = () => {
+              const inputs = document.querySelector('aside[aria-label="Inputs"]');
+              if (inputs === null || inputs.hasAttribute("data-drawer") !== wanted) {
+                requestAnimationFrame(check);
+                return;
+              }
+              resolve({
+                running: asides.reduce((sum, aside) => sum + aside.getAnimations().length, 0),
+                visibility: asides.map((aside) => getComputedStyle(aside).visibility),
+              });
+            };
+            check();
+          }),
+        drawer,
+      );
+    await openStudio(page);
+    await page.setViewportSize(PHONE);
+    expect(await motion(true)).toEqual({ running: 0, visibility: ["hidden", "hidden"] });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    expect(await motion(false)).toEqual({ running: 0, visibility: ["visible", "visible"] });
+    await page.setViewportSize(PHONE);
+    await motion(true);
+    await button(page, "Inputs").click();
+    expect(
+      await inputsAside(page).evaluate((el) => getComputedStyle(el).transitionDuration),
+    ).toMatch(/0\.22s/);
+    await expect(inputsAside(page)).toBeVisible();
   });
 });
 
@@ -1279,14 +1402,10 @@ test.describe("7.3 Keyboard", () => {
     await expect(lotId(page)).toHaveText(lot);
     await settled(page);
     await field(page, "Primary").focus();
-    for (const key of ["Space", "l", "ArrowLeft", "ArrowRight", "Alt+KeyT"]) {
-      await page.keyboard.press(key);
-    }
+    await pressEachUnmoved(page, ["Space", "l", "ArrowLeft", "ArrowRight", "Alt+KeyT"]);
     await expect(field(page, "Primary")).toBeFocused();
     await select(page, "Harmony").focus();
-    for (const key of ["Space", "Escape", "l", "Alt+KeyT"]) {
-      await page.keyboard.press(key);
-    }
+    await pressEachUnmoved(page, ["Space", "Escape", "l", "Alt+KeyT"]);
     await page.waitForTimeout(400);
     await expect(lotId(page)).toHaveText(lot);
     await expect(modeSwitch(page)).toHaveAttribute("aria-checked", "false");
@@ -1488,9 +1607,7 @@ test.describe("7.3 Keyboard", () => {
     await expect(box).toBeChecked();
     for (const target of [box, page.getByRole("tab", { name: "Sample tab" }), canvasRegion(page)]) {
       await target.focus();
-      for (const key of ["Space", "ArrowLeft", "ArrowRight", "l", "Alt+KeyT"]) {
-        await page.keyboard.press(key);
-      }
+      await pressEachUnmoved(page, ["Space", "ArrowLeft", "ArrowRight", "l", "Alt+KeyT"]);
     }
     await page.waitForTimeout(400);
     expect(await seedCalls(page)).toBe(2);
@@ -1648,13 +1765,27 @@ test.describe("7.9 Accessibility", () => {
    */
   function controlEdges(page: Page) {
     return page.evaluate(() => {
-      const opaque = (color: string) => !/rgba\(.*,\s*0\)$/.test(color) && color !== "transparent";
+      const rgba = (color: string): [number, number, number, number] => {
+        const [r = 0, g = 0, b = 0, a = 1] = (color.match(/[\d.]+/g) ?? []).map(Number);
+        return [r, g, b, color.startsWith("rgba") ? a : 1];
+      };
+      // The color behind `el`: every partly transparent layer up to the first opaque one,
+      // composited over it (source-over), so a tinted wash counts at its real strength.
       const backdrop = (el: Element): string => {
+        const layers: [number, number, number, number][] = [];
+        let base: [number, number, number] = [10, 10, 10];
         for (let node = el.parentElement; node !== null; node = node.parentElement) {
-          const color = getComputedStyle(node).backgroundColor;
-          if (opaque(color)) return color;
+          const layer = rgba(getComputedStyle(node).backgroundColor);
+          if (layer[3] >= 1) {
+            base = [layer[0], layer[1], layer[2]];
+            break;
+          }
+          if (layer[3] > 0) layers.push(layer);
         }
-        return getComputedStyle(document.body).backgroundColor;
+        for (const [r, g, b, a] of layers.reverse()) {
+          base = [r * a + base[0] * (1 - a), g * a + base[1] * (1 - a), b * a + base[2] * (1 - a)];
+        }
+        return `rgb(${base.map((v) => Math.round(v)).join(", ")})`;
       };
       const selector = [
         "input:not([type='radio'])",
