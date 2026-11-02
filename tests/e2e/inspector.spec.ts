@@ -1,4 +1,4 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { colornames } from "color-name-list/bestof";
 import {
   type ContrastLevel,
@@ -37,6 +37,7 @@ import {
   stubSeeds,
 } from "./studio-support";
 import {
+  canvasAtRest,
   eachTab,
   installColorResolver,
   openSheet,
@@ -127,12 +128,16 @@ const keyOf = (spec: DesignSpec, id: Finding["id"], mode: "light" | "dark", subj
 
 /**
  * The outline of "show me" on the canvas for `roles` (F-CANVAS-11), read through the shared sRGB
- * resolver: `shown`, the outlined elements on screen (`checkVisibility()`); `missing`, elements that
- * name a role without the dashed madder outline; `stray`, elements that name none with a madder outline.
+ * resolver, inside `scope` (the canvas region by default, or one mobile screen or the open sheet):
+ * `shown`, the outlined elements on screen (`checkVisibility()`); `missing`, elements that name a role
+ * without the dashed madder outline 2 px wide with a 2 px offset on screen (the computed value times
+ * the frame's fit, within half a layout pixel times the fit, since Chromium draws an outline in whole
+ * layout pixels: the canvas region scales it, fix round 1, M-7); `stray`, elements that name none with
+ * a madder outline.
  */
-async function outlineReport(page: Page, roles: readonly string[]) {
+async function outlineReport(page: Page, roles: readonly string[], scope?: Locator) {
   await installColorResolver(page);
-  return canvasRegion(page).evaluate((main, wanted) => {
+  return (scope ?? canvasRegion(page)).evaluate((host, wanted) => {
     const resolve = (window as unknown as { __dyelotRgba: (v: string) => number[] | null })
       .__dyelotRgba;
     const madder = (value: string) => {
@@ -141,29 +146,112 @@ async function outlineReport(page: Page, roles: readonly string[]) {
         rgba !== null && rgba[0] === 246 && rgba[1] === 108 && rgba[2] === 109 && rgba[3] > 0.99
       );
     };
+    const onScreen = (element: Element, value: string) => {
+      const frame = element.closest<HTMLElement>("[data-canvas][data-frame]");
+      const fit = frame === null ? 1 : frame.getBoundingClientRect().width / frame.offsetWidth;
+      return Math.abs(Number.parseFloat(value) * fit - 2) <= fit / 2 + 0.01;
+    };
     const label = (element: Element) =>
       `${element.tagName.toLowerCase()}.${[...element.classList].join(".")} [${element.getAttribute("data-roles") ?? ""}]`;
     let shown = 0;
     const missing: string[] = [];
     const stray: string[] = [];
-    for (const element of main.querySelectorAll("[data-canvas], [data-canvas] *")) {
+    for (const element of [host, ...host.querySelectorAll("*")]) {
+      if (element.closest("[data-canvas]") === null) continue;
       const named = (element.getAttribute("data-roles") ?? "")
         .split(/\s+/)
         .some((role) => wanted.includes(role));
       const style = getComputedStyle(element);
       const outlined =
         style.outlineStyle === "dashed" &&
-        style.outlineWidth === "2px" &&
-        style.outlineOffset === "2px" &&
+        onScreen(element, style.outlineWidth) &&
+        onScreen(element, style.outlineOffset) &&
         madder(style.outlineColor);
-      if (named && !outlined) missing.push(label(element));
-      else if (named && element.checkVisibility()) shown++;
+      if (named && !outlined) {
+        missing.push(
+          `${label(element)} ${style.outlineStyle} ${style.outlineWidth} ${style.outlineOffset}`,
+        );
+      } else if (named && element.checkVisibility()) shown++;
       else if (!named && style.outlineStyle !== "none" && madder(style.outlineColor)) {
         stray.push(label(element));
       }
     }
     return { shown, missing: missing.slice(0, 8), stray: stray.slice(0, 8) };
   }, roles);
+}
+
+/**
+ * F-INSP-15 (fix round 1, I-1): in the template `root`, every visible element whose own text is set in
+ * `face`, inside the fit box, and whose carrier (the nearest element with `data-roles`) has no outline
+ * that shows: the
+ * carrier's outline box, its border box grown by 4 px on screen, lies wholly inside the band that
+ * `.canvas-fit` clips (the ring between 2 and 4 px out never meets the clip box). Also the carriers
+ * that do not name the face's token at all. Returns the misses and how many texts it read.
+ */
+function hiddenCarriers(root: Locator, face: "display" | "body") {
+  return root.evaluate((element, face) => {
+    const frame = element.closest<HTMLElement>("[data-canvas][data-frame]");
+    const fit = element.closest(".canvas-fit");
+    if (frame === null || fit === null) throw new Error("hiddenCarriers: no frame or fit box");
+    const probe = document.createElement("span");
+    frame.append(probe);
+    probe.style.fontFamily = "var(--font-display)";
+    const display = getComputedStyle(probe).fontFamily;
+    probe.style.fontFamily = "var(--font-body)";
+    const body = getComputedStyle(probe).fontFamily;
+    probe.remove();
+    const family = face === "display" ? display : body;
+    const token = face === "display" ? "font-display" : "font-body";
+    const clip = fit.getBoundingClientRect();
+    const misses: string[] = [];
+    let read = 0;
+    for (const text of [element, ...element.querySelectorAll("*")]) {
+      const own = [...text.childNodes].some(
+        (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "",
+      );
+      if (!own || !text.checkVisibility()) continue;
+      const box = text.getBoundingClientRect();
+      if (box.width === 0 || box.height === 0) continue;
+      // Only a text that shows inside the fit box is judged: one scrolled out of view inside a
+      // template's own scroll area has nothing to point at.
+      const inside =
+        box.right > clip.left &&
+        box.left < clip.right &&
+        box.bottom > clip.top &&
+        box.top < clip.bottom;
+      if (!inside) continue;
+      if (getComputedStyle(text).fontFamily !== family) continue;
+      read++;
+      const carrier = text.closest("[data-roles]");
+      const name = `${text.tagName.toLowerCase()}.${[...text.classList].join(".")} "${(text.textContent ?? "").trim().slice(0, 24)}"`;
+      if (
+        carrier === null ||
+        !(carrier.getAttribute("data-roles") ?? "").split(/\s+/).includes(token)
+      ) {
+        misses.push(`${name}: no ${token} carrier`);
+        continue;
+      }
+      const own2 = carrier.getBoundingClientRect();
+      const outer = { l: own2.left - 4, t: own2.top - 4, r: own2.right + 4, b: own2.bottom + 4 };
+      const inner = { l: own2.left - 2, t: own2.top - 2, r: own2.right + 2, b: own2.bottom + 2 };
+      const cut = {
+        l: Math.max(outer.l, clip.left),
+        t: Math.max(outer.t, clip.top),
+        r: Math.min(outer.r, clip.right),
+        b: Math.min(outer.b, clip.bottom),
+      };
+      const shows =
+        cut.l < cut.r &&
+        cut.t < cut.b &&
+        (cut.l < inner.l || cut.r > inner.r || cut.t < inner.t || cut.b > inner.b);
+      if (!shows) {
+        misses.push(
+          `${name}: carrier ${carrier.tagName.toLowerCase()}.${[...carrier.classList].join(".")} is clipped away`,
+        );
+      }
+    }
+    return { read, misses: misses.slice(0, 10) };
+  }, face);
 }
 
 /** The layout box of every element inside the canvas frame, rounded to 0.01 px. */
@@ -177,27 +265,36 @@ function canvasBoxes(page: Page): Promise<string[]> {
 }
 
 /**
- * Starts recording every animation inside `[data-canvas]` on each frame, runs `action`, waits
- * `ms`, and returns what it saw (F-INSP-16).
+ * Records, on each frame for `ms` after `action`, every animation inside `[data-canvas]` that was not
+ * running before the action started (F-INSP-16): motion that began earlier, such as a page's entrance,
+ * is not the action's. Call it with the canvas at rest (`canvasAtRest`).
  */
 async function canvasMotion(page: Page, action: () => Promise<void>, ms = 300): Promise<string[]> {
   await page.evaluate(() => {
-    const host = window as unknown as { __motion: Set<string>; __motionOn: boolean };
+    const host = window as unknown as {
+      __motion: Set<string>;
+      __motionOn: boolean;
+      __motionBefore: Set<Animation>;
+    };
+    const all = () =>
+      [...document.querySelectorAll("[data-canvas]")].flatMap((canvas) =>
+        canvas.getAnimations({ subtree: true }),
+      );
     host.__motion = new Set();
     host.__motionOn = true;
+    host.__motionBefore = new Set(all());
     const tick = () => {
-      for (const canvas of document.querySelectorAll("[data-canvas]")) {
-        for (const animation of canvas.getAnimations({ subtree: true })) {
-          const effect = animation.effect;
-          const target = effect instanceof KeyframeEffect ? effect.target : null;
-          const what =
-            animation instanceof CSSTransition
-              ? `CSSTransition:${animation.transitionProperty}`
-              : animation.constructor.name;
-          host.__motion.add(
-            `${target?.tagName.toLowerCase() ?? "?"}.${[...(target?.classList ?? [])].join(".")} ${what}`,
-          );
-        }
+      for (const animation of all()) {
+        if (host.__motionBefore.has(animation)) continue;
+        const effect = animation.effect;
+        const target = effect instanceof KeyframeEffect ? effect.target : null;
+        const what =
+          animation instanceof CSSTransition
+            ? `CSSTransition:${animation.transitionProperty}`
+            : animation.constructor.name;
+        host.__motion.add(
+          `${target?.tagName.toLowerCase() ?? "?"}.${[...(target?.classList ?? [])].join(".")} ${what}`,
+        );
       }
       if (host.__motionOn) requestAnimationFrame(tick);
     };
@@ -211,6 +308,19 @@ async function canvasMotion(page: Page, action: () => Promise<void>, ms = 300): 
     return [...host.__motion];
   });
 }
+
+/** The first design with chart-2 equal to chart-1 in light: S1 fires on the chart set under every view. */
+function chartFixture(): DesignSpec {
+  const spec = first();
+  return normalizeSpec(
+    withValue(spec, ["color", "roles", "light", "chart-2"], spec.color.roles.light["chart-1"]),
+  );
+}
+
+/** The Findings section's heading and its one status region (fix round 1, I-2). */
+const findingsHeading = (page: Page) =>
+  region(page, "Findings").getByRole("heading", { name: "Findings", exact: true });
+const findingsStatus = (page: Page) => region(page, "Findings").getByRole("status");
 
 /** Opens the inspector drawer from the toolbar and waits for its heading to take focus. */
 async function openInspector(page: Page): Promise<void> {
@@ -334,6 +444,23 @@ test.describe("7.8 The inspector's sections", () => {
     expect(scores.some((score) => score.startsWith("−"))).toBe(true);
     expect(scores.every((score) => /^(\+\d+|−\d+|0)$/.test(score))).toBe(true);
     expect(formatLc(-12.4)).toBe("−12");
+    // M-2: the table and its header are set in 11 px Geist Mono, the house's floor.
+    const sizes = await table.evaluate((element) => [
+      getComputedStyle(element).fontSize,
+      getComputedStyle(element.querySelector("thead th") as Element).fontSize,
+    ]);
+    expect(sizes).toEqual(["11px", "11px"]);
+    // M-1: scrolled to the middle of the table, the header sits at the scroll area's top edge, so no row
+    // shows above it.
+    await scrollArea(page).evaluate((area) => {
+      const middle = area.querySelector('tbody[data-pair="info-foreground/info"]') as HTMLElement;
+      area.scrollTop += middle.getBoundingClientRect().top - area.getBoundingClientRect().top;
+    });
+    const edges = await scrollArea(page).evaluate((area) => ({
+      area: area.getBoundingClientRect().top + area.clientTop,
+      header: (area.querySelector("thead th") as Element).getBoundingClientRect().top,
+    }));
+    expect(Math.abs(edges.header - edges.area), JSON.stringify(edges)).toBeLessThanOrEqual(1);
   });
 
   test("F-INSP-02 a failing pair reads fail with a mark, not by color alone", async ({ page }) => {
@@ -532,8 +659,66 @@ test.describe("7.8 Show me", () => {
     expect(report.stray).toEqual([]);
     expect(report.shown).toBeGreaterThan(0);
     expect(await canvasBoxes(page), "only outlines change").toEqual(before);
-    // The canvas's own focus ring and R2-30 do not win over the outline: a focused named part keeps it.
     await expect(inspector(page).locator("[data-show-me-cell]")).toHaveCount(0);
+    // M-6: each "Show me" is described by its finding's title, subject and mode.
+    await expect(showMeButton(page, key)).toHaveAccessibleDescription(
+      /Border under 3:1.*border\/background.*light/,
+    );
+    // The canvas's focus ring does not win over the outline: a focused part that names a highlighted
+    // role (a settings field names background) shows the dashed outline, 2 px on screen.
+    const settings = await showTemplate(page, "settings");
+    const field = settings.locator('input[data-roles~="background"]:not([data-state])').first();
+    await page.keyboard.press("Shift");
+    await field.focus();
+    await expect(field).toBeFocused();
+    const focused = await field.evaluate((element) => {
+      const style = getComputedStyle(element);
+      const frame = element.closest("[data-canvas][data-frame]") as HTMLElement;
+      const fit = frame.getBoundingClientRect().width / frame.offsetWidth;
+      return {
+        style: style.outlineStyle,
+        offScreen: Math.abs(Number.parseFloat(style.outlineWidth) * fit - 2) - fit / 2,
+      };
+    });
+    expect(focused.style).toBe("dashed");
+    expect(focused.offScreen, "2 px on screen, within half a layout pixel").toBeLessThanOrEqual(
+      0.01,
+    );
+  });
+
+  test("F-INSP-07 F1 outlines the forced focus-visible field, and S1 sets the vision view", async ({
+    page,
+  }) => {
+    const ring = ringFixture();
+    await openStudio(page, linkOf(ring));
+    const f1 = keyOf(ring, "F1", "light", "ring/background");
+    await expect(findingItem(page, f1)).toContainText(
+      "The ring shows on focus. Show me outlines the surfaces it sits on.",
+    );
+    await showMeButton(page, f1).click();
+    const settings = await showTemplate(page, "settings");
+    const forced = settings.locator('[data-state="focus-visible"]');
+    await expect(forced).toHaveCount(1);
+    await expect(forced).toHaveAttribute("data-roles", /(^|\s)ring(\s|$)/);
+    const report = await outlineReport(page, ["ring", "background"]);
+    expect(report.missing).toEqual([]);
+    expect(report.stray).toEqual([]);
+    // S1: the chart set too close under every view; "show me" sets the view of its subject.
+    await page.goto("about:blank");
+    const chart = chartFixture();
+    await openStudio(page, linkOf(chart));
+    const s1 = keyOf(chart, "S1", "light", "chart/deutan");
+    const vision = page
+      .getByRole("region", { name: "Canvas toolbar" })
+      .getByRole("group", { name: "Vision", exact: true });
+    await expect(vision.getByRole("radio", { name: "none", exact: true })).toBeChecked();
+    await showMeButton(page, s1).click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-vision", "deutan");
+    await expect(vision.getByRole("radio", { name: "deutan", exact: true })).toBeChecked();
+    // The view stays when the highlight clears, as the mode does.
+    await showMeButton(page, s1).click();
+    await expect(canvasRegion(page)).not.toHaveAttribute("data-show-me", /.+/);
+    await expect(canvasFrame(page)).toHaveAttribute("data-vision", "deutan");
   });
 
   test("F-CANVAS-11 the outline holds through view changes and clears on another finding, a second press, or a fix", async ({
@@ -687,23 +872,29 @@ test.describe("7.8 Show me", () => {
       await expect(canvasRegion(page)).toHaveAttribute("data-show-me", token);
       for (const template of TEMPLATES) {
         const root = await showTemplate(page, template);
+        const face = token === "font-display" ? "display" : "body";
         if (template === "mobile") {
           await eachTab(root, async (tab) => {
             const report = await outlineReport(page, [token]);
             expect(report.missing, `${id} mobile ${tab}`).toEqual([]);
+            expect(report.stray, `${id} mobile ${tab}`).toEqual([]);
             expect(report.shown, `${id} mobile ${tab}`).toBeGreaterThan(0);
           });
+          // Each screen, and the open sheet, read on their own (M-5).
           for (const screen of SCREENS) {
-            const count = await screenOf(root, screen)
-              .locator(`[data-roles~="${token}"]`)
-              .evaluateAll((items) => items.filter((item) => item.checkVisibility()).length);
-            expect(count, `${id} mobile ${screen}`).toBeGreaterThan(0);
+            const report = await outlineReport(page, [token], screenOf(root, screen));
+            expect(report.missing, `${id} mobile ${screen}`).toEqual([]);
+            expect(report.stray, `${id} mobile ${screen}`).toEqual([]);
+            expect(report.shown, `${id} mobile ${screen}`).toBeGreaterThan(0);
           }
+          const carriers = await hiddenCarriers(root, face);
+          expect(carriers.read, `${id} mobile texts`).toBeGreaterThan(3);
+          expect(carriers.misses, `${id} mobile`).toEqual([]);
           const sheet = await openSheet(root);
-          const inSheet = await sheet
-            .locator(`[data-roles~="${token}"]`)
-            .evaluateAll((items) => items.filter((item) => item.checkVisibility()).length);
-          expect(inSheet, `${id} mobile sheet`).toBeGreaterThan(0);
+          const inSheet = await outlineReport(page, [token], sheet);
+          expect(inSheet.missing, `${id} mobile sheet`).toEqual([]);
+          expect(inSheet.stray, `${id} mobile sheet`).toEqual([]);
+          expect(inSheet.shown, `${id} mobile sheet`).toBeGreaterThan(0);
           await page.keyboard.press("Escape");
           await expect(sheet).toHaveCount(0);
           continue;
@@ -712,6 +903,12 @@ test.describe("7.8 Show me", () => {
         expect(report.missing, `${id} ${template}`).toEqual([]);
         expect(report.stray, `${id} ${template}`).toEqual([]);
         expect(report.shown, `${id} ${template}`).toBeGreaterThan(0);
+        if (template !== "kitchen-sink") {
+          // Every text in the face has a carrier whose outline shows past .canvas-fit (I-1).
+          const carriers = await hiddenCarriers(root, face);
+          expect(carriers.read, `${id} ${template} texts`).toBeGreaterThan(3);
+          expect(carriers.misses, `${id} ${template}`).toEqual([]);
+        }
       }
       await showTemplate(page, "landing");
     }
@@ -719,7 +916,7 @@ test.describe("7.8 Show me", () => {
 });
 
 test.describe("7.8 Fixes", () => {
-  test("F-INSP-09 a fix raises the contrast, clears the finding, and Undo brings it back", async ({
+  test("F-INSP-09 a fix raises the contrast, clears the finding, names the outcome, keeps focus, and Undo brings it back", async ({
     page,
   }) => {
     const spec = ringFixture();
@@ -730,9 +927,18 @@ test.describe("7.8 Fixes", () => {
     const fix = item.getByRole("button", { name: "Raise contrast to AAA", exact: true });
     await expect(fix).toBeVisible();
     await expect(item).toContainText("Regenerates every color at AAA.");
-    await fix.click();
+    // The section's status region is there before any outcome, empty (I-2).
+    await expect(findingsStatus(page)).toHaveCount(1);
+    await expect(findingsStatus(page)).toBeEmpty();
+    // From the keyboard: the button leaves with its finding, and focus moves to the Findings heading.
+    await fix.focus();
+    await page.keyboard.press("Enter");
     await settled(page);
     await expect(findingItem(page, key)).toHaveCount(0);
+    await expect(findingsHeading(page)).toBeFocused();
+    await expect(findingsStatus(page)).toHaveText(
+      "Contrast raised to AAA. The finding is cleared.",
+    );
     const contrast = page
       .getByRole("complementary", { name: "Inputs" })
       .getByRole("group", { name: "Contrast level", exact: true });
@@ -743,13 +949,59 @@ test.describe("7.8 Fixes", () => {
         .textContent();
       expect(Number(ratio), mode).toBeGreaterThanOrEqual(3);
     }
-    await expect(
-      inspector(page).locator('[role="status"]', { hasText: "did not clear" }),
-    ).toHaveCount(0);
+    await expect(inspector(page).getByText("did not clear")).toHaveCount(0);
     await button(page, "Undo").click();
     await settled(page);
     await expect(findingItem(page, key)).toBeVisible();
     await expect(contrast.getByRole("radio", { name: "AA", exact: true })).toBeChecked();
+    // The outcome named the spec it came with; the next spec empties the region.
+    await expect(findingsStatus(page)).toBeEmpty();
+  });
+
+  test("F-INSP-09 in the 360 px drawer a fix keeps focus inside the inspector", async ({
+    page,
+  }) => {
+    await page.setViewportSize(PHONE);
+    const spec = ringFixture();
+    await openStudio(page, linkOf(spec));
+    await openInspector(page);
+    const key = keyOf(spec, "F1", "light", "ring/background");
+    const fix = findingItem(page, key).getByRole("button", { name: "Raise contrast to AAA" });
+    await fix.focus();
+    await page.keyboard.press("Enter");
+    await settled(page);
+    await expect(findingItem(page, key)).toHaveCount(0);
+    await expect(inspectorAside(page)).toBeVisible();
+    await expect(findingsHeading(page)).toBeFocused();
+    await expect(findingsStatus(page)).toHaveText(
+      "Contrast raised to AAA. The finding is cleared.",
+    );
+    expect(
+      await page.evaluate(() => document.activeElement?.closest("aside#studio-inspector") != null),
+    ).toBe(true);
+  });
+
+  test("F-INSP-09 F-STUDIO-23 a focused Show me whose finding leaves the list gives focus to the Findings heading", async ({
+    page,
+  }) => {
+    const spec = ringFixture();
+    await openStudio(page, linkOf(spec));
+    const key = keyOf(spec, "F1", "light", "ring/background");
+    const show = showMeButton(page, key);
+    await show.focus();
+    await page.keyboard.press("Space");
+    await expect(show).toHaveAttribute("aria-pressed", "true");
+    await expect(show).toBeFocused();
+    // A regeneration that clears F1, from a control that takes no focus (a scripted click on AAA).
+    await page
+      .getByRole("complementary", { name: "Inputs" })
+      .getByRole("group", { name: "Contrast level", exact: true })
+      .getByRole("radio", { name: "AAA", exact: true })
+      .evaluate((radio) => (radio as HTMLInputElement).click());
+    await settled(page);
+    await expect(findingItem(page, key)).toHaveCount(0);
+    await expect(findingsHeading(page)).toBeFocused();
+    await expect(canvasRegion(page)).not.toHaveAttribute("data-show-me", /.+/);
   });
 
   test("F-INSP-10 at AAA a fixable finding says the contrast is already AAA and has no button", async ({
@@ -796,7 +1048,7 @@ test.describe("7.8 Fonts", () => {
     expect(first().type.families.display).toBe("unbounded");
     const status = inspector(page).locator('[role="status"][data-font-status]');
     await expect(status).toHaveText(
-      "Unbounded did not load. The canvas uses ui-sans-serif instead.",
+      "Unbounded did not load. The canvas uses the system sans-serif instead.",
     );
     expect(aborted).toBeGreaterThan(0);
     // The canvas keeps the family's stack and renders with its fallback.
@@ -828,6 +1080,10 @@ test.describe("7.8 Fonts", () => {
     expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
       360,
     );
+    // The fallback phrase never breaks at its hyphen (fix round 1, M-3 and C12).
+    const phrase = status.getByText("the system sans-serif", { exact: true });
+    await expect(phrase).toHaveCount(1);
+    expect(await phrase.evaluate((element) => element.getClientRects().length)).toBe(1);
   });
 
   test("F-INSP-11 the status is empty while every family loads", async ({ page }) => {
@@ -869,11 +1125,22 @@ test.describe("7.8 Keyboard and motion", () => {
     expect(await seedCalls(page)).toBe(seeds);
     await expect(lotId(page)).toHaveText(lot ?? "");
     await expect(button(page, "Redo")).toHaveAttribute("aria-disabled", "true");
-    // Tab from the area reaches each finding's button in order.
-    await area.focus();
-    for (const key of lintSpec(designFor(FRESH, seedOf(2))).map(findingKey)) {
+    // On the ring fixture, Tab from the area reaches each finding's "Show me" and fix button in order.
+    await page.goto("about:blank");
+    const ring = ringFixture();
+    await openStudio(page, linkOf(ring));
+    const stops = lintSpec(ring).flatMap((finding) => {
+      const key = findingKey(finding);
+      const show = showMeButton(page, key);
+      return finding.id === "F1"
+        ? [show, findingItem(page, key).getByRole("button", { name: "Raise contrast to AAA" })]
+        : [show];
+    });
+    expect(stops.length).toBeGreaterThan(5);
+    await scrollArea(page).focus();
+    for (const stop of stops) {
       await page.keyboard.press("Tab");
-      await expect(showMeButton(page, key)).toBeFocused();
+      await expect(stop).toBeFocused();
     }
   });
 
@@ -887,8 +1154,10 @@ test.describe("7.8 Keyboard and motion", () => {
       await page.setViewportSize({ width: 1280, height: 800 });
       await page.emulateMedia({ reducedMotion: setting === "system" ? "reduce" : "no-preference" });
       await openStudio(page, linkOf(spec));
+      await canvasAtRest(page);
       if (setting === "switch") {
         await page.getByRole("switch", { name: "Reduce motion", exact: true }).click();
+        await canvasAtRest(page);
       }
       const show = showMeButton(page, key);
       expect(await canvasMotion(page, () => show.click()), `${setting} show`).toEqual([]);
