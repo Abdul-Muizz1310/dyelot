@@ -1003,3 +1003,44 @@ test("F-INSP-14 the inspector drawer scrolls inside itself at 360 px and keeps t
   expect(sizes.width, "no sideways scroller inside").toBeLessThanOrEqual(sizes.clientWidth);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
 });
+
+test("F-INSP-14 F-A11Y-03 at 360 px the inspector drawer is walked by keyboard with the madder ring, and keeps focus on a click", async ({
+  page,
+}) => {
+  await page.setViewportSize(PHONE);
+  await stubSeeds(page);
+  await openStudio(page);
+  const keys = lintSpec(first()).map(findingKey);
+  for (const mode of ["light", "dark"] as const) {
+    if (mode === "dark") {
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.keyboard.press("Alt+KeyT");
+    }
+    await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+    await openInspector(page);
+    // Close, the scroll area, then each finding's "Show me", each with the 2 px madder ring.
+    const stops = [
+      button(page, "Close inspector"),
+      scrollArea(page),
+      ...keys.map((key) => showMeButton(page, key)),
+    ];
+    for (const stop of stops) {
+      await page.keyboard.press("Tab");
+      await expect(stop, mode).toBeFocused();
+      const ring = await page.evaluate(() => {
+        const style = getComputedStyle(document.activeElement as Element);
+        return [style.outlineStyle, style.outlineWidth, style.outlineColor];
+      });
+      expect(ring, mode).toEqual(["solid", "2px", "rgb(246, 108, 109)"]);
+    }
+    // A click on the table's text keeps focus in the drawer, and Escape still closes it.
+    await region(page, "Roles").locator("tbody[data-pair] th").first().click();
+    expect(
+      await page.evaluate(() => document.activeElement?.closest("aside#studio-inspector") != null),
+      `${mode}: focus after a click inside`,
+    ).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(inspectorAside(page)).toBeHidden();
+    await expect(button(page, "Inspector")).toBeFocused();
+  }
+});
