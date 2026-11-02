@@ -178,7 +178,10 @@ export function Textarea({ label, state, value, placeholder, messages = {}, hint
   );
 }
 
-/** A native select. Section 7.5 gives it no success state, so it has one message: `invalid`. */
+/**
+ * A native select. Section 7.5 gives it no success state, so it has one message, `invalid`, which a
+ * select that is never shown invalid leaves out.
+ */
 export function Select({
   label,
   state,
@@ -188,7 +191,7 @@ export function Select({
   label: string;
   state: KitState;
   options: readonly string[];
-  invalid: string;
+  invalid?: string;
 }) {
   const id = useId();
   const placeholder = state === "placeholder";

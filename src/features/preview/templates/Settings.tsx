@@ -37,9 +37,12 @@ import {
 const target = (to: SettingsSection) => `settings-${to}`;
 const TITLE = "settings-title";
 
-const SECTION = Object.fromEntries(
-  TEXT.sections.map((section) => [section.key, section]),
-) as Record<SettingsSection, (typeof TEXT.sections)[number]>;
+/** A section's title and sentence; a key the copy does not list is a bug in the template (RangeError). */
+function sectionOf(key: SettingsSection): (typeof TEXT.sections)[number] {
+  const section = TEXT.sections.find((entry) => entry.key === key);
+  if (section === undefined) throw new RangeError(`Settings: no section ${key} in the copy`);
+  return section;
+}
 
 export function Settings({ spec, view }: { spec: DesignSpec; view: View }) {
   const copy = copyOf("settings", view.copy);
@@ -152,7 +155,7 @@ function Section({
   roles?: string;
   children: ReactNode;
 }) {
-  const { title, intro } = SECTION[to];
+  const { title, intro } = sectionOf(to);
   return (
     <section
       aria-labelledby={target(to)}
@@ -267,12 +270,7 @@ function Moorings({ copy }: { copy: CanvasCopy }) {
           autoComplete="off"
           messages={{ success: moorings.home.message }}
         />
-        <Select
-          label={moorings.units.label}
-          state="default"
-          options={moorings.units.options}
-          invalid=""
-        />
+        <Select label={moorings.units.label} state="default" options={moorings.units.options} />
       </div>
       <fieldset className="kit-fieldset">
         <legend className="kit-legend kit-t-label" data-roles="foreground">
