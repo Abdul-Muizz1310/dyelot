@@ -2,6 +2,7 @@
 
 import { type RefObject, useLayoutEffect } from "react";
 import { Canvas } from "@/features/preview/Canvas";
+import { FIXED_FRAMES } from "@/features/preview/templates";
 import { useFitStore, useFrameFit } from "@/features/preview/useFrameFit";
 import { type StudioStore, useStudio } from "./store";
 
@@ -23,7 +24,9 @@ export function CanvasArea({
   const busy = useStudio(store, (studio) => studio.status.phase === "generating");
   const spec = useStudio(store, (studio) => studio.spec);
   const view = useStudio(store, (studio) => studio.view);
-  const { stageRef, fit } = useFrameFit(view.frame);
+  // The mobile template keeps its own width: its board takes the canvas area's (F-TPL-32).
+  const board = FIXED_FRAMES[view.template] !== undefined;
+  const { stageRef, fit, width } = useFrameFit(view.frame, board);
   const fitStore = useFitStore();
   // Before paint, so the switcher never shows a stale fit.
   useLayoutEffect(() => {
@@ -39,9 +42,11 @@ export function CanvasArea({
       tabIndex={0}
       data-canvas-region=""
       inert={inert}
-      className="studio-canvas p-4 md:p-6"
+      // Below 768 px the board keeps an 8 px side margin, so a phone window shows its 360 px screens at
+      // a fit of 0.95 or more (section 7.4).
+      className={`studio-canvas ${board ? "px-2 py-4 md:p-6" : "p-4 md:p-6"}`}
     >
-      <Canvas spec={spec} view={view} stageRef={stageRef} scale={fit.scale} />
+      <Canvas spec={spec} view={view} stageRef={stageRef} scale={fit.scale} width={width} />
     </main>
   );
 }

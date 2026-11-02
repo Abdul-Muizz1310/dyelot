@@ -14,18 +14,22 @@ import { canvasStyle } from "./vars";
 // `[data-canvas]` of the view's mode: it carries `themeVars(spec, mode, { vision, units: "cqi" })`
 // and the density's two properties, and keeps its layout width (360, 768 or 1280 px) so templates
 // answer to it by container query. A frame wider than the canvas area scales down as a whole
-// (R2-16 item 3); `.canvas-fit` holds the scaled size in the page's layout.
+// (R2-16 item 3); `.canvas-fit` holds the scaled size in the page's layout. `width` is the frame's
+// layout width: the named frame, or the mobile template's board (F-TPL-32); `data-frame` keeps the
+// view's frame either way.
 
 export function Canvas({
   spec,
   view,
   stageRef,
   scale,
+  width,
 }: {
   spec: DesignSpec;
   view: View;
   stageRef: RefObject<HTMLDivElement | null>;
   scale: number;
+  width: number;
 }) {
   const style = useMemo(
     () => canvasStyle(spec, view.mode, { vision: view.vision, density: view.density }),
@@ -46,11 +50,11 @@ export function Canvas({
   }, []);
   return (
     <div ref={stageRef} data-canvas-stage="" className="canvas-stage">
-      <div className="canvas-fit" style={{ width: view.frame * scale, height: height * scale }}>
+      <div className="canvas-fit" style={{ width: width * scale, height: height * scale }}>
         <div
           data-canvas-scale=""
           className="canvas-scale"
-          style={{ width: view.frame, transform: `scale(${scale})` }}
+          style={{ width, transform: `scale(${scale})` }}
         >
           <div
             ref={frame}

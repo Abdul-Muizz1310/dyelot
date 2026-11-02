@@ -26,12 +26,15 @@ import {
 import {
   antiSlop,
   brokenWords,
+  controlLabels,
+  eachTab,
   equalIconSiblings,
   figureLines,
   HERO_FIGURE,
   heroMetrics,
   mobileOverflow,
   mountMotion,
+  openSheet,
   overflow,
   paintedContrast,
   pictographs,
@@ -43,6 +46,7 @@ import {
   showTemplate,
   slop,
   smallTargets,
+  TABS,
   TYPE_STEPS,
   templateRoot,
   typeStepOf,
@@ -1122,11 +1126,21 @@ test.describe("7.6 The landing and editorial templates", () => {
           expect(report.off, `${label} ${frame} ${id}`).toEqual([]);
         }
       }
-      // The mobile template once: its screens are 360 px whatever the switcher holds.
-      const mobile = await typeTriples(await showTemplate(page, "mobile"));
-      expect(mobile.checked, `${label} mobile`).toBeGreaterThan(25);
-      expect(mobile.classes, `${label} mobile classes`).toEqual([]);
-      expect(mobile.off, `${label} mobile`).toEqual([]);
+      // The mobile template once (its screens are 360 px whatever the switcher holds), with each tab
+      // panel shown and once with the sheet open.
+      const mobile = await showTemplate(page, "mobile");
+      await eachTab(mobile, async (tab) => {
+        const report = await typeTriples(mobile);
+        expect(report.checked, `${label} mobile ${tab}`).toBeGreaterThan(25);
+        expect(report.classes, `${label} mobile ${tab} classes`).toEqual([]);
+        expect(report.off, `${label} mobile ${tab}`).toEqual([]);
+      });
+      const sheet = await openSheet(mobile);
+      const open = await typeTriples(sheet);
+      expect(open.checked, `${label} mobile sheet`).toBeGreaterThan(5);
+      expect(open.off, `${label} mobile sheet`).toEqual([]);
+      await page.keyboard.press("Escape");
+      await expect(sheet).toHaveCount(0);
       await showTemplate(page, "landing");
     };
     await check("default");
@@ -1502,6 +1516,23 @@ test("F-TPL-40 every preset fits the page templates at 360 and 768 and the mobil
       }
       await page.keyboard.press("Escape");
       await expect(sheet).toHaveCount(0);
+      // Under edge copy, the stress case, the three other tab panels too.
+      if (copy === "Edge-case copy") {
+        await eachTab(mobile, async (tab) => {
+          if (tab === "Alerts") return;
+          const [panel, panelWords] = await Promise.all([
+            mobileOverflow(mobile),
+            brokenWords(screenOf(mobile, "tabs")),
+          ]);
+          if (panelWords.checked < 10) {
+            failures.push(`${name} ${tab}: only ${panelWords.checked} words measured`);
+          }
+          failures.push(...panel.map((part) => `${name} ${tab}: ${part}`));
+          if (panelWords.broken.length > 0) {
+            failures.push(`${name} ${tab}: ${panelWords.broken.join(", ")}`);
+          }
+        });
+      }
     }
   }
   console.log(`F-TPL-40: ${measured} views in ${((Date.now() - started) / 1000).toFixed(1)} s`);
@@ -1746,32 +1777,7 @@ test.describe("7.7 The dashboard and settings templates", () => {
 
   test("F-TPL-28 the settings page renders every input type, each with a visible label", async () => {
     const root = await showTemplate(page, "settings");
-    const controls = await root.evaluate((element) =>
-      [
-        ...element.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
-          "input, textarea, select, [role='switch']",
-        ),
-      ].map((control) => {
-        const kind =
-          control.getAttribute("role") === "switch"
-            ? "switch"
-            : control instanceof HTMLInputElement
-              ? control.type
-              : control.tagName.toLowerCase();
-        const shown = (node: Element | null | undefined) =>
-          node != null &&
-          node.getBoundingClientRect().width > 1 &&
-          (node.textContent ?? "").trim() !== "";
-        const labels = [...(control.labels ?? [])];
-        const group = control.closest("fieldset");
-        const legend = group?.querySelector(":scope > legend");
-        // A control in a group needs the group's legend on screen as well as its own label.
-        const labeled =
-          (labels.some(shown) || (kind === "switch" && shown(control))) &&
-          (group == null || shown(legend));
-        return { kind, labeled, id: control.id, legend: group == null ? null : shown(legend) };
-      }),
-    );
+    const controls = await controlLabels(root);
     // At least one radio group and one checkbox group show their legend.
     for (const kind of ["radio", "checkbox"]) {
       expect(
@@ -2254,16 +2260,54 @@ test("F-TPL-27 the shared color resolver reads every syntax the browser computes
   expect(fromComputed?.[3]).toBe(1);
 });
 
-/** The mobile tab bar's tabs, in order, and the one the template opens on (section 7.7). */
-const TABS = ["Today", "Places", "Alerts", "Crew"] as const;
-
 /**
  * The parts where axe may leave color-contrast nodes undecided in the mobile template (F-TPL-36): the
- * open bottom sheet. Axe compares the stack of elements under each line of a text, and the lines of a
- * sheet's wrapped sentence lie over different parts of the inert screen beneath it ("partially
- * overlaps other elements"), though the sheet's own opaque fill covers them all.
+ * open sheet's title and its sentence. Axe compares the stack of elements under each line of a text,
+ * and the lines of each wrapped text lie over different parts of the inert screen beneath the sheet
+ * ("partially overlaps other elements"), though the sheet's own opaque fill covers them all.
  */
-const MOBILE_UNDECIDED: readonly string[] = [".kit-bottom-sheet"];
+const MOBILE_UNDECIDED: readonly string[] = [".kit-bottom-sheet-title", ".kit-bottom-sheet > p"];
+
+/** The mobile board's shape: the fit, the canvas frame's and the area's widths, each screen. */
+function boardShape(root: Locator) {
+  return root.evaluate((element) => {
+    const frame = element.closest<HTMLElement>("[data-canvas][data-frame]");
+    const stage = element.closest<HTMLElement>("[data-canvas-stage]");
+    if (frame === null || stage === null) throw new Error("no frame or stage");
+    const outer = frame.getBoundingClientRect();
+    const scale = outer.width / frame.offsetWidth;
+    const probe = (host: Element) => {
+      const span = document.createElement("span");
+      span.className = "kit-sr-only-below-768";
+      span.textContent = "A probe of the frame container";
+      host.append(span);
+      const width = span.getBoundingClientRect().width / scale;
+      span.remove();
+      return width;
+    };
+    // The body step as it shows: a mooring's name, its computed size times the fit.
+    const body = element.querySelector(".mb-list-item > .kit-t-body");
+    return {
+      fit: scale,
+      width: frame.offsetWidth,
+      area: stage.clientWidth,
+      bodyPx: body === null ? 0 : Number.parseFloat(getComputedStyle(body).fontSize) * scale,
+      board: probe(element),
+      screens: [...element.querySelectorAll<HTMLElement>("[data-phone]")].map((screen) => {
+        const box = screen.getBoundingClientRect();
+        const style = getComputedStyle(screen);
+        return {
+          name: screen.dataset.phone,
+          width: screen.offsetWidth,
+          container: `${style.containerType} ${style.containerName}`,
+          top: Math.round((box.top - outer.top) / scale),
+          inside: box.left >= outer.left - 0.5 && box.right <= outer.right + 0.5,
+          probe: probe(screen),
+        };
+      }),
+    };
+  });
+}
 
 /** Shows the mobile template with the frame switcher holding `held`, chosen on the landing page first. */
 async function showMobile(page: Page, held: 360 | 768 | 1280): Promise<Locator> {
@@ -2272,48 +2316,6 @@ async function showMobile(page: Page, held: 360 | 768 | 1280): Promise<Locator> 
   const root = await showTemplate(page, "mobile");
   await expect(canvasFrame(page)).toHaveAttribute("data-frame", String(held));
   return root;
-}
-
-/**
- * Selects each tab of the mobile tab bar in turn, waits for the bar to come to rest (a pill's fill
- * transitions between its roles), runs `run`, and selects "Alerts" again.
- */
-async function eachTab(root: Locator, run: (tab: string) => Promise<void>): Promise<void> {
-  const bar = screenOf(root, "tabs").getByRole("tablist");
-  for (const tab of TABS) {
-    await bar.getByRole("tab", { name: tab, exact: true }).click();
-    await expect(bar.getByRole("tab", { name: tab, exact: true })).toHaveAttribute(
-      "aria-selected",
-      "true",
-    );
-    await bar.evaluate((element) =>
-      Promise.allSettled(
-        element.getAnimations({ subtree: true }).map((animation) => animation.finished),
-      ),
-    );
-    await run(tab);
-  }
-  await bar.getByRole("tab", { name: "Alerts", exact: true }).click();
-}
-
-/**
- * Opens the mobile template's bottom sheet and waits until it has risen. Once the sheet has risen it
- * settles (`animation: none`), which may cancel the scrim's last frame: a cancelled animation counts as
- * done.
- */
-async function openSheet(root: Locator): Promise<Locator> {
-  const detail = screenOf(root, "detail");
-  await detail.getByRole("button", { name: "Set an alert", exact: true }).click();
-  const sheet = detail.getByRole("dialog");
-  await expect(sheet).toBeVisible();
-  await sheet.evaluate((element) =>
-    Promise.allSettled(
-      (element.closest(".kit-sheet-layer") ?? element)
-        .getAnimations({ subtree: true })
-        .map((animation) => animation.finished),
-    ),
-  );
-  return sheet;
 }
 
 /** Counts every Escape that reaches the window in `window.__escapes` (F-TPL-34). */
@@ -2345,103 +2347,115 @@ test.describe("7.7 The mobile template", () => {
     await page.context().close();
   });
 
-  test("F-TPL-32 three 360 px screens whatever the frame, and the switcher waits for another template", async () => {
+  test("F-TPL-32 three 360 px screens at the canvas area's width, whatever the frame, and the switcher waits", async () => {
     const frames = page
       .getByRole("region", { name: "Canvas toolbar" })
       .getByRole("group", { name: "Frame", exact: true });
-    for (const [held, rows] of [
-      [360, 3],
-      [768, 2],
-      [1280, 1],
-    ] as const) {
+    /** Every screen is a 360 px size container named frame, inside the canvas frame. */
+    const expectScreens = (shape: Awaited<ReturnType<typeof boardShape>>, name: string) => {
+      expect(shape.screens.map((screen) => screen.name)).toEqual(["feed", "detail", "tabs"]);
+      for (const screen of shape.screens) {
+        const label = `${name} ${screen.name}`;
+        expect(screen.width, label).toBe(360);
+        expect(screen.container, label).toMatch(/^inline-size .*\bframe\b/);
+        // At most 1 × 1 px, measured through the fit's scale (1.01 as the overflow measure allows).
+        expect(screen.probe, `${label}: the probe is hidden inside the screen`).toBeLessThanOrEqual(
+          1.01,
+        );
+        expect(screen.inside, `${label}: inside the canvas frame`).toBe(true);
+      }
+    };
+    // Whatever frame the switcher held, the board takes the canvas area's width.
+    for (const held of [360, 768, 1280] as const) {
       const root = await showMobile(page, held);
-      // The switcher is disabled, and its note says why.
       const radios = frames.getByRole("radio");
       await expect(radios).toHaveCount(3);
       for (const radio of await radios.all()) await expect(radio, `${held}`).toBeDisabled();
       await expect(frames).toHaveAccessibleDescription("Three 360 px screens");
-      // Each screen is a 360 px size container named frame: a probe of the kit's below-768 class is
-      // hidden inside it, while on the board it follows the canvas frame.
-      const shape = await root.evaluate((element) => {
-        const frame = element.closest<HTMLElement>("[data-canvas][data-frame]");
-        if (frame === null) throw new Error("no frame");
-        const outer = frame.getBoundingClientRect();
-        const scale = outer.width / frame.offsetWidth;
-        const probe = (host: Element) => {
-          const span = document.createElement("span");
-          span.className = "kit-sr-only-below-768";
-          span.textContent = "A probe of the frame container";
-          host.append(span);
-          const width = span.getBoundingClientRect().width / scale;
-          span.remove();
-          return width;
-        };
-        return {
-          fit: scale,
-          board: probe(element),
-          screens: [...element.querySelectorAll<HTMLElement>("[data-phone]")].map((screen) => {
-            const box = screen.getBoundingClientRect();
-            const style = getComputedStyle(screen);
-            return {
-              name: screen.dataset.phone,
-              width: screen.offsetWidth,
-              container: `${style.containerType} ${style.containerName}`,
-              top: Math.round((box.top - outer.top) / scale),
-              inside: box.left >= outer.left - 0.5 && box.right <= outer.right + 0.5,
-              probe: probe(screen),
-            };
-          }),
-        };
-      });
-      expect(shape.screens.map((screen) => screen.name)).toEqual(["feed", "detail", "tabs"]);
-      for (const screen of shape.screens) {
-        const name = `${held} ${screen.name}`;
-        expect(screen.width, name).toBe(360);
-        expect(screen.container, name).toMatch(/^inline-size .*\bframe\b/);
-        // At most 1 × 1 px, measured through the fit's scale (1.01 as the overflow measure allows).
-        expect(screen.probe, `${name}: the probe is hidden inside the screen`).toBeLessThanOrEqual(
-          1.01,
-        );
-        expect(screen.inside, `${name}: inside the canvas frame`).toBe(true);
-      }
-      expect(new Set(shape.screens.map((screen) => screen.top)).size, `${held} rows`).toBe(rows);
-      if (held === 1280) {
-        expect(shape.fit, "the 1280 frame scales down").toBeLessThan(1);
-        expect(shape.board, "the board's probe is laid out at 1280").toBeGreaterThan(1);
-      }
-      expect(await mobileOverflow(root), `${held}`).toEqual([]);
+      const shape = await boardShape(root);
+      expectScreens(shape, `held ${held}`);
+      expect(shape.width, `held ${held}: the area's width`).toBe(
+        Math.min(1280, Math.max(360, shape.area)),
+      );
+      expect(new Set(shape.screens.map((screen) => screen.top)).size, `held ${held} rows`).toBe(3);
+      expect(await mobileOverflow(root), `held ${held}`).toEqual([]);
     }
+    // With the 1280 frame held, at three windows: the screens read at full size.
+    for (const [width, height, rows] of [
+      [1280, 800, 3],
+      [1440, 900, 3],
+      [360, 740, 3],
+      [1920, 1080, 1],
+    ] as const) {
+      await page.setViewportSize({ width, height });
+      const root = templateRoot(page, "mobile");
+      await expect(canvasFrame(page)).toHaveAttribute("data-frame", "1280");
+      // The board follows the stage once its width is measured again.
+      await expect
+        .poll(async () => {
+          const now = await boardShape(root);
+          return now.width === Math.min(1280, Math.max(360, now.area));
+        }, `${width}×${height}: the board takes the area's width`)
+        .toBe(true);
+      const shape = await boardShape(root);
+      const name = `${width}×${height}`;
+      expectScreens(shape, name);
+      expect(shape.fit, `${name} fit`).toBeGreaterThanOrEqual(0.95);
+      expect(shape.bodyPx, `${name} the body step on screen`).toBeGreaterThanOrEqual(14);
+      expect(new Set(shape.screens.map((screen) => screen.top)).size, `${name} rows`).toBe(rows);
+      if (width === 1920) {
+        expect(shape.board, "the board's probe is laid out at 1920 × 1080").toBeGreaterThan(1);
+      }
+      expect(await mobileOverflow(root), name).toEqual([]);
+    }
+    await page.setViewportSize({ width: 1280, height: 800 });
     // Another template brings the switcher back with the frame it held.
     await showTemplate(page, "landing");
     for (const radio of await frames.getByRole("radio").all()) await expect(radio).toBeEnabled();
     await expect(frames.getByRole("radio", { name: "1280", exact: true })).toBeChecked();
     await expect(canvasFrame(page)).toHaveAttribute("data-frame", "1280");
     await expect(frames).toHaveAccessibleDescription(/^fit \d+%$/);
+    expect(
+      await canvasFrame(page).evaluate((frame) => (frame as HTMLElement).offsetWidth),
+      "the landing takes the held frame again",
+    ).toBe(1280);
   });
 
   test("F-TPL-33 every button, link, tab and input in the screens has a 44 × 44 px hit area", async () => {
-    for (const held of [1280, 360] as const) {
-      const root = await showMobile(page, held);
-      for (const density of ["comfortable", "dense"] as const) {
-        await toolbarRadio(page, "Density", density).check();
-        await expect(canvasFrame(page)).toHaveAttribute("data-density", density);
+    const root = await showMobile(page, 1280);
+    for (const density of ["comfortable", "dense"] as const) {
+      // The density is set at 1280 × 800, where its group is in the toolbar, and holds at 360 × 740.
+      await page.setViewportSize({ width: 1280, height: 800 });
+      await toolbarRadio(page, "Density", density).check();
+      await expect(canvasFrame(page)).toHaveAttribute("data-density", density);
+      for (const [width, height] of [
+        [1280, 800],
+        [360, 740],
+      ] as const) {
+        await page.setViewportSize({ width, height });
+        const name = `${width}×${height} ${density}`;
+        const fit = await canvasFrame(page).evaluate(
+          (frame) => frame.getBoundingClientRect().width / (frame as HTMLElement).offsetWidth,
+        );
+        if (width === 360) expect(fit, `${name}: fit below 1`).toBeLessThan(1);
         let checked = 0;
-        for (const name of SCREENS) {
-          const report = await smallTargets(screenOf(root, name));
+        for (const screen of SCREENS) {
+          const report = await smallTargets(screenOf(root, screen));
           checked += report.checked;
-          expect(report.small, `${held} ${density} ${name}`).toEqual([]);
+          expect(report.small, `${name} ${screen}`).toEqual([]);
         }
-        expect(checked, `${held} ${density} targets`).toBeGreaterThanOrEqual(12);
+        expect(checked, `${name} targets`).toBeGreaterThanOrEqual(12);
         // With the sheet open: its lead times and its two buttons.
         const sheet = await openSheet(root);
         const open = await smallTargets(sheet);
-        expect(open.checked, `${held} ${density} sheet targets`).toBeGreaterThanOrEqual(6);
-        expect(open.small, `${held} ${density} sheet`).toEqual([]);
+        expect(open.checked, `${name} sheet targets`).toBeGreaterThanOrEqual(6);
+        expect(open.small, `${name} sheet`).toEqual([]);
         await page.keyboard.press("Escape");
         await expect(sheet).toHaveCount(0);
       }
-      await toolbarRadio(page, "Density", "comfortable").check();
     }
+    await page.setViewportSize({ width: 1280, height: 800 });
+    await toolbarRadio(page, "Density", "comfortable").check();
     await showTemplate(page, "landing");
     await setFrame(page, 1280);
   });
@@ -2494,13 +2508,17 @@ test.describe("7.7 The mobile template", () => {
             style.borderBottomLeftRadius,
           ],
           radius,
-          // The rest of the detail screen is inert; the other screens are not.
+          // The rest of the detail screen is inert, and so is every element of the other screens.
           rest: [...screen.querySelectorAll("*")]
             .filter((node) => !layer.contains(node))
             .every((node) => node.closest("[inert]") !== null),
           others: [...document.querySelectorAll("[data-phone]")]
             .filter((other) => other !== screen)
-            .every((other) => other.closest("[inert]") === null && !other.querySelector("[inert]")),
+            .map((other) => [...other.querySelectorAll("*")])
+            .every(
+              (nodes) =>
+                nodes.length > 10 && nodes.every((node) => node.closest("[inert]") !== null),
+            ),
         };
       });
       expect(placed.modal).toBe(false);
@@ -2512,7 +2530,14 @@ test.describe("7.7 The mobile template", () => {
       expect(placed.shadow, "--shadow-4").toBe(true);
       expect(placed.corners).toEqual([placed.radius, placed.radius, "0px", "0px"]);
       expect(placed.rest, "the rest of the detail screen is inert").toBe(true);
-      expect(placed.others, "the other screens are not").toBe(true);
+      expect(placed.others, "the other screens are inert too").toBe(true);
+      // The lead times are a radio group whose legend shows, and each lead time's label shows.
+      const radios = (await controlLabels(sheet)).filter((control) => control.kind === "radio");
+      expect(radios, "four lead times").toHaveLength(4);
+      for (const radio of radios) {
+        expect(radio.legend, `${radio.id}: the group's legend shows`).toBe(true);
+        expect(radio.labeled, `${radio.id}: its label shows`).toBe(true);
+      }
       await expect(sheet.getByRole("radio", { checked: true })).toBeFocused();
       for (const key of ["Tab", "Tab", "Tab", "Tab", "Shift+Tab", "Shift+Tab"]) {
         await page.keyboard.press(key);
@@ -2545,27 +2570,49 @@ test.describe("7.7 The mobile template", () => {
       await expect(opener).toBeFocused();
     }
     expect(await escapes(), "Escapes that reached the window").toBe(0);
-    // It rises over --duration-base with --ease-decelerate, and not at all under reduced motion.
+    // It rises over --duration-base with --ease-decelerate, read as the rise starts, so a busy runner
+    // that reaches the sheet after it has settled cannot miss it; and not at all under reduced motion.
+    type Rise = { name: string; duration: boolean; easing: boolean };
+    await page.evaluate(() => {
+      const host = window as unknown as { __rise: Rise | null; __riseListening?: boolean };
+      host.__rise = null;
+      if (host.__riseListening) return;
+      host.__riseListening = true;
+      document.addEventListener(
+        "animationstart",
+        (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement) || !target.classList.contains("kit-bottom-sheet")) {
+            return;
+          }
+          if (host.__rise !== null) return;
+          const probe = document.createElement("span");
+          probe.style.animationDuration = "var(--duration-base)";
+          probe.style.animationTimingFunction = "var(--ease-decelerate)";
+          target.append(probe);
+          const expected = getComputedStyle(probe);
+          const own = getComputedStyle(target);
+          host.__rise = {
+            name: own.animationName,
+            duration: own.animationDuration === expected.animationDuration,
+            easing: own.animationTimingFunction === expected.animationTimingFunction,
+          };
+          probe.remove();
+        },
+        true,
+      );
+    });
     await opener.click();
     const sheet = detail.getByRole("dialog");
-    const rise = await sheet.evaluate((element) => {
-      const probe = document.createElement("span");
-      probe.style.animationDuration = "var(--duration-base)";
-      probe.style.animationTimingFunction = "var(--ease-decelerate)";
-      element.append(probe);
-      const expected = getComputedStyle(probe);
-      const own = getComputedStyle(element);
-      const result = {
-        name: own.animationName,
-        duration: own.animationDuration === expected.animationDuration,
-        easing: own.animationTimingFunction === expected.animationTimingFunction,
-      };
-      probe.remove();
-      return result;
-    });
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __rise: Rise | null }).__rise))
+      .not.toBeNull();
+    const rise = await page.evaluate(
+      () => (window as unknown as { __rise: Rise | null }).__rise ?? { name: "none" },
+    );
     expect(rise.name).not.toBe("none");
-    expect(rise.duration, "--duration-base").toBe(true);
-    expect(rise.easing, "--ease-decelerate").toBe(true);
+    expect("duration" in rise && rise.duration, "--duration-base").toBe(true);
+    expect("easing" in rise && rise.easing, "--ease-decelerate").toBe(true);
     await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
     const reduce = page.getByRole("switch", { name: "Reduce motion", exact: true });
     await reduce.click();
@@ -2624,6 +2671,7 @@ test.describe("7.7 The mobile template", () => {
                     role: panel.getAttribute("role"),
                     labelled: panel.getAttribute("aria-labelledby") === tab.id,
                     shown: !panel.hidden && panel.getBoundingClientRect().height > 0,
+                    stop: panel.tabIndex,
                   },
           };
         }),
@@ -2638,11 +2686,13 @@ test.describe("7.7 The mobile template", () => {
         const on = tab.name === name;
         expect(tab.selected, `${label} ${tab.name}`).toBe(String(on));
         expect(tab.stop, `${label} ${tab.name} tab stop`).toBe(on ? 0 : -1);
-        expect(tab.panel, `${label} ${tab.name} panel`).toEqual({
+        expect(tab.panel, `${label} ${tab.name} panel`).toMatchObject({
           role: "tabpanel",
           labelled: true,
           shown: on,
         });
+        // The selected panel is a tab stop, so a keyboard reaches its text from the tab.
+        if (on) expect(tab.panel?.stop, `${label} ${tab.name} panel stop`).toBe(0);
       }
     };
     await expectSelected("Alerts", "first");
@@ -2691,7 +2741,7 @@ test.describe("7.7 The mobile template", () => {
     await settled(page);
   });
 
-  test("F-TPL-36 axe finds no violation in the mobile template, in light and dark, at 1280 and 360, and with the sheet open", async () => {
+  test("F-TPL-36 axe finds no violation in the mobile template, in light and dark, at 1280 × 800 and 360 × 740, and with the sheet open", async () => {
     const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
     /** Axe on the canvas frame: no violation, and each undecided node pinned and measured. */
     const scan = async (name: string) => {
@@ -2721,20 +2771,26 @@ test.describe("7.7 The mobile template", () => {
         );
       }
     };
+    const root = await showMobile(page, 1280);
     for (const mode of MODES) {
-      for (const frame of [1280, 360] as const) {
-        const root = await showMobile(page, frame);
-        if (mode === "dark" && (await canvasFrame(page).getAttribute("data-mode")) !== "dark") {
-          await dark.click();
-        }
-        await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
-        await scan(`${mode} ${frame}`);
+      // The mode is set at 1280 × 800, where its switch is in the toolbar, and holds at 360 × 740.
+      await page.setViewportSize({ width: 1280, height: 800 });
+      if (mode === "dark") await dark.click();
+      await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+      for (const [width, height] of [
+        [1280, 800],
+        [360, 740],
+      ] as const) {
+        await page.setViewportSize({ width, height });
+        const name = `${mode} ${width}×${height}`;
+        await scan(name);
         const sheet = await openSheet(root);
-        await scan(`${mode} ${frame} with the sheet open`);
+        await scan(`${name} with the sheet open`);
         await page.keyboard.press("Escape");
         await expect(sheet).toHaveCount(0);
       }
     }
+    await page.setViewportSize({ width: 1280, height: 800 });
     await dark.click();
     await expect(canvasFrame(page)).toHaveAttribute("data-mode", "light");
     await showTemplate(page, "landing");

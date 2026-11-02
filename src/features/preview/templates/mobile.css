@@ -1,8 +1,8 @@
 /* ─────────────────────────────────────────────────────────────
  * The mobile template (spec section 7.7): three 360 px phone
- * screens on a `muted` board. The board answers the canvas
- * frame (`@container frame`): the screens wrap inside it, three
- * in a row at 1280, two and one at 768, one per row at 360.
+ * screens on a `muted` board. The board takes the canvas area's
+ * width (section 7.4), and the screens wrap inside it: one per
+ * row in a narrow area, three in a row in a wide one.
  * Inside a screen every container query answers its 360 px
  * (kit/phone.css), so the screens are designed for that one
  * width. Radius and spacing step with hierarchy: screens 2xl,
@@ -22,11 +22,10 @@
   justify-content: center;
   gap: var(--space-8) var(--space-6);
 }
-@container frame (min-width: 1000px) {
-  .mb {
-    padding-inline: var(--space-8);
-  }
-}
+/* The board keeps no side padding of its own: centering gives the margins, and nothing on the board
+ * answers the canvas frame's width. The frame changes width as the template mounts (from the held
+ * frame to the board's), and a style that followed it would change once after mount: under reduced
+ * motion, a transition. */
 
 /* ── A screen: its gutter, and its parts in one column ────── */
 .mb-screen {

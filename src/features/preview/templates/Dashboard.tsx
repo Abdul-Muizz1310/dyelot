@@ -12,6 +12,7 @@ import {
   type GaugeState,
   DASHBOARD_TEXT as TEXT,
 } from "../copy";
+import { signed } from "../format";
 import {
   Badge,
   BarsLegend,
@@ -56,10 +57,6 @@ const STATE_TONES: Readonly<Record<GaugeState, Tone>> = {
 
 /** The week's alerts, stacked: one source for the bars, the figure's name and its table. */
 const ALERTS = stackBars(TEXT.alerts.kinds, 5);
-
-/** A signed change in meters with a true minus sign: "+0.2", "−0.4". */
-const signed = (meters: number) =>
-  `${meters > 0 ? "+" : meters < 0 ? "−" : ""}${Math.abs(meters).toFixed(1)}`;
 
 export function Dashboard({ view }: { view: View }) {
   const copy = copyOf("dashboard", view.copy);

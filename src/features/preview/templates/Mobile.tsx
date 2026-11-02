@@ -23,6 +23,7 @@ import {
   SAMPLE_PLACES,
   MOBILE_TEXT as TEXT,
 } from "../copy";
+import { signed } from "../format";
 import {
   Avatar,
   Badge,
@@ -45,7 +46,8 @@ import { clock, TIDE_EVENTS, TIDE_RANGE, type TideEvent, tideAt } from "../tide"
 // The mobile template (spec section 7.7): Saltmarsh's phone app, fictional and labeled "sample", as
 // three 360 px screens on a board: the feed, a mooring's detail with its bottom sheet, and the app's
 // tab bar. Each screen is a size container named `frame` and a touch surface, whatever the canvas
-// frame holds. The sheet's open state, the lead time saved and the one picked, and the selected tab
+// frame holds. While the sheet is open the rest of the template is inert, the other two screens
+// included, so `aria-modal` holds and no link moves focus into the inert detail. The sheet's open state, the lead time saved and the one picked, and the selected tab
 // live here, the template's root, so a view toggle keeps them. Under edge-case copy the slots of
 // R2-21 swap in.
 
@@ -67,10 +69,6 @@ const STATE_TONES: Readonly<Record<GaugeState, Tone>> = {
   late: "warning",
   offline: "destructive",
 };
-
-/** A signed change in meters with a true minus sign: "+0.2", "−0.8". */
-const signed = (meters: number) =>
-  `${meters > 0 ? "+" : meters < 0 ? "−" : ""}${Math.abs(meters).toFixed(1)}`;
 
 /** The name of a tide event's kind. */
 const kindOf = (event: TideEvent) =>
@@ -108,7 +106,7 @@ export function Mobile({ view }: { view: View }) {
   return (
     <div data-template-root="mobile" className="mb" data-roles="muted muted-foreground">
       <Entrance className="mb-row">
-        <PhoneScreen name="feed" number="01" caption={TEXT.screens.feed} time={time}>
+        <PhoneScreen name="feed" number="01" caption={TEXT.screens.feed} time={time} inert={open}>
           <Feed copy={copy} />
         </PhoneScreen>
         <PhoneScreen
@@ -153,7 +151,7 @@ export function Mobile({ view }: { view: View }) {
             }}
           />
         </PhoneScreen>
-        <PhoneScreen name="tabs" number="03" caption={TEXT.screens.tabs} time={time}>
+        <PhoneScreen name="tabs" number="03" caption={TEXT.screens.tabs} time={time} inert={open}>
           <Tabs tab={tab} onTab={setTab} />
         </PhoneScreen>
       </Entrance>

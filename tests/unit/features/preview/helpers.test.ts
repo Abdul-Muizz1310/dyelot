@@ -12,7 +12,7 @@ import {
   SAMPLE_PLACES,
   SETTINGS_TEXT,
 } from "@/features/preview/copy";
-import { FRAMES, frameFit } from "@/features/preview/frame";
+import { boardFit, FRAMES, frameFit } from "@/features/preview/frame";
 import {
   BUTTON_VARIANTS,
   KIT_COMPONENTS,
@@ -62,6 +62,26 @@ describe("frameFit (R2-16 item 3, F-CANVAS-03)", () => {
     expect(() => frameFit("500" as never, 360)).toThrow(TypeError);
     expect(() => frameFit(500, "360" as never)).toThrow(TypeError);
     expect(() => frameFit(500, "360" as never)).toThrow(/frameFit/);
+  });
+});
+
+describe("boardFit (section 6.14, F-TPL-32)", () => {
+  it("C-BOARD-01 takes the canvas area's width, clamped to 360 to 1280 px, at a fit of 1 or near it", () => {
+    expect(boardFit(600)).toEqual({ width: 600, scale: 1, label: "fit 100%" });
+    expect(boardFit(1240)).toEqual({ width: 1240, scale: 1, label: "fit 100%" });
+    expect(boardFit(1600)).toEqual({ width: 1280, scale: 1, label: "fit 100%" });
+    expect(boardFit(344)).toEqual({ width: 360, scale: 344 / 360, label: "fit 95%" });
+    expect(boardFit(360)).toEqual({ width: 360, scale: 1, label: "fit 100%" });
+    expect(boardFit(1280).width).toBe(1280);
+  });
+
+  it("C-BOARD-02 R-05: a value that is not a number is a TypeError, one not positive and finite a RangeError", () => {
+    expect(() => boardFit("600" as never)).toThrow(TypeError);
+    expect(() => boardFit("600" as never)).toThrow(/^boardFit/);
+    for (const value of [0, -10, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() => boardFit(value)).toThrow(RangeError);
+      expect(() => boardFit(value)).toThrow(/^boardFit/);
+    }
   });
 });
 

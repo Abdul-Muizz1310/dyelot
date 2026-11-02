@@ -3,7 +3,7 @@
 import "./surfaces.css";
 import "./sheet.css";
 import { useReducedMotionConfig } from "motion/react";
-import { type ReactNode, useId, useLayoutEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { containKeys, tabStops } from "./contain";
 
 // The kit's bottom sheet (spec section 7.7, F-TPL-34): a contained `dialog` at the bottom of the
@@ -12,8 +12,8 @@ import { containKeys, tabStops } from "./contain";
 // focus to its first stop, keeps Tab and Shift+Tab inside, and closes on Escape, which it stops. Under
 // the pointer focus stays inside: the sheet itself takes focus when its text is clicked, and a press
 // on the scrim leaves focus where it was. It rises once, on the spec's base duration and decelerate
-// easing; once risen, or opened under reduced motion, it is settled, so a later motion toggle never
-// raises it again.
+// easing; once risen, opened under reduced motion, or with its rise cancelled by a motion toggle, it is
+// settled, so a later motion toggle never raises it again.
 
 export function BottomSheet({
   title,
@@ -21,7 +21,10 @@ export function BottomSheet({
   onClose,
   children,
 }: {
-  /** The sheet's name, its `h3`. */
+  /**
+   * The sheet's name, its `h2`: while the sheet is open the rest of its template is inert, so its
+   * heading follows the page's `h1`, as the confirm dialog's does.
+   */
   title: string;
   /** The sentence that describes it. */
   body: string;
@@ -37,6 +40,17 @@ export function BottomSheet({
   useLayoutEffect(() => {
     const element = sheet.current;
     if (element !== null) (tabStops(element)[0] ?? element).focus();
+  }, []);
+  // A motion toggle during the rise cancels it, and no `animationend` follows: settle then too. React
+  // has no `onAnimationCancel`, so the listener is the element's own.
+  useEffect(() => {
+    const element = sheet.current;
+    if (element === null) return;
+    const settle = (event: AnimationEvent) => {
+      if (event.target === element) setSettled(true);
+    };
+    element.addEventListener("animationcancel", settle);
+    return () => element.removeEventListener("animationcancel", settle);
   }, []);
   return (
     // The scrim is not a control: a press on it only keeps focus inside the sheet.
@@ -64,13 +78,13 @@ export function BottomSheet({
         onKeyDown={(event) => containKeys(event, sheet.current, onClose)}
       >
         <span className="kit-sheet-grabber" aria-hidden="true" />
-        <h3
+        <h2
           id={`${id}-title`}
           className="kit-bottom-sheet-title kit-t-h4 kit-display"
           data-roles="popover-foreground font-display"
         >
           {title}
-        </h3>
+        </h2>
         <p id={`${id}-body`} className="kit-t-body-sm">
           {body}
         </p>

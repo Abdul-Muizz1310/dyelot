@@ -10,7 +10,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
-import { type Frame, frameFit } from "./frame";
+import { boardFit, type Frame, frameFit } from "./frame";
 
 // The fit of the canvas frame (R2-16 item 3, F-CANVAS-03): the stage's width, measured before
 // paint and on every resize, against the named frame. Until the stage is measured the frame
@@ -18,6 +18,10 @@ import { type Frame, frameFit } from "./frame";
 //
 // The canvas area measures the fit; the frame switcher in the toolbar shows it. They share a small
 // store through `FitContext`, so a resize re-renders those two and not the shell around them.
+//
+// A template that keeps its own width (the mobile template's board, F-TPL-32) takes the stage's width,
+// clamped to 360 to 1280 px (`boardFit`), in place of the named frame, so its screens show at a fit of
+// 1 or close to it; the named frame stays the view's, for the next template.
 
 export type FitReading = { readonly scale: number; readonly label: string };
 
@@ -65,9 +69,14 @@ export function useFitReading(): FitReading {
   return useSyncExternalStore(store.subscribe, store.get, store.get);
 }
 
-export function useFrameFit(frame: Frame): {
+export function useFrameFit(
+  frame: Frame,
+  board = false,
+): {
   stageRef: RefObject<HTMLDivElement | null>;
   fit: FitReading;
+  /** The frame's layout width: the named frame, or the board's width when `board` is set. */
+  width: number;
 } {
   const stageRef = useRef<HTMLDivElement>(null);
   const [available, setAvailable] = useState<number | null>(null);
@@ -83,9 +92,10 @@ export function useFrameFit(frame: Frame): {
     observer.observe(stage);
     return () => observer.disconnect();
   }, []);
-  const fit = useMemo(
-    () => (available === null ? UNMEASURED : frameFit(available, frame)),
-    [available, frame],
-  );
-  return { stageRef, fit };
+  return useMemo(() => {
+    if (available === null) return { stageRef, fit: UNMEASURED, width: frame };
+    if (!board) return { stageRef, fit: frameFit(available, frame), width: frame };
+    const { width, scale, label } = boardFit(available);
+    return { stageRef, fit: { scale, label }, width };
+  }, [available, frame, board]);
 }

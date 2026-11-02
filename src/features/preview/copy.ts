@@ -937,8 +937,8 @@ export const MOBILE_TEXT: MobileText = frozen<MobileText>({
     now: {
       label: "Water now",
       place: SAMPLE_PLACES[0],
-      falling: "Falling to low water",
-      rising: "Rising to high water",
+      falling: "Falling to low water at",
+      rising: "Rising to high water at",
       open: `Open ${SAMPLE_PLACES[0]}`,
     },
     day: {

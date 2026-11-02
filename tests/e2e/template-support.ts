@@ -403,6 +403,97 @@ export type Screen = (typeof SCREENS)[number];
 export const screenOf = (root: Locator, name: Screen): Locator =>
   root.locator(`[data-phone="${name}"]`);
 
+/** The mobile tab bar's tabs, in order; the template opens on "Alerts" (section 7.7). */
+export const TABS = ["Today", "Places", "Alerts", "Crew"] as const;
+
+/**
+ * Selects each tab of the mobile tab bar in turn, waits for the bar to come to rest (a pill's fill
+ * transitions between its roles), runs `run`, and selects "Alerts" again (F-TPL-38, F-TPL-39,
+ * F-CANVAS-09).
+ */
+export async function eachTab(root: Locator, run: (tab: string) => Promise<void>): Promise<void> {
+  const bar = screenOf(root, "tabs").getByRole("tablist");
+  for (const tab of TABS) {
+    await bar.getByRole("tab", { name: tab, exact: true }).click();
+    await expect(bar.getByRole("tab", { name: tab, exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await bar.evaluate((element) =>
+      Promise.allSettled(
+        element.getAnimations({ subtree: true }).map((animation) => animation.finished),
+      ),
+    );
+    await run(tab);
+  }
+  await bar.getByRole("tab", { name: "Alerts", exact: true }).click();
+}
+
+/**
+ * Opens the mobile template's bottom sheet and waits until it has risen. Once the sheet has risen it
+ * settles (`animation: none`), which may cancel the scrim's last frame: a cancelled animation counts as
+ * done.
+ */
+export async function openSheet(root: Locator): Promise<Locator> {
+  const detail = screenOf(root, "detail");
+  await detail.getByRole("button", { name: "Set an alert", exact: true }).click();
+  const sheet = detail.getByRole("dialog");
+  await expect(sheet).toBeVisible();
+  await sheet.evaluate((element) =>
+    Promise.allSettled(
+      (element.closest(".kit-sheet-layer") ?? element)
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished),
+    ),
+  );
+  return sheet;
+}
+
+/** One form control and whether its label, and its group's legend if it has one, show. */
+export type ControlLabel = {
+  readonly kind: string;
+  readonly id: string;
+  /** Its own label shows and, inside a `fieldset`, so does the group's legend. */
+  readonly labeled: boolean;
+  /** Whether its group's legend shows, or null outside a `fieldset`. */
+  readonly legend: boolean | null;
+};
+
+/**
+ * F-TPL-28, F-TPL-34: each input, textarea, select and switch in `scope`, with whether its label shows
+ * and whether its group's legend shows. A part shows when it is laid out wider and taller than 1 px
+ * (the kit's visually hidden box is 1 × 1) and holds text.
+ */
+export function controlLabels(scope: Locator): Promise<ControlLabel[]> {
+  return scope.evaluate((element) =>
+    [
+      ...element.querySelectorAll<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(
+        "input, textarea, select, [role='switch']",
+      ),
+    ].map((control) => {
+      const kind =
+        control.getAttribute("role") === "switch"
+          ? "switch"
+          : control instanceof HTMLInputElement
+            ? control.type
+            : control.tagName.toLowerCase();
+      const shown = (node: Element | null | undefined) => {
+        if (node == null) return false;
+        const box = node.getBoundingClientRect();
+        return box.width > 1 && box.height > 1 && (node.textContent ?? "").trim() !== "";
+      };
+      const labels = [...(control.labels ?? [])];
+      const group = control.closest("fieldset");
+      const legend = group?.querySelector(":scope > legend");
+      // A control in a group needs the group's legend on screen as well as its own label.
+      const labeled =
+        (labels.some(shown) || (kind === "switch" && shown(control))) &&
+        (group == null || shown(legend));
+      return { kind, labeled, id: control.id, legend: group == null ? null : shown(legend) };
+    }),
+  );
+}
+
 /**
  * F-TPL-32, F-TPL-40, F-CANVAS-09: the overflow measure of the mobile template, on the canvas frame
  * and on each of its screens. Returns each failure, named; an empty list passes.

@@ -28,9 +28,11 @@ import {
 } from "./studio-support";
 import {
   brokenWords,
+  eachTab,
   figureLines,
   mobileOverflow,
   mountMotion,
+  openSheet,
   overflow,
   screenOf,
   setFrame,
@@ -1036,6 +1038,58 @@ test.describe("7.4 Motion on the page templates", () => {
     await reduceMotion(page).click();
     expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
   });
+
+  test("F-CANVAS-07 Reduce motion switched on during the sheet's rise leaves it settled, with no rise later", async ({
+    page,
+  }) => {
+    await stubSeeds(page);
+    await openStudio(page);
+    const mobile = await showTemplate(page, "mobile");
+    // Open the sheet and switch Reduce motion on 60 ms into its rise, in the page, so the timing holds;
+    // the rise must still be running then, or the check proves nothing.
+    const during = await page.evaluate(
+      () =>
+        new Promise<boolean>((resolve, reject) => {
+          const opener = [
+            ...document.querySelectorAll<HTMLButtonElement>('[data-phone="detail"] button'),
+          ].find((button) => (button.textContent ?? "").includes("Set an alert"));
+          const reduce = [...document.querySelectorAll<HTMLButtonElement>('[role="switch"]')].find(
+            (button) => (button.textContent ?? "").trim() === "Reduce motion",
+          );
+          if (opener === undefined || reduce === undefined) {
+            reject(new Error("no opener or Reduce motion switch"));
+            return;
+          }
+          opener.click();
+          setTimeout(() => {
+            const sheet = document.querySelector(".kit-bottom-sheet");
+            const running = sheet !== null && sheet.getAnimations().length > 0;
+            reduce.click();
+            resolve(running);
+          }, 60);
+        }),
+    );
+    expect(during, "the rise runs 60 ms in").toBe(true);
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+    const sheet = screenOf(mobile, "detail").getByRole("dialog");
+    await expect(sheet).toBeVisible();
+    // From here every animation that starts in the sheet's layer is counted.
+    await sheet.evaluate((element) => {
+      const counted = window as unknown as { __rises: number };
+      counted.__rises = 0;
+      element.closest(".kit-sheet-layer")?.addEventListener("animationstart", () => {
+        counted.__rises += 1;
+      });
+    });
+    await reduceMotion(page).click();
+    await expect(reduceMotion(page)).toHaveAttribute("aria-checked", "false");
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
+    // Longer than a rise: none starts, and the sheet holds no animation.
+    await page.waitForTimeout(600);
+    expect(await page.evaluate(() => (window as unknown as { __rises: number }).__rises)).toBe(0);
+    expect(await sheet.evaluate((element) => element.getAnimations().length)).toBe(0);
+    await expect(sheet).toBeVisible();
+  });
 });
 
 test("F-CANVAS-09 edge-case copy fills the page templates' slots, and nothing breaks or overflows", async ({
@@ -1084,13 +1138,26 @@ test("F-CANVAS-09 edge-case copy fills the page templates' slots, and nothing br
   await expect(mobile.locator("[data-copy-label]").first()).toHaveText(edge.label);
   await expect(mobile.locator("[data-list]")).toHaveAttribute("data-empty", "");
   await expect(mobile.locator("[data-list-item]")).toHaveCount(0);
-  const lines = await figureLines(mobile);
-  expect(lines.length, "mobile figures").toBeGreaterThan(0);
-  expect(lines.filter((line) => !line.endsWith(" 1"))).toEqual([]);
-  const words = await brokenWords(mobile);
-  expect(words.checked, "mobile words").toBeGreaterThan(80);
-  expect(words.broken).toEqual([]);
-  expect(await mobileOverflow(mobile)).toEqual([]);
+  // Measured with each tab panel shown, then once with the sheet open.
+  await eachTab(mobile, async (tab) => {
+    const lines = await figureLines(mobile);
+    expect(lines.length, `mobile ${tab} figures`).toBeGreaterThan(0);
+    expect(
+      lines.filter((line) => !line.endsWith(" 1")),
+      `mobile ${tab}`,
+    ).toEqual([]);
+    const words = await brokenWords(mobile);
+    expect(words.checked, `mobile ${tab} words`).toBeGreaterThan(80);
+    expect(words.broken, `mobile ${tab}`).toEqual([]);
+    expect(await mobileOverflow(mobile), `mobile ${tab}`).toEqual([]);
+  });
+  const sheet = await openSheet(mobile);
+  const sheetWords = await brokenWords(sheet);
+  expect(sheetWords.checked, "mobile sheet words").toBeGreaterThan(15);
+  expect(sheetWords.broken, "mobile sheet").toEqual([]);
+  expect(await mobileOverflow(mobile), "mobile sheet").toEqual([]);
+  await page.keyboard.press("Escape");
+  await expect(sheet).toHaveCount(0);
   await toolbarRadio(page, "Copy", "Real copy").check();
   for (const id of [...PAGES, "mobile"] as const) {
     const root = await showTemplate(page, id);
