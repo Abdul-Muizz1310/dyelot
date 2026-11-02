@@ -114,10 +114,11 @@
   white-space: nowrap;
 }
 
-/* Text that only assistive technology reads below 768 px of frame, and that shows from 768 px: a
- * rail link's label, which keeps naming its link when the rail drops it. */
+/* Text that only assistive technology reads below 768 px of frame, and that shows from 768 px. The
+ * class serves rails and collapsed labels: the dashboard's rail drops its links' labels below 768 px,
+ * and they keep naming their links. A part that collapses at another width needs a class of its own. */
 @container frame (width < 768px) {
-  .kit-sr-only-narrow {
+  .kit-sr-only-below-768 {
     position: absolute;
     width: 1px;
     height: 1px;

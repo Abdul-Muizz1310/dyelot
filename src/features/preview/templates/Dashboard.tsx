@@ -143,7 +143,7 @@ function Sidebar() {
         <span className="db-mark" data-roles="sidebar-primary sidebar-primary-foreground">
           <Waves aria-hidden="true" />
         </span>
-        <span className="kit-sr-only-narrow">{TEXT.brand}</span>
+        <span className="kit-sr-only-below-768">{TEXT.brand}</span>
       </span>
       <nav aria-label={TEXT.navLabel} className="db-nav">
         <ul className="kit-t-body-sm">
@@ -155,7 +155,7 @@ function Sidebar() {
                 current={link.to === "top"}
                 icon={ICONS[link.to]}
               >
-                <span data-label="" className="kit-sr-only-narrow">
+                <span data-label="" className="kit-sr-only-below-768">
                   {link.label}
                 </span>
               </TextLink>
