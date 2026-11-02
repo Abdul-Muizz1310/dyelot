@@ -964,6 +964,7 @@ function groupFindings(findings: readonly Finding[]): { error: Finding[]; warn: 
 function showMe(finding: Finding): { roles: readonly string[]; cells: readonly { palette: PaletteName; step: Step }[] };
 function fixFor(finding: Finding, params: DirectionParams): ParamsPatch | null;
 // C1 targets "AA+"; C5, N1 and F1 target "AAA"; null for any other id and when params.contrastLevel is already at or above the target (R2-10)
+function fixTarget(id: RuleId): ContrastLevel | null;          // fixes.ts: the level a rule's fix targets, null for a rule with no fix (Task 2.10b)
 function findingTitle(id: RuleId): string;
 // Added by Task 2.10b (section 7.8):
 type NameTarget = { label: string; hex: Hex; color: Oklch };
@@ -1308,6 +1309,7 @@ parallel) and C-INSPECT-17 in `inspector-fix.test.tsx` (jsdom, the inspector on 
 | C-INSPECT-04 | pass | A link built by the test holds a spec with `color.params.contrastLevel: "AA"` and `roles.light.ring` set to `#f4f4f4` on the `#ffffff` page. The inspector shows the F1 finding for `ring/background` in light mode and the button "Raise contrast to AAA". Pressing it calls `setParams({ contrastLevel: "AAA" })`, the worker regenerates the design at `AAA`, which replaces every role: the new spec's `color.params.contrastLevel` is `AAA`, the F1 finding is gone, and the ratio of `ring` to `background` is at least 3 in both modes. The case states that regeneration, not an edit of the ring, clears the finding (R2-10) | plan, ruling |
 | C-INSPECT-16 | pass | The scan behind R2-10 holds as a recorded measurement: for 3 chroma levels × 4 neutral tints × 2 gamuts × 2 scale modes × seeds `s0` to `s11` at `AA`, the engine raises no C1, C5, N1 or F1 finding (0 of 576 designs) | measured |
 | C-INSPECT-17 | failure | When the finding is still present after the regeneration (a stub client returns a spec that keeps it), the inspector shows "Raising the contrast did not clear this finding." with `role="status"` and keeps the finding | ruling |
+| C-INSPECT-25 | pass | `fixTarget` gives `AA+` for C1 and `AAA` for C5, N1 and F1, the levels `fixFor` raises to, and `null` for every other rule id, so the inspector shows "Contrast is already <level>." only for a rule that has a fix; an id outside `RULE_IDS` throws `RangeError` and a non-string `TypeError`, naming `fixTarget` | R2-10 |
 
 ### 6.9 Inspector helpers (Task 2.10)
 
