@@ -12,7 +12,8 @@ import { DEFAULT_PARAMS, PROPERTY_TIMEOUT } from "../../spec/support";
 // C-INSPECT-16 of docs/specs/02-studio.md, section 6.8: the scan behind R2-10. For 3 chroma levels × 4
 // neutral tints × 2 gamuts × 2 scale modes × seeds s0 to s11 at AA, `DEFAULT_PARAMS` otherwise, the
 // engine raises no C1, C5, N1 or F1 finding, so those findings reach the studio only from a link made
-// elsewhere. The 576 designs are split by gamut over two files that run in parallel (about 30 s each).
+// elsewhere. The 576 designs are split by gamut over two files that run in parallel, in the `scan` project,
+// after the other unit projects (vitest.config.ts): about 65 s each.
 
 const FIXABLE: ReadonlySet<string> = new Set(["C1", "C5", "N1", "F1"]);
 const SEEDS = Array.from({ length: 12 }, (_, i) => `s${i}`);

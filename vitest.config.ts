@@ -10,9 +10,14 @@ const PURE_CORE_TESTS = [
   "tests/unit/theme/**/*.test.{ts,tsx}",
   // The build scripts run under Node and spawn it; they have no DOM.
   "tests/unit/scripts/**/*.test.{ts,tsx}",
-  // The R2-10 scan (C-INSPECT-16) reads only the engine; under jsdom it runs twice as slow.
-  "tests/unit/features/studio/fix-scan-*.test.ts",
 ];
+
+/**
+ * The R2-10 scan (C-INSPECT-16): 576 generations that read only the engine. It runs in Node, in a project
+ * of its own after the other two (`groupOrder`), because beside the CPU-bound property cases it pushed
+ * them past their timeouts.
+ */
+const SCAN_TESTS = ["tests/unit/features/studio/fix-scan-*.test.ts"];
 
 /** The floor of the pure core, held by every pure helper too (spec R2-22). */
 const PURE_FLOORS = { lines: 95, statements: 95, functions: 95, branches: 90 };
@@ -74,8 +79,17 @@ export default defineConfig({
           name: "web",
           environment: "jsdom",
           include: ["tests/unit/**/*.test.{ts,tsx}"],
-          exclude: [...configDefaults.exclude, ...PURE_CORE_TESTS],
+          exclude: [...configDefaults.exclude, ...PURE_CORE_TESTS, ...SCAN_TESTS],
           setupFiles: ["./tests/setup.ts"],
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "scan",
+          environment: "node",
+          include: SCAN_TESTS,
+          sequence: { groupOrder: 1 },
         },
       },
     ],
