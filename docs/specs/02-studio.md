@@ -1529,9 +1529,9 @@ every toolbar target is at least 28 px tall and 24 px wide. The canvas passes `{
 | F-CANVAS-04 | pass | The mode toggle switches the canvas variables between the light and dark `themeVars`, and Alt+T does the same | decision |
 | F-CANVAS-05 | pass | The density group changes `--control-height` and the kit's control heights (40, 36 and 32 px) | decision |
 | F-CANVAS-06 | pass | The vision group recomputes the canvas colors: with `protan`, `--destructive` equals `toHex(simulate(hexToRgb(<stored hex>), "protan"))`; `none` restores the stored hexes | decision, plan |
-| F-CANVAS-07 | pass | With "Reduce motion" on, kit animations and transitions stop (computed `animation-name` is `none` and transition durations are at most 0.01 ms) and Motion springs do not run; the switch keeps the preview's own state and never replays the entrance, and once it is off the springs run again, also in parts that mounted while it was on | plan, review |
-| F-CANVAS-08 | pass | With the operating-system preference `prefers-reduced-motion: reduce`, the same holds without the switch | decision |
-| F-CANVAS-09 | pass | "Edge-case copy" swaps in the long word, the long title, the diacritics, the large number, the empty list and the one-character label, and no template overflows its frame; in the 360, 768 and 1280 frames each reading on screen keeps its number on one line, and the place and observer text of the readings breaks only at spaces and hyphens (every word of 20 characters or fewer has one client rect; only the 40-character word may break anywhere) | ruling, review |
+| F-CANVAS-07 | pass | With "Reduce motion" on, kit animations and transitions stop (computed `animation-name` is `none` and transition durations are at most 0.01 ms) and Motion springs do not run; the switch keeps the preview's own state and never replays the entrance, and once it is off the springs run again, also in parts that mounted while it was on. The same holds on the landing and editorial templates: nothing inside them animates or transitions longer than 0.01 ms, a template chosen while the switch is on shows its entrance in place at once, and toggling the switch keeps the landing's open FAQ item and never replays the entrance | plan, review |
+| F-CANVAS-08 | pass | With the operating-system preference `prefers-reduced-motion: reduce`, the same holds without the switch, on the kitchen sink and on the landing and editorial templates | decision |
+| F-CANVAS-09 | pass | "Edge-case copy" swaps in the long word, the long title, the diacritics, the large number, the empty list and the one-character label, and no template overflows its frame; in the 360, 768 and 1280 frames each reading on screen keeps its number on one line, and the place and observer text of the readings breaks only at spaces and hyphens (every word of 20 characters or fewer has one client rect; only the 40-character word may break anywhere). The landing and editorial templates show the six edge cases in their slots (section 7.6) and do not overflow the 360, 768 and 1280 frames; in them every figure on screen (`.kit-num`) keeps one line, and every word of 20 characters or fewer in any text on screen has one client rect | ruling, review |
 | F-CANVAS-10 | pass | The template switcher shows each of the six templates; the choice is kept across edits and view changes | decision |
 | F-CANVAS-11 | pass | "Show me" (section 7.8) outlines the elements whose `data-roles` hold the role, in madder, 2 px dashed with a 2 px offset, and clears when another is chosen or the finding is dismissed | decision |
 | F-CANVAS-12 | pass | Inside the canvas `color-scheme` is `light` or `dark` by the mode (so native controls follow the spec), the focus ring is `--ring`, `::selection` uses `--primary` and `--primary-foreground`, the caret uses `--primary`, the scrollbar uses `--border` and `--muted`, and `text-underline-offset` and tabular numerals are set | research D1 rule 25, R2-30 |
@@ -1564,7 +1564,7 @@ invalid, success, placeholder, empty, as the component supports them. A forced s
 | F-TPL-06 | pass | The kitchen sink fits the 360, 768 and 1280 px frames without horizontal overflow | plan |
 | F-TPL-07 | pass | The kit uses icons from `lucide-react` only, each with `stroke-width` equal to `--icon-stroke` | decision |
 | F-TPL-08 | pass | Concentric radii hold: an image inside a card with padding `p` has radius `max(0, card radius − p)` (computed), and a segmented control's outer radius equals its inner radius plus its padding | research D5 |
-| F-TPL-38 | pass | Type triples: in both panes at the 1280 and 360 frames, every element on screen with its own text (outside an inert specimen) has the computed `font-size`, `line-height` and `letter-spacing` of one type step, resolved from a probe set from that step's three variables in the same pane; each `.kit-t-<step>` class sets exactly that triple, and no preview stylesheet or style object sets a step's size anywhere else (the `[data-canvas]` root keeps the body triple). Numbered after F-TPL-37 because F-TPL-09 is the landing page's | review |
+| F-TPL-38 | pass | Type triples: in both panes at the 1280 and 360 frames, and in the landing and editorial templates at the same frames (once with the default design and once with the `editorial` type context, whose `display` step is a fluid `cqi` clamp), every element on screen with its own text (outside an inert specimen) has the computed `font-size`, `line-height` and `letter-spacing` of one type step, resolved from a probe set from that step's three variables in the same pane; each `.kit-t-<step>` class sets exactly that triple, and no preview stylesheet or style object sets a step's size anywhere else (the `[data-canvas]` root keeps the body triple). Numbered after F-TPL-37 because F-TPL-09 is the landing page's | review |
 
 ### 7.6 The landing and editorial templates (Task 2.8)
 
@@ -1575,21 +1575,43 @@ fictional person; a pricing teaser; an FAQ (accordion); a footer. Copy is labele
 Editorial article "The long thread", an essay on natural dyes: H1 to H4, body at a 60 to 75 character measure, a blockquote, an
 inline code span and a code block, a figure with a caption, footnotes, links (`primary` text, underlined), and a table of contents.
 
+Both templates are built from the kit (section 7.5) and keep the canvas rules of R2-20, R2-21 and R2-30. Every color is a
+bridge variable, and every part names the roles it paints in `data-roles`; text set in the display face adds `font-display`,
+so T1's "show me" finds it (section 6.9). Text takes its size, leading and tracking only from a `.kit-t-<step>` class
+(F-TPL-38). The layout answers the `frame` container and no media query. A link moves focus to its target inside the template
+and leaves the address bar alone, because links navigate nowhere (R2-20). The copy lives in `src/features/preview/copy.ts`: it
+is fictional, it is labeled "sample", and its places come from `SAMPLE_PLACES`. Under "Edge-case copy" each template swaps the
+six cases of R2-21 into its slots:
+- on the landing page, the hero headline takes the 90-character title, the hero's lead the 40-character word, the quote the
+  name with diacritics, the price the large number, the moorings list the empty list, and the tide badge the one-character
+  label;
+- in the article, the H1, the standfirst, the byline, the dye log, the list of places and the badge do the same.
+
+Three terms the cases use:
+- A **hero-metric block** is an element of the landing hero (`data-block="hero"`) whose own text is a figure (digits with
+  separators, an optional currency sign and an optional unit) set at the `h2` step or larger.
+- A **logo row** is an element with three or more children that each hold only an image (an `img`, an `svg` that is not a
+  lucide icon, or an element with `role="img"`) and no text.
+- Two parts are of **equal size** when their layout widths and heights each differ by 1 px or less.
+
+An SVG in a template is either a lucide icon or a drawn figure (`data-figure`, `role="img"` and a name), such as the tide curve.
+
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| F-TPL-09 | pass | The landing page renders in the 360, 768 and 1280 px frames without overflow (`scrollWidth` at most `clientWidth`) | plan |
-| F-TPL-10 | pass | The editorial article renders in all three frames without overflow | plan |
+| F-TPL-09 | pass | The landing page renders in the 360, 768 and 1280 px frames without overflow (`scrollWidth` at most `clientWidth`, and no element's box extends past the frame's right edge) | plan |
+| F-TPL-10 | pass | The editorial article renders in all three frames without overflow, by the same measure | plan |
 | F-TPL-11 | pass | The editorial body paragraph measure is 60 to 75 characters: its computed `max-width` divided by the width of `1ch` in its font falls in [60, 75] | plan, research D1 rule 19 |
 | F-TPL-12 | pass | Both templates pass axe with zero violations in light and in dark, at 360 and at 1280 px | plan |
-| F-TPL-13 | pass | The landing features block (`data-block="features"`) is a list beside a product moment and does not hold three or more siblings of equal size that each hold an icon; the same check passes on the dashboard's KPI row, which does not hold three or more equal icon cards | plan, decision |
+| F-TPL-13 | pass | The landing features block (`data-block="features"`) is a list beside a product moment (`data-moment`): at the 1280 and 768 frames the two boxes share a vertical span and do not overlap horizontally. No element in the block has three or more children of equal size that each hold an icon (an `svg`). The same check runs on the dashboard's KPI row, which does not hold three or more equal icon cards; that half lands with the dashboard (Task 2.9), and Task 2.8 builds the check so it can be reused | plan, decision |
 | F-TPL-14 | pass | No element in either template has `background-clip: text` with a transparent text fill (no gradient text) | plan, decision |
-| F-TPL-15 | pass | No text node in any template holds an emoji or other pictograph (`\p{Extended_Pictographic}`), and icons are `lucide-react` SVGs | decision |
-| F-TPL-16 | pass | The landing page has no logo row, no "trusted by" text and no hero-metric block; sample content carries the label "sample" | decision |
-| F-TPL-17 | pass | Each template has exactly one orchestrated entrance (`data-entrance` appears once) and it does not run under reduced motion | decision |
+| F-TPL-15 | pass | No text node in any template holds an emoji or other pictograph (`\p{Extended_Pictographic}`). Every `svg` is a lucide icon drawn at `--icon-stroke`, or a drawn figure with `data-figure`, `role="img"` and an accessible name. Every template runs the check, the kitchen sink included; a later template joins by adding its id | decision |
+| F-TPL-16 | pass | No template has a logo row or the text "trusted by", and each shows the word "sample" on screen; the landing hero holds no hero-metric block. A later template joins by adding its id | decision |
+| F-TPL-17 | pass | Each template has exactly one orchestrated entrance (`data-entrance` appears once), and nothing else animates when it mounts: every running animation in the frame targets the entrance. Chosen while "Reduce motion" is on, the template shows its entrance in place at once, with no running animation. The landing and editorial templates run the check; a later template joins by adding its id | decision |
 | F-TPL-18 | pass | The landing page has one `h1`; headings descend without gaps; the article's H1 to H4 exist in order | plan |
-| F-TPL-19 | pass | Radius and spacing vary by hierarchy: the landing page uses at least three distinct radius tokens and three distinct spacing tokens in its computed styles | decision |
-| F-TPL-20 | pass | The editorial template shows links as `primary` text with an underline (there is no link role and no visited style), and its selection uses the spec's `--primary` and `--primary-foreground` | research D5, ruling |
-| F-TPL-21 | pass | The FAQ accordion opens and closes by keyboard, with `aria-expanded` | I-M2-03 |
+| F-TPL-19 | pass | Radius and spacing vary by hierarchy: the landing page uses at least three distinct radius tokens and three distinct spacing tokens in its computed styles (a computed radius, padding, margin or gap that equals the value of a `--radius-*` or nonzero `--space-*` token) | decision |
+| F-TPL-20 | pass | The editorial template shows every link as `primary` text with an underline (there is no link role and no visited style), and its selection uses the spec's `--primary` and `--primary-foreground`. Every in-page link of both templates names a target inside the template; following one moves focus to the target and leaves `location.hash` as it was, so the studio's link stays in the address bar (R2-20) | research D5, ruling |
+| F-TPL-21 | pass | The FAQ accordion opens and closes by keyboard (Enter and Space on its buttons), with `aria-expanded` and the panel shown or hidden to match | I-M2-03 |
+| F-TPL-39 | pass | Every painted color is named: in the landing and editorial templates, in both modes, each opaque text color (of an element with its own text), background color, border color (of a drawn border) and SVG fill or stroke equals the computed color of a role named in the `data-roles` of the element or of its nearest ancestor that has `data-roles`; and every element whose own text is set in the display face, when the display and body faces differ, has `font-display` in those `data-roles`. Task 2.10's "show me" (F-CANVAS-11) finds parts by these names | ruling, R2-20 |
 
 ### 7.7 The dashboard, settings and mobile templates (Tasks 2.9 and 2.10)
 
