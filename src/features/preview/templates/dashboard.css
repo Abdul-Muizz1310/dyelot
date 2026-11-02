@@ -1,0 +1,389 @@
+/* ─────────────────────────────────────────────────────────────
+ * The dashboard (spec section 7.7): Saltmarsh's console. The
+ * layout answers the `frame` container only: a rail of icons
+ * below 768 px of frame and a labeled sidebar from 768 px; the
+ * table drops its lesser columns below 640 and 480 px. Panels
+ * group by borders on the page; only the lead KPI is a card.
+ * Radius steps with hierarchy: controls md, panels lg, the
+ * lead card xl; spacing tightens to the work density.
+ * ───────────────────────────────────────────────────────────── */
+
+.db {
+  display: grid;
+  grid-template-columns: 3.5rem minmax(0, 1fr);
+}
+@container frame (min-width: 768px) {
+  .db {
+    grid-template-columns: 15rem minmax(0, 1fr);
+  }
+}
+
+/* ── Sidebar: a rail below 768 px, a labeled column from it ── */
+.db-sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  min-width: 0;
+  padding: var(--space-4) var(--space-2);
+  border-right: 1px solid var(--sidebar-border);
+  background-color: var(--sidebar);
+  color: var(--sidebar-foreground);
+}
+.db-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--sidebar-foreground);
+}
+.db-mark {
+  display: inline-grid;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background-color: var(--sidebar-primary);
+  color: var(--sidebar-primary-foreground);
+}
+.db-nav ul {
+  display: grid;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.db-sidebar .kit-link[data-tone="sidebar"] {
+  justify-content: center;
+  padding-inline: 0;
+}
+/* In the rail a label is for assistive technology only; the link keeps it as its name. */
+.db-label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.db-crew {
+  display: none;
+}
+@container frame (min-width: 768px) {
+  .db-sidebar {
+    padding: var(--space-4) var(--space-3);
+  }
+  .db-brand {
+    justify-content: start;
+    padding-inline: var(--space-2);
+  }
+  .db-label {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    margin: 0;
+    clip-path: none;
+    white-space: normal;
+  }
+  .db-sidebar .kit-link[data-tone="sidebar"] {
+    justify-content: start;
+    padding-inline: var(--space-3);
+  }
+  .db-crew {
+    display: grid;
+    gap: 2px;
+    margin-top: auto;
+    padding: var(--space-4) var(--space-2) 0;
+    border-top: 1px solid var(--sidebar-border);
+  }
+  .db-crew-name {
+    font-weight: 600;
+  }
+}
+
+/* ── The main column ──────────────────────────────────────── */
+.db-main {
+  display: grid;
+  align-content: start;
+  gap: var(--space-6);
+  min-width: 0;
+  padding: var(--space-4) var(--space-4) var(--space-8);
+}
+@container frame (min-width: 640px) {
+  .db-main {
+    gap: var(--space-8);
+    padding: var(--space-6) var(--space-8) var(--space-12);
+  }
+}
+
+.db-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3) var(--space-6);
+}
+.db-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+.db-title h1 {
+  color: var(--foreground);
+  text-wrap: balance;
+}
+/* The command button opens nothing (R2-20); its shortcut hint is text, not a binding. */
+.db-command {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 24rem;
+  min-height: var(--control-height);
+  flex: 1 1 16rem;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-md);
+  background-color: var(--background);
+  color: var(--muted-foreground);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.db-command:hover {
+  background-color: var(--muted);
+}
+/* A narrow frame wraps the label between words, never inside one. */
+.db-command-label {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: break-word;
+  text-align: start;
+}
+.db-hint {
+  display: inline-flex;
+  flex: none;
+}
+.db-kbd {
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+
+.db-filters {
+  display: flex;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3) var(--space-4);
+}
+.db-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+/* ── KPI row: the lead value on a card beside the week's values ── */
+.db-kpis {
+  display: grid;
+  gap: var(--space-4);
+}
+@container frame (min-width: 768px) {
+  .db-kpis {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    align-items: start;
+    gap: var(--space-8);
+  }
+}
+.db-lead {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background-color: var(--card);
+  color: var(--card-foreground);
+  box-shadow: var(--shadow-1);
+}
+@container frame (min-width: 640px) {
+  .db-lead {
+    padding: var(--space-6);
+  }
+}
+.db-lead-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.db-lead-head > p {
+  min-width: 0;
+  font-weight: 600;
+}
+.db-lead-head > .kit-badge {
+  flex: none;
+}
+/* Below 480 px of frame the lead value sets the h2 triple: the part overrides its step's three
+ * variables, so its .kit-t-<step> class still sets one whole triple (section 7.6). */
+@container frame (width < 480px) {
+  .db-lead-value {
+    --text-h1: var(--text-h2);
+    --leading-h1: var(--leading-h2);
+    --tracking-h1: var(--tracking-h2);
+  }
+}
+.db-lead .kit-level {
+  width: 100%;
+  margin-block: var(--space-2) var(--space-1);
+}
+.db-stats {
+  display: grid;
+  align-content: start;
+  margin: 0;
+}
+.db-stat {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  padding-block: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+.db-stat:last-child {
+  border-bottom: 1px solid var(--border);
+}
+.db-stat dd {
+  margin: 0;
+  color: var(--foreground);
+}
+
+/* ── Panels: bordered regions on the page from 640 px, rules below it ── */
+.db-panel {
+  display: grid;
+  min-width: 0;
+  align-content: start;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+@container frame (min-width: 640px) {
+  .db-panel {
+    padding: var(--space-6);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+}
+.db-panel-head {
+  display: grid;
+  gap: var(--space-1);
+}
+.db-panel-head h2 {
+  color: var(--foreground);
+  scroll-margin-top: var(--space-4);
+}
+
+.db-chart {
+  display: grid;
+  gap: var(--space-6);
+}
+@container frame (min-width: 1000px) {
+  .db-chart {
+    grid-template-columns: minmax(0, 1fr) 13rem;
+    align-items: start;
+    gap: var(--space-8);
+  }
+}
+
+/* ── The dense table: rows at the control height, figures to the end ── */
+.db-table {
+  width: 100%;
+  border-collapse: collapse;
+  overflow-wrap: break-word;
+}
+.db-table :is(th, td) {
+  height: var(--control-height);
+  padding: 0 var(--space-1);
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: middle;
+}
+.db-table thead th {
+  color: var(--muted-foreground);
+  font-weight: 500;
+}
+.db-table tbody th {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.db-table tbody tr:hover > * {
+  background-color: var(--muted);
+}
+.db-table .db-num {
+  text-align: end;
+}
+@container frame (min-width: 480px) {
+  .db-table :is(th, td) {
+    padding-inline: var(--space-2);
+  }
+}
+/* Below 640 px of frame the change and battery columns leave the layout, below 480 px the report. */
+@container frame (width < 640px) {
+  .db-table .db-wide {
+    display: none;
+  }
+}
+@container frame (width < 480px) {
+  .db-table .db-mid {
+    display: none;
+  }
+}
+
+/* ── The exports panel, empty, and the toast ──────────────── */
+.db-foot {
+  display: grid;
+  align-items: start;
+  gap: var(--space-6);
+}
+@container frame (min-width: 1000px) {
+  .db-foot {
+    grid-template-columns: minmax(0, 1fr) 22rem;
+    gap: var(--space-8);
+  }
+}
+.db-empty {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  padding: var(--space-6) var(--space-4);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-md);
+}
+.db-empty h3 {
+  color: var(--foreground);
+}
+.db-empty-icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  color: var(--muted-foreground);
+}
+.db-empty .kit-button {
+  margin-top: var(--space-2);
+}
+/* The toast sits at the end of the page, as a toast does at the corner of a window. */
+.db-toasts {
+  display: grid;
+  align-self: end;
+  justify-items: end;
+}

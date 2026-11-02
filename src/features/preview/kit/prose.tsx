@@ -17,19 +17,42 @@ function focusTarget(event: MouseEvent<HTMLAnchorElement>, id: string, part: str
   target.focus();
 }
 
+type LinkTone = "prose" | "quiet" | "sidebar";
+
+/** The roles a link paints with, by tone; a sidebar link takes the accent pair on hover and when current. */
+function linkRoles(tone: LinkTone, current: boolean): string {
+  switch (tone) {
+    case "prose":
+      return "primary";
+    case "quiet":
+      return "foreground";
+    case "sidebar":
+      return current
+        ? "sidebar-accent sidebar-accent-foreground"
+        : "sidebar-foreground sidebar-accent sidebar-accent-foreground";
+    default: {
+      const unknown: never = tone;
+      throw new RangeError(`TextLink: no tone ${JSON.stringify(unknown)}`);
+    }
+  }
+}
+
 /**
  * A link to the element `to` names inside the template. `prose` is the article's link, `primary`
- * text with an underline (F-TPL-20); `quiet` is a navigation link in the text color.
+ * text with an underline (F-TPL-20); `quiet` is a navigation link in the text color; `sidebar` is a
+ * link of the dashboard's sidebar, on the sidebar roles, and `current` marks the page it is on.
  */
 export function TextLink({
   to,
   tone = "prose",
+  current = false,
   label,
   icon,
   children,
 }: {
   to: string;
-  tone?: "prose" | "quiet";
+  tone?: LinkTone;
+  current?: boolean;
   /** An accessible name that holds the visible text and says more. */
   label?: string;
   icon?: ReactNode;
@@ -40,8 +63,9 @@ export function TextLink({
       href={`#${to}`}
       className="kit-link"
       data-tone={tone}
-      data-roles={tone === "prose" ? "primary" : "foreground"}
+      data-roles={linkRoles(tone, current)}
       aria-label={label}
+      aria-current={current ? "true" : undefined}
       onClick={(event) => focusTarget(event, to, "TextLink")}
     >
       {icon}

@@ -2,7 +2,7 @@
 
 import "./button.css";
 import { LoaderCircle } from "lucide-react";
-import type { ReactNode } from "react";
+import type { ReactNode, Ref } from "react";
 import type { ButtonVariant, KitState } from "./states";
 
 // The kit's button (section 7.5, R2-20): five variants, each painting with its roles and naming
@@ -23,6 +23,7 @@ export function Button({
   icon,
   onPress,
   describedBy,
+  ref,
   children,
 }: {
   variant: ButtonVariant;
@@ -31,11 +32,14 @@ export function Button({
   onPress?: () => void;
   /** The id of a tooltip or hint that describes the button. */
   describedBy?: string;
+  /** The button element, for a part that moves focus to it (the confirm dialog, its opener). */
+  ref?: Ref<HTMLButtonElement>;
   children: ReactNode;
 }) {
   const loading = state === "loading";
   return (
     <button
+      ref={ref}
       type="button"
       className="kit-button kit-t-label"
       data-kit={state === undefined ? undefined : "button"}

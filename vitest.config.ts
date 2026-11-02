@@ -31,8 +31,8 @@ const STUDIO_HELPERS = [
   "inputs",
 ].map((name) => `src/features/studio/${name}.ts`);
 
-/** The preview's pure helpers (Tasks 2.7 and 2.8), held to `PURE_FLOORS` the same way. */
-const PREVIEW_HELPERS = ["frame", "swatches", "copy", "vars", "kit/states", "tide"].map(
+/** The preview's pure helpers (Tasks 2.7 to 2.9), held to `PURE_FLOORS` the same way. */
+const PREVIEW_HELPERS = ["frame", "swatches", "copy", "vars", "kit/states", "tide", "bars"].map(
   (name) => `src/features/preview/${name}.ts`,
 );
 

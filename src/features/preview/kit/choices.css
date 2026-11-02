@@ -140,3 +140,23 @@
   color: var(--foreground);
   box-shadow: var(--shadow-1);
 }
+
+/* ── A group of choices: a legend over its options; the browser's groove border never shows ── */
+.kit-fieldset {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.kit-legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+  color: var(--foreground);
+  font-weight: 500;
+}
+.kit-choice-list {
+  display: grid;
+  gap: var(--space-2);
+}

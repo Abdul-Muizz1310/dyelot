@@ -5,8 +5,7 @@ import { canvasFrame } from "./studio-support";
 
 // Shared helpers for the template flows of docs/specs/02-studio.md, sections 7.5 to 7.7: the
 // template and frame switches, and the structural checks every template runs (F-TPL-13, F-TPL-15,
-// F-TPL-16, F-TPL-38 and F-TPL-39). Tasks 2.9 and 2.10 reuse them for the dashboard, settings and
-// mobile templates.
+// F-TPL-16, F-TPL-37, F-TPL-38 and F-TPL-39). Task 2.10 reuses them for the mobile template.
 
 /** The type steps, smallest first. */
 export const TYPE_STEPS = [
@@ -288,7 +287,9 @@ export function unnamedPaint(scope: Locator): Promise<{ checked: number; unnamed
 
 /**
  * F-TPL-09, F-TPL-10: whether anything in the frame overflows it: the frame's own scroll width,
- * and every element of `scope` whose box ends past the frame's right edge (layout px).
+ * and every element of `scope` whose box ends past the frame's right edge (layout px). Content in a
+ * visually hidden box (section 7.6: clipped by `overflow: hidden` to at most 1 × 1 px, such as the
+ * chart's data table) is not on screen, so it is not measured.
  */
 export function overflow(
   scope: Locator,
@@ -298,11 +299,29 @@ export function overflow(
     if (frame === null) throw new Error("overflow: no frame");
     const box = frame.getBoundingClientRect();
     const scale = box.width / frame.offsetWidth;
+    const clipped = (element: Element) => {
+      for (
+        let node: Element | null = element;
+        node !== null && node !== frame;
+        node = node.parentElement
+      ) {
+        const own = node.getBoundingClientRect();
+        const style = getComputedStyle(node);
+        if (
+          (style.overflowX === "hidden" || style.overflowX === "clip") &&
+          own.width / scale <= 1.01 &&
+          own.height / scale <= 1.01
+        ) {
+          return true;
+        }
+      }
+      return false;
+    };
     const past: string[] = [];
     for (const element of root.querySelectorAll("*")) {
       const edge = element.getBoundingClientRect();
       if (edge.width === 0) continue;
-      if ((edge.right - box.right) / scale > 0.5) {
+      if ((edge.right - box.right) / scale > 0.5 && !clipped(element)) {
         past.push(`${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`);
       }
     }
@@ -489,4 +508,42 @@ export function typeStepOf(scope: Locator, selector: string): Promise<string | n
     },
     { selector, steps: TYPE_STEPS },
   );
+}
+
+/**
+ * F-TPL-37: the anti-slop items of section 7.7 in `scope`: each element whose left border is drawn at
+ * 2 px or more in a color that differs from another side, or with another side not drawn (a colored
+ * side stripe); each element with `background-clip: text`; and the lucide stroke widths and the SVGs
+ * that are neither a lucide icon nor a drawn figure (one icon library at one stroke width).
+ */
+export function antiSlop(
+  scope: Locator,
+): Promise<{ stripes: string[]; clipped: string[]; strokes: string[]; foreign: string[] }> {
+  return scope.evaluate((root) => {
+    const name = (element: Element) =>
+      `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`;
+    const stripes: string[] = [];
+    const clipped: string[] = [];
+    const strokes = new Set<string>();
+    const foreign: string[] = [];
+    for (const element of [root, ...root.querySelectorAll("*")]) {
+      const style = getComputedStyle(element);
+      const drawn = (side: "Top" | "Right" | "Bottom" | "Left") =>
+        Number.parseFloat(style[`border${side}Width`]) > 0 &&
+        !["none", "hidden"].includes(style[`border${side}Style`]);
+      if (drawn("Left") && Number.parseFloat(style.borderLeftWidth) >= 2) {
+        const odd = (["Top", "Right", "Bottom"] as const).some(
+          (side) => !drawn(side) || style[`border${side}Color`] !== style.borderLeftColor,
+        );
+        if (odd) stripes.push(`${name(element)} ${style.borderLeftWidth} ${style.borderLeftColor}`);
+      }
+      const clip = `${style.backgroundClip} ${style.getPropertyValue("-webkit-background-clip")}`;
+      if (clip.includes("text")) clipped.push(name(element));
+      if (element.tagName.toLowerCase() === "svg") {
+        if (element.classList.contains("lucide")) strokes.add(style.strokeWidth);
+        else if (!element.hasAttribute("data-figure")) foreign.push(name(element));
+      }
+    }
+    return { stripes, clipped, strokes: [...strokes], foreign };
+  });
 }

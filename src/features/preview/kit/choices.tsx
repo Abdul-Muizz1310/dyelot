@@ -17,7 +17,7 @@ export function Checkbox({ label, state }: { label: string; state: KitState }) {
     if (box.current !== null) box.current.indeterminate = state === "indeterminate";
   }, [state]);
   return (
-    <label className="kit-check kit-t-body-sm">
+    <label className="kit-check kit-t-body-sm" data-roles="foreground primary-foreground">
       <span className="kit-check-box">
         <input
           ref={box}
@@ -38,14 +38,15 @@ export function Checkbox({ label, state }: { label: string; state: KitState }) {
   );
 }
 
-export function Radio({ label, state }: { label: string; state: KitState }) {
-  const name = useId();
+/** A radio. On its own it is a group of one (a specimen); a `RadioGroup` gives its radios one `name`. */
+export function Radio({ label, state, name }: { label: string; state: KitState; name?: string }) {
+  const own = useId();
   return (
-    <label className="kit-check kit-t-body-sm">
+    <label className="kit-check kit-t-body-sm" data-roles="foreground">
       <span className="kit-check-box">
         <input
           type="radio"
-          name={name}
+          name={name ?? own}
           className="kit-radio"
           data-kit="radio"
           data-state={state}
@@ -75,7 +76,7 @@ export function Switch({ label, state }: { label: string; state?: KitState }) {
       data-kit={state === undefined ? undefined : "switch"}
       data-kit-demo={state === undefined ? "switch" : undefined}
       data-state={state}
-      data-roles="input background primary primary-foreground"
+      data-roles="foreground input background primary primary-foreground"
       disabled={state === "disabled"}
       onClick={() => setOn((value) => !value)}
     >
@@ -120,5 +121,63 @@ export function Segmented({ legend, options }: { legend: string; options: readon
         </label>
       ))}
     </div>
+  );
+}
+
+/** A labeled group of radios that share one name; `value` starts checked. */
+export function RadioGroup({
+  legend,
+  options,
+  value,
+}: {
+  legend: string;
+  options: readonly string[];
+  value: string;
+}) {
+  const name = useId();
+  return (
+    <fieldset className="kit-fieldset">
+      <legend className="kit-legend kit-t-label" data-roles="foreground">
+        {legend}
+      </legend>
+      <div className="kit-choice-list">
+        {options.map((option) => (
+          <Radio
+            key={option}
+            label={option}
+            name={name}
+            state={option === value ? "selected" : "default"}
+          />
+        ))}
+      </div>
+    </fieldset>
+  );
+}
+
+/** A labeled group of checkboxes; the options in `checked` start checked. */
+export function CheckboxGroup({
+  legend,
+  options,
+  checked,
+}: {
+  legend: string;
+  options: readonly string[];
+  checked: readonly string[];
+}) {
+  return (
+    <fieldset className="kit-fieldset">
+      <legend className="kit-legend kit-t-label" data-roles="foreground">
+        {legend}
+      </legend>
+      <div className="kit-choice-list">
+        {options.map((option) => (
+          <Checkbox
+            key={option}
+            label={option}
+            state={checked.includes(option) ? "selected" : "default"}
+          />
+        ))}
+      </div>
+    </fieldset>
   );
 }

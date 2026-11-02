@@ -1,0 +1,98 @@
+/* The kit's chart parts (spec section 7.7, F-TPL-22): stacked bars in the five chart roles, gridlines
+ * in `border`, axis labels in `muted-foreground`. The SVG paints nothing at its root, so each shape
+ * names its own role; the labels are HTML so a stretched plot keeps them upright. */
+
+.kit-bars {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-rows: 10rem auto;
+  column-gap: var(--space-2);
+  row-gap: var(--space-1);
+}
+.kit-bars-y {
+  position: relative;
+  min-width: 1.5rem;
+  margin: 0;
+  padding: 0;
+  color: var(--muted-foreground);
+  list-style: none;
+  text-align: end;
+}
+.kit-bars-y > li {
+  position: absolute;
+  top: var(--kit-at);
+  right: 0;
+  translate: 0 -50%;
+}
+.kit-bars-plot {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  fill: none;
+  stroke: none;
+}
+.kit-bars-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.kit-bar[data-series="1"],
+.kit-bars-key[data-series="1"] {
+  --kit-series: var(--chart-1);
+}
+.kit-bar[data-series="2"],
+.kit-bars-key[data-series="2"] {
+  --kit-series: var(--chart-2);
+}
+.kit-bar[data-series="3"],
+.kit-bars-key[data-series="3"] {
+  --kit-series: var(--chart-3);
+}
+.kit-bar[data-series="4"],
+.kit-bars-key[data-series="4"] {
+  --kit-series: var(--chart-4);
+}
+.kit-bar[data-series="5"],
+.kit-bars-key[data-series="5"] {
+  --kit-series: var(--chart-5);
+}
+.kit-bar {
+  fill: var(--kit-series);
+}
+.kit-bars-x {
+  display: grid;
+  grid-column: 2;
+  grid-template-columns: repeat(var(--kit-columns), minmax(0, 1fr));
+  margin: 0;
+  padding: 0;
+  color: var(--muted-foreground);
+  list-style: none;
+  text-align: center;
+}
+
+.kit-bars-legend {
+  display: grid;
+  align-content: start;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.kit-bars-legend > li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--foreground);
+}
+.kit-bars-key {
+  width: 0.75rem;
+  height: 0.75rem;
+  flex: none;
+  border-radius: var(--radius-sm);
+  background-color: var(--kit-series);
+}
+.kit-bars-name {
+  flex: 1;
+  min-width: 0;
+}

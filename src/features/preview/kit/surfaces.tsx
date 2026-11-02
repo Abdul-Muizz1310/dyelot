@@ -8,8 +8,9 @@ import {
   LoaderCircle,
   MapPin,
   WavesHorizontal,
+  X,
 } from "lucide-react";
-import { useId, useState } from "react";
+import { type ReactNode, useId, useState } from "react";
 import { SAMPLE_PLACES } from "../copy";
 import { Button } from "./Button";
 import type { KitState } from "./states";
@@ -187,7 +188,22 @@ const TOASTS = {
   loading: { text: "Sample: syncing the gauges.", roles: "popover popover-foreground border" },
 } as const;
 
-export function Toast({ state }: { state: keyof typeof TOASTS }) {
+/**
+ * A toast (`role="status"`). The kitchen sink's specimens say their state's sample sentence; a template
+ * passes its own sentence and, to let the reader dismiss it, `onDismiss` with the button's name. The
+ * toast sits where the template puts it, never in a portal (section 7.7).
+ */
+export function Toast({
+  state,
+  children,
+  onDismiss,
+  dismissLabel = "Dismiss",
+}: {
+  state: keyof typeof TOASTS;
+  children?: ReactNode;
+  onDismiss?: () => void;
+  dismissLabel?: string;
+}) {
   const toast = TOASTS[state];
   return (
     <div
@@ -204,7 +220,17 @@ export function Toast({ state }: { state: keyof typeof TOASTS }) {
       ) : (
         <CircleCheck aria-hidden="true" />
       )}
-      <span>{toast.text}</span>
+      <span className="kit-toast-text">{children ?? toast.text}</span>
+      {onDismiss !== undefined && (
+        <button
+          type="button"
+          className="kit-toast-dismiss"
+          aria-label={dismissLabel}
+          onClick={onDismiss}
+        >
+          <X aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

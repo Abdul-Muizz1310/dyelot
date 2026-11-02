@@ -29,6 +29,25 @@
   text-decoration-line: underline;
 }
 
+/* A sidebar link: a row on the sidebar roles that takes the accent pair on hover and when current. */
+.kit-link[data-tone="sidebar"] {
+  display: flex;
+  min-height: var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--sidebar-foreground);
+  text-decoration-line: none;
+  transition-property: background-color, color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-standard);
+}
+.kit-link[data-tone="sidebar"]:is(:hover, [aria-current="true"]) {
+  background-color: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+
 /* A note number sits raised in the line without opening the line's leading. */
 .kit-note-ref {
   line-height: 0;

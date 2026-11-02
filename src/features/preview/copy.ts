@@ -1,7 +1,7 @@
 import { assertOneOf } from "@/features/studio/guards";
 
-// The canvas copy (spec R2-21, section 7.6, F-CANVAS-09): real sample copy for each template, set in
-// the world of a fictional tide-reading app and an essay on natural dyes, and the one edge-case copy
+// The canvas copy (spec R2-21, sections 7.6 and 7.7, F-CANVAS-09): real sample copy for each template,
+// set in the world of a fictional tide-reading app, its console and an essay on natural dyes, and the one edge-case copy
 // that tests a layout: a 40-character unbroken word, a 90-character title, a name with diacritics, a
 // large number, an empty list and a one-character label. Places, people, prices and readings are
 // fictional and labeled "sample". Pure data, deeply frozen.
@@ -438,10 +438,402 @@ export const EDITORIAL_TEXT: EditorialText = frozen<EditorialText>({
   },
 });
 
+// ── The dashboard: Saltmarsh's console (section 7.7) ──────────────────────────────────────────
+
+/** The dashboard's in-page targets: the sidebar's links. */
+export type DashboardTarget = "top" | "alerts" | "gauges" | "exports";
+
+/** A gauge's state in the table: its badge. */
+export type GaugeState = "reporting" | "late" | "offline";
+
+type GaugeReading = {
+  /** Meters of water at the gauge. */
+  readonly level: number;
+  /** Meters gained (positive) or lost (negative) in the last hour. */
+  readonly change: number;
+  /** Battery, in percent. */
+  readonly battery: number;
+  /** The last report's clock time. */
+  readonly report: string;
+  readonly state: GaugeState;
+};
+
+export type DashboardText = {
+  readonly brand: string;
+  readonly sample: string;
+  /** The sidebar navigation's accessible name. */
+  readonly navLabel: string;
+  readonly nav: readonly { readonly label: string; readonly to: DashboardTarget }[];
+  readonly crew: { readonly name: string; readonly plan: string };
+  readonly command: { readonly label: string; readonly hint: string };
+  readonly filters: {
+    readonly label: string;
+    readonly range: string;
+    readonly ranges: readonly string[];
+    readonly chips: readonly string[];
+  };
+  readonly lead: {
+    readonly label: string;
+    readonly place: string;
+    /** The sentence under the lead value; it holds the `word` slot. */
+    readonly note: Rich;
+    /** The word before the next event: "Falling to low water" or "Rising to high water". */
+    readonly falling: string;
+    readonly rising: string;
+  };
+  readonly stats: {
+    readonly label: string;
+    readonly reporting: string;
+    readonly stored: string;
+    readonly alerts: string;
+  };
+  readonly alerts: {
+    readonly title: string;
+    readonly intro: string;
+    /** The start of the figure's name; the totals and the busiest day follow. */
+    readonly figure: string;
+    /** The visually hidden data table's caption. */
+    readonly table: string;
+    readonly days: readonly string[];
+    readonly kinds: readonly { readonly name: string; readonly values: readonly number[] }[];
+  };
+  readonly gauges: {
+    readonly title: string;
+    readonly intro: string;
+    readonly columns: {
+      readonly place: string;
+      readonly level: string;
+      readonly change: string;
+      readonly battery: string;
+      readonly report: string;
+      readonly state: string;
+    };
+    readonly states: Readonly<Record<GaugeState, string>>;
+    readonly readings: readonly GaugeReading[];
+    readonly empty: string;
+  };
+  readonly exports: {
+    readonly title: string;
+    readonly empty: { readonly title: string; readonly body: string; readonly action: string };
+  };
+  /** The toast's sentence, which holds the `person` slot, and its dismiss button's name. */
+  readonly toast: { readonly text: Rich; readonly dismiss: string };
+};
+
+const DASHBOARD_REAL: CanvasCopy = frozen<CanvasCopy>({
+  title: "Moorings this week",
+  word: "hard",
+  person: "Tamsin Rook",
+  amount: "48,212",
+  items: [...SAMPLE_PLACES],
+  label: "Spring",
+});
+
+export const DASHBOARD_TEXT: DashboardText = frozen<DashboardText>({
+  brand: "Saltmarsh",
+  sample: "sample",
+  navLabel: "Console, sample",
+  nav: [
+    { label: "Overview", to: "top" },
+    { label: "Alerts", to: "alerts" },
+    { label: "Gauges", to: "gauges" },
+    { label: "Exports", to: "exports" },
+  ],
+  crew: { name: "Samphire crew", plan: "Crew plan, sample" },
+  command: { label: "Search or run a command", hint: "⌘K" },
+  filters: {
+    label: "Filters",
+    range: "Range",
+    ranges: ["Week", "Month", "Season"],
+    chips: ["Reporting", "Late", "Offline"],
+  },
+  lead: {
+    label: "Water now",
+    place: SAMPLE_PLACES[0],
+    note: ["The ", { slot: "word" }, " dries at low water. Sample readings."],
+    falling: "Falling to low water",
+    rising: "Rising to high water",
+  },
+  stats: {
+    label: "This week",
+    reporting: "Gauges reporting",
+    stored: "Readings stored",
+    alerts: "Alerts sent",
+  },
+  alerts: {
+    title: "Alerts this week",
+    intro: "Sample alerts sent to the crew, by kind.",
+    figure: "Alerts this week by kind, sample",
+    table: "Alerts this week by kind and day, sample",
+    days: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    kinds: [
+      { name: "High water", values: [4, 5, 3, 6, 4, 5, 3] },
+      { name: "Low water", values: [3, 4, 4, 5, 3, 4, 4] },
+      { name: "Draft clear", values: [5, 3, 6, 7, 2, 6, 5] },
+      { name: "Gauge late", values: [1, 0, 2, 4, 1, 0, 1] },
+      { name: "Battery low", values: [0, 1, 0, 2, 0, 1, 0] },
+    ],
+  },
+  gauges: {
+    title: "Gauges",
+    intro: "The gauge at each saved mooring, with sample readings.",
+    columns: {
+      place: "Mooring",
+      level: "Level, m",
+      change: "1 h, m",
+      battery: "Battery",
+      report: "Report",
+      state: "State",
+    },
+    states: { reporting: "Reporting", late: "Late", offline: "Offline" },
+    // The first gauge is the lead KPI's place: it reads the sample tide at 09:30 (section 6.12).
+    readings: [
+      { level: 2.5, change: -0.8, battery: 86, report: "09:28", state: "reporting" },
+      { level: 2.3, change: -0.7, battery: 72, report: "09:26", state: "reporting" },
+      { level: 3.0, change: -0.6, battery: 41, report: "08:52", state: "late" },
+      { level: 2.7, change: 0.9, battery: 9, report: "04:10", state: "offline" },
+    ],
+    empty: "No gauges at your moorings yet. Add one from a mooring's tide table.",
+  },
+  exports: {
+    title: "Exports",
+    empty: {
+      title: "No exports yet",
+      body: "Export a week of readings as a file to share with your harbor office.",
+      action: "Export readings",
+    },
+  },
+  toast: { text: ["Sample: ", { slot: "person" }, " saved the alert rules."], dismiss: "Dismiss" },
+});
+
+// ── The settings: the console's settings (section 7.7) ────────────────────────────────────────
+
+/** The settings' sections, the targets of its section links. */
+export type SettingsSection = "profile" | "boat" | "moorings" | "alerts" | "console" | "danger";
+
+/** A text field's label, value and placeholder; a hint or a message where the field has one. */
+type FieldText = {
+  readonly label: string;
+  readonly value: string;
+  readonly placeholder: string;
+  readonly hint?: string;
+  readonly message?: string;
+};
+
+export type SettingsText = {
+  readonly brand: string;
+  readonly sample: string;
+  readonly intro: string;
+  readonly navLabel: string;
+  readonly sections: readonly {
+    readonly key: SettingsSection;
+    readonly title: string;
+    readonly intro: string;
+  }[];
+  readonly profile: {
+    readonly role: string;
+    readonly name: FieldText;
+    readonly email: FieldText;
+    readonly password: FieldText;
+  };
+  readonly boat: {
+    /** Shown in the forced focus state. */
+    readonly name: FieldText;
+    /** Shown invalid, with its message. */
+    readonly callSign: FieldText;
+    readonly draft: FieldText & { readonly step: number; readonly min: number };
+    /** The color input's label; its hint holds the `word` slot. */
+    readonly color: { readonly label: string; readonly hint: Rich };
+  };
+  readonly moorings: {
+    /** Shown valid, with its message. */
+    readonly home: FieldText;
+    readonly units: { readonly label: string; readonly options: readonly string[] };
+    readonly watch: { readonly legend: string; readonly empty: string };
+  };
+  readonly alerts: {
+    readonly lead: {
+      readonly label: string;
+      readonly min: number;
+      readonly max: number;
+      readonly step: number;
+      readonly value: number;
+      readonly unit: string;
+    };
+    readonly channel: {
+      readonly legend: string;
+      readonly options: readonly string[];
+      readonly value: string;
+    };
+    readonly kinds: {
+      readonly legend: string;
+      readonly options: readonly string[];
+      readonly checked: readonly string[];
+    };
+    readonly quiet: string;
+    readonly season: { readonly label: string; readonly value: string };
+    readonly notes: FieldText;
+  };
+  readonly console: {
+    /** Shown read-only. */
+    readonly id: FieldText;
+    /** Shown disabled. */
+    readonly harbor: FieldText;
+    readonly plan: {
+      readonly name: string;
+      readonly currency: string;
+      readonly per: string;
+      readonly action: string;
+    };
+  };
+  readonly danger: {
+    readonly body: string;
+    readonly action: string;
+    readonly dialog: {
+      readonly title: string;
+      readonly body: string;
+      readonly cancel: string;
+      readonly confirm: string;
+    };
+  };
+  readonly save: { readonly note: string; readonly discard: string; readonly save: string };
+};
+
+const SETTINGS_REAL: CanvasCopy = frozen<CanvasCopy>({
+  title: "Console settings",
+  word: "chart",
+  person: "Maren Holt",
+  amount: "6.50",
+  items: SAMPLE_PLACES.slice(0, 3),
+  label: "Crew",
+});
+
+export const SETTINGS_TEXT: SettingsText = frozen<SettingsText>({
+  brand: "Saltmarsh",
+  sample: "sample",
+  intro: "Sample settings for one console. Nothing here leaves this preview.",
+  navLabel: "Settings sections",
+  sections: [
+    { key: "profile", title: "Profile", intro: "How your crew sees you." },
+    { key: "boat", title: "Boat", intro: "The boat the alerts are for." },
+    { key: "moorings", title: "Moorings", intro: "Where you sail from." },
+    { key: "alerts", title: "Alerts", intro: "When and how Saltmarsh tells you." },
+    { key: "console", title: "Console", intro: "The console and its plan." },
+    { key: "danger", title: "Danger zone", intro: "Changes you cannot undo." },
+  ],
+  profile: {
+    role: "Owner of this console",
+    name: { label: "Display name", value: "Maren Holt", placeholder: "Your name…" },
+    email: {
+      label: "Email",
+      value: "maren@saltmarsh.example",
+      placeholder: "name@example.com…",
+    },
+    password: {
+      label: "Password",
+      value: "sample-password",
+      placeholder: "At least 12 characters…",
+      hint: "At least 12 characters.",
+    },
+  },
+  boat: {
+    name: { label: "Boat name", value: "Curlew", placeholder: "Curlew…" },
+    callSign: {
+      label: "Call sign",
+      value: "MX-45",
+      placeholder: "MX4512…",
+      message: "Use letters and digits only, such as MX4512.",
+    },
+    draft: {
+      label: "Draft, in meters",
+      value: "1.4",
+      placeholder: "1.4…",
+      hint: "The depth of the keel below the water.",
+      step: 0.1,
+      min: 0,
+    },
+    color: {
+      label: "Marker color",
+      hint: ["The color of your boat's marker on the ", { slot: "word" }, "."],
+    },
+  },
+  moorings: {
+    home: {
+      label: "Home mooring",
+      value: SAMPLE_PLACES[0],
+      placeholder: "A mooring's name…",
+      message: "Found on the tide map.",
+    },
+    units: { label: "Units", options: ["Meters", "Feet"] },
+    watch: {
+      legend: "Moorings to watch",
+      empty: "No moorings saved yet. Save one from its tide table.",
+    },
+  },
+  alerts: {
+    lead: {
+      label: "Warn me before high water",
+      min: 15,
+      max: 120,
+      step: 15,
+      value: 45,
+      unit: "min",
+    },
+    channel: {
+      legend: "Send alerts by",
+      options: ["Push", "Email", "Text message"],
+      value: "Push",
+    },
+    kinds: {
+      legend: "Alert me about",
+      options: ["High water", "Low water", "A gauge that goes quiet"],
+      checked: ["High water", "A gauge that goes quiet"],
+    },
+    quiet: "Quiet hours at night",
+    season: { label: "Season starts", value: "2026-03-01" },
+    notes: {
+      label: "Notes for the crew",
+      value: "Check the forecast before you cast off.",
+      placeholder: "A note your crew sees with each alert…",
+    },
+  },
+  console: {
+    id: { label: "Console ID", value: "sm-4f2a-0911", placeholder: "" },
+    harbor: {
+      label: "Harbor code",
+      value: "HX-07",
+      placeholder: "",
+      hint: "Set by your harbor office.",
+    },
+    plan: { name: "Crew plan", currency: "$", per: "a month, sample price", action: "Change plan" },
+  },
+  danger: {
+    body: "Delete this console, its gauges and every reading they hold. In this sample, nothing is deleted.",
+    action: "Delete console",
+    dialog: {
+      title: "Delete this console?",
+      body: "The console, its gauges and every reading go for good. In this sample, nothing is deleted.",
+      cancel: "Cancel",
+      confirm: "Delete console",
+    },
+  },
+  save: {
+    note: "Sample changes stay in this preview.",
+    discard: "Discard",
+    save: "Save changes",
+  },
+});
+
 // ── Which copy a template shows ───────────────────────────────────────────────────────────────
 
-/** The templates whose copy lives here; the later templates join with Tasks 2.9 and 2.10. */
-export const COPY_OWNERS = Object.freeze(["kitchen-sink", "landing", "editorial"] as const);
+/** The templates whose copy lives here; the mobile template joins with Task 2.10. */
+export const COPY_OWNERS = Object.freeze([
+  "kitchen-sink",
+  "landing",
+  "editorial",
+  "dashboard",
+  "settings",
+] as const);
 export type CopyOwner = (typeof COPY_OWNERS)[number];
 
 const KINDS: readonly CopyKind[] = Object.freeze(["real", "edge"]);
@@ -450,6 +842,8 @@ const REAL: Readonly<Record<CopyOwner, CanvasCopy>> = Object.freeze({
   "kitchen-sink": COPY.real,
   landing: LANDING_REAL,
   editorial: EDITORIAL_REAL,
+  dashboard: DASHBOARD_REAL,
+  settings: SETTINGS_REAL,
 });
 
 /**

@@ -4,10 +4,12 @@ import {
   COPY,
   COPY_OWNERS,
   copyOf,
+  DASHBOARD_TEXT,
   EDITORIAL_TEXT,
   LANDING_TEXT,
   type Run,
   SAMPLE_PLACES,
+  SETTINGS_TEXT,
 } from "@/features/preview/copy";
 import { FRAMES, frameFit } from "@/features/preview/frame";
 import {
@@ -17,6 +19,7 @@ import {
   statesOf,
 } from "@/features/preview/kit/states";
 import { swatches, TEXT_PAIRS } from "@/features/preview/swatches";
+import { tideAt } from "@/features/preview/tide";
 import { canvasStyle, cssVariables, roleVar } from "@/features/preview/vars";
 import { freshParams, resolveParams } from "@/features/studio/params";
 import { densityVars, themeVars } from "@/theme/vars";
@@ -333,14 +336,14 @@ function deepFrozen(value: unknown): boolean {
 
 const SLOTS = ["word", "person", "amount"];
 
-describe("the template copy (section 7.6, R2-21, F-CANVAS-09)", () => {
+describe("the template copy (sections 7.6 and 7.7, R2-21, F-CANVAS-09)", () => {
   it("copyOf gives each template its real copy and the one edge copy of R2-21", () => {
-    expect(COPY_OWNERS).toEqual(["kitchen-sink", "landing", "editorial"]);
+    expect(COPY_OWNERS).toEqual(["kitchen-sink", "landing", "editorial", "dashboard", "settings"]);
     expect(Object.isFrozen(COPY_OWNERS)).toBe(true);
     expect(copyOf("kitchen-sink", "real")).toBe(COPY.real);
     for (const owner of COPY_OWNERS) expect(copyOf(owner, "edge")).toBe(COPY.edge);
     const reals = COPY_OWNERS.map((owner) => copyOf(owner, "real"));
-    expect(new Set(reals.map((copy) => copy.title)).size).toBe(3);
+    expect(new Set(reals.map((copy) => copy.title)).size).toBe(5);
     for (const copy of reals) {
       expect(Object.keys(copy).sort()).toEqual(Object.keys(COPY.edge).sort());
       expect(copy.items.length).toBeGreaterThan(1);
@@ -354,8 +357,8 @@ describe("the template copy (section 7.6, R2-21, F-CANVAS-09)", () => {
   it("R-05: copyOf names itself for an owner or a kind of the wrong type or outside its set", () => {
     expect(() => copyOf(3 as never, "real")).toThrow(TypeError);
     expect(() => copyOf(3 as never, "real")).toThrow(/^copyOf: owner/);
-    expect(() => copyOf("dashboard" as never, "real")).toThrow(RangeError);
-    expect(() => copyOf("dashboard" as never, "real")).toThrow(/^copyOf: owner/);
+    expect(() => copyOf("mobile" as never, "real")).toThrow(RangeError);
+    expect(() => copyOf("mobile" as never, "real")).toThrow(/^copyOf: owner/);
     expect(() => copyOf("landing", null as never)).toThrow(TypeError);
     expect(() => copyOf("landing", "long" as never)).toThrow(RangeError);
     expect(() => copyOf("landing", "long" as never)).toThrow(/^copyOf: kind/);
@@ -365,6 +368,8 @@ describe("the template copy (section 7.6, R2-21, F-CANVAS-09)", () => {
     const texts = {
       landing: [copyOf("landing", "real"), LANDING_TEXT],
       editorial: [copyOf("editorial", "real"), EDITORIAL_TEXT],
+      dashboard: [copyOf("dashboard", "real"), DASHBOARD_TEXT],
+      settings: [copyOf("settings", "real"), SETTINGS_TEXT],
     };
     for (const [owner, parts] of Object.entries(texts)) {
       const all = strings(parts);
@@ -380,10 +385,12 @@ describe("the template copy (section 7.6, R2-21, F-CANVAS-09)", () => {
     }
     expect(deepFrozen(LANDING_TEXT)).toBe(true);
     expect(deepFrozen(EDITORIAL_TEXT)).toBe(true);
+    expect(deepFrozen(DASHBOARD_TEXT)).toBe(true);
+    expect(deepFrozen(SETTINGS_TEXT)).toBe(true);
   });
 
   it("fills slots only from the copy's strings, and each template shows its edge slots", () => {
-    for (const run of runs([LANDING_TEXT, EDITORIAL_TEXT])) {
+    for (const run of runs([LANDING_TEXT, EDITORIAL_TEXT, DASHBOARD_TEXT, SETTINGS_TEXT])) {
       if ("slot" in run) expect(SLOTS).toContain(run.slot);
     }
     const slotsOf = (value: unknown) =>
@@ -391,6 +398,11 @@ describe("the template copy (section 7.6, R2-21, F-CANVAS-09)", () => {
     expect(slotsOf(LANDING_TEXT.hero.lead)).toEqual(["word"]);
     expect(slotsOf(EDITORIAL_TEXT.standfirst)).toEqual(["word"]);
     expect(slotsOf(EDITORIAL_TEXT)).toContain("amount");
+    // Section 7.7: the dashboard's lead note holds the word and its toast the person; a settings
+    // hint holds the word. The other slots (title, amount, items, label) are the copy's own fields.
+    expect(slotsOf(DASHBOARD_TEXT.lead.note)).toEqual(["word"]);
+    expect(slotsOf(DASHBOARD_TEXT.toast.text)).toEqual(["person"]);
+    expect(slotsOf(SETTINGS_TEXT.boat.color.hint)).toEqual(["word"]);
   });
 
   it("links the article's text only to its sections and notes, and refers to each note once, in order", () => {
@@ -421,5 +433,64 @@ describe("the template copy (section 7.6, R2-21, F-CANVAS-09)", () => {
     }
     expect(LANDING_TEXT.faq.items.length).toBeGreaterThanOrEqual(3);
     expect(LANDING_TEXT.nav.map((link) => link.to)).toEqual(["features", "pricing", "faq"]);
+  });
+
+  it("gives the dashboard its parts: four sidebar targets, a week of five alert kinds, a gauge per place", () => {
+    expect(DASHBOARD_TEXT.nav.map((link) => link.to)).toEqual([
+      "top",
+      "alerts",
+      "gauges",
+      "exports",
+    ]);
+    expect(DASHBOARD_TEXT.command.label).toBe("Search or run a command");
+    expect(DASHBOARD_TEXT.filters.ranges).toHaveLength(3);
+    expect(DASHBOARD_TEXT.filters.chips).toHaveLength(3);
+    const { days, kinds } = DASHBOARD_TEXT.alerts;
+    expect(days).toHaveLength(7);
+    expect(kinds).toHaveLength(5);
+    expect(new Set(kinds.map((kind) => kind.name)).size).toBe(5);
+    for (const kind of kinds) {
+      expect(kind.values, kind.name).toHaveLength(days.length);
+      for (const value of kind.values) {
+        expect(Number.isInteger(value) && value >= 0, `${kind.name} ${value}`).toBe(true);
+      }
+    }
+    const readings = DASHBOARD_TEXT.gauges.readings;
+    expect(readings.length).toBeGreaterThanOrEqual(copyOf("dashboard", "real").items.length);
+    // The lead KPI and the table's first row tell one story: the lead place is the first mooring,
+    // and its gauge reads the sample tide at 09:30 (section 6.12), one decimal, falling.
+    expect(DASHBOARD_TEXT.lead.place).toBe(copyOf("dashboard", "real").items[0]);
+    expect(readings[0]?.level).toBe(Number(tideAt(9.5).toFixed(1)));
+    expect(readings[0]?.change).toBe(Number((tideAt(9.5) - tideAt(8.5)).toFixed(1)));
+    expect(new Set(readings.map((reading) => reading.state))).toEqual(
+      new Set(["reporting", "late", "offline"]),
+    );
+    for (const reading of readings) {
+      expect(reading.battery).toBeGreaterThanOrEqual(0);
+      expect(reading.battery).toBeLessThanOrEqual(100);
+      expect(reading.level).toBeGreaterThan(0);
+      expect(reading.report).toMatch(/^\d{2}:\d{2}$/);
+    }
+  });
+
+  it("gives the settings their parts: the sections in order, and every value inside its control's range", () => {
+    expect(SETTINGS_TEXT.sections.map((section) => section.key)).toEqual([
+      "profile",
+      "boat",
+      "moorings",
+      "alerts",
+      "console",
+      "danger",
+    ]);
+    const { lead, channel, kinds, season } = SETTINGS_TEXT.alerts;
+    expect(lead.value).toBeGreaterThanOrEqual(lead.min);
+    expect(lead.value).toBeLessThanOrEqual(lead.max);
+    expect((lead.value - lead.min) % lead.step).toBe(0);
+    expect(channel.options).toContain(channel.value);
+    for (const kind of kinds.checked) expect(kinds.options).toContain(kind);
+    expect(season.value).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(SETTINGS_TEXT.moorings.units.options.length).toBeGreaterThan(1);
+    expect(SETTINGS_TEXT.danger.dialog.cancel).toBe("Cancel");
+    expect(SETTINGS_TEXT.danger.dialog.confirm).toBe(SETTINGS_TEXT.danger.action);
   });
 });

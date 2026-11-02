@@ -1,0 +1,44 @@
+/* The kit's confirm dialog (spec section 7.7, F-TPL-30): a scrim over its template and a popover
+ * surface on it, both positioned inside the template (absolute), so the frame's scale holds them. */
+
+.kit-confirm-layer {
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  overscroll-behavior: contain;
+  background-color: color-mix(in oklab, var(--kit-scrim) 45%, transparent);
+  animation: kit-confirm-scrim var(--duration-base) var(--ease-decelerate);
+}
+.kit-confirm {
+  display: grid;
+  width: min(100%, 26rem);
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-4);
+  animation: kit-confirm-in var(--duration-base) var(--ease-decelerate);
+}
+.kit-confirm-title {
+  color: var(--popover-foreground);
+}
+.kit-confirm .kit-actions {
+  padding-top: var(--space-2);
+}
+
+@keyframes kit-confirm-scrim {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes kit-confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2)) scale(0.98);
+  }
+}

@@ -6,6 +6,7 @@ import { fontStack, hexToRgb, PAIRINGS, simulate, toHex } from "@/engine";
 import { COPY, SAMPLE_PLACES } from "@/features/preview/copy";
 import { frameFit } from "@/features/preview/frame";
 import { writeHash } from "@/features/studio/url";
+import type { TemplateId } from "@/features/studio/view";
 import { normalizeSpec } from "@/spec";
 import { themeVars } from "@/theme/vars";
 import {
@@ -36,7 +37,8 @@ import {
 } from "./template-support";
 
 // The canvas flows of docs/specs/02-studio.md, section 7.4 (Task 2.7): F-CANVAS-01 to 10 and 12 to
-// 19, with F-CANVAS-07 to 09 extended to the landing and editorial templates (Task 2.8). F-CANVAS-11
+// 19, with F-CANVAS-07 to 09 extended to the landing and editorial templates (Task 2.8) and to the
+// dashboard and settings templates (Task 2.9). F-CANVAS-11
 // ("Show me") is driven from the inspector and lands with it in Task 2.10. A flow that names no
 // viewport runs at 1280 × 800.
 
@@ -59,6 +61,11 @@ const templateSelect = (page: Page) =>
 const reduceMotion = (page: Page) =>
   page.getByRole("switch", { name: "Reduce motion", exact: true });
 const modeSwitch = (page: Page) => page.getByRole("switch", { name: "Dark mode", exact: true });
+
+/** The page templates of sections 7.6 and 7.7 (Tasks 2.8 and 2.9). */
+const PAGES = ["landing", "editorial", "dashboard", "settings"] as const;
+/** A template other than `id`, shown first so that `id` mounts afresh: the mobile stand-in. */
+const elsewhere = (id: TemplateId): TemplateId => (id === "mobile" ? "landing" : "mobile");
 
 /** Opens the studio on the first stubbed design and shows the kitchen sink. */
 async function openSink(page: Page): Promise<void> {
@@ -865,14 +872,14 @@ function entranceOpacities(page: Page): Promise<number[]> {
     );
 }
 
-test.describe("7.4 Motion on the landing and editorial templates", () => {
+test.describe("7.4 Motion on the page templates", () => {
   test("F-CANVAS-07 Reduce motion stops both templates, keeps the FAQ's state and never replays the entrance", async ({
     page,
   }) => {
     await stubSeeds(page);
     await openStudio(page);
-    const landing = templateRoot(page, "landing");
-    await expect(landing).toBeVisible();
+    // The first load's entrance comes to rest first: its spring's tail must not read as a replay.
+    const landing = await showTemplate(page, "landing");
     // Without the switch the template's parts transition.
     expect((await motionReport(page)).running.length).toBeGreaterThan(0);
     const second = landing.locator('[data-block="faq"] button[aria-expanded]').nth(1);
@@ -891,7 +898,7 @@ test.describe("7.4 Motion on the landing and editorial templates", () => {
     // The editorial template, chosen while the switch is on, is in place from its first frame and
     // holds no animation: sampled from mount, not after the entrance has come to rest.
     await reduceMotion(page).click();
-    await showTemplate(page, "dashboard");
+    await showTemplate(page, elsewhere("editorial"));
     const sampled = mountMotion(page, "editorial");
     await templateSelect(page).selectOption("editorial");
     const mounted = await sampled;
@@ -903,7 +910,7 @@ test.describe("7.4 Motion on the landing and editorial templates", () => {
     expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
   });
 
-  test("F-CANVAS-08 prefers-reduced-motion stops both templates without the switch", async ({
+  test("F-CANVAS-08 prefers-reduced-motion stops the page templates without the switch", async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
@@ -911,8 +918,8 @@ test.describe("7.4 Motion on the landing and editorial templates", () => {
     await openStudio(page);
     await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
     // Each template mounts under the preference: its entrance is in place from its first frame.
-    for (const id of ["landing", "editorial"] as const) {
-      await showTemplate(page, "dashboard");
+    for (const id of PAGES) {
+      await showTemplate(page, elsewhere(id));
       const sampled = mountMotion(page, id);
       await templateSelect(page).selectOption(id);
       const mounted = await sampled;
@@ -922,9 +929,54 @@ test.describe("7.4 Motion on the landing and editorial templates", () => {
       expect((await motionReport(page)).running, id).toEqual([]);
     }
   });
+
+  test("F-CANVAS-07 Reduce motion stops the dashboard and settings, keeps their state and never replays the entrance", async ({
+    page,
+  }) => {
+    await stubSeeds(page);
+    await openStudio(page);
+    const dashboard = await showTemplate(page, "dashboard");
+    // Without the switch the template's parts transition.
+    expect((await motionReport(page)).running.length).toBeGreaterThan(0);
+    const chip = dashboard.getByRole("button", { name: "Late", exact: true });
+    await chip.click();
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    const toast = dashboard.getByRole("status").filter({ hasText: "saved the alert rules" });
+    await toast.getByRole("button", { name: "Dismiss", exact: true }).click();
+    await expect(toast).toHaveCount(0);
+    await reduceMotion(page).click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+    const report = await motionReport(page);
+    expect(report.elements).toBeGreaterThan(300);
+    expect(report.running).toEqual([]);
+    await reduceMotion(page).click();
+    await expect(reduceMotion(page)).toHaveAttribute("aria-checked", "false");
+    expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
+    await expect(chip).toHaveAttribute("aria-pressed", "true");
+    await expect(toast).toHaveCount(0);
+    // The settings, chosen while the switch is on, are in place from their first frame.
+    await reduceMotion(page).click();
+    await showTemplate(page, elsewhere("settings"));
+    const sampled = mountMotion(page, "settings");
+    await templateSelect(page).selectOption("settings");
+    const mounted = await sampled;
+    expect(mounted.entrance).toEqual(["1 none"]);
+    expect(mounted.moved).toEqual([]);
+    expect(mounted.targets).toEqual([]);
+    expect((await motionReport(page)).running).toEqual([]);
+    const settings = templateRoot(page, "settings");
+    const quiet = settings.getByRole("switch", { name: "Quiet hours at night", exact: true });
+    const before = await quiet.getAttribute("aria-checked");
+    await quiet.click();
+    await expect(quiet).not.toHaveAttribute("aria-checked", before ?? "");
+    await reduceMotion(page).click();
+    await expect(reduceMotion(page)).toHaveAttribute("aria-checked", "false");
+    expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
+    await expect(quiet).not.toHaveAttribute("aria-checked", before ?? "");
+  });
 });
 
-test("F-CANVAS-09 edge-case copy fills the landing and editorial slots, and nothing breaks or overflows", async ({
+test("F-CANVAS-09 edge-case copy fills the page templates' slots, and nothing breaks or overflows", async ({
   page,
 }) => {
   await stubSeeds(page);
@@ -933,7 +985,7 @@ test("F-CANVAS-09 edge-case copy fills the landing and editorial slots, and noth
   await toolbarRadio(page, "Copy", "Edge-case copy").check();
   await expect(canvasFrame(page)).toHaveAttribute("data-copy", "edge");
   const edge = COPY.edge;
-  for (const id of ["landing", "editorial"] as const) {
+  for (const id of PAGES) {
     const root = await showTemplate(page, id);
     for (const text of [edge.word, edge.title, edge.person, edge.amount]) {
       await expect(root.getByText(text, { exact: false }).first(), `${id} ${text}`).toBeVisible();
@@ -963,7 +1015,7 @@ test("F-CANVAS-09 edge-case copy fills the landing and editorial slots, and noth
     await setFrame(page, 1280);
   }
   await toolbarRadio(page, "Copy", "Real copy").check();
-  for (const id of ["landing", "editorial"] as const) {
+  for (const id of PAGES) {
     const root = await showTemplate(page, id);
     expect(await root.locator("[data-list-item]").count(), id).toBeGreaterThan(1);
     await expect(root.locator("[data-copy-label]").first(), id).not.toHaveText(edge.label);

@@ -100,3 +100,16 @@
     transform: rotate(1turn);
   }
 }
+
+/* Text that only assistive technology reads: the chart's data table, a rail link's label. */
+.kit-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

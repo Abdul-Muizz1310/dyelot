@@ -81,6 +81,7 @@
 }
 
 .kit-toast {
+  --kit-toast-on: var(--popover-foreground);
   display: flex;
   width: min(100%, 22rem);
   align-items: center;
@@ -92,12 +93,37 @@
   color: var(--popover-foreground);
   box-shadow: var(--shadow-3);
 }
+.kit-toast-text {
+  flex: 1;
+  min-width: 0;
+}
+/* The dismiss button takes the toast's own text color; its hover is a tint of that color (`--kit-toast-on`). */
+.kit-toast-dismiss {
+  display: inline-grid;
+  flex: none;
+  width: 1.75rem;
+  height: 1.75rem;
+  place-items: center;
+  margin: calc(-1 * var(--space-1)) calc(-1 * var(--space-2)) calc(-1 * var(--space-1)) 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background-color: transparent;
+  color: inherit;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.kit-toast-dismiss:hover {
+  background-color: color-mix(in oklab, var(--kit-toast-on) 12%, transparent);
+}
 .kit-toast[data-state="success"] {
+  --kit-toast-on: var(--success-foreground);
   border-color: var(--success);
   background-color: var(--success);
   color: var(--success-foreground);
 }
 .kit-toast[data-state="invalid"] {
+  --kit-toast-on: var(--destructive-foreground);
   border-color: var(--destructive);
   background-color: var(--destructive);
   color: var(--destructive-foreground);

@@ -3,9 +3,9 @@ import type { RoleName } from "@/engine";
 import type { TemplateId } from "@/features/studio/view";
 import { roleVar } from "../vars";
 
-// A stand-in for the templates that arrive with Tasks 2.8 to 2.10 (landing, dashboard, settings,
-// mobile and editorial): a short sample page that reads only the spec's variables, so every input
-// shows on the canvas and the frame is never blank. Type comes from the `.kit-t-<step>` classes.
+// A stand-in for the template that arrives with Task 2.10 (mobile): a short sample page that reads
+// only the spec's variables, so every input shows on the canvas and the frame is never blank. Type
+// comes from the `.kit-t-<step>` classes.
 
 const chip = (fill: RoleName, ink: RoleName): CSSProperties => ({
   display: "inline-flex",
