@@ -411,7 +411,10 @@ The highlight outline is a studio-chrome overlay in madder (an active state), de
 `src/features/studio/highlight.css`, never in the preview folder.
 
 **R2-21 · Canvas toggles.** `reducedMotion` is canvas-local: it sets `data-reduced-motion` on the canvas, and the kit passes
-`reducedMotion="always"` to Motion (otherwise `"user"`). `copy` is `real` or `edge`. The edge copy has a 40-character
+`reducedMotion="always"` to Motion (otherwise `"user"`). Under it, and under the system's reduced-motion setting, the canvas
+stops every CSS animation (`animation-name: none`) and every transition (`transition: none`) of the frame and everything inside
+it: a part changes state at once. A 0.01 ms transition would not do, since it leaves `transition-property` at `all`, so every
+style a container query changes would take one frame to reach its new value (F-CANVAS-20). `copy` is `real` or `edge`. The edge copy has a 40-character
 unbroken word, a 90-character title, a name with diacritics, the number `1,234,567,890.12`, an empty list and a
 single-character label. `vision` is `none`, `protan`, `deutan` or `tritan`.
 
@@ -1623,6 +1626,7 @@ that rule).
 | F-CANVAS-17 | pass | At 1280 × 800 the canvas toolbar takes at most 3 rows (distinct top edges of its items) and its height is at most 150 px; the frame switcher's group has an accessible description that holds the fit ("fit 43%"), or "Three 360 px screens" while the mobile template shows (F-TPL-32) | ruling, review |
 | F-CANVAS-18 | pass | Every target of the canvas toolbar (buttons, radios' labels, selects, switches) is at least 28 px tall and 24 px wide, at 1280 × 800 and at 360 × 740 with the "View" disclosure open | ruling, review |
 | F-CANVAS-19 | pass | Below 640 px the "View" button sits where the mode toggle was, with `aria-expanded="false"` and `aria-controls` naming the group, and the five view controls are hidden; at 360 × 740 the closed toolbar is at most 170 px tall; Enter and Space on the button open and close the group and focus stays on the button; the Tab order is Inputs, Inspector, frame, template, "View", then the mode toggle, density, "Reduce motion", copy and vision when open, then Undo, Redo, Copy link; Alt+T flips the mode with the group closed or open | ruling, review |
+| F-CANVAS-20 | pass | Under the canvas's "Reduce motion" switch, and under the system's reduced-motion setting, a frame switch (1280 → 768 → 360 → 1280) on the kitchen sink and on each page template starts no transition or animation inside `[data-canvas]` (the frame's animations, sampled on every frame for 300 ms from the switch), and the first sampled frame after the switch already shows the new layout: every element's container-dependent styles (padding, margin, font size and leading, grid columns, gaps, order, border widths, display) equal their values at rest | review |
 
 ### 7.5 The kitchen sink (Task 2.7)
 
