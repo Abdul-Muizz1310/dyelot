@@ -58,7 +58,18 @@ export function Findings({
   };
   const onBlur = (event: FocusEvent<HTMLElement>) => {
     const next = event.relatedTarget;
-    if (next instanceof Node && !event.currentTarget.contains(next)) focused.current = null;
+    if (next instanceof Node) {
+      if (!event.currentTarget.contains(next)) focused.current = null;
+      return;
+    }
+    // Focus went to no element: a click on chrome that takes no focus, or the control's removal, which
+    // Chromium reports the same way while the control is still connected. A removed control is gone by
+    // the next microtask, and the layout effect below has rescued it in the same commit; a control still
+    // in the document was left by the user, so it holds no claim (fix round 2, M-1).
+    const left = event.target;
+    queueMicrotask(() => {
+      if (focused.current === left && left.isConnected) focused.current = null;
+    });
   };
   // After every commit: a focused control that the list removed leaves focus on the body; the heading
   // takes it, before paint.
