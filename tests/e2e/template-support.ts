@@ -737,6 +737,108 @@ export function mountMotion(page: Page, id: TemplateId, ms = 600) {
   );
 }
 
+/**
+ * F-CANVAS-20: switches the frame to `to` from inside the page (a click on the Frame radio) and samples
+ * the canvas on every frame for `ms`. On the first sampled frame it records every element's
+ * container-dependent styles and the frame's width; on every frame, each animation the frame holds
+ * (CSS transitions and animations, scripted animations). Returns the animations seen, the elements
+ * whose first-frame styles differ from their styles at rest (`late`), how many it compared, and the
+ * frame's width on the first frame.
+ */
+export function frameSwitch(
+  page: Page,
+  to: 360 | 768 | 1280,
+  ms = 300,
+): Promise<{ animations: string[]; late: string[]; checked: number; width: number }> {
+  return page.evaluate(
+    ({ to, ms }) =>
+      new Promise((resolve, reject) => {
+        const frame = document.querySelector<HTMLElement>("[data-canvas][data-frame]");
+        const radio = [
+          ...document.querySelectorAll<HTMLInputElement>(
+            "[data-toolbar] fieldset input[type='radio']",
+          ),
+        ].find(
+          (input) =>
+            input.value === String(to) &&
+            input.closest("fieldset")?.querySelector("legend")?.textContent === "Frame",
+        );
+        if (frame === null || radio === undefined) {
+          reject(new Error("frameSwitch: no frame or Frame radio"));
+          return;
+        }
+        const PROPERTIES = [
+          "padding-top",
+          "padding-right",
+          "padding-bottom",
+          "padding-left",
+          "margin-top",
+          "margin-right",
+          "margin-left",
+          "font-size",
+          "line-height",
+          "grid-template-columns",
+          "column-gap",
+          "row-gap",
+          "order",
+          "border-top-width",
+          "border-left-width",
+          "display",
+        ];
+        const name = (element: Element) =>
+          `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`;
+        const styles = () =>
+          new Map(
+            [...frame.querySelectorAll("*")].map((element) => {
+              const style = getComputedStyle(element);
+              return [
+                element,
+                PROPERTIES.map((property) => style.getPropertyValue(property)).join("|"),
+              ];
+            }),
+          );
+        const animations = new Set<string>();
+        let first: Map<Element, string> | null = null;
+        let width = 0;
+        radio.click();
+        const start = performance.now();
+        const tick = () => {
+          // Styles first: reading them recalculates style, which is when a transition would start.
+          if (first === null) {
+            first = styles();
+            width = frame.offsetWidth;
+          }
+          for (const animation of frame.getAnimations({ subtree: true })) {
+            const effect = animation.effect;
+            const target = effect instanceof KeyframeEffect ? effect.target : null;
+            const what =
+              animation instanceof CSSTransition
+                ? `CSSTransition:${animation.transitionProperty}`
+                : animation.constructor.name;
+            animations.add(`${target === null ? "?" : name(target)} (${what})`);
+          }
+          if (performance.now() - start < ms) {
+            requestAnimationFrame(tick);
+            return;
+          }
+          const rest = styles();
+          const late: string[] = [];
+          for (const [element, value] of rest) {
+            if (first?.has(element) && first.get(element) !== value) late.push(name(element));
+          }
+          resolve({
+            animations: [...animations].slice(0, 12),
+            late: late.slice(0, 12),
+            checked: rest.size,
+            width,
+          });
+        };
+        requestAnimationFrame(tick);
+      }),
+    { to, ms },
+  ) as Promise<{ animations: string[]; late: string[]; checked: number; width: number }>;
+}
+
 /** F-TPL-38: the type step whose whole triple the first element matching `selector` sets, or null. */
 export function typeStepOf(scope: Locator, selector: string): Promise<string | null> {
   return scope.evaluate(

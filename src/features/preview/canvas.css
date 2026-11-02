@@ -76,20 +76,26 @@
   opacity: 1;
 }
 
-/* Reduced motion (R2-21, F-CANVAS-07, F-CANVAS-08): the canvas switch or the system setting stops
- * every animation and transition inside the frame. Motion's springs stop through MotionConfig. */
+/* Reduced motion (R2-21, F-CANVAS-07, F-CANVAS-08, F-CANVAS-20): the canvas switch or the system
+ * setting stops every animation and every transition of the frame and everything inside it, so a part
+ * changes state at once. `transition: none`, not a 0.01 ms duration: a duration alone leaves
+ * `transition-property` at `all`, so every style a container query changes would take a frame to reach
+ * its new value after a frame switch, a flash of the old layout. Motion's springs stop through
+ * MotionConfig. */
+[data-canvas][data-reduced-motion="true"],
 [data-canvas][data-reduced-motion="true"] *,
 [data-canvas][data-reduced-motion="true"] *::before,
 [data-canvas][data-reduced-motion="true"] *::after {
   animation-name: none !important;
-  transition-duration: 0.01ms !important;
+  transition: none !important;
 }
 
 @media (prefers-reduced-motion: reduce) {
+  [data-canvas],
   [data-canvas] *,
   [data-canvas] *::before,
   [data-canvas] *::after {
     animation-name: none !important;
-    transition-duration: 0.01ms !important;
+    transition: none !important;
   }
 }

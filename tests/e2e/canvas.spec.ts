@@ -30,6 +30,7 @@ import {
   brokenWords,
   eachTab,
   figureLines,
+  frameSwitch,
   mobileOverflow,
   mountMotion,
   openSheet,
@@ -1104,6 +1105,45 @@ test.describe("7.4 Motion on the page templates", () => {
     expect(await sheet.evaluate((element) => element.getAnimations().length)).toBe(0);
     await expect(sheet).toBeVisible();
   });
+});
+
+test("F-CANVAS-20 under reduced motion a frame switch starts no transition and shows the new layout from its first frame", async ({
+  page,
+}) => {
+  await stubSeeds(page);
+  await openStudio(page);
+  // Every switch is measured, and the failures are listed together, so each setting shows its own.
+  const failures: string[] = [];
+  try {
+    for (const setting of ["switch", "system"] as const) {
+      if (setting === "switch") {
+        await reduceMotion(page).click();
+        await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+      } else {
+        await reduceMotion(page).click();
+        await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
+        await page.emulateMedia({ reducedMotion: "reduce" });
+      }
+      for (const id of ["kitchen-sink", ...PAGES] as const) {
+        await showTemplate(page, id);
+        await setFrame(page, 1280);
+        for (const to of [768, 360, 1280] as const) {
+          const report = await frameSwitch(page, to);
+          const name = `${setting}: ${id} to ${to}`;
+          if (report.width !== to) failures.push(`${name}: the first frame is ${report.width} px`);
+          if (report.checked <= 50) failures.push(`${name}: only ${report.checked} elements`);
+          if (report.animations.length > 0) {
+            failures.push(`${name}: animations ${report.animations.join(", ")}`);
+          }
+          if (report.late.length > 0)
+            failures.push(`${name}: a frame late ${report.late.join(", ")}`);
+        }
+      }
+    }
+  } finally {
+    await page.emulateMedia({ reducedMotion: null });
+  }
+  expect(failures).toEqual([]);
 });
 
 test("F-CANVAS-09 edge-case copy fills the page templates' slots, and nothing breaks or overflows", async ({
