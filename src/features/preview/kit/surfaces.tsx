@@ -33,7 +33,7 @@ export function Card({ title, meta, state }: { title: string; meta: string; stat
       data-kit={state === undefined ? undefined : "card"}
       data-state={state}
       data-concentric="card"
-      data-roles={withRing("card card-foreground border font-body", state)}
+      data-roles={withRing("card card-foreground border", state)}
       disabled={state === "disabled"}
       onClick={() => setPressed((value) => !value)}
     >
@@ -45,8 +45,12 @@ export function Card({ title, meta, state }: { title: string; meta: string; stat
         <WavesHorizontal aria-hidden="true" />
       </span>
       <span className="kit-card-body">
-        <span className="kit-card-title kit-t-body">{title}</span>
-        <span className="kit-card-meta kit-t-caption">{meta}</span>
+        <span className="kit-card-title kit-t-body" data-roles="card-foreground font-display">
+          {title}
+        </span>
+        <span className="kit-card-meta kit-t-caption" data-roles="card-foreground font-body">
+          {meta}
+        </span>
       </span>
     </button>
   );
@@ -123,12 +127,16 @@ export function DialogStage({ title }: { title: string }) {
         className="kit-dialog"
         data-kit="dialog"
         data-state="default"
-        data-roles="popover popover-foreground border font-body"
+        data-roles="popover popover-foreground border"
       >
-        <p id={`${id}-title`} className="kit-dialog-title kit-t-h4">
+        <p
+          id={`${id}-title`}
+          className="kit-dialog-title kit-t-h4"
+          data-roles="popover-foreground font-display"
+        >
           {title}
         </p>
-        <p className="kit-t-body-sm">
+        <p className="kit-t-body-sm" data-roles="popover-foreground font-body">
           Sample: delete this reading? The tide log keeps the other readings of the day.
         </p>
         <div className="kit-actions">
@@ -151,18 +159,31 @@ export function SheetStage({ items }: { items: readonly string[] }) {
         className="kit-sheet"
         data-kit="sheet"
         data-state="default"
-        data-roles="popover popover-foreground border font-body"
+        data-roles="popover popover-foreground border"
       >
         <span className="kit-sheet-grabber" aria-hidden="true" />
-        <p id={`${id}-title`} className="kit-dialog-title kit-t-h4">
+        <p
+          id={`${id}-title`}
+          className="kit-dialog-title kit-t-h4"
+          data-roles="popover-foreground font-display"
+        >
           Saved places
         </p>
         {items.length === 0 ? (
-          <div data-list="" data-empty="" className="kit-list-empty kit-t-body-sm">
+          <div
+            data-list=""
+            data-empty=""
+            className="kit-list-empty kit-t-body-sm"
+            data-roles="popover-foreground font-body"
+          >
             No saved places yet. Save a place from its tide table.
           </div>
         ) : (
-          <ul data-list="" className="kit-list kit-t-body-sm">
+          <ul
+            data-list=""
+            className="kit-list kit-t-body-sm"
+            data-roles="popover-foreground font-body"
+          >
             {items.map((item) => (
               <li key={item} data-list-item="">
                 {item}
