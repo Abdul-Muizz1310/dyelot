@@ -16,6 +16,7 @@ import {
   TextLink,
   TideCurve,
 } from "../kit";
+import { clock, TIDE_EVENTS, type TideEvent } from "../tide";
 
 // The landing page (spec section 7.6): Saltmarsh, a fictional tide-reading app, as a specimen of the
 // design. An asymmetric hero (the headline large on the left, one product moment on the right on a
@@ -118,6 +119,13 @@ function Nav() {
 /** The hero's product moment: today's tide at the first sample place. */
 function Today({ copy }: { copy: CanvasCopy }) {
   const { today } = TEXT;
+  const name = (event: TideEvent) => (event.kind === "high" ? today.high : today.low);
+  const meters = (event: TideEvent) => `${event.meters.toFixed(1)} m`;
+  const nowLabel = `${today.now} ${clock(NOW)}`;
+  // The figure's name holds what the curve shows: each event of the day and the "now" time.
+  const figureName = `${today.figure}: ${TIDE_EVENTS.map(
+    (event) => `${name(event)} at ${clock(event.hour)}, ${meters(event)}`,
+  ).join("; ")}; ${nowLabel}.`;
   return (
     <div className="lp-today" data-roles="card card-foreground border">
       <div className="lp-today-head">
@@ -132,7 +140,7 @@ function Today({ copy }: { copy: CanvasCopy }) {
         </Badge>
       </div>
       <div className="lp-curve">
-        <TideCurve label={today.figure} now={NOW} />
+        <TideCurve label={figureName} now={NOW} nowLabel={nowLabel} />
       </div>
       <ol aria-hidden="true" className="lp-hours kit-mono kit-t-caption">
         {today.hours.map((hour) => (
@@ -140,12 +148,12 @@ function Today({ copy }: { copy: CanvasCopy }) {
         ))}
       </ol>
       <dl className="lp-events">
-        {today.events.map((event) => (
-          <div key={event.time} className="lp-event">
-            <dt className="kit-t-body-sm">{event.name}</dt>
+        {TIDE_EVENTS.map((event) => (
+          <div key={event.hour} className="lp-event">
+            <dt className="kit-t-body-sm">{name(event)}</dt>
             <dd className="lp-event-values kit-mono kit-t-body-sm">
-              <span className="kit-num">{event.time}</span>
-              <span className="kit-num">{event.meters.toFixed(1)} m</span>
+              <span className="kit-num">{clock(event.hour)}</span>
+              <span className="kit-num">{meters(event)}</span>
             </dd>
           </div>
         ))}

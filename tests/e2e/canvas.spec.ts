@@ -28,6 +28,7 @@ import {
 import {
   brokenWords,
   figureLines,
+  mountMotion,
   overflow,
   setFrame,
   showTemplate,
@@ -864,15 +865,6 @@ function entranceOpacities(page: Page): Promise<number[]> {
     );
 }
 
-/** The entrance's computed transform and opacity. */
-const entranceAt = (page: Page) =>
-  canvasFrame(page)
-    .locator("[data-entrance]")
-    .evaluate((element) => {
-      const style = getComputedStyle(element);
-      return [style.transform, style.opacity];
-    });
-
 test.describe("7.4 Motion on the landing and editorial templates", () => {
   test("F-CANVAS-07 Reduce motion stops both templates, keeps the FAQ's state and never replays the entrance", async ({
     page,
@@ -896,10 +888,16 @@ test.describe("7.4 Motion on the landing and editorial templates", () => {
     await expect(reduceMotion(page)).toHaveAttribute("aria-checked", "false");
     expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
     await expect(second).toHaveAttribute("aria-expanded", "true");
-    // The editorial template, chosen while the switch is on, is in place at once and still.
+    // The editorial template, chosen while the switch is on, is in place from its first frame and
+    // holds no animation: sampled from mount, not after the entrance has come to rest.
     await reduceMotion(page).click();
-    await showTemplate(page, "editorial");
-    expect(await entranceAt(page)).toEqual(["none", "1"]);
+    await showTemplate(page, "dashboard");
+    const sampled = mountMotion(page, "editorial");
+    await templateSelect(page).selectOption("editorial");
+    const mounted = await sampled;
+    expect(mounted.entrance).toEqual(["1 none"]);
+    expect(mounted.moved).toEqual([]);
+    expect(mounted.targets).toEqual([]);
     expect((await motionReport(page)).running).toEqual([]);
     await reduceMotion(page).click();
     expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
@@ -912,9 +910,15 @@ test.describe("7.4 Motion on the landing and editorial templates", () => {
     await stubSeeds(page);
     await openStudio(page);
     await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
+    // Each template mounts under the preference: its entrance is in place from its first frame.
     for (const id of ["landing", "editorial"] as const) {
-      await showTemplate(page, id);
-      expect(await entranceAt(page), id).toEqual(["none", "1"]);
+      await showTemplate(page, "dashboard");
+      const sampled = mountMotion(page, id);
+      await templateSelect(page).selectOption(id);
+      const mounted = await sampled;
+      expect(mounted.entrance, id).toEqual(["1 none"]);
+      expect(mounted.moved, id).toEqual([]);
+      expect(mounted.targets, id).toEqual([]);
       expect((await motionReport(page)).running, id).toEqual([]);
     }
   });

@@ -75,6 +75,21 @@
   color: var(--foreground);
   text-wrap: balance;
 }
+/* Below 480 px of frame the headline sets the h2 triple and the price the h4 triple: the part
+ * overrides its step's three variables, so its .kit-t-<step> class still sets one whole triple
+ * (section 7.6). A poster display step cannot set a word at phone widths. */
+@container frame (width < 480px) {
+  .lp-title {
+    --text-display: var(--text-h2);
+    --leading-display: var(--leading-h2);
+    --tracking-display: var(--tracking-h2);
+  }
+  .lp-price-figure {
+    --text-h3: var(--text-h4);
+    --leading-h3: var(--leading-h4);
+    --tracking-h3: var(--tracking-h4);
+  }
+}
 .lp-lead {
   max-width: 34rem;
   color: var(--muted-foreground);
@@ -377,7 +392,7 @@
   .lp-band {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: center;
-    padding: var(--space-12) var(--space-8);
+    padding: var(--space-8);
   }
   .lp-plan {
     padding: var(--space-8);
@@ -387,7 +402,7 @@
   .lp-band {
     grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
     gap: var(--space-16);
-    padding: var(--space-16);
+    padding: var(--space-8) var(--space-16);
   }
 }
 

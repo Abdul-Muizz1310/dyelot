@@ -2,6 +2,7 @@
 
 import "./figures.css";
 import type { CSSProperties } from "react";
+import { TIDE_RANGE, tideAt } from "../tide";
 
 // The kit's drawn figures (spec section 7.6): a day's tide curve, a level bar and a row of dyed
 // skeins. A figure is not an icon: an SVG figure carries `data-figure`, `role="img"` and a name
@@ -10,26 +11,31 @@ import type { CSSProperties } from "react";
 
 const WIDTH = 320;
 const HEIGHT = 120;
-/** The meters the curve's height stands for. */
-const RANGE = 5;
-
-/** A sample semidiurnal tide in meters at `hour`: high near 06:42 and 19:07, low near 12:55. */
-function tideAt(hour: number): number {
-  return 2.45 + 1.8 * Math.cos((2 * Math.PI * (hour - 6.7)) / 12.42);
-}
+/** The day's levels every quarter hour, which the curve joins. */
+const LEVELS = Array.from({ length: 97 }, (_, step) => tideAt(step / 4));
+/** The datum line: the day's mean level. */
+const MEAN = LEVELS.reduce((sum, meters) => sum + meters, 0) / LEVELS.length;
 
 const x = (hour: number) => (hour / 24) * WIDTH;
-const y = (meters: number) => HEIGHT - (meters / RANGE) * HEIGHT;
+const y = (meters: number) => HEIGHT - (meters / TIDE_RANGE) * HEIGHT;
 
-const POINTS = Array.from({ length: 97 }, (_, step) => {
-  const hour = step / 4;
-  return `${x(hour).toFixed(2)},${y(tideAt(hour)).toFixed(2)}`;
-});
+const POINTS = LEVELS.map((meters, step) => `${x(step / 4).toFixed(2)},${y(meters).toFixed(2)}`);
 const LINE = `M${POINTS.join(" L")}`;
 const WATER = `${LINE} L${WIDTH},${HEIGHT} L0,${HEIGHT} Z`;
 
-/** The day's tide curve with a marker at `now` (hours, 0 to 24). */
-export function TideCurve({ label, now }: { label: string; now: number }) {
+/**
+ * The sample day's tide curve (section 6.12) with a line at `now` (hours, 0 to 24) and its visible
+ * label. `label` is the figure's accessible name, which holds the day's events and the "now" time.
+ */
+export function TideCurve({
+  label,
+  now,
+  nowLabel,
+}: {
+  label: string;
+  now: number;
+  nowLabel: string;
+}) {
   if (!Number.isFinite(now) || now < 0 || now > 24) {
     throw new RangeError(`TideCurve: now must be an hour from 0 to 24, got ${now}`);
   }
@@ -48,12 +54,20 @@ export function TideCurve({ label, now }: { label: string; now: number }) {
         className="kit-tide"
         data-roles="secondary primary foreground border"
       >
-        <line className="kit-tide-datum" x1={0} x2={WIDTH} y1={y(2.45)} y2={y(2.45)} />
+        <line className="kit-tide-datum" x1={0} x2={WIDTH} y1={y(MEAN)} y2={y(MEAN)} />
         <path className="kit-tide-water" d={WATER} />
         <path className="kit-tide-line" d={LINE} />
         <line className="kit-tide-now" x1={x(now)} x2={x(now)} y1={0} y2={HEIGHT} />
       </svg>
       <span aria-hidden="true" className="kit-tide-dot" data-roles="primary card" />
+      <span
+        aria-hidden="true"
+        data-now-label=""
+        className="kit-tide-now-label kit-mono kit-t-caption"
+        data-roles="card card-foreground"
+      >
+        {nowLabel}
+      </span>
     </div>
   );
 }
@@ -88,7 +102,7 @@ export function Skeins({ label }: { label: string }) {
           key={n}
           className="kit-skein"
           data-skein={n}
-          data-roles={`chart-${n} card-foreground`}
+          data-roles={`chart-${n} card-foreground background`}
         />
       ))}
     </div>

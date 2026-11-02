@@ -551,7 +551,7 @@ describe("C-REPO-M2-03 the new pure folders and helpers keep the pure-core floor
   });
 
   // The preview's pure helpers (Task 2.7) take the same floors: new pure files keep the M1 floors.
-  it.each(["frame", "swatches", "copy", "vars", "kit/states"])(
+  it.each(["frame", "swatches", "copy", "vars", "kit/states", "tide"])(
     "measures src/features/preview/%s.ts by name and holds it to 95 and 90",
     (name) => {
       const file = `src/features/preview/${name}.ts`;

@@ -67,7 +67,11 @@ export function Editorial({ view }: { view: View }) {
         </header>
       </Entrance>
       <div className="ed-layout kit-wrap">
-        <nav aria-labelledby={CONTENTS} className="ed-toc" data-roles="foreground border">
+        <nav
+          aria-labelledby={CONTENTS}
+          className="ed-toc"
+          data-roles="foreground muted-foreground border"
+        >
           <h2 id={CONTENTS} className="ed-toc-title kit-t-label">
             {TEXT.contents}
           </h2>
@@ -207,7 +211,7 @@ function BlockView({ block, copy }: { block: Block; copy: CanvasCopy }) {
             <p
               data-list=""
               data-empty=""
-              className="ed-empty kit-empty kit-t-body-sm"
+              className="kit-empty kit-t-body-sm"
               data-roles="muted muted-foreground"
             >
               {block.empty}

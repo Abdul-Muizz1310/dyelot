@@ -246,6 +246,23 @@ export function unnamedPaint(scope: Locator): Promise<{ checked: number; unnamed
       if (element instanceof SVGElement) {
         paints.push(["fill", style.fill], ["stroke", style.stroke]);
       }
+      for (const pseudo of ["::before", "::after"] as const) {
+        const box = getComputedStyle(element, pseudo);
+        if (box.content === "none" || box.display === "none") continue;
+        paints.push([`${pseudo} background`, box.backgroundColor]);
+        if (!['""', "none", "normal"].includes(box.content))
+          paints.push([`${pseudo} color`, box.color]);
+        for (const side of ["Top", "Right", "Bottom", "Left"] as const) {
+          const drawn =
+            Number.parseFloat(box[`border${side}Width`]) > 0 &&
+            !["none", "hidden"].includes(box[`border${side}Style`]);
+          if (drawn)
+            paints.push([`${pseudo} border-${side.toLowerCase()}`, box[`border${side}Color`]]);
+        }
+      }
+      if (style.display === "list-item" && style.listStyleType !== "none") {
+        paints.push(["::marker color", getComputedStyle(element, "::marker").color]);
+      }
       const label = `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`;
       for (const [property, value] of paints) {
         // Opaque sRGB colors only: transparent, a mix with transparency and `none` paint nothing to name.
@@ -309,25 +326,38 @@ export function roleColor(scope: Locator, role: string): Promise<string> {
  * F-TPL-16: the hero-metric blocks of `hero`, the landing's `data-block="hero"`: each element whose own
  * text is a figure set at the `h2` step or larger (section 7.6).
  */
+/**
+ * A figure (section 7.6): a number (an optional currency sign or `#`, an optional sign, digits with
+ * separators), an optional suffix (`%`, `+`, `×` or `x`, `/n`, or a unit of up to three letters with an
+ * optional `+`), and at most two words after it.
+ */
+export const HERO_FIGURE =
+  /^[#$€£¥]?\s*[+−-]?\d[\d,.:]*(?:\s?(?:[%+×x]|\/\s?\d+|\p{L}{1,3}\+?))?(?:\s+\p{L}+){0,2}$/u;
+
 export function heroMetrics(hero: Locator): Promise<string[]> {
-  return hero.evaluate((element) => {
-    const probe = document.createElement("span");
-    probe.style.fontSize = "var(--text-h2)";
-    element.append(probe);
-    const h2 = Number.parseFloat(getComputedStyle(probe).fontSize);
-    probe.remove();
-    const figure = /^[$€£¥]?\s*[+−-]?\d[\d,.:\s]*(%|\s?[A-Za-z]{1,3})?$/;
-    return [element, ...element.querySelectorAll("*")]
-      .filter((node) => {
-        const own = [...node.childNodes]
-          .filter((child) => child.nodeType === Node.TEXT_NODE)
-          .map((child) => child.textContent ?? "")
-          .join("")
-          .trim();
-        return figure.test(own) && Number.parseFloat(getComputedStyle(node).fontSize) >= h2 - 0.01;
-      })
-      .map((node) => node.textContent ?? "");
-  });
+  return hero.evaluate(
+    (element, { source, flags }) => {
+      const probe = document.createElement("span");
+      probe.style.fontSize = "var(--text-h2)";
+      element.append(probe);
+      const h2 = Number.parseFloat(getComputedStyle(probe).fontSize);
+      probe.remove();
+      const figure = new RegExp(source, flags);
+      return [element, ...element.querySelectorAll("*")]
+        .filter((node) => {
+          const own = [...node.childNodes]
+            .filter((child) => child.nodeType === Node.TEXT_NODE)
+            .map((child) => child.textContent ?? "")
+            .join("")
+            .trim();
+          return (
+            figure.test(own) && Number.parseFloat(getComputedStyle(node).fontSize) >= h2 - 0.01
+          );
+        })
+        .map((node) => node.textContent ?? "");
+    },
+    { source: HERO_FIGURE.source, flags: HERO_FIGURE.flags },
+  );
 }
 
 /**
@@ -375,46 +405,88 @@ export function brokenWords(scope: Locator): Promise<{ checked: number; broken: 
 }
 
 /**
- * Samples, on every frame for `ms` after the template `id` mounts, each element's opacity and
- * transform inside the frame: which elements other than the entrance changed, and the entrance's own
- * opacities and transforms. Start it before switching to the template.
+ * F-TPL-17, F-CANVAS-07, F-CANVAS-08: samples the frame on every animation frame for `ms` after the
+ * template `id` mounts. It records each element's opacity and transform (values a script drives) and
+ * the target of every animation the frame holds (`getAnimations({ subtree: true })`: CSS animations,
+ * CSS transitions and scripted animations). It returns the elements other than the entrance whose
+ * values changed, the targets other than the entrance, and the entrance's own states. Start it before
+ * switching to the template.
  */
 export function mountMotion(page: Page, id: TemplateId, ms = 600) {
   return canvasFrame(page).evaluate(
     (frame, { id, ms }) =>
-      new Promise<{ entrances: number; moved: string[]; entrance: string[] }>((resolve) => {
-        const seen = new Map<Element, Set<string>>();
-        let start: number | null = null;
-        const tick = () => {
-          const root = frame.querySelector(`[data-template-root="${id}"]`);
-          if (root !== null) {
-            start ??= performance.now();
-            for (const element of [root, ...root.querySelectorAll("*")]) {
-              const style = getComputedStyle(element);
-              const values = seen.get(element) ?? new Set<string>();
-              values.add(`${style.opacity} ${style.transform}`);
-              seen.set(element, values);
+      new Promise<{ entrances: number; moved: string[]; targets: string[]; entrance: string[] }>(
+        (resolve) => {
+          const name = (element: Element) =>
+            `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`;
+          const seen = new Map<Element, Set<string>>();
+          const targets = new Map<Element, Set<string>>();
+          let start: number | null = null;
+          const tick = () => {
+            const root = frame.querySelector(`[data-template-root="${id}"]`);
+            if (root !== null) {
+              start ??= performance.now();
+              for (const element of [root, ...root.querySelectorAll("*")]) {
+                const style = getComputedStyle(element);
+                const values = seen.get(element) ?? new Set<string>();
+                values.add(`${style.opacity} ${style.transform}`);
+                seen.set(element, values);
+              }
+              for (const animation of frame.getAnimations({ subtree: true })) {
+                const effect = animation.effect;
+                const target = effect instanceof KeyframeEffect ? effect.target : null;
+                if (target === null) continue;
+                const kinds = targets.get(target) ?? new Set<string>();
+                kinds.add(animation.constructor.name);
+                targets.set(target, kinds);
+              }
             }
-          }
-          if (start === null || performance.now() - start < ms) {
-            requestAnimationFrame(tick);
-            return;
-          }
-          const entrances = frame.querySelectorAll("[data-entrance]");
-          const entrance = entrances[0];
-          const moved = [...seen]
-            .filter(([element, values]) => element !== entrance && values.size > 1)
-            .map(
-              ([element]) => `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`,
-            );
-          resolve({
-            entrances: entrances.length,
-            moved,
-            entrance: entrance === undefined ? [] : [...(seen.get(entrance) ?? [])],
-          });
-        };
-        tick();
-      }),
+            if (start === null || performance.now() - start < ms) {
+              requestAnimationFrame(tick);
+              return;
+            }
+            const entrances = frame.querySelectorAll("[data-entrance]");
+            const entrance = entrances[0];
+            resolve({
+              entrances: entrances.length,
+              moved: [...seen]
+                .filter(([element, values]) => element !== entrance && values.size > 1)
+                .map(([element]) => name(element)),
+              targets: [...targets]
+                .filter(([element]) => element !== entrance)
+                .map(([element, kinds]) => `${name(element)} (${[...kinds].join(", ")})`),
+              entrance: entrance === undefined ? [] : [...(seen.get(entrance) ?? [])],
+            });
+          };
+          tick();
+        },
+      ),
     { id, ms },
+  );
+}
+
+/** F-TPL-38: the type step whose whole triple the first element matching `selector` sets, or null. */
+export function typeStepOf(scope: Locator, selector: string): Promise<string | null> {
+  return scope.evaluate(
+    (root, { selector, steps }) => {
+      const triple = (element: Element) => {
+        const style = getComputedStyle(element);
+        return `${style.fontSize} ${style.lineHeight} ${style.letterSpacing}`;
+      };
+      const target = root.querySelector(selector);
+      if (target === null) return null;
+      for (const step of steps) {
+        const probe = document.createElement("span");
+        probe.style.fontSize = `var(--text-${step})`;
+        probe.style.lineHeight = `var(--leading-${step})`;
+        probe.style.letterSpacing = `var(--tracking-${step})`;
+        root.append(probe);
+        const match = triple(probe) === triple(target);
+        probe.remove();
+        if (match) return step;
+      }
+      return null;
+    },
+    { selector, steps: TYPE_STEPS },
   );
 }

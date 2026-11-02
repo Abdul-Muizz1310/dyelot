@@ -1,9 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { hexToRgb, ROLE_NAMES, wcagRatio } from "@/engine";
+import { hexToRgb, PRESET_IDS, ROLE_NAMES, wcagRatio } from "@/engine";
 import { BUTTON_VARIANTS, KIT_COMPONENTS, statesOf } from "@/features/preview/kit/states";
 import { TEXT_PAIRS } from "@/features/preview/swatches";
+import { clock, TIDE_EVENTS } from "@/features/preview/tide";
+import { writeHash } from "@/features/studio/url";
 import type { TemplateId } from "@/features/studio/view";
+import { type DesignSpec, DesignSpecSchema } from "@/spec";
 import { themeVars } from "@/theme/vars";
 import {
   canvasFrame,
@@ -17,7 +20,10 @@ import {
   stubSeeds,
 } from "./studio-support";
 import {
+  brokenWords,
   equalIconSiblings,
+  figureLines,
+  HERO_FIGURE,
   heroMetrics,
   mountMotion,
   overflow,
@@ -28,6 +34,7 @@ import {
   slop,
   TYPE_STEPS,
   templateRoot,
+  typeStepOf,
   typeTriples,
   unnamedPaint,
 } from "./template-support";
@@ -730,6 +737,37 @@ test.describe("7.6 The landing and editorial templates", () => {
       expect(measure).toBeGreaterThanOrEqual(60);
       expect(measure).toBeLessThanOrEqual(75);
     }
+    // At the 1280 frame the measure on screen holds too, and the figure, the code block and the quote
+    // end where the text does: the column has one right edge.
+    await setFrame(page, 1280);
+    const laid = await root.evaluate((element) => {
+      const frame = element.closest<HTMLElement>("[data-frame]");
+      if (frame === null) throw new Error("no frame");
+      const scale = frame.getBoundingClientRect().width / frame.offsetWidth;
+      const paragraphs = [...element.querySelectorAll<HTMLElement>("[data-prose] > section > p")];
+      const widths = paragraphs.map((paragraph) => {
+        const probe = document.createElement("span");
+        probe.style.position = "absolute";
+        probe.style.width = "100ch";
+        paragraph.append(probe);
+        const ch = Number.parseFloat(getComputedStyle(probe).width) / 100;
+        probe.remove();
+        return paragraph.offsetWidth / ch;
+      });
+      const right = (node: Element) => node.getBoundingClientRect().right / scale;
+      const text = Math.max(...paragraphs.map(right));
+      const edges = [".ed-figure", ".ed-code", ".ed-quote"].map((selector) => {
+        const node = element.querySelector(selector);
+        return [selector, node === null ? Number.NaN : Math.round(right(node) - text)] as const;
+      });
+      return { widths, edges };
+    });
+    for (const width of laid.widths) {
+      expect(width).toBeGreaterThanOrEqual(60);
+      expect(width).toBeLessThanOrEqual(75);
+    }
+    for (const [selector, offset] of laid.edges)
+      expect(Math.abs(offset), selector).toBeLessThanOrEqual(1);
   });
 
   test("F-TPL-13 the landing features are a list beside a product moment, with no equal icon cards", async () => {
@@ -806,6 +844,38 @@ test.describe("7.6 The landing and editorial templates", () => {
     expect(metrics).toEqual([]);
   });
 
+  test("F-TPL-16 the hero-metric pattern catches the common forms and none of the hero's own strings", () => {
+    const figures = [
+      "4.1 m",
+      "$6.50",
+      "99.9%",
+      "10K+",
+      "50,000+",
+      "3×",
+      "2x",
+      "10x faster",
+      "24/7",
+      "#1",
+      "4.9/5",
+      "1M+ readings",
+      "+38%",
+      "99.9% uptime",
+      "12 ms",
+      "1,234,567,890.12",
+    ];
+    const words = [
+      "Read the water before you cast off.",
+      "Spring tide at Samphire Bay",
+      "Start a tide log",
+      "06:42 High water at the quay",
+      "Today, sample readings",
+      "Neap",
+      "N",
+    ];
+    expect(figures.filter((text) => !HERO_FIGURE.test(text))).toEqual([]);
+    expect(words.filter((text) => HERO_FIGURE.test(text))).toEqual([]);
+  });
+
   test("F-TPL-17 each template has one entrance, nothing else animates on mount, and reduced motion places it at once", async () => {
     for (const id of SECTION_76) {
       // A stand-in first, so the template mounts afresh.
@@ -815,6 +885,7 @@ test.describe("7.6 The landing and editorial templates", () => {
       const report = await sampled;
       expect(report.entrances, id).toBe(1);
       expect(report.moved, id).toEqual([]);
+      expect(report.targets, id).toEqual([]);
       // The entrance itself runs: it passes through more than one state.
       expect(report.entrance.length, id).toBeGreaterThan(1);
     }
@@ -828,6 +899,7 @@ test.describe("7.6 The landing and editorial templates", () => {
       const report = await sampled;
       expect(report.entrances, id).toBe(1);
       expect(report.moved, id).toEqual([]);
+      expect(report.targets, id).toEqual([]);
       expect(report.entrance, id).toEqual(["1 none"]);
     }
     await reduce.click();
@@ -963,6 +1035,15 @@ test.describe("7.6 The landing and editorial templates", () => {
       // No link banner either: the studio read no new hash.
       await expect(page.getByText(/This link/)).toHaveCount(0);
     }
+    // A note reference moves focus to its note, and the note's back link returns it.
+    const article = await showTemplate(page, "editorial");
+    const before = await page.evaluate(() => window.location.hash);
+    await article.getByRole("link", { name: "Note 1", exact: true }).click();
+    await expect(article.locator('[id="thread-note-1"]')).toBeFocused();
+    expect(await page.evaluate(() => window.location.hash)).toBe(before);
+    await article.getByRole("link", { name: "Back to the text, from note 1", exact: true }).click();
+    await expect(article.locator('[id="thread-ref-1"]')).toBeFocused();
+    expect(await page.evaluate(() => window.location.hash)).toBe(before);
   });
 
   test("F-TPL-21 the FAQ accordion opens and closes by keyboard", async () => {
@@ -1006,6 +1087,18 @@ test.describe("7.6 The landing and editorial templates", () => {
       }
     };
     await check("default");
+    // Below 480 px of frame the headlines set h2 and the price h4; from 480 px, display and h3.
+    for (const [frame, title, price] of [
+      [360, "h2", "h4"],
+      [1280, "display", "h3"],
+    ] as const) {
+      await setFrame(page, frame);
+      const landing = await showTemplate(page, "landing");
+      expect(await typeStepOf(landing, ".lp-title"), `${frame} landing title`).toBe(title);
+      expect(await typeStepOf(landing, ".lp-price-figure"), `${frame} price`).toBe(price);
+      const article = await showTemplate(page, "editorial");
+      expect(await typeStepOf(article, ".ed-title"), `${frame} article title`).toBe(title);
+    }
     // The editorial context sets a fluid display step: a `cqi` clamp that follows the frame.
     const context = page
       .getByRole("complementary", { name: "Inputs" })
@@ -1035,6 +1128,58 @@ test.describe("7.6 The landing and editorial templates", () => {
     await expect(canvasFrame(page)).toHaveAttribute("data-mode", "light");
   });
 
+  test("F-TPL-41 the article's contents sit beside the body at 1280, do not stick, and move focus to each section", async () => {
+    await setFrame(page, 1280);
+    const article = await showTemplate(page, "editorial");
+    const toc = article.getByRole("navigation", { name: "Contents", exact: true });
+    const [contents, body] = await Promise.all([
+      toc.boundingBox(),
+      article.locator("[data-prose]").boundingBox(),
+    ]);
+    expect(contents).not.toBeNull();
+    expect(body).not.toBeNull();
+    if (contents !== null && body !== null) {
+      expect(contents.y < body.y + body.height && body.y < contents.y + contents.height).toBe(true);
+      expect(contents.x + contents.width <= body.x).toBe(true);
+    }
+    expect(await toc.evaluate((element) => getComputedStyle(element).position)).not.toBe("sticky");
+    const before = await page.evaluate(() => window.location.hash);
+    const links = toc.getByRole("link");
+    expect(await links.count()).toBe(4);
+    for (const link of await links.all()) {
+      const target = (await link.getAttribute("href"))?.slice(1) ?? "";
+      await link.click();
+      await expect(article.locator(`[id="${target}"]`)).toBeFocused();
+      await expect(article.locator(`[id="${target}"]`)).toHaveRole("heading");
+    }
+    expect(await page.evaluate(() => window.location.hash)).toBe(before);
+  });
+
+  test("F-TPL-42 the tide card's events, the figure's name and its now label come from one sample tide", async () => {
+    const landing = await showTemplate(page, "landing");
+    const card = landing.locator(".lp-today");
+    const events = await card
+      .locator(".lp-event")
+      .evaluateAll((rows) =>
+        rows.map((row) => [
+          row.querySelector("dt")?.textContent ?? "",
+          ...[...row.querySelectorAll("dd .kit-num")].map((value) => value.textContent ?? ""),
+        ]),
+      );
+    expect(events).toEqual(
+      TIDE_EVENTS.map((event) => [
+        event.kind === "high" ? "High water" : "Low water",
+        clock(event.hour),
+        `${event.meters.toFixed(1)} m`,
+      ]),
+    );
+    const name = (await card.locator("svg[data-figure]").getAttribute("aria-label")) ?? "";
+    for (const event of TIDE_EVENTS) expect(name).toContain(clock(event.hour));
+    expect(name).toContain("now 09:30");
+    await expect(card.locator("[data-now-label]")).toBeVisible();
+    await expect(card.locator("[data-now-label]")).toHaveText("now 09:30");
+  });
+
   test("F-TPL-12 axe finds no violation in either template, in light and dark, at 360 and 1280", async () => {
     const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
     for (const mode of MODES) {
@@ -1054,11 +1199,149 @@ test.describe("7.6 The landing and editorial templates", () => {
             })),
             `${mode} ${frame} ${id}`,
           ).toEqual([]);
+          // What axe cannot decide (text over the primary block) lies only in the tide card.
+          const undecided = results.incomplete
+            .filter((result) => result.id === "color-contrast")
+            .flatMap((result) => result.nodes.map((node) => String(node.target[0])));
+          const outside = await page.evaluate(
+            (selectors) =>
+              selectors.filter(
+                (selector) => document.querySelector(selector)?.closest(".lp-today") == null,
+              ),
+            undecided,
+          );
+          expect(outside, `${mode} ${frame} ${id} undecided outside the tide card`).toEqual([]);
         }
       }
     }
     await dark.click();
     await setFrame(page, 1280);
     await expect(templateRoot(page, "landing").or(templateRoot(page, "editorial"))).toBeVisible();
+    // The tide card's own pair, which axe cannot see over the block, is measured here.
+    for (const mode of MODES) {
+      const roles = first().color.roles[mode];
+      expect(
+        wcagRatio(hexToRgb(roles["card-foreground"]), hexToRgb(roles.card)),
+        mode,
+      ).toBeGreaterThanOrEqual(4.5);
+    }
   });
+});
+
+/**
+ * The test design with every repeated role color moved by a few codes in its blue channel, so the 46
+ * roles are pairwise distinct in each mode (F-TPL-39): a part that names the wrong role of a set that
+ * shares one color can no longer pass.
+ */
+function distinctRoles(spec: DesignSpec): DesignSpec {
+  const shift = (hex: string, by: number) => {
+    const blue = Number.parseInt(hex.slice(5, 7), 16);
+    const next = blue + by <= 255 ? blue + by : blue - by;
+    return `${hex.slice(0, 5)}${next.toString(16).padStart(2, "0")}`;
+  };
+  const roles = Object.fromEntries(
+    MODES.map((mode) => {
+      const seen = new Set<string>();
+      const table: Record<string, string> = {};
+      for (const role of ROLE_NAMES) {
+        const stored = spec.color.roles[mode][role];
+        let hex: string = stored;
+        for (let by = 1; seen.has(hex); by++) hex = shift(stored, by);
+        seen.add(hex);
+        table[role] = hex;
+      }
+      return [mode, table];
+    }),
+  );
+  return DesignSpecSchema.parse({ ...spec, color: { ...spec.color, roles } });
+}
+
+test("F-TPL-39 every painted color is named on a design whose 46 role colors are distinct", async ({
+  page,
+}) => {
+  const spec = distinctRoles(first());
+  for (const mode of MODES) {
+    expect(new Set(Object.values(spec.color.roles[mode])).size, mode).toBe(ROLE_NAMES.length);
+  }
+  await openStudio(page, writeHash(spec));
+  const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
+  for (const mode of MODES) {
+    if (mode === "dark") await dark.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+    const vars = await canvasVars(page);
+    expect(new Set(ROLE_NAMES.map((role) => vars[`--${role}`])).size, mode).toBe(ROLE_NAMES.length);
+    for (const id of SECTION_76) {
+      const report = await unnamedPaint(await showTemplate(page, id));
+      expect(report.checked, `${mode} ${id}`).toBeGreaterThan(60);
+      expect(report.unnamed, `${mode} ${id}`).toEqual([]);
+    }
+  }
+});
+
+/** Waits until the canvas's three families have loaded, so text is measured in its own face. */
+async function fontsReady(page: Page): Promise<void> {
+  await expect
+    .poll(() =>
+      canvasFrame(page).evaluate((frame) => {
+        const names = ["--font-display", "--font-body", "--font-mono"].map(
+          (name) =>
+            ((frame as HTMLElement).style.getPropertyValue(name).match(/^"([^"]+)"/) ?? [])[1],
+        );
+        return names.every((name) =>
+          [...document.fonts].some(
+            (face) => face.family.replaceAll('"', "") === name && face.status === "loaded",
+          ),
+        );
+      }),
+    )
+    .toBe(true);
+}
+
+test("F-TPL-40 every preset fits both templates at 360 and 768, with real and with edge copy", async ({
+  page,
+}) => {
+  test.setTimeout(300_000);
+  await stubSeeds(page);
+  await openStudio(page);
+  const preset = page
+    .getByRole("complementary", { name: "Inputs" })
+    .getByRole("combobox", { name: "Preset", exact: true });
+  const copies = page
+    .getByRole("region", { name: "Canvas toolbar" })
+    .getByRole("group", { name: "Copy", exact: true });
+  const failures: string[] = [];
+  let measured = 0;
+  const started = Date.now();
+  for (const id of PRESET_IDS) {
+    await preset.selectOption(id);
+    await settled(page);
+    await fontsReady(page);
+    for (const template of SECTION_76) {
+      const root = await showTemplate(page, template);
+      for (const copy of ["Real copy", "Edge-case copy"] as const) {
+        await copies.getByRole("radio", { name: copy, exact: true }).check();
+        for (const frame of [360, 768] as const) {
+          await setFrame(page, frame);
+          const name = `${id} ${template} ${frame} ${copy}`;
+          const [report, words, figures] = await Promise.all([
+            overflow(root),
+            brokenWords(root),
+            figureLines(root),
+          ]);
+          measured++;
+          if (report.scroll > report.client || report.past.length > 0) {
+            failures.push(
+              `${name}: ${report.scroll - report.client} px over ${report.past.join(" ")}`,
+            );
+          }
+          if (words.broken.length > 0) failures.push(`${name}: ${words.broken.join(", ")}`);
+          const split = figures.filter((line) => !line.endsWith(" 1"));
+          if (split.length > 0) failures.push(`${name}: figures ${split.join(", ")}`);
+        }
+      }
+    }
+  }
+  console.log(`F-TPL-40: ${measured} views in ${((Date.now() - started) / 1000).toFixed(1)} s`);
+  expect(measured).toBe(PRESET_IDS.length * 8);
+  expect(failures).toEqual([]);
 });

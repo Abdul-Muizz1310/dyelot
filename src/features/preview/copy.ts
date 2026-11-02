@@ -85,7 +85,6 @@ export const COPY: Readonly<Record<CopyKind, CanvasCopy>> = Object.freeze({
 /** The landing page's in-page targets. */
 export type LandingTarget = "top" | "features" | "pricing" | "faq";
 
-type TideEvent = { readonly name: string; readonly time: string; readonly meters: number };
 type Reading = { readonly time: string; readonly meters: number };
 
 export type LandingText = {
@@ -97,9 +96,14 @@ export type LandingText = {
   readonly today: {
     readonly place: string;
     readonly note: string;
+    /** The start of the figure's name; the day's events and the "now" time follow (F-TPL-42). */
     readonly figure: string;
     readonly hours: readonly string[];
-    readonly events: readonly TideEvent[];
+    /** The names of the two kinds of event the sample tide gives (section 6.12). */
+    readonly high: string;
+    readonly low: string;
+    /** The word before the time on the curve's "now" line. */
+    readonly now: string;
   };
   readonly features: {
     readonly title: string;
@@ -165,13 +169,11 @@ export const LANDING_TEXT: LandingText = frozen<LandingText>({
   today: {
     place: SAMPLE_PLACES[0],
     note: "Today, sample readings",
-    figure: "Sample tide curve for today: high water at 06:42 and 19:11, low water at 12:58.",
+    figure: "Sample tide curve for today",
     hours: ["00:00", "06:00", "12:00", "18:00", "24:00"],
-    events: [
-      { name: "High water", time: "06:42", meters: 4.1 },
-      { name: "Low water", time: "12:58", meters: 0.6 },
-      { name: "High water", time: "19:11", meters: 4.3 },
-    ],
+    high: "High water",
+    low: "Low water",
+    now: "now",
   },
   features: {
     title: "Built on the gauge, not the almanac",
@@ -309,7 +311,7 @@ export const EDITORIAL_TEXT: EditorialText = frozen<EditorialText>({
     " has to do with either.",
   ],
   by: "By",
-  readingTime: "Twelve-minute read",
+  readingTime: "Two-minute read",
   contents: "Contents",
   sections: [
     {
@@ -366,7 +368,7 @@ export const EDITORIAL_TEXT: EditorialText = frozen<EditorialText>({
           kind: "p",
           runs: [
             "So now the log comes first. Every vat gets a page, and every page has the same five lines. The ",
-            { code: "fibre" },
+            { code: "fiber" },
             " line holds the weight of the dry wool.",
           ],
         },
@@ -375,7 +377,7 @@ export const EDITORIAL_TEXT: EditorialText = frozen<EditorialText>({
           title: "A page from the dye log",
           lines: [
             ["vat     woad, third week"],
-            ["fibre   ", { slot: "amount" }, " kg wool"],
+            ["fiber   ", { slot: "amount" }, " kg wool"],
             ["dips    4 × 5 min"],
             ["air     10 min between dips"],
             ["result  mid blue, even"],

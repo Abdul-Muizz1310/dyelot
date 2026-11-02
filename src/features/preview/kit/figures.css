@@ -47,6 +47,19 @@
   background-color: var(--primary);
 }
 
+/* The "now" line's label sits at the top of the line, on the card. */
+.kit-tide-now-label {
+  position: absolute;
+  top: 0;
+  left: var(--kit-x);
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--card);
+  color: var(--card-foreground);
+  white-space: nowrap;
+  translate: -50% 0;
+}
+
 /* ── Level bar ────────────────────────────────────────────── */
 .kit-level {
   display: inline-block;

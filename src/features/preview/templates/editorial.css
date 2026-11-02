@@ -36,6 +36,14 @@
   color: var(--foreground);
   text-wrap: balance;
 }
+/* Below 480 px of frame the title sets the h2 triple, through its step's variables (section 7.6). */
+@container frame (width < 480px) {
+  .ed-title {
+    --text-display: var(--text-h2);
+    --leading-display: var(--leading-h2);
+    --tracking-display: var(--tracking-h2);
+  }
+}
 .ed-standfirst {
   max-width: 38rem;
   color: var(--muted-foreground);
@@ -100,9 +108,8 @@
     align-items: start;
     gap: var(--space-16);
   }
+  /* Not sticky: in a frame the fit scales down, a sticky part drifts as the canvas region scrolls. */
   .ed-toc {
-    position: sticky;
-    top: var(--space-6);
     padding: var(--space-4) 0 0;
     border-width: 2px 0 0;
     border-color: var(--foreground);
@@ -111,9 +118,11 @@
 }
 
 /* ── Body ─────────────────────────────────────────────────── */
+/* The body column is the measure, so the text, the figure, the code and the quote share one right edge. */
 .ed-body {
   display: grid;
   min-width: 0;
+  max-width: 65ch;
   gap: var(--space-16);
 }
 .ed-section {
@@ -142,7 +151,6 @@
 .ed-quote {
   position: relative;
   display: grid;
-  max-width: 40rem;
   gap: var(--space-3);
   margin: var(--space-6) 0;
   padding-top: var(--space-6);
@@ -162,7 +170,6 @@
   margin: 0;
   color: var(--foreground);
   font-family: var(--font-display);
-  font-style: italic;
   font-weight: 500;
   text-wrap: pretty;
 }
@@ -172,7 +179,6 @@
 
 .ed-code {
   display: grid;
-  max-width: 72ch;
   gap: var(--space-2);
   margin: 0;
   color: var(--muted-foreground);
@@ -209,7 +215,6 @@
 }
 .ed-place-list {
   display: grid;
-  max-width: 65ch;
   margin: 0;
   padding: 0;
   list-style: none;
@@ -224,9 +229,6 @@
 .ed-place-list svg {
   color: var(--primary);
 }
-.ed-empty {
-  max-width: 65ch;
-}
 
 /* ── Notes ────────────────────────────────────────────────── */
 .ed-notes {
@@ -237,7 +239,6 @@
 }
 .ed-note-list {
   display: grid;
-  max-width: 65ch;
   gap: var(--space-3);
   margin: 0;
   padding-inline-start: var(--space-6);
