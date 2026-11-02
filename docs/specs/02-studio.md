@@ -1903,8 +1903,9 @@ Under "Edge-case copy" each template swaps the six cases of R2-21 into its slots
 
 The inspector fills `aside#studio-inspector` below its heading: a 360 px column from 1280 px, the drawer of R2-16 below. Its
 body scrolls inside the column or the drawer and takes focus (`data-scroll-area`), so the keyboard scrolls it (R2-15 item 2);
-the page never scrolls sideways. The body is an inline-size container: below 317 px of its own width (the 360 px drawer less a
-15 px classic scrollbar, or the drawer of a window under 357 px) its side padding drops from 16 px to 8 px. Every hex and every
+the page never scrolls sideways. The body's content sits in an inline-size container, as wide as the body less any classic
+scrollbar: below 317 px (a 360 px window's drawer less a 15 px classic scrollbar, or the drawer of a window under 358 px) its
+side padding drops from 16 px to 8 px. Every hex and every
 ratio in it shows whole, never truncated or ellipsized, with no sideways scroller, down to a 345 px window, whose drawer is as
 wide as a 360 px window's with a 15 px classic scrollbar. A value that cannot fit overflows where a check sees it, never into an
 ellipsis (Task 2.10b, fix round 2). A message `role="status"` sits at the top for font failures, then five sections, each a
