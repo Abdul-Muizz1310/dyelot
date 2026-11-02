@@ -201,20 +201,80 @@ export function typeTriples(
   }, TYPE_STEPS);
 }
 
+/** A color in sRGB with alpha: channels 0 to 255, alpha 0 to 1. */
+export type Rgba = readonly [number, number, number, number];
+
+/** The page's color resolver, which `installColorResolver` puts on `window`. */
+type ColorHost = { __dyelotRgba?: (value: string) => Rgba | null };
+
+/**
+ * The one color resolver of the template checks (F-TPL-12, F-TPL-27, F-TPL-39). It installs
+ * `window.__dyelotRgba(value)` in the page, which turns any color the browser can parse (`rgb`,
+ * `oklab`, `oklch`, `color(srgb …)`, a `color-mix` result) into sRGB with alpha by the browser's own
+ * parse: it fills a 1 × 1 canvas with the value and reads the pixel back. A value the browser cannot
+ * parse gives `null`: the canvas keeps its previous `fillStyle`, so two different sentinels before it
+ * stay different. Installing twice changes nothing.
+ */
+export async function installColorResolver(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const host = window as unknown as ColorHost;
+    if (host.__dyelotRgba !== undefined) return;
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    if (context === null) throw new Error("installColorResolver: no 2D context");
+    host.__dyelotRgba = (value) => {
+      context.fillStyle = "#010203";
+      context.fillStyle = value;
+      const first = context.fillStyle;
+      context.fillStyle = "#040506";
+      context.fillStyle = value;
+      if (context.fillStyle !== first) return null;
+      context.clearRect(0, 0, 1, 1);
+      context.fillRect(0, 0, 1, 1);
+      const [r = 0, g = 0, b = 0, a = 0] = context.getImageData(0, 0, 1, 1).data;
+      return [r, g, b, a / 255];
+    };
+  });
+}
+
+/** Resolves `values` in the page through the shared resolver: sRGB with alpha, or null. */
+export async function resolveColors(
+  page: Page,
+  values: readonly string[],
+): Promise<(Rgba | null)[]> {
+  await installColorResolver(page);
+  return page.evaluate((values) => {
+    const resolve = (window as unknown as ColorHost).__dyelotRgba;
+    if (resolve === undefined) throw new Error("resolveColors: no resolver");
+    return values.map((value) => resolve(value));
+  }, values);
+}
+
 /**
  * F-TPL-39: every color painted in `scope` that no role named in the nearest `data-roles` (on the
  * element or its nearest ancestor that has one) computes to: the text color of an element with its
  * own text, an opaque background, a drawn border and an SVG fill or stroke. Text in the display face
- * must name `font-display` there when the display and body faces differ.
+ * must name `font-display` there when the display and body faces differ. Paints and role colors are
+ * read through the shared resolver: a paint with alpha 1 is checked whatever its syntax (an opaque
+ * `color-mix` included); a paint with some transparency, `none` or a `url(…)` is skipped; a paint the
+ * browser cannot read counts as unnamed.
  */
-export function unnamedPaint(scope: Locator): Promise<{ checked: number; unnamed: string[] }> {
+export async function unnamedPaint(
+  scope: Locator,
+): Promise<{ checked: number; unnamed: string[] }> {
+  await installColorResolver(scope.page());
   return scope.evaluate((root, roles) => {
+    const resolve = (window as unknown as ColorHost).__dyelotRgba;
+    if (resolve === undefined) throw new Error("unnamedPaint: no color resolver");
     const probe = document.createElement("span");
     root.append(probe);
     const colorOf = new Map<string, string>();
     for (const role of roles) {
       probe.style.color = `var(--${role})`;
-      colorOf.set(role, getComputedStyle(probe).color);
+      const value = resolve(getComputedStyle(probe).color);
+      colorOf.set(role, value === null ? `unreadable ${role}` : value.slice(0, 3).join(","));
     }
     probe.style.color = "";
     probe.style.fontFamily = "var(--font-display)";
@@ -264,11 +324,14 @@ export function unnamedPaint(scope: Locator): Promise<{ checked: number; unnamed
       }
       const label = `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`;
       for (const [property, value] of paints) {
-        // Opaque sRGB colors only: transparent, a mix with transparency and `none` paint nothing to name.
-        if (!value.startsWith("rgb(")) continue;
+        // `none` and a `url(…)` paint no color; a color with any transparency paints a blend, not a role.
+        if (value === "none" || value.startsWith("url(")) continue;
+        const color = resolve(value);
+        if (color !== null && color[3] < 0.999) continue;
         checked++;
-        if (allowed.has(value)) continue;
-        const name = `${label} ${property} ${value} (roles: ${named.join(" ") || "none"})`;
+        if (color !== null && allowed.has(color.slice(0, 3).join(","))) continue;
+        const what = color === null ? `unreadable ${value}` : value;
+        const name = `${label} ${property} ${what} (roles: ${named.join(" ") || "none"})`;
         unnamed.set(name, (unnamed.get(name) ?? 0) + 1);
       }
       if (
@@ -551,64 +614,81 @@ export function antiSlop(
 /** One undecided text's painted pair: its text color, the fill behind it, their ratio and the bar it must clear. */
 export type PaintedPair = {
   readonly selector: string;
-  readonly color: string;
-  readonly fill: string;
+  readonly color: Rgba | null;
+  readonly fill: Rgba | null;
   readonly ratio: number;
   readonly threshold: number;
+  /** Why the pair could not be measured; empty when it was. */
+  readonly reason: string;
 };
 
 /**
  * F-TPL-12, F-TPL-27: for each element that axe could not decide (its `selector`), the painted text
- * color against the fill behind it, the opaque background of the nearest element (itself or an
- * ancestor) that paints one, and the WCAG ratio it must reach: 4.5, or 3 for large text (24 px, or
- * 18.66 px at weight 700 or more). A selector that finds nothing, a text color that is not opaque or
- * text with no opaque fill behind it gives a ratio of 0, so it fails.
+ * color against the fill behind it, and the WCAG ratio it must reach: 4.5, or 3 for large text (24 px,
+ * or 18.66 px at weight 700 or more). Every color goes through the shared resolver, so any syntax
+ * reads. The fill is the first opaque background from the node up. The pair is not measured, and its
+ * ratio is 0 with a reason, when the node is missing, its text color is unreadable or translucent, or,
+ * on the way up to and including the fill, an element has an `opacity` below 1, a `background-image`,
+ * a background the browser cannot read or a partly transparent one: the helper does not blend.
  */
 export async function paintedContrast(
   page: Page,
   selectors: readonly string[],
 ): Promise<PaintedPair[]> {
-  const paints = await page.evaluate(
-    (selectors) =>
-      selectors.map((selector) => {
-        const element = document.querySelector(selector);
-        if (element === null) return { selector, color: "", fill: "", large: false };
-        const alpha = (value: string) =>
-          value.startsWith("rgba(")
-            ? Number(value.slice(value.lastIndexOf(",") + 1, -1))
-            : value.startsWith("rgb(")
-              ? 1
-              : 0;
-        let fill = "";
-        for (let node: Element | null = element; node !== null; node = node.parentElement) {
-          const background = getComputedStyle(node).backgroundColor;
-          if (alpha(background) === 1) {
-            fill = background;
-            break;
-          }
+  await installColorResolver(page);
+  const measured = await page.evaluate((selectors) => {
+    const resolve = (window as unknown as ColorHost).__dyelotRgba;
+    if (resolve === undefined) throw new Error("paintedContrast: no color resolver");
+    const name = (node: Element) =>
+      `${node.tagName.toLowerCase()}.${[...node.classList].join(".")}`;
+    return selectors.map((selector) => {
+      const refuse = (reason: string) => ({
+        selector,
+        color: null,
+        fill: null,
+        large: false,
+        reason,
+      });
+      const element = document.querySelector(selector);
+      if (element === null) return refuse("no element");
+      const style = getComputedStyle(element);
+      const color = resolve(style.color);
+      if (color === null) return refuse(`unreadable text color ${style.color}`);
+      if (color[3] < 0.999) return refuse(`translucent text color ${style.color}`);
+      for (let node: Element | null = element; node !== null; node = node.parentElement) {
+        const own = getComputedStyle(node);
+        if (Number.parseFloat(own.opacity) < 1) {
+          return refuse(`opacity ${own.opacity} on ${name(node)}`);
         }
-        const style = getComputedStyle(element);
-        const size = Number.parseFloat(style.fontSize);
-        const weight = Number(style.fontWeight);
-        return {
-          selector,
-          color: alpha(style.color) === 1 ? style.color : "",
-          fill,
-          large: size >= 24 || (size >= 18.66 && weight >= 700),
-        };
-      }),
-    selectors,
-  );
-  // `rgb(r, g, b)` as sRGB channels from 0 to 1, the engine's `Rgb`.
-  const channels = (value: string): Rgb => {
-    const [r = 0, g = 0, b = 0] = (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
-    return [r / 255, g / 255, b / 255];
-  };
-  return paints.map(({ selector, color, fill, large }) => ({
+        if (own.backgroundImage !== "none") return refuse(`background-image on ${name(node)}`);
+        const fill = resolve(own.backgroundColor);
+        if (fill === null) return refuse(`unreadable fill ${own.backgroundColor} on ${name(node)}`);
+        if (fill[3] >= 0.999) {
+          const size = Number.parseFloat(style.fontSize);
+          const weight = Number(style.fontWeight);
+          return {
+            selector,
+            color,
+            fill,
+            large: size >= 24 || (size >= 18.66 && weight >= 700),
+            reason: "",
+          };
+        }
+        if (fill[3] > 0) {
+          return refuse(`partly transparent fill ${own.backgroundColor} on ${name(node)}`);
+        }
+      }
+      return refuse("no opaque fill");
+    });
+  }, selectors);
+  // sRGB channels from 0 to 1, the engine's `Rgb`.
+  const channels = ([r, g, b]: Rgba): Rgb => [r / 255, g / 255, b / 255];
+  return measured.map(({ selector, color, fill, large, reason }) => ({
     selector,
     color,
     fill,
-    ratio: color === "" || fill === "" ? 0 : wcagRatio(channels(color), channels(fill)),
+    reason,
+    ratio: color === null || fill === null ? 0 : wcagRatio(channels(color), channels(fill)),
     threshold: large ? 3 : 4.5,
   }));
 }

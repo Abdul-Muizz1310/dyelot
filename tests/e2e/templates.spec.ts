@@ -34,6 +34,7 @@ import {
   overflow,
   paintedContrast,
   pictographs,
+  resolveColors,
   roleColor,
   setFrame,
   showTemplate,
@@ -1246,9 +1247,10 @@ test.describe("7.6 The landing and editorial templates", () => {
           expect(outside, `${mode} ${frame} ${id} undecided outside the tide card`).toEqual([]);
           // Each undecided text is measured as painted: its color against the fill behind it.
           for (const pair of await paintedContrast(page, undecided)) {
-            expect(pair.ratio, `${mode} ${frame} ${id} ${pair.selector}`).toBeGreaterThanOrEqual(
-              pair.threshold,
-            );
+            expect(
+              pair.ratio,
+              `${mode} ${frame} ${id} ${pair.selector} ${pair.reason}`,
+            ).toBeGreaterThanOrEqual(pair.threshold);
           }
         }
       }
@@ -1942,9 +1944,10 @@ test.describe("7.7 The dashboard and settings templates", () => {
           );
           // Each undecided segment is measured as painted: its text against the fill behind it.
           for (const pair of await paintedContrast(page, undecided)) {
-            expect(pair.ratio, `${mode} ${frame} ${id} ${pair.selector}`).toBeGreaterThanOrEqual(
-              pair.threshold,
-            );
+            expect(
+              pair.ratio,
+              `${mode} ${frame} ${id} ${pair.selector} ${pair.reason}`,
+            ).toBeGreaterThanOrEqual(pair.threshold);
           }
         }
       }
@@ -2135,4 +2138,46 @@ test("F-TPL-31 a section heading focused from behind the save bar ends above it 
       );
     }
   }
+});
+
+test("F-TPL-27 the shared color resolver reads every syntax the browser computes and refuses junk", async ({
+  page,
+}) => {
+  await openStudio(page);
+  const [rgb, half, oklab, oklch, srgb, mixed, clear, junk] = await resolveColors(page, [
+    "rgb(10, 20, 30)",
+    "rgba(10, 20, 30, 0.5)",
+    "oklab(0.5 0.1 -0.1)",
+    "oklch(0.6 0.1 200)",
+    "color(srgb 1 0 0)",
+    "color-mix(in oklab, rgb(255, 0, 0) 50%, rgb(0, 0, 255))",
+    "transparent",
+    "not-a-color",
+  ]);
+  expect(rgb).toEqual([10, 20, 30, 1]);
+  expect(half?.[3]).toBeCloseTo(0.5, 1);
+  for (const [name, value] of [
+    ["oklab", oklab],
+    ["oklch", oklch],
+    ["color(srgb)", srgb],
+    ["color-mix", mixed],
+  ] as const) {
+    expect(value, name).not.toBeNull();
+    expect(value?.[3], name).toBe(1);
+  }
+  expect(srgb).toEqual([255, 0, 0, 1]);
+  expect(clear?.[3]).toBe(0);
+  expect(junk).toBeNull();
+  // A computed oklab value reads as the same color its rgb serialization does.
+  const computed = await page.evaluate(() => {
+    const probe = document.createElement("span");
+    probe.style.color = "color-mix(in oklab, rgb(200, 40, 60) 60%, rgb(20, 90, 200))";
+    document.body.append(probe);
+    const value = getComputedStyle(probe).color;
+    probe.remove();
+    return value;
+  });
+  expect(computed).toMatch(/^oklab\(/);
+  const [fromComputed] = await resolveColors(page, [computed]);
+  expect(fromComputed?.[3]).toBe(1);
 });
