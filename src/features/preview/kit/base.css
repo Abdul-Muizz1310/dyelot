@@ -69,6 +69,18 @@
   font-family: var(--font-mono);
 }
 
+/* Secondary text: the muted foreground, on the page or on the muted fill it is paired with. */
+.kit-muted {
+  color: var(--muted-foreground);
+}
+
+/* A figure never breaks (F-CANVAS-09): it keeps one line in tabular numerals. */
+.kit-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
 /* Icons: one library, one stroke width (F-TPL-07). Zero specificity, so a part's own size wins
  * whatever order the stylesheets load in. */
 :where([data-canvas] svg.lucide) {

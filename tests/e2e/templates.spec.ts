@@ -3,34 +3,39 @@ import { expect, type Locator, type Page, test } from "@playwright/test";
 import { hexToRgb, ROLE_NAMES, wcagRatio } from "@/engine";
 import { BUTTON_VARIANTS, KIT_COMPONENTS, statesOf } from "@/features/preview/kit/states";
 import { TEXT_PAIRS } from "@/features/preview/swatches";
+import type { TemplateId } from "@/features/studio/view";
 import { themeVars } from "@/theme/vars";
 import {
   canvasFrame,
   canvasPane,
+  canvasVars,
   designFor,
   FRESH,
   openStudio,
   seedOf,
+  settled,
   stubSeeds,
 } from "./studio-support";
+import {
+  equalIconSiblings,
+  overflow,
+  pictographs,
+  roleColor,
+  setFrame,
+  showTemplate,
+  slop,
+  TYPE_STEPS,
+  templateRoot,
+  typeTriples,
+  unnamedPaint,
+} from "./template-support";
 
-// The kitchen-sink flows of docs/specs/02-studio.md, section 7.5 (Task 2.7): F-TPL-01 to F-TPL-08,
-// and axe on /studio with the kitchen sink in both modes. The later templates join this file with
-// Tasks 2.8 to 2.10.
+// The template flows of docs/specs/02-studio.md: the kitchen sink of section 7.5 (Task 2.7, F-TPL-01
+// to F-TPL-08 and F-TPL-38, and axe in both modes) and the landing and editorial templates of section
+// 7.6 (Task 2.8, F-TPL-09 to F-TPL-21, F-TPL-38 and F-TPL-39). The dashboard, settings and mobile
+// templates join this file with Tasks 2.9 and 2.10.
 
 const MODES = ["light", "dark"] as const;
-const TYPE_STEPS = [
-  "caption",
-  "label",
-  "body-sm",
-  "body",
-  "lead",
-  "h4",
-  "h3",
-  "h2",
-  "h1",
-  "display",
-];
 const RADII = ["sm", "md", "lg", "xl", "2xl", "full"];
 const DURATIONS = ["instant", "fast", "quick", "base", "slow", "slower", "slowest"];
 const EASINGS = ["standard", "decelerate", "accelerate", "emphasized"];
@@ -454,44 +459,7 @@ test.describe("7.5 The kitchen sink", () => {
     for (const frame of ["1280", "360"]) {
       await frames.getByRole("radio", { name: frame, exact: true }).check();
       for (const mode of MODES) {
-        const report = await canvasPane(page, mode).evaluate((pane, steps) => {
-          const triple = (element: Element) => {
-            const style = getComputedStyle(element);
-            return `${style.fontSize} ${style.lineHeight} ${style.letterSpacing}`;
-          };
-          // The oracle is the vars: a probe set straight from each step's three variables. A
-          // second probe checks that the step's class sets the same three.
-          const oracle = new Map<string, string>();
-          const classes: string[] = [];
-          for (const step of steps) {
-            const byVars = document.createElement("span");
-            byVars.style.fontSize = `var(--text-${step})`;
-            byVars.style.lineHeight = `var(--leading-${step})`;
-            byVars.style.letterSpacing = `var(--tracking-${step})`;
-            const byClass = document.createElement("span");
-            byClass.className = `kit-t-${step}`;
-            pane.append(byVars, byClass);
-            oracle.set(triple(byVars), step);
-            if (triple(byClass) !== triple(byVars)) classes.push(step);
-            byVars.remove();
-            byClass.remove();
-          }
-          const off = new Map<string, number>();
-          let checked = 0;
-          for (const element of pane.querySelectorAll("*")) {
-            if (element.closest("[inert]") !== null) continue;
-            if (element.getBoundingClientRect().width === 0) continue;
-            const text = [...element.childNodes].some(
-              (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "",
-            );
-            if (!text) continue;
-            checked++;
-            if (oracle.has(triple(element))) continue;
-            const name = `${element.tagName.toLowerCase()}.${[...element.classList].join(".")} ${triple(element)}`;
-            off.set(name, (off.get(name) ?? 0) + 1);
-          }
-          return { checked, classes, off: [...off].map(([name, count]) => `${name} ×${count}`) };
-        }, TYPE_STEPS);
+        const report = await typeTriples(canvasPane(page, mode));
         expect(report.checked, `${frame} ${mode}`).toBeGreaterThan(150);
         expect(report.classes, `${frame} ${mode} classes`).toEqual([]);
         expect(report.off, `${frame} ${mode}`).toEqual([]);
@@ -696,5 +664,462 @@ test.describe("7.5 The kitchen sink", () => {
         mode,
       ).toEqual([]);
     }
+  });
+});
+
+/** The templates of section 7.6. */
+const SECTION_76 = ["landing", "editorial"] as const satisfies readonly TemplateId[];
+/** Every template built so far: the dashboard, settings and mobile join with Tasks 2.9 and 2.10. */
+const EVERY_TEMPLATE = [
+  "landing",
+  "editorial",
+  "kitchen-sink",
+] as const satisfies readonly TemplateId[];
+
+/**
+ * Samples, on every frame for `ms` after the template `id` mounts, each element's opacity and
+ * transform inside the frame: which elements other than the entrance changed, and the entrance's own
+ * opacities and transforms. Start it before switching to the template.
+ */
+function mountMotion(page: Page, id: TemplateId, ms = 600) {
+  return canvasFrame(page).evaluate(
+    (frame, { id, ms }) =>
+      new Promise<{ entrances: number; moved: string[]; entrance: string[] }>((resolve) => {
+        const seen = new Map<Element, Set<string>>();
+        let start: number | null = null;
+        const tick = () => {
+          const root = frame.querySelector(`[data-template-root="${id}"]`);
+          if (root !== null) {
+            start ??= performance.now();
+            for (const element of [root, ...root.querySelectorAll("*")]) {
+              const style = getComputedStyle(element);
+              const values = seen.get(element) ?? new Set<string>();
+              values.add(`${style.opacity} ${style.transform}`);
+              seen.set(element, values);
+            }
+          }
+          if (start === null || performance.now() - start < ms) {
+            requestAnimationFrame(tick);
+            return;
+          }
+          const entrances = frame.querySelectorAll("[data-entrance]");
+          const entrance = entrances[0];
+          const moved = [...seen]
+            .filter(([element, values]) => element !== entrance && values.size > 1)
+            .map(
+              ([element]) => `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`,
+            );
+          resolve({
+            entrances: entrances.length,
+            moved,
+            entrance: entrance === undefined ? [] : [...(seen.get(entrance) ?? [])],
+          });
+        };
+        tick();
+      }),
+    { id, ms },
+  );
+}
+
+test.describe("7.6 The landing and editorial templates", () => {
+  test.describe.configure({ mode: "serial" });
+  let page: Page;
+
+  test.beforeAll(async ({ browser }) => {
+    // A page of its own context: axe's builder needs one.
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    page = await context.newPage();
+    await stubSeeds(page);
+    await openStudio(page);
+    await page.evaluate(() => document.fonts.ready);
+  });
+
+  test.afterAll(async () => {
+    await page.context().close();
+  });
+
+  for (const [id, caseId] of [
+    ["landing", "F-TPL-09"],
+    ["editorial", "F-TPL-10"],
+  ] as const) {
+    test(`${caseId} the ${id} template renders in the 360, 768 and 1280 frames without overflow`, async () => {
+      const root = await showTemplate(page, id);
+      for (const frame of [360, 768, 1280] as const) {
+        await setFrame(page, frame);
+        const report = await overflow(root);
+        expect(report.scroll, `${frame}`).toBeLessThanOrEqual(report.client);
+        expect(report.past, `${frame}`).toEqual([]);
+      }
+    });
+  }
+
+  test("F-TPL-11 the editorial body keeps a 60 to 75 character measure", async () => {
+    const root = await showTemplate(page, "editorial");
+    // The body paragraphs: the direct paragraphs of the article's sections.
+    const measures = await root.locator("[data-prose] > section > p").evaluateAll((paragraphs) =>
+      paragraphs.map((paragraph) => {
+        // The paragraph's own `ch`, read as a computed length (layout px, unscaled).
+        const probe = document.createElement("span");
+        probe.style.position = "absolute";
+        probe.style.width = "100ch";
+        paragraph.append(probe);
+        const ch = Number.parseFloat(getComputedStyle(probe).width) / 100;
+        probe.remove();
+        return Number.parseFloat(getComputedStyle(paragraph).maxWidth) / ch;
+      }),
+    );
+    expect(measures.length).toBeGreaterThan(5);
+    for (const measure of measures) {
+      expect(measure).toBeGreaterThanOrEqual(60);
+      expect(measure).toBeLessThanOrEqual(75);
+    }
+  });
+
+  test("F-TPL-13 the landing features are a list beside a product moment, with no equal icon cards", async () => {
+    const root = await showTemplate(page, "landing");
+    const block = root.locator('[data-block="features"]');
+    for (const frame of [1280, 768] as const) {
+      await setFrame(page, frame);
+      const list = await block.locator("[data-feature-list]").boundingBox();
+      const moment = await block.locator("[data-moment]").boundingBox();
+      expect(list, `${frame}`).not.toBeNull();
+      expect(moment, `${frame}`).not.toBeNull();
+      if (list === null || moment === null) continue;
+      // Beside: the boxes share a vertical span and do not overlap horizontally.
+      expect(list.y < moment.y + moment.height && moment.y < list.y + list.height, `${frame}`).toBe(
+        true,
+      );
+      expect(list.x + list.width <= moment.x || moment.x + moment.width <= list.x, `${frame}`).toBe(
+        true,
+      );
+      await expect(block.locator("[data-feature-list]")).toHaveRole("list");
+    }
+    for (const frame of [1280, 768, 360] as const) {
+      await setFrame(page, frame);
+      expect(await equalIconSiblings(block), `${frame}`).toEqual([]);
+    }
+    await setFrame(page, 1280);
+  });
+
+  test.fixme("F-TPL-13 the dashboard's KPI row holds no three equal icon cards (Task 2.9)", async () => {
+    // Task 2.9 builds the dashboard: run `equalIconSiblings` on its KPI row here.
+  });
+
+  test("F-TPL-14 neither template sets gradient text", async () => {
+    for (const id of SECTION_76) {
+      const root = await showTemplate(page, id);
+      const clipped = await root.evaluate((element) =>
+        [element, ...element.querySelectorAll("*")]
+          .filter((node) => {
+            const style = getComputedStyle(node);
+            const clip = `${style.backgroundClip} ${style.getPropertyValue("-webkit-background-clip")}`;
+            const fill = style.getPropertyValue("-webkit-text-fill-color");
+            return (
+              clip.includes("text") &&
+              (fill === "rgba(0, 0, 0, 0)" || style.color === "rgba(0, 0, 0, 0)")
+            );
+          })
+          .map((node) => node.tagName),
+      );
+      expect(clipped, id).toEqual([]);
+    }
+  });
+
+  test("F-TPL-15 no template holds a pictograph, and every SVG is a lucide icon or a named figure", async () => {
+    for (const id of EVERY_TEMPLATE) {
+      const root = await showTemplate(page, id);
+      const report = await pictographs(root);
+      expect(report.texts, id).toEqual([]);
+      expect(report.svgs, id).toEqual([]);
+      expect(await root.locator("svg").count(), id).toBeGreaterThan(2);
+    }
+  });
+
+  test("F-TPL-16 no logo row or trusted-by text, each template says sample, and the landing hero holds no hero metric", async () => {
+    for (const id of EVERY_TEMPLATE) {
+      const root = await showTemplate(page, id);
+      const report = await slop(root);
+      expect(report.logoRows, id).toEqual([]);
+      expect(report.trusted, id).toBe(false);
+      expect(report.sample, id).toBe(true);
+    }
+    const hero = (await showTemplate(page, "landing")).locator('[data-block="hero"]');
+    await expect(hero).toHaveCount(1);
+    const metrics = await hero.evaluate((element) => {
+      const probe = document.createElement("span");
+      probe.style.fontSize = "var(--text-h2)";
+      element.append(probe);
+      const h2 = Number.parseFloat(getComputedStyle(probe).fontSize);
+      probe.remove();
+      const figure = /^[$€£¥]?\s*[+−-]?\d[\d,.:\s]*(%|\s?[A-Za-z]{1,3})?$/;
+      return [element, ...element.querySelectorAll("*")]
+        .filter((node) => {
+          const own = [...node.childNodes]
+            .filter((child) => child.nodeType === Node.TEXT_NODE)
+            .map((child) => child.textContent ?? "")
+            .join("")
+            .trim();
+          return (
+            figure.test(own) && Number.parseFloat(getComputedStyle(node).fontSize) >= h2 - 0.01
+          );
+        })
+        .map((node) => node.textContent ?? "");
+    });
+    expect(metrics).toEqual([]);
+  });
+
+  test("F-TPL-17 each template has one entrance, nothing else animates on mount, and reduced motion places it at once", async () => {
+    for (const id of SECTION_76) {
+      // A stand-in first, so the template mounts afresh.
+      await showTemplate(page, "dashboard");
+      const sampled = mountMotion(page, id);
+      await showTemplate(page, id);
+      const report = await sampled;
+      expect(report.entrances, id).toBe(1);
+      expect(report.moved, id).toEqual([]);
+      // The entrance itself runs: it passes through more than one state.
+      expect(report.entrance.length, id).toBeGreaterThan(1);
+    }
+    const reduce = page.getByRole("switch", { name: "Reduce motion", exact: true });
+    await reduce.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+    for (const id of SECTION_76) {
+      await showTemplate(page, "dashboard");
+      const sampled = mountMotion(page, id);
+      await showTemplate(page, id);
+      const report = await sampled;
+      expect(report.entrances, id).toBe(1);
+      expect(report.moved, id).toEqual([]);
+      expect(report.entrance, id).toEqual(["1 none"]);
+    }
+    await reduce.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
+  });
+
+  test("F-TPL-18 one h1 on the landing page, headings without gaps, and the article's H1 to H4 in order", async () => {
+    for (const id of SECTION_76) {
+      const root = await showTemplate(page, id);
+      const levels = await root
+        .locator("h1, h2, h3, h4, h5, h6")
+        .evaluateAll((headings) => headings.map((heading) => Number(heading.tagName.slice(1))));
+      expect(levels[0], id).toBe(1);
+      expect(
+        levels.filter((level) => level === 1),
+        id,
+      ).toHaveLength(1);
+      for (const [index, level] of levels.entries()) {
+        if (index > 0)
+          expect(level, `${id} heading ${index}`).toBeLessThanOrEqual((levels[index - 1] ?? 0) + 1);
+      }
+      if (id === "editorial") {
+        const firsts = [1, 2, 3, 4].map((level) => levels.indexOf(level));
+        expect(firsts.every((at) => at >= 0)).toBe(true);
+        expect([...firsts].sort((a, b) => a - b)).toEqual(firsts);
+      } else {
+        expect(levels.length).toBeGreaterThan(6);
+      }
+    }
+  });
+
+  test("F-TPL-19 the landing page varies radius and spacing by hierarchy", async () => {
+    const root = await showTemplate(page, "landing");
+    const used = await root.evaluate((element) => {
+      const probe = document.createElement("div");
+      element.append(probe);
+      const radii = new Map<string, string>();
+      for (const name of ["sm", "md", "lg", "xl", "2xl", "full"]) {
+        probe.style.borderTopLeftRadius = `var(--radius-${name})`;
+        radii.set(getComputedStyle(probe).borderTopLeftRadius, name);
+      }
+      const spaces = new Map<string, string>();
+      for (const unit of [1, 2, 3, 4, 6, 8, 12, 16, 20, 24, 32]) {
+        probe.style.paddingTop = `var(--space-${unit})`;
+        spaces.set(getComputedStyle(probe).paddingTop, String(unit));
+      }
+      probe.remove();
+      radii.delete("0px");
+      const radius = new Set<string>();
+      const space = new Set<string>();
+      for (const node of [element, ...element.querySelectorAll("*")]) {
+        const style = getComputedStyle(node);
+        for (const corner of [
+          style.borderTopLeftRadius,
+          style.borderTopRightRadius,
+          style.borderBottomRightRadius,
+          style.borderBottomLeftRadius,
+        ]) {
+          const name = radii.get(corner);
+          if (name !== undefined) radius.add(name);
+        }
+        for (const length of [
+          style.paddingTop,
+          style.paddingRight,
+          style.paddingBottom,
+          style.paddingLeft,
+          style.marginTop,
+          style.marginBottom,
+          style.rowGap,
+          style.columnGap,
+        ]) {
+          const name = spaces.get(length);
+          if (name !== undefined) space.add(name);
+        }
+      }
+      return { radius: [...radius], space: [...space] };
+    });
+    expect(used.radius.length, used.radius.join(" ")).toBeGreaterThanOrEqual(3);
+    expect(used.space.length, used.space.join(" ")).toBeGreaterThanOrEqual(3);
+  });
+
+  test("F-TPL-20 editorial links are primary and underlined, selection is the spec's, and in-page links keep the hash", async () => {
+    for (const id of SECTION_76) {
+      const root = await showTemplate(page, id);
+      // Every in-page link names a target inside the template.
+      const missing = await root.evaluate((element) =>
+        [...element.querySelectorAll<HTMLAnchorElement>("a[href]")]
+          .map((link) => link.getAttribute("href") ?? "")
+          .filter(
+            (href) =>
+              !href.startsWith("#") ||
+              element.querySelector(`[id="${CSS.escape(href.slice(1))}"]`) === null,
+          ),
+      );
+      expect(missing, id).toEqual([]);
+      expect(await root.locator("a[href]").count(), id).toBeGreaterThan(2);
+    }
+    const root = await showTemplate(page, "editorial");
+    const [primary, onPrimary] = await Promise.all([
+      roleColor(root, "primary"),
+      roleColor(root, "primary-foreground"),
+    ]);
+    const links = await root.locator("a[href]").evaluateAll((anchors) =>
+      anchors.map((anchor) => {
+        const style = getComputedStyle(anchor);
+        return [anchor.textContent ?? "", style.color, style.textDecorationLine];
+      }),
+    );
+    for (const [text, color, line] of links) {
+      expect(color, text).toBe(primary);
+      expect(line, text).toContain("underline");
+    }
+    const selection = await root
+      .locator("[data-prose] > section > p")
+      .first()
+      .evaluate((paragraph) => {
+        const style = getComputedStyle(paragraph, "::selection");
+        return [style.backgroundColor, style.color];
+      });
+    expect(selection).toEqual([primary, onPrimary]);
+    // Following a link moves focus to its target and leaves the address bar's hash alone.
+    for (const [id, name] of [
+      ["editorial", "Roots and reds"],
+      ["landing", "Pricing"],
+    ] as const) {
+      const scope = await showTemplate(page, id);
+      const before = await page.evaluate(() => window.location.hash);
+      const link = scope.getByRole("link", { name, exact: true }).first();
+      const target = (await link.getAttribute("href"))?.slice(1) ?? "";
+      await link.click();
+      await expect(scope.locator(`[id="${target}"]`)).toBeFocused();
+      expect(await page.evaluate(() => window.location.hash), id).toBe(before);
+      // No link banner either: the studio read no new hash.
+      await expect(page.getByText(/This link/)).toHaveCount(0);
+    }
+  });
+
+  test("F-TPL-21 the FAQ accordion opens and closes by keyboard", async () => {
+    const root = await showTemplate(page, "landing");
+    const triggers = root.locator('[data-block="faq"] button[aria-expanded]');
+    expect(await triggers.count()).toBeGreaterThanOrEqual(3);
+    const second = triggers.nth(1);
+    const panel = root.locator(`[id="${await second.getAttribute("aria-controls")}"]`);
+    await expect(second).toHaveAttribute("aria-expanded", "false");
+    await expect(panel).toBeHidden();
+    await second.focus();
+    await page.keyboard.press("Enter");
+    await expect(second).toHaveAttribute("aria-expanded", "true");
+    await expect(panel).toBeVisible();
+    await page.keyboard.press("Space");
+    await expect(second).toHaveAttribute("aria-expanded", "false");
+    await expect(panel).toBeHidden();
+    await page.keyboard.press("Space");
+    await expect(second).toHaveAttribute("aria-expanded", "true");
+    // Tab reaches the next question, and Enter closes the first, open by default.
+    const first = triggers.first();
+    await expect(first).toHaveAttribute("aria-expanded", "true");
+    await first.focus();
+    await page.keyboard.press("Enter");
+    await expect(first).toHaveAttribute("aria-expanded", "false");
+    await page.keyboard.press("Enter");
+    await expect(first).toHaveAttribute("aria-expanded", "true");
+  });
+
+  test("F-TPL-38 every text in the landing and editorial templates sets one step's whole type triple", async () => {
+    const check = async (label: string) => {
+      for (const frame of [1280, 360] as const) {
+        await setFrame(page, frame);
+        for (const id of SECTION_76) {
+          const report = await typeTriples(await showTemplate(page, id));
+          expect(report.checked, `${label} ${frame} ${id}`).toBeGreaterThan(25);
+          expect(report.classes, `${label} ${frame} ${id} classes`).toEqual([]);
+          expect(report.off, `${label} ${frame} ${id}`).toEqual([]);
+        }
+      }
+    };
+    await check("default");
+    // The editorial context sets a fluid display step: a `cqi` clamp that follows the frame.
+    const context = page
+      .getByRole("complementary", { name: "Inputs" })
+      .getByRole("combobox", { name: "Type context", exact: true });
+    const original = await context.inputValue();
+    await context.selectOption("editorial");
+    await settled(page);
+    expect((await canvasVars(page))["--text-display"]).toMatch(/^clamp\(.*cqi/);
+    await check("editorial context");
+    await context.selectOption(original);
+    await settled(page);
+    await setFrame(page, 1280);
+  });
+
+  test("F-TPL-39 every painted color in the landing and editorial templates is named in data-roles", async () => {
+    const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
+    for (const mode of MODES) {
+      if (mode === "dark") await dark.click();
+      await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+      for (const id of SECTION_76) {
+        const report = await unnamedPaint(await showTemplate(page, id));
+        expect(report.checked, `${mode} ${id}`).toBeGreaterThan(60);
+        expect(report.unnamed, `${mode} ${id}`).toEqual([]);
+      }
+    }
+    await dark.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-mode", "light");
+  });
+
+  test("F-TPL-12 axe finds no violation in either template, in light and dark, at 360 and 1280", async () => {
+    const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
+    for (const mode of MODES) {
+      if (mode === "dark") await dark.click();
+      await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+      for (const frame of [360, 1280] as const) {
+        await setFrame(page, frame);
+        for (const id of SECTION_76) {
+          await showTemplate(page, id);
+          const results = await new AxeBuilder({ page })
+            .include("[data-canvas][data-frame]")
+            .analyze();
+          expect(
+            results.violations.map((violation) => ({
+              id: violation.id,
+              nodes: violation.nodes.slice(0, 5).map((node) => node.target.join(" ")),
+            })),
+            `${mode} ${frame} ${id}`,
+          ).toEqual([]);
+        }
+      }
+    }
+    await dark.click();
+    await setFrame(page, 1280);
+    await expect(templateRoot(page, "landing").or(templateRoot(page, "editorial"))).toBeVisible();
   });
 });

@@ -1,0 +1,46 @@
+/* The kit's accordion (spec section 7.6, F-TPL-21): rows divided by the border role; a hovered
+ * question takes the muted fill, and the open item's chevron turns over on the spec's fast duration. */
+
+.kit-accordion {
+  display: grid;
+  border-bottom: 1px solid var(--border);
+}
+.kit-accordion-item {
+  border-top: 1px solid var(--border);
+}
+.kit-accordion-heading {
+  margin: 0;
+}
+.kit-accordion-trigger {
+  display: flex;
+  width: 100%;
+  min-height: calc(var(--control-height) + var(--space-4));
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: var(--space-4) var(--space-2);
+  border: 0;
+  border-radius: var(--radius-md);
+  background-color: transparent;
+  color: var(--foreground);
+  font-weight: 600;
+  text-align: start;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.kit-accordion-trigger:hover {
+  background-color: var(--muted);
+}
+.kit-accordion-trigger > svg {
+  transition: transform var(--duration-base) var(--ease-standard);
+}
+.kit-accordion-trigger[aria-expanded="true"] > svg {
+  transform: rotate(180deg);
+}
+.kit-accordion-panel {
+  padding: 0 var(--space-2) var(--space-6);
+  color: var(--muted-foreground);
+}
+.kit-accordion-panel > p {
+  max-width: 60ch;
+}

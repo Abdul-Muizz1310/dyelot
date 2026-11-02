@@ -109,15 +109,18 @@ async function persisted(page: Page): Promise<string> {
 }
 
 test.describe("7.1 Layout and the shell", () => {
-  test("F-STUDIO-01 /studio has one h1, its own title, description and canonical, and a sitemap entry", async ({
+  test("F-STUDIO-01 /studio has one h1 outside the canvas, its own title, description and canonical, and a sitemap entry", async ({
     page,
     request,
   }) => {
     await openStudio(page);
-    await expect(page.locator("h1")).toHaveCount(1);
-    await expect(page.locator("h1")).toHaveText("dyelot studio");
+    // The page's own h1; the template on the canvas carries one of its own (F-TPL-18).
+    const own = page.locator("h1:not([data-canvas] h1)");
+    await expect(own).toHaveCount(1);
+    await expect(own).toHaveText("dyelot studio");
+    await expect(page.locator("[data-canvas] h1")).toHaveCount(1);
     // Visually hidden: the h1 takes no room on screen.
-    const box = await page.locator("h1").boundingBox();
+    const box = await own.boundingBox();
     expect(box?.width ?? 0).toBeLessThanOrEqual(1);
     await expect(page).toHaveTitle("Studio — dyelot");
     const description = await page.locator('head meta[name="description"]').getAttribute("content");

@@ -25,10 +25,12 @@ import {
   settled,
   stubSeeds,
 } from "./studio-support";
+import { overflow, setFrame, showTemplate, templateRoot } from "./template-support";
 
 // The canvas flows of docs/specs/02-studio.md, section 7.4 (Task 2.7): F-CANVAS-01 to 10 and 12 to
-// 16. F-CANVAS-11 ("Show me") is driven from the inspector and lands with it in
-// Task 2.10. A flow that names no viewport runs at 1280 × 800.
+// 19, with F-CANVAS-07 to 09 extended to the landing and editorial templates (Task 2.8). F-CANVAS-11
+// ("Show me") is driven from the inspector and lands with it in Task 2.10. A flow that names no
+// viewport runs at 1280 × 800.
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -834,4 +836,152 @@ test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", asyn
   await page.keyboard.press("Alt+KeyT");
   await expect(canvasFrame(page)).toHaveAttribute("data-mode", "light");
   await expect(modeSwitch(page)).toHaveAttribute("aria-checked", "false");
+});
+
+/** The opacities of the canvas's one entrance on every frame for 300 ms. */
+function entranceOpacities(page: Page): Promise<number[]> {
+  return canvasFrame(page)
+    .locator("[data-entrance]")
+    .evaluate(
+      (element) =>
+        new Promise<number[]>((resolve) => {
+          const seen: number[] = [];
+          const start = performance.now();
+          const tick = () => {
+            seen.push(Number(getComputedStyle(element).opacity));
+            if (performance.now() - start < 300) requestAnimationFrame(tick);
+            else resolve(seen);
+          };
+          tick();
+        }),
+    );
+}
+
+/** The entrance's computed transform and opacity. */
+const entranceAt = (page: Page) =>
+  canvasFrame(page)
+    .locator("[data-entrance]")
+    .evaluate((element) => {
+      const style = getComputedStyle(element);
+      return [style.transform, style.opacity];
+    });
+
+test.describe("7.4 Motion on the landing and editorial templates", () => {
+  test("F-CANVAS-07 Reduce motion stops both templates, keeps the FAQ's state and never replays the entrance", async ({
+    page,
+  }) => {
+    await stubSeeds(page);
+    await openStudio(page);
+    const landing = templateRoot(page, "landing");
+    await expect(landing).toBeVisible();
+    // Without the switch the template's parts transition.
+    expect((await motionReport(page)).running.length).toBeGreaterThan(0);
+    const second = landing.locator('[data-block="faq"] button[aria-expanded]').nth(1);
+    await second.click();
+    await expect(second).toHaveAttribute("aria-expanded", "true");
+    await reduceMotion(page).click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+    const report = await motionReport(page);
+    expect(report.elements).toBeGreaterThan(300);
+    expect(report.running).toEqual([]);
+    // Off again: the FAQ keeps its open item and the entrance does not replay.
+    await reduceMotion(page).click();
+    await expect(reduceMotion(page)).toHaveAttribute("aria-checked", "false");
+    expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
+    await expect(second).toHaveAttribute("aria-expanded", "true");
+    // The editorial template, chosen while the switch is on, is in place at once and still.
+    await reduceMotion(page).click();
+    await showTemplate(page, "editorial");
+    expect(await entranceAt(page)).toEqual(["none", "1"]);
+    expect((await motionReport(page)).running).toEqual([]);
+    await reduceMotion(page).click();
+    expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
+  });
+
+  test("F-CANVAS-08 prefers-reduced-motion stops both templates without the switch", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await stubSeeds(page);
+    await openStudio(page);
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
+    for (const id of ["landing", "editorial"] as const) {
+      await showTemplate(page, id);
+      expect(await entranceAt(page), id).toEqual(["none", "1"]);
+      expect((await motionReport(page)).running, id).toEqual([]);
+    }
+  });
+});
+
+test("F-CANVAS-09 edge-case copy fills the landing and editorial slots, and nothing breaks or overflows", async ({
+  page,
+}) => {
+  await stubSeeds(page);
+  await openStudio(page);
+  await page.evaluate(() => document.fonts.ready);
+  await toolbarRadio(page, "Copy", "Edge-case copy").check();
+  await expect(canvasFrame(page)).toHaveAttribute("data-copy", "edge");
+  const edge = COPY.edge;
+  for (const id of ["landing", "editorial"] as const) {
+    const root = await showTemplate(page, id);
+    for (const text of [edge.word, edge.title, edge.person, edge.amount]) {
+      await expect(root.getByText(text, { exact: false }).first(), `${id} ${text}`).toBeVisible();
+    }
+    await expect(root.locator("[data-copy-label]").first(), id).toHaveText(edge.label);
+    const list = root.locator("[data-list]");
+    await expect(list, id).toHaveAttribute("data-empty", "");
+    await expect(root.locator("[data-list-item]"), id).toHaveCount(0);
+    for (const frame of [360, 768, 1280] as const) {
+      await setFrame(page, frame);
+      const name = `${id} ${frame}`;
+      // Every figure on screen keeps one line.
+      const lines = await root.evaluate((element) =>
+        [...element.querySelectorAll(".kit-num")]
+          .filter((figure) => figure.getBoundingClientRect().width > 0)
+          .map((figure) => {
+            const range = document.createRange();
+            range.selectNodeContents(figure);
+            const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+            return `${figure.textContent} ${tops.size}`;
+          }),
+      );
+      expect(lines.length, name).toBeGreaterThan(0);
+      expect(
+        lines.filter((line) => !line.endsWith(" 1")),
+        name,
+      ).toEqual([]);
+      // Every word of 20 characters or fewer (a hyphen ends a word) sits on one line.
+      const words = await root.evaluate((element) => {
+        const broken: string[] = [];
+        let checked = 0;
+        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+          if ((node.parentElement?.getBoundingClientRect().width ?? 0) === 0) continue;
+          const text = node.textContent ?? "";
+          for (const match of text.matchAll(/[^\s-]+-?/g)) {
+            if (match[0].length > 20) continue;
+            const range = document.createRange();
+            range.setStart(node, match.index);
+            range.setEnd(node, match.index + match[0].length);
+            const rects = [...range.getClientRects()].filter((rect) => rect.width > 0);
+            checked++;
+            if (rects.length > 1) broken.push(`${match[0]} in ${rects.length} pieces`);
+          }
+        }
+        return { checked, broken };
+      });
+      expect(words.checked, name).toBeGreaterThan(80);
+      expect(words.broken, name).toEqual([]);
+      const report = await overflow(root);
+      expect(report.scroll, name).toBeLessThanOrEqual(report.client);
+      expect(report.past, name).toEqual([]);
+    }
+    await setFrame(page, 1280);
+  }
+  await toolbarRadio(page, "Copy", "Real copy").check();
+  for (const id of ["landing", "editorial"] as const) {
+    const root = await showTemplate(page, id);
+    expect(await root.locator("[data-list-item]").count(), id).toBeGreaterThan(1);
+    await expect(root.locator("[data-copy-label]").first(), id).not.toHaveText(edge.label);
+  }
 });

@@ -1,6 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { generateSystem, hexToRgb, ROLE_NAMES, wcagRatio } from "@/engine";
-import { COPY } from "@/features/preview/copy";
+import {
+  COPY,
+  COPY_OWNERS,
+  copyOf,
+  EDITORIAL_TEXT,
+  LANDING_TEXT,
+  type Run,
+  SAMPLE_PLACES,
+} from "@/features/preview/copy";
 import { FRAMES, frameFit } from "@/features/preview/frame";
 import {
   BUTTON_VARIANTS,
@@ -294,5 +302,124 @@ describe("the canvas copy (R2-21, F-CANVAS-09)", () => {
       expect(value).not.toMatch(/\b(simply|just|easy|obviously|basically)\b|!/i);
     }
     expect(Object.isFrozen(COPY.edge.items)).toBe(true);
+  });
+});
+
+/** Every string inside a value: its own text, the items of its arrays and the values of its records. */
+function strings(value: unknown): string[] {
+  if (typeof value === "string") return [value];
+  if (Array.isArray(value)) return value.flatMap(strings);
+  if (typeof value === "object" && value !== null) return Object.values(value).flatMap(strings);
+  return [];
+}
+
+/** Every object inside an array within a value: the runs of each rich text, among others. */
+function runs(value: unknown): Exclude<Run, string>[] {
+  if (Array.isArray(value)) {
+    const own = value.filter(
+      (item) => typeof item === "object" && item !== null && !Array.isArray(item),
+    );
+    return [...(own as Exclude<Run, string>[]), ...value.flatMap(runs)];
+  }
+  if (typeof value === "object" && value !== null) return Object.values(value).flatMap(runs);
+  return [];
+}
+
+/** Whether `value` and everything inside it is frozen. */
+function deepFrozen(value: unknown): boolean {
+  if (typeof value !== "object" || value === null) return true;
+  return Object.isFrozen(value) && Object.values(value).every(deepFrozen);
+}
+
+const SLOTS = ["word", "person", "amount"];
+
+describe("the template copy (section 7.6, R2-21, F-CANVAS-09)", () => {
+  it("copyOf gives each template its real copy and the one edge copy of R2-21", () => {
+    expect(COPY_OWNERS).toEqual(["kitchen-sink", "landing", "editorial"]);
+    expect(Object.isFrozen(COPY_OWNERS)).toBe(true);
+    expect(copyOf("kitchen-sink", "real")).toBe(COPY.real);
+    for (const owner of COPY_OWNERS) expect(copyOf(owner, "edge")).toBe(COPY.edge);
+    const reals = COPY_OWNERS.map((owner) => copyOf(owner, "real"));
+    expect(new Set(reals.map((copy) => copy.title)).size).toBe(3);
+    for (const copy of reals) {
+      expect(Object.keys(copy).sort()).toEqual(Object.keys(COPY.edge).sort());
+      expect(copy.items.length).toBeGreaterThan(1);
+      expect(copy.items.every((item) => (SAMPLE_PLACES as readonly string[]).includes(item))).toBe(
+        true,
+      );
+      expect(deepFrozen(copy)).toBe(true);
+    }
+  });
+
+  it("R-05: copyOf names itself for an owner or a kind of the wrong type or outside its set", () => {
+    expect(() => copyOf(3 as never, "real")).toThrow(TypeError);
+    expect(() => copyOf(3 as never, "real")).toThrow(/^copyOf: owner/);
+    expect(() => copyOf("dashboard" as never, "real")).toThrow(RangeError);
+    expect(() => copyOf("dashboard" as never, "real")).toThrow(/^copyOf: owner/);
+    expect(() => copyOf("landing", null as never)).toThrow(TypeError);
+    expect(() => copyOf("landing", "long" as never)).toThrow(RangeError);
+    expect(() => copyOf("landing", "long" as never)).toThrow(/^copyOf: kind/);
+  });
+
+  it("writes no emoji, no banned word and no exclamation mark, and labels each template sample", () => {
+    const texts = {
+      landing: [copyOf("landing", "real"), LANDING_TEXT],
+      editorial: [copyOf("editorial", "real"), EDITORIAL_TEXT],
+    };
+    for (const [owner, parts] of Object.entries(texts)) {
+      const all = strings(parts);
+      expect(all.length, owner).toBeGreaterThan(30);
+      for (const text of all) {
+        expect(text, owner).not.toMatch(/\p{Extended_Pictographic}/u);
+        expect(text, owner).not.toMatch(/\b(simply|just|easy|obviously|basically)\b|!/i);
+      }
+      expect(
+        all.some((text) => /\bsample\b/i.test(text)),
+        owner,
+      ).toBe(true);
+    }
+    expect(deepFrozen(LANDING_TEXT)).toBe(true);
+    expect(deepFrozen(EDITORIAL_TEXT)).toBe(true);
+  });
+
+  it("fills slots only from the copy's strings, and each template shows its edge slots", () => {
+    for (const run of runs([LANDING_TEXT, EDITORIAL_TEXT])) {
+      if ("slot" in run) expect(SLOTS).toContain(run.slot);
+    }
+    const slotsOf = (value: unknown) =>
+      runs(value).flatMap((run) => ("slot" in run ? [run.slot] : []));
+    expect(slotsOf(LANDING_TEXT.hero.lead)).toEqual(["word"]);
+    expect(slotsOf(EDITORIAL_TEXT.standfirst)).toEqual(["word"]);
+    expect(slotsOf(EDITORIAL_TEXT)).toContain("amount");
+  });
+
+  it("links the article's text only to its sections and notes, and refers to each note once, in order", () => {
+    const keys = [...EDITORIAL_TEXT.sections.map((section) => section.key), "notes"];
+    expect(new Set(keys).size).toBe(keys.length);
+    const all = runs(EDITORIAL_TEXT.sections);
+    const links = all.flatMap((run) => ("to" in run ? [run.to] : []));
+    expect(links.length).toBeGreaterThan(1);
+    for (const to of links) expect(keys).toContain(to);
+    const notes = all.flatMap((run) => ("note" in run ? [run.note] : []));
+    expect(notes).toEqual(EDITORIAL_TEXT.notes.items.map((_, index) => index + 1));
+    const kinds = EDITORIAL_TEXT.sections.flatMap((section) =>
+      section.blocks.map((block) => block.kind),
+    );
+    for (const kind of ["p", "h3", "h4", "quote", "code", "figure", "places"])
+      expect(kinds).toContain(kind);
+  });
+
+  it("gives the landing page its sections: features as a list, a reading for each saved place, an FAQ", () => {
+    expect(LANDING_TEXT.features.items.length).toBeGreaterThanOrEqual(3);
+    expect(LANDING_TEXT.features.items.length).toBeLessThanOrEqual(5);
+    expect(LANDING_TEXT.moorings.readings.length).toBeGreaterThanOrEqual(
+      copyOf("landing", "real").items.length,
+    );
+    for (const reading of LANDING_TEXT.moorings.readings) {
+      expect(reading.meters).toBeGreaterThan(0);
+      expect(reading.meters).toBeLessThanOrEqual(LANDING_TEXT.moorings.range);
+    }
+    expect(LANDING_TEXT.faq.items.length).toBeGreaterThanOrEqual(3);
+    expect(LANDING_TEXT.nav.map((link) => link.to)).toEqual(["features", "pricing", "faq"]);
   });
 });

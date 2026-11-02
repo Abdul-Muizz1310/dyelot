@@ -5,9 +5,12 @@ import "./base.css";
 export { BUTTON_ROLES, Button } from "./Button";
 export { Checkbox, Radio, Segmented, Switch } from "./choices";
 export { Avatar, Badge, Chip, Progress, Readings, Skeleton, type Tone } from "./data";
+export { Accordion, type AccordionItem } from "./disclosure";
 export { Input, Select, Textarea } from "./fields";
+export { Level, Skeins, TideCurve } from "./figures";
 export { Entrance, MotionScope } from "./motion";
 export { MenuSpecimen, TabSpecimen, TabsDemo } from "./navigation";
+export { type NoteIds, NoteRef, RichText, TextLink } from "./prose";
 export {
   BUTTON_VARIANTS,
   type ButtonVariant,
