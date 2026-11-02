@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
 import { hexToRgb, PRESET_IDS, ROLE_NAMES, wcagRatio } from "@/engine";
+import { COPY } from "@/features/preview/copy";
 import { BUTTON_VARIANTS, KIT_COMPONENTS, statesOf } from "@/features/preview/kit/states";
 import { TEXT_PAIRS } from "@/features/preview/swatches";
 import { clock, TIDE_EVENTS } from "@/features/preview/tide";
@@ -1259,6 +1260,7 @@ function distinctRoles(spec: DesignSpec): DesignSpec {
 test("F-TPL-39 every painted color is named on a design whose 46 role colors are distinct", async ({
   page,
 }) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
   const spec = distinctRoles(first());
   for (const mode of MODES) {
     expect(new Set(Object.values(spec.color.roles[mode])).size, mode).toBe(ROLE_NAMES.length);
@@ -1301,6 +1303,7 @@ test("F-TPL-40 every preset fits both templates at 360 and 768, with real and wi
   page,
 }) => {
   test.setTimeout(300_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
   await stubSeeds(page);
   await openStudio(page);
   const preset = page
@@ -1329,6 +1332,19 @@ test("F-TPL-40 every preset fits both templates at 360 and 768, with real and wi
             figureLines(root),
           ]);
           measured++;
+          // Each view measures what it claims: the copy it names, the edge word under edge copy and
+          // a page of words, so an empty or stale root cannot pass.
+          const shown = await root.evaluate((element) => ({
+            copy: element.closest("[data-canvas]")?.getAttribute("data-copy"),
+            text: element.textContent ?? "",
+          }));
+          if (shown.copy !== (copy === "Real copy" ? "real" : "edge")) {
+            failures.push(`${name}: the frame shows ${shown.copy} copy`);
+          }
+          if (copy === "Edge-case copy" && !shown.text.includes(COPY.edge.word)) {
+            failures.push(`${name}: no edge word`);
+          }
+          if (words.checked < 50) failures.push(`${name}: only ${words.checked} words measured`);
           if (report.scroll > report.client || report.past.length > 0) {
             failures.push(
               `${name}: ${report.scroll - report.client} px over ${report.past.join(" ")}`,
