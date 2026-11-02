@@ -23,15 +23,15 @@ type LinkTone = "prose" | "quiet" | "sidebar" | "touch";
 function linkRoles(tone: LinkTone, current: boolean): string {
   switch (tone) {
     case "prose":
-      return "primary";
+      return "primary font-body";
     case "quiet":
-      return "foreground";
+      return "foreground font-body";
     case "touch":
-      return "primary";
+      return "primary font-body";
     case "sidebar":
       return current
-        ? "sidebar-accent sidebar-accent-foreground"
-        : "sidebar-foreground sidebar-accent sidebar-accent-foreground";
+        ? "sidebar-accent sidebar-accent-foreground font-body"
+        : "sidebar-foreground sidebar-accent sidebar-accent-foreground font-body";
     default: {
       const unknown: never = tone;
       throw new RangeError(`TextLink: no tone ${JSON.stringify(unknown)}`);
@@ -89,7 +89,7 @@ export function NoteRef({ n, ids }: { n: number; ids: NoteIds }) {
         href={`#${ids.note}`}
         className="kit-link kit-t-caption"
         data-tone="prose"
-        data-roles="primary"
+        data-roles="primary font-body"
         aria-label={`Note ${n}`}
         onClick={(event) => focusTarget(event, ids.note, "NoteRef")}
       >

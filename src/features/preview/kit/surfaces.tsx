@@ -33,7 +33,7 @@ export function Card({ title, meta, state }: { title: string; meta: string; stat
       data-kit={state === undefined ? undefined : "card"}
       data-state={state}
       data-concentric="card"
-      data-roles="card card-foreground border"
+      data-roles="card card-foreground border font-body"
       disabled={state === "disabled"}
       onClick={() => setPressed((value) => !value)}
     >
@@ -57,19 +57,19 @@ const ALERTS = {
     tone: "info",
     title: "Spring tides this week",
     body: "Sample: the highest water of the month arrives on Thursday.",
-    roles: "info-subtle info-subtle-foreground",
+    roles: "info-subtle info-subtle-foreground font-body",
   },
   success: {
     tone: "success",
     title: "Readings synced",
     body: "Sample: all three gauges reported in the last hour.",
-    roles: "success-subtle success-subtle-foreground",
+    roles: "success-subtle success-subtle-foreground font-body",
   },
   invalid: {
     tone: "destructive",
     title: "Gauge offline",
     body: `Sample: ${SAMPLE_PLACES[2]} has not reported since 04:10. Check its battery.`,
-    roles: "destructive-subtle destructive-subtle-foreground",
+    roles: "destructive-subtle destructive-subtle-foreground font-body",
   },
 } as const;
 
@@ -104,7 +104,7 @@ export function Tooltip() {
         className="kit-tooltip kit-t-caption"
         data-kit="tooltip"
         data-state="default"
-        data-roles="foreground background"
+        data-roles="foreground background font-body"
       >
         Sample: gauge 3 of 4, read at 06:42
       </span>
@@ -123,7 +123,7 @@ export function DialogStage({ title }: { title: string }) {
         className="kit-dialog"
         data-kit="dialog"
         data-state="default"
-        data-roles="popover popover-foreground border"
+        data-roles="popover popover-foreground border font-body"
       >
         <p id={`${id}-title`} className="kit-dialog-title kit-t-h4">
           {title}
@@ -151,7 +151,7 @@ export function SheetStage({ items }: { items: readonly string[] }) {
         className="kit-sheet"
         data-kit="sheet"
         data-state="default"
-        data-roles="popover popover-foreground border"
+        data-roles="popover popover-foreground border font-body"
       >
         <span className="kit-sheet-grabber" aria-hidden="true" />
         <p id={`${id}-title`} className="kit-dialog-title kit-t-h4">
@@ -178,14 +178,20 @@ export function SheetStage({ items }: { items: readonly string[] }) {
 const TOASTS = {
   default: {
     text: "Sample: reading saved to the tide log.",
-    roles: "popover popover-foreground border",
+    roles: "popover popover-foreground border font-body",
   },
-  success: { text: "Sample: three gauges synced.", roles: "success success-foreground" },
+  success: {
+    text: "Sample: three gauges synced.",
+    roles: "success success-foreground font-body",
+  },
   invalid: {
     text: "Sample: the gauge did not answer.",
-    roles: "destructive destructive-foreground",
+    roles: "destructive destructive-foreground font-body",
   },
-  loading: { text: "Sample: syncing the gauges.", roles: "popover popover-foreground border" },
+  loading: {
+    text: "Sample: syncing the gauges.",
+    roles: "popover popover-foreground border font-body",
+  },
 } as const;
 
 /**

@@ -51,7 +51,7 @@ export function Landing({ view }: { view: View }) {
             >
               {copy.title}
             </h1>
-            <p className="lp-lead kit-t-lead" data-roles="muted-foreground">
+            <p className="lp-lead kit-t-lead" data-roles="muted-foreground font-body">
               <RichText runs={TEXT.hero.lead} copy={copy} />
             </p>
             <div className="lp-actions">
@@ -127,7 +127,7 @@ function Today({ copy }: { copy: CanvasCopy }) {
     (event) => `${name(event)} at ${clock(event.hour)}, ${meters(event)}`,
   ).join("; ")}; ${nowLabel}.`;
   return (
-    <div className="lp-today" data-roles="card card-foreground border">
+    <div className="lp-today" data-roles="card card-foreground border font-body">
       <div className="lp-today-head">
         <p className="lp-card-title">
           <span className="kit-t-body kit-display" data-roles="card-foreground font-display">
@@ -182,7 +182,7 @@ function Features({ copy }: { copy: CanvasCopy }) {
               <h3 className="kit-t-h4 kit-display" data-roles="foreground font-display">
                 {item.title}
               </h3>
-              <p className="kit-t-body-sm" data-roles="muted-foreground">
+              <p className="kit-t-body-sm" data-roles="muted-foreground font-body">
                 {item.body}
               </p>
             </li>
@@ -197,7 +197,7 @@ function Features({ copy }: { copy: CanvasCopy }) {
 function Moorings({ copy }: { copy: CanvasCopy }) {
   const { moorings } = TEXT;
   return (
-    <div className="lp-moorings" data-roles="card card-foreground border">
+    <div className="lp-moorings" data-roles="card card-foreground border font-body">
       <p className="lp-card-title">
         <span className="kit-t-body kit-display" data-roles="card-foreground font-display">
           {moorings.title}
@@ -240,7 +240,11 @@ function Moorings({ copy }: { copy: CanvasCopy }) {
                   key={place}
                   data-list-item=""
                   data-next={next ? "" : undefined}
-                  data-roles={next ? "accent accent-foreground border" : "card-foreground border"}
+                  data-roles={
+                    next
+                      ? "accent accent-foreground border font-body"
+                      : "card-foreground border font-body"
+                  }
                 >
                   <td className="lp-place">{place}</td>
                   <td className="lp-figure-col kit-num kit-mono">{reading.time}</td>
@@ -276,10 +280,10 @@ function Quote({ copy }: { copy: CanvasCopy }) {
       <figcaption className="lp-quote-by">
         <Avatar person={copy.person} state="default" />
         <span className="lp-quote-who">
-          <span className="lp-quote-name kit-t-body-sm" data-roles="foreground">
+          <span className="lp-quote-name kit-t-body-sm" data-roles="foreground font-body">
             {copy.person}
           </span>
-          <span className="kit-t-caption kit-muted" data-roles="muted-foreground">
+          <span className="kit-t-caption kit-muted" data-roles="muted-foreground font-body">
             {TEXT.quote.role}
           </span>
         </span>
@@ -304,18 +308,18 @@ function Pricing({ copy }: { copy: CanvasCopy }) {
           intro={pricing.body}
           className="lp-pricing-copy"
         />
-        <div className="lp-plan" data-roles="background foreground border">
+        <div className="lp-plan" data-roles="background foreground border font-body">
           <p className="lp-plan-name kit-t-label">{pricing.plan}</p>
           <p className="lp-price">
             <span className="lp-price-figure kit-num kit-t-h3">
               {pricing.currency}
               {copy.amount}
             </span>
-            <span className="kit-t-body-sm" data-roles="muted-foreground">
+            <span className="kit-t-body-sm" data-roles="muted-foreground font-body">
               {pricing.per}
             </span>
           </p>
-          <ul className="lp-includes kit-t-body-sm" data-roles="foreground primary">
+          <ul className="lp-includes kit-t-body-sm" data-roles="foreground primary font-body">
             {pricing.includes.map((line) => (
               <li key={line}>
                 <Check aria-hidden="true" />
@@ -332,7 +336,10 @@ function Pricing({ copy }: { copy: CanvasCopy }) {
 
 function Footer() {
   return (
-    <footer className="lp-footer kit-wrap" data-roles="foreground muted-foreground border">
+    <footer
+      className="lp-footer kit-wrap"
+      data-roles="foreground muted-foreground border font-body"
+    >
       <Brand />
       <p className="lp-footer-note kit-t-caption">{TEXT.footer.note}</p>
       <ul className="lp-footer-links kit-t-body-sm">

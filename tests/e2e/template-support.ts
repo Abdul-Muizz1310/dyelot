@@ -257,10 +257,10 @@ export async function resolveColors(
  * F-TPL-39: every color painted in `scope` that no role named in the nearest `data-roles` (on the
  * element or its nearest ancestor that has one) computes to: the text color of an element with its
  * own text, an opaque background, a drawn border and an SVG fill or stroke. Text in the display face
- * must name `font-display` there when the display and body faces differ. Paints and role colors are
- * read through the shared resolver: a paint with alpha 1 is checked whatever its syntax (an opaque
- * `color-mix` included); a paint with some transparency, `none` or a `url(…)` is skipped; a paint the
- * browser cannot read counts as unnamed.
+ * must name `font-display` there, and text in the body face `font-body`, when the two faces differ.
+ * Paints and role colors are read through the shared resolver: a paint with alpha 1 is checked
+ * whatever its syntax (an opaque `color-mix` included); a paint with some transparency, `none` or a
+ * `url(…)` is skipped; a paint the browser cannot read counts as unnamed.
  */
 export async function unnamedPaint(
   scope: Locator,
@@ -342,6 +342,11 @@ export async function unnamedPaint(
         !named.includes("font-display")
       ) {
         const name = `${label} display face without font-display (roles: ${named.join(" ") || "none"})`;
+        unnamed.set(name, (unnamed.get(name) ?? 0) + 1);
+      }
+      // T4's "show me" finds body text by `font-body`, as T1's finds display text (Task 2.10b).
+      if (text && display !== body && style.fontFamily === body && !named.includes("font-body")) {
+        const name = `${label} body face without font-body (roles: ${named.join(" ") || "none"})`;
         unnamed.set(name, (unnamed.get(name) ?? 0) + 1);
       }
     }

@@ -27,10 +27,10 @@ function marks(state: KitState) {
     "data-specimen": "",
     "data-roles":
       state === "selected"
-        ? "accent accent-foreground"
+        ? "accent accent-foreground font-body"
         : state === "empty"
-          ? "muted-foreground"
-          : "muted border",
+          ? "muted-foreground font-body"
+          : "muted border font-body",
   } as const;
 }
 
@@ -203,13 +203,13 @@ export type Tone =
   | "info";
 
 const TONE_ROLES: Readonly<Record<Tone, string>> = {
-  neutral: "muted muted-foreground",
-  primary: "primary primary-foreground",
-  accent: "accent accent-foreground",
-  success: "success-subtle success-subtle-foreground",
-  warning: "warning-subtle warning-subtle-foreground",
-  destructive: "destructive-subtle destructive-subtle-foreground",
-  info: "info-subtle info-subtle-foreground",
+  neutral: "muted muted-foreground font-body",
+  primary: "primary primary-foreground font-body",
+  accent: "accent accent-foreground font-body",
+  success: "success-subtle success-subtle-foreground font-body",
+  warning: "warning-subtle warning-subtle-foreground font-body",
+  destructive: "destructive-subtle destructive-subtle-foreground font-body",
+  info: "info-subtle info-subtle-foreground font-body",
 };
 
 export function Badge({
@@ -244,7 +244,9 @@ export function Chip({ label, state }: { label: string; state: KitState }) {
       className="kit-chip kit-t-label"
       data-kit="chip"
       data-state={state}
-      data-roles={on ? "accent accent-foreground" : "background foreground border"}
+      data-roles={
+        on ? "accent accent-foreground font-body" : "background foreground border font-body"
+      }
       disabled={state === "disabled"}
       onClick={() => setOn((value) => !value)}
     >
@@ -297,7 +299,7 @@ export function Avatar({ person, state }: { person: string; state: KitState }) {
       className="kit-avatar kit-t-label"
       data-kit="avatar"
       data-state={state}
-      data-roles="secondary secondary-foreground"
+      data-roles="secondary secondary-foreground font-body"
     >
       {initials(person)}
     </span>

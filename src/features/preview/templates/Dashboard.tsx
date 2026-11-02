@@ -63,7 +63,7 @@ export function Dashboard({ view }: { view: View }) {
   // The toast's dismissal lives here, the dashboard's root, so a view toggle keeps it (section 7.7).
   const [toast, setToast] = useState(true);
   return (
-    <div data-template-root="dashboard" className="db" data-roles="background foreground">
+    <div data-template-root="dashboard" className="db" data-roles="background foreground font-body">
       <Sidebar />
       <div className="db-main">
         <header className="db-header" data-roles="background foreground">
@@ -83,7 +83,7 @@ export function Dashboard({ view }: { view: View }) {
           <button
             type="button"
             className="db-command kit-t-body-sm"
-            data-roles="background muted-foreground input muted"
+            data-roles="background muted-foreground input muted font-body"
           >
             <Search aria-hidden="true" />
             <span className="db-command-label">{TEXT.command.label}</span>
@@ -160,7 +160,7 @@ function Sidebar() {
           ))}
         </ul>
       </nav>
-      <p className="db-crew kit-t-caption" data-roles="sidebar-foreground sidebar-border">
+      <p className="db-crew kit-t-caption" data-roles="sidebar-foreground sidebar-border font-body">
         <span className="db-crew-name">{TEXT.crew.name}</span>
         <span>{TEXT.crew.plan}</span>
       </p>
@@ -182,7 +182,7 @@ function Kpis({ copy }: { copy: CanvasCopy }) {
   ] as const;
   return (
     <div data-kpis="" className="db-kpis">
-      <div data-kpi-lead="" className="db-lead" data-roles="card card-foreground border">
+      <div data-kpi-lead="" className="db-lead" data-roles="card card-foreground border font-body">
         <div className="db-lead-head">
           <p className="kit-t-label">
             {lead.label}, {lead.place}
@@ -209,7 +209,7 @@ function Kpis({ copy }: { copy: CanvasCopy }) {
           <RichText runs={lead.note} copy={copy} />
         </p>
       </div>
-      <dl className="db-stats" data-roles="foreground muted-foreground border">
+      <dl className="db-stats" data-roles="foreground muted-foreground border font-body">
         {values.map(([label, value]) => (
           <div key={label} className="db-stat">
             <dt className="kit-t-body-sm kit-muted">{label}</dt>
@@ -240,7 +240,7 @@ function PanelHead({ to, title, intro }: { to: DashboardTarget; title: string; i
         {title}
       </h2>
       {intro !== undefined && (
-        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
           {intro}
         </p>
       )}
@@ -259,7 +259,7 @@ function Alerts() {
       data-chart=""
       aria-labelledby={target("alerts")}
       className="db-panel db-alerts"
-      data-roles="background foreground border"
+      data-roles="background foreground border font-body"
     >
       <PanelHead to="alerts" title={alerts.title} intro={alerts.intro} />
       <div className="db-chart">
@@ -295,7 +295,7 @@ function Gauges({ copy }: { copy: CanvasCopy }) {
         <table
           data-list=""
           className="db-table kit-t-body-sm"
-          data-roles="foreground muted-foreground border muted"
+          data-roles="foreground muted-foreground border muted font-body"
         >
           <thead>
             <tr>
@@ -364,7 +364,7 @@ function Exports() {
         <h3 className="kit-t-body kit-display" data-roles="foreground font-display">
           {exports.empty.title}
         </h3>
-        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
           {exports.empty.body}
         </p>
         <Button variant="secondary" icon={<Download aria-hidden="true" />}>

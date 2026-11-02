@@ -47,15 +47,15 @@ function describedBy(id: string, hint: boolean, message: boolean): string | unde
 function fieldRoles(state: KitState): string {
   switch (state) {
     case "invalid":
-      return "input destructive background foreground";
+      return "input destructive background foreground font-body";
     case "success":
-      return "input success background foreground";
+      return "input success background foreground font-body";
     case "disabled":
-      return "input muted muted-foreground";
+      return "input muted muted-foreground font-body";
     case "read-only":
-      return "input muted foreground";
+      return "input muted foreground font-body";
     default:
-      return "input background foreground";
+      return "input background foreground font-body";
   }
 }
 
@@ -72,7 +72,7 @@ function controlState(state: KitState, description: string | undefined) {
 
 function Hint({ id, children }: { id: string; children: ReactNode }) {
   return (
-    <p id={id} className="kit-hint kit-t-caption" data-roles="muted-foreground">
+    <p id={id} className="kit-hint kit-t-caption" data-roles="muted-foreground font-body">
       {children}
     </p>
   );
@@ -86,7 +86,9 @@ function Message({ id, state, text }: { id: string; state: KitState; text: strin
       className="kit-message kit-t-caption"
       data-tone={state}
       data-roles={
-        state === "invalid" ? "destructive-subtle-foreground" : "success-subtle-foreground"
+        state === "invalid"
+          ? "destructive-subtle-foreground font-body"
+          : "success-subtle-foreground font-body"
       }
     >
       {state === "invalid" ? (
@@ -304,7 +306,7 @@ export function Slider({
         <label htmlFor={id} className="kit-field-label kit-t-label">
           {label}
         </label>
-        <output htmlFor={id} className="kit-num kit-t-label" data-roles="foreground">
+        <output htmlFor={id} className="kit-num kit-t-label" data-roles="foreground font-body">
           {text}
         </output>
       </span>

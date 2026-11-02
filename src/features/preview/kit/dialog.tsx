@@ -53,7 +53,7 @@ export function ConfirmDialog({
         aria-labelledby={`${id}-title`}
         aria-describedby={`${id}-body`}
         className="kit-confirm"
-        data-roles="popover popover-foreground border"
+        data-roles="popover popover-foreground border font-body"
         onKeyDown={(event) => containKeys(event, dialog.current, onClose)}
       >
         <h2

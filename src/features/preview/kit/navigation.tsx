@@ -18,7 +18,7 @@ import type { KitState } from "./states";
 // in a forced state. The live tab list and the tab bar follow the ARIA tabs pattern: arrow keys, Home
 // and End move the selection with the focus; the tab list's indicator slides on the spec's spring.
 
-const TAB_ROLES = "muted-foreground foreground muted primary";
+const TAB_ROLES = "muted-foreground foreground muted primary font-body";
 
 export function TabSpecimen({ label, state }: { label: string; state: KitState }) {
   return (
@@ -137,7 +137,7 @@ export function MenuSpecimen({ state }: { state: KitState }) {
     className: "kit-menu-item kit-t-body-sm",
     "data-kit": "menu-item",
     "data-state": state,
-    "data-roles": "popover popover-foreground accent accent-foreground",
+    "data-roles": "popover popover-foreground accent accent-foreground font-body",
   };
   return (
     <div role="menu" aria-label="Reading actions" className="kit-menu">
@@ -235,7 +235,7 @@ export function TabBar<T extends string>({
             aria-controls={panel}
             tabIndex={on ? 0 : -1}
             className="kit-tabbar-tab kit-t-label"
-            data-roles={on ? "foreground" : "muted-foreground"}
+            data-roles={on ? "foreground font-body" : "muted-foreground font-body"}
             onClick={() => onSelect(item.key)}
           >
             <span

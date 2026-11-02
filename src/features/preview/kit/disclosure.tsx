@@ -52,7 +52,7 @@ export function Accordion({
               id={panel}
               hidden={!expanded}
               className="kit-accordion-panel kit-t-body"
-              data-roles="muted-foreground"
+              data-roles="muted-foreground font-body"
             >
               <p>{item.answer}</p>
             </div>

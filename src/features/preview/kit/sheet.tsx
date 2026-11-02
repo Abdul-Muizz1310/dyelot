@@ -69,7 +69,7 @@ export function BottomSheet({
         aria-labelledby={`${id}-title`}
         aria-describedby={`${id}-body`}
         className="kit-bottom-sheet"
-        data-roles="popover popover-foreground border"
+        data-roles="popover popover-foreground border font-body"
         onKeyDown={(event) => containKeys(event, sheet.current, onClose)}
       >
         <span className="kit-sheet-grabber" aria-hidden="true" />

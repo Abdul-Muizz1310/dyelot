@@ -17,7 +17,7 @@ export function Checkbox({ label, state }: { label: string; state: KitState }) {
     if (box.current !== null) box.current.indeterminate = state === "indeterminate";
   }, [state]);
   return (
-    <label className="kit-check kit-t-body-sm" data-roles="foreground primary-foreground">
+    <label className="kit-check kit-t-body-sm" data-roles="foreground primary-foreground font-body">
       <span className="kit-check-box">
         <input
           ref={box}
@@ -43,8 +43,8 @@ export type ChoiceSurface = "page" | "popover";
 
 /** The roles of a choice's label and of its radio, by the surface it sits on. */
 const SURFACE_ROLES: Readonly<Record<ChoiceSurface, { label: string; radio: string }>> = {
-  page: { label: "foreground", radio: "input background primary foreground" },
-  popover: { label: "popover-foreground", radio: "input popover primary foreground" },
+  page: { label: "foreground font-body", radio: "input background primary foreground" },
+  popover: { label: "popover-foreground font-body", radio: "input popover primary foreground" },
 };
 
 /**
@@ -103,7 +103,7 @@ export function Switch({ label, state }: { label: string; state?: KitState }) {
       data-kit={state === undefined ? undefined : "switch"}
       data-kit-demo={state === undefined ? "switch" : undefined}
       data-state={state}
-      data-roles="foreground input background primary primary-foreground"
+      data-roles="foreground input background primary primary-foreground font-body"
       disabled={state === "disabled"}
       onClick={() => setOn((value) => !value)}
     >
@@ -133,7 +133,7 @@ export function Segmented({ legend, options }: { legend: string; options: readon
       className="kit-segmented"
       data-kit-demo="segmented"
       data-concentric="segmented"
-      data-roles="muted muted-foreground background foreground"
+      data-roles="muted muted-foreground background foreground font-body"
     >
       {options.map((option) => (
         <label key={option} className="kit-segment kit-t-label" data-concentric="segment">
@@ -204,7 +204,7 @@ export function CheckboxGroup({
 }) {
   return (
     <fieldset className="kit-fieldset">
-      <legend className="kit-legend kit-t-label" data-roles="foreground">
+      <legend className="kit-legend kit-t-label" data-roles="foreground font-body">
         {legend}
       </legend>
       <div className="kit-choice-list">

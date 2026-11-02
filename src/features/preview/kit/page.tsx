@@ -25,7 +25,7 @@ export function SectionHead({
       >
         {title}
       </h2>
-      <p className="kit-t-body kit-muted" data-roles="muted-foreground">
+      <p className="kit-t-body kit-muted" data-roles="muted-foreground font-body">
         {intro}
       </p>
     </div>

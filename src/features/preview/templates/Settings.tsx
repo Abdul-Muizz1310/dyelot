@@ -90,7 +90,7 @@ export function Settings({ spec, view }: { spec: DesignSpec; view: View }) {
               >
                 {copy.title}
               </h1>
-              <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+              <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
                 {TEXT.intro}
               </p>
             </Entrance>
@@ -108,7 +108,7 @@ export function Settings({ spec, view }: { spec: DesignSpec; view: View }) {
               <Section
                 to="danger"
                 className="st-danger"
-                roles="background foreground border destructive"
+                roles="background foreground border destructive font-body"
               >
                 <p className="kit-t-body-sm">{TEXT.danger.body}</p>
                 <Button variant="destructive" ref={opener} onPress={() => setConfirming(true)}>
@@ -118,7 +118,7 @@ export function Settings({ spec, view }: { spec: DesignSpec; view: View }) {
               <div
                 data-save-bar=""
                 className="st-save-bar"
-                data-roles="background foreground muted-foreground border"
+                data-roles="background foreground muted-foreground border font-body"
               >
                 <p className="kit-t-body-sm kit-muted">{TEXT.save.note}</p>
                 <span className="st-save-actions">
@@ -147,7 +147,7 @@ export function Settings({ spec, view }: { spec: DesignSpec; view: View }) {
 function Section({
   to,
   className,
-  roles = "background foreground border",
+  roles = "background foreground border font-body",
   children,
 }: {
   to: SettingsSection;
@@ -171,7 +171,7 @@ function Section({
         >
           {title}
         </h2>
-        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
           {intro}
         </p>
       </div>
@@ -184,7 +184,7 @@ function Profile({ copy }: { copy: CanvasCopy }) {
   const { profile } = TEXT;
   return (
     <Section to="profile">
-      <div className="st-person" data-roles="foreground muted-foreground">
+      <div className="st-person" data-roles="foreground muted-foreground font-body">
         <Avatar person={copy.person} state="default" />
         <p className="st-person-text">
           <span className="st-person-name kit-t-body">{copy.person}</span>
@@ -274,7 +274,7 @@ function Moorings({ copy }: { copy: CanvasCopy }) {
         <Select label={moorings.units.label} state="default" options={moorings.units.options} />
       </div>
       <fieldset className="kit-fieldset">
-        <legend className="kit-legend kit-t-label" data-roles="foreground">
+        <legend className="kit-legend kit-t-label" data-roles="foreground font-body">
           {moorings.watch.legend}
         </legend>
         {copy.items.length === 0 ? (
@@ -335,7 +335,7 @@ function Console({ copy }: { copy: CanvasCopy }) {
         <Input {...settings.id} state="read-only" name="console-id" autoComplete="off" />
         <Input {...settings.harbor} state="disabled" name="harbor-code" autoComplete="off" />
       </div>
-      <div className="st-plan" data-roles="foreground muted-foreground border">
+      <div className="st-plan" data-roles="foreground muted-foreground border font-body">
         <p className="st-plan-name kit-t-body">
           {plan.name}
           <Badge tone="accent" copyLabel>
@@ -347,7 +347,7 @@ function Console({ copy }: { copy: CanvasCopy }) {
             {plan.currency}
             {copy.amount}
           </span>
-          <span className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+          <span className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
             {plan.per}
           </span>
         </p>

@@ -74,7 +74,11 @@ export function StackedBars({
           />
         ))}
       </svg>
-      <ol aria-hidden="true" className="kit-bars-x kit-t-caption" data-roles="muted-foreground">
+      <ol
+        aria-hidden="true"
+        className="kit-bars-x kit-t-caption"
+        data-roles="muted-foreground font-body"
+      >
         {columns.map((column) => (
           <li key={column}>{short(column)}</li>
         ))}
@@ -94,7 +98,7 @@ export function BarsLegend({
   return (
     <ul className="kit-bars-legend kit-t-body-sm">
       {series.map((entry, index) => (
-        <li key={entry.name} data-roles={`chart-${index + 1} foreground`}>
+        <li key={entry.name} data-roles={`chart-${index + 1} foreground font-body`}>
           <span aria-hidden="true" className="kit-bars-key" data-series={index + 1} />
           <span className="kit-bars-name">{entry.name}</span>
           <span className="kit-num">{totals[index]}</span>

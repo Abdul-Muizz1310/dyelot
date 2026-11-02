@@ -66,7 +66,11 @@ export function PhoneScreen({
         </div>
         {overlay}
       </section>
-      <p id={id} className="kit-phone-caption kit-t-caption" data-roles="muted-foreground">
+      <p
+        id={id}
+        className="kit-phone-caption kit-t-caption"
+        data-roles="muted-foreground font-body"
+      >
         <span className="kit-mono">{number}</span> {caption}
       </p>
     </div>

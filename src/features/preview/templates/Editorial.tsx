@@ -39,11 +39,11 @@ export function Editorial({ view }: { view: View }) {
     <article
       data-template-root="editorial"
       className="ed kit-page"
-      data-roles="background foreground"
+      data-roles="background foreground font-body"
     >
       <Entrance className="ed-head kit-wrap">
         <header className="ed-header">
-          <p className="ed-kicker kit-t-label" data-roles="muted-foreground">
+          <p className="ed-kicker kit-t-label" data-roles="muted-foreground font-body">
             <Badge tone="accent" copyLabel>
               {copy.label}
             </Badge>
@@ -52,10 +52,10 @@ export function Editorial({ view }: { view: View }) {
           <h1 className="ed-title kit-t-display kit-display" data-roles="foreground font-display">
             {copy.title}
           </h1>
-          <p className="ed-standfirst kit-t-lead" data-roles="muted-foreground">
+          <p className="ed-standfirst kit-t-lead" data-roles="muted-foreground font-body">
             <RichText runs={TEXT.standfirst} copy={copy} />
           </p>
-          <div className="ed-byline" data-roles="foreground muted-foreground border">
+          <div className="ed-byline" data-roles="foreground muted-foreground border font-body">
             <Avatar person={copy.person} state="default" />
             <p className="ed-byline-text">
               <span className="ed-author kit-t-body-sm">
@@ -70,7 +70,7 @@ export function Editorial({ view }: { view: View }) {
         <nav
           aria-labelledby={CONTENTS}
           className="ed-toc"
-          data-roles="foreground muted-foreground border"
+          data-roles="foreground muted-foreground border font-body"
         >
           <h2 id={CONTENTS} className="ed-toc-title kit-t-label">
             {TEXT.contents}
@@ -118,7 +118,7 @@ export function Editorial({ view }: { view: View }) {
             >
               {TEXT.notes.title}
             </h2>
-            <ol className="ed-note-list kit-t-body-sm" data-roles="muted-foreground">
+            <ol className="ed-note-list kit-t-body-sm" data-roles="muted-foreground font-body">
               {TEXT.notes.items.map((runs, index) => {
                 const ids = noteIds(index + 1);
                 return (
@@ -166,7 +166,7 @@ function BlockView({ block, copy }: { block: Block; copy: CanvasCopy }) {
       );
     case "quote":
       return (
-        <figure className="ed-quote" data-roles="foreground muted-foreground primary">
+        <figure className="ed-quote" data-roles="foreground muted-foreground primary font-body">
           <blockquote className="ed-quote-text kit-t-h3" data-roles="foreground font-display">
             <p>
               <RichText runs={block.runs} copy={copy} />
@@ -177,7 +177,7 @@ function BlockView({ block, copy }: { block: Block; copy: CanvasCopy }) {
       );
     case "code":
       return (
-        <figure className="ed-code" data-roles="muted-foreground">
+        <figure className="ed-code" data-roles="muted-foreground font-body">
           <figcaption className="kit-t-caption">{block.title}</figcaption>
           <pre className="kit-t-body-sm" data-roles="muted foreground border">
             <code>
@@ -196,7 +196,7 @@ function BlockView({ block, copy }: { block: Block; copy: CanvasCopy }) {
       return (
         <figure className="ed-figure">
           <Skeins label={block.label} />
-          <figcaption className="kit-t-caption" data-roles="muted-foreground">
+          <figcaption className="kit-t-caption" data-roles="muted-foreground font-body">
             <RichText runs={block.caption} copy={copy} />
           </figcaption>
         </figure>
@@ -220,7 +220,7 @@ function BlockView({ block, copy }: { block: Block; copy: CanvasCopy }) {
             <ul
               data-list=""
               className="ed-place-list kit-t-body"
-              data-roles="foreground primary border"
+              data-roles="foreground primary border font-body"
             >
               {copy.items.map((place) => (
                 <li key={place} data-list-item="">

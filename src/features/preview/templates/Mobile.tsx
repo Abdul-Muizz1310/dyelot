@@ -233,12 +233,12 @@ function Feed({ copy }: { copy: CanvasCopy }) {
         >
           {copy.title}
         </h1>
-        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
           {feed.intro}
         </p>
       </div>
       <div className="mb-now">
-        <div className="mb-now-card" data-roles="card card-foreground border">
+        <div className="mb-now-card" data-roles="card card-foreground border font-body">
           <p className="kit-t-label">
             {feed.now.label}, {feed.now.place}
           </p>
@@ -315,7 +315,7 @@ function Day({ copy, next }: { copy: CanvasCopy; next: TideEvent }) {
     },
   ].sort((a, b) => a.hour - b.hour);
   return (
-    <ol className="mb-day" data-roles="foreground muted-foreground border">
+    <ol className="mb-day" data-roles="foreground muted-foreground border font-body">
       {entries.map((entry) => (
         <li key={entry.key} className="mb-day-entry" data-past={entry.hour < NOW ? "" : undefined}>
           <span className="mb-day-time kit-num kit-mono kit-t-label" data-roles="muted-foreground">
@@ -350,7 +350,7 @@ function Moorings({ copy }: { copy: CanvasCopy }) {
     );
   }
   return (
-    <ul data-list="" className="mb-list" data-roles="foreground border">
+    <ul data-list="" className="mb-list" data-roles="foreground border font-body">
       {copy.items.map((place, index) => {
         const level = moorings.levels[index];
         if (level === undefined) {
@@ -411,7 +411,7 @@ function Detail({
             {copy.label}
           </Badge>
         </div>
-        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
           {detail.gauge}
         </p>
       </div>
@@ -419,7 +419,7 @@ function Detail({
         <p className="kit-num kit-t-h2 kit-display" data-roles="foreground font-display">
           {now.toFixed(1)} m
         </p>
-        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
           <span className="kit-num">{signed(now - tideAt(NOW - 1))} m</span> {detail.change}.{" "}
           {next.kind === "low" ? TEXT.feed.now.falling : TEXT.feed.now.rising}{" "}
           <span className="kit-num">{clock(next.hour)}</span>.
@@ -429,7 +429,7 @@ function Detail({
         <TideCurve label={name} now={NOW} nowLabel={`${detail.now} ${clock(NOW)}`} />
       </div>
       <Section title={detail.events} level="h3">
-        <dl className="mb-events" data-roles="foreground muted-foreground border">
+        <dl className="mb-events" data-roles="foreground muted-foreground border font-body">
           {TIDE_EVENTS.map((event) => (
             <div key={event.hour} className="mb-event">
               <dt className="kit-t-body-sm">{kindOf(event)}</dt>
@@ -440,18 +440,22 @@ function Detail({
         </dl>
       </Section>
       <div className="mb-stored">
-        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
           {detail.stored}
         </p>
         <p className="kit-num kit-t-h4 kit-display" data-roles="foreground font-display">
           {copy.amount}
         </p>
       </div>
-      <div data-alert-row="" className="mb-alert" data-roles="background foreground border">
+      <div
+        data-alert-row=""
+        className="mb-alert"
+        data-roles="background foreground border font-body"
+      >
         <p className="kit-t-body">
           {detail.alert.label}: <strong className="kit-num">{saved}</strong>
         </p>
-        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
           <RichText runs={detail.alert.note} copy={copy} />
         </p>
         <Button
@@ -505,7 +509,7 @@ function PanelTitle({ title, intro }: { title: string; intro?: string }) {
         {title}
       </h2>
       {intro !== undefined && (
-        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+        <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
           {intro}
         </p>
       )}
@@ -521,7 +525,7 @@ function Panel({ tab }: { tab: MobileTab }) {
       return (
         <>
           <PanelTitle title={tabs.today.title} intro={tabs.today.intro} />
-          <ul className="mb-list" data-roles="foreground muted-foreground border">
+          <ul className="mb-list" data-roles="foreground muted-foreground border font-body">
             {TIDE_EVENTS.filter((event) => event.hour > NOW).map((event) => (
               <li key={event.hour} className="mb-list-item">
                 <span className="kit-t-body">{kindOf(event)}</span>
@@ -537,7 +541,7 @@ function Panel({ tab }: { tab: MobileTab }) {
       return (
         <>
           <PanelTitle title={tabs.places.title} intro={tabs.places.intro} />
-          <ul className="mb-list" data-roles="foreground border">
+          <ul className="mb-list" data-roles="foreground border font-body">
             {SAMPLE_PLACES.map((place, index) => {
               const reading = DASHBOARD_TEXT.gauges.readings[index];
               if (reading === undefined) {
@@ -568,7 +572,7 @@ function Panel({ tab }: { tab: MobileTab }) {
               />
             ))}
           </div>
-          <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground">
+          <p className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
             {tabs.alerts.note}
           </p>
           <TextLink to={target("alert")} tone="touch">
@@ -581,7 +585,7 @@ function Panel({ tab }: { tab: MobileTab }) {
       return (
         <>
           <PanelTitle title={tabs.crew.title} />
-          <ul className="mb-list" data-roles="foreground muted-foreground border">
+          <ul className="mb-list" data-roles="foreground muted-foreground border font-body">
             {tabs.crew.people.map((person) => (
               <li key={person.name} className="mb-list-item mb-person">
                 <Avatar person={person.name} state="default" />

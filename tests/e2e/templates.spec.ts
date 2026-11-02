@@ -523,7 +523,8 @@ test.describe("7.5 The kitchen sink", () => {
         expect([got.background, got.color], `${mode} ${variant}`).toEqual([...expected[variant]]);
         expect(got.roles, `${mode} ${variant}`).not.toBe("");
       }
-      expect((await style("primary")).roles).toBe("primary primary-foreground");
+      // The label is set in the body face, so T4's "show me" finds it (Task 2.10b).
+      expect((await style("primary")).roles).toBe("primary primary-foreground font-body");
       expect((await style("ghost", "hover")).background, `${mode} ghost hover`).toBe(
         rgbOf(roles.muted),
       );

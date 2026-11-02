@@ -10,11 +10,11 @@ import type { ButtonVariant, KitState } from "./states";
 
 /** The roles each variant paints with (F-TPL-04). */
 export const BUTTON_ROLES: Readonly<Record<ButtonVariant, string>> = Object.freeze({
-  primary: "primary primary-foreground",
-  secondary: "secondary secondary-foreground",
-  ghost: "foreground muted",
-  destructive: "destructive destructive-foreground",
-  link: "primary",
+  primary: "primary primary-foreground font-body",
+  secondary: "secondary secondary-foreground font-body",
+  ghost: "foreground muted font-body",
+  destructive: "destructive destructive-foreground font-body",
+  link: "primary font-body",
 });
 
 export function Button({
