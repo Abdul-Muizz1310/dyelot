@@ -18,18 +18,18 @@ export const RoleTable = memo(function RoleTable({ rows }: { rows: readonly Role
       title="Roles"
       note="WCAG 2.2 ratio and level for each pair in light and dark. Lc is the advisory perceptual score: plus for dark on light, minus for light on dark."
     >
-      <table className="w-full table-fixed border-collapse font-mono text-[10.5px] tabular-nums leading-[1.125rem]">
+      <table className="w-full table-fixed border-collapse font-mono text-[11px] tabular-nums leading-[1.125rem]">
         <caption className="sr-only">The 32 role pairs, in light and dark mode</caption>
         <colgroup>
           <col className="w-4" />
           <col />
           <col />
-          <col className="w-[2.375rem]" />
+          <col className="w-9" />
+          <col className="w-[3.75rem]" />
           <col className="w-[3.375rem]" />
-          <col className="w-[3.25rem]" />
         </colgroup>
         <thead>
-          <tr className="text-left text-[10px] text-fg-muted *:sticky *:top-0 *:z-10 *:bg-panel *:shadow-[inset_0_-1px_0_var(--border)]">
+          <tr className="text-left text-[11px] text-fg-muted *:sticky *:-top-4 *:z-10 *:bg-panel *:shadow-[inset_0_-1px_0_var(--border)]">
             <th scope="col" className="pb-1 font-normal">
               <span className="sr-only">Mode</span>
             </th>

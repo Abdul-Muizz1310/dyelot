@@ -253,12 +253,13 @@ describe("C-GUARD-06 highlight.css draws the show me outline on the named parts 
         .filter(Boolean),
     }));
 
-  it("holds one rule: the dashed madder outline with its offset, each declaration important", () => {
+  it("holds one rule: the dashed madder outline with its offset, scaled and each declaration important", () => {
     const found = rules();
     expect(found).toHaveLength(1);
+    // Scaled by the inverse of the fit, so the outline stays 2 px on screen (fix round 1, M-7).
     expect(found[0]?.declarations).toEqual([
-      "outline: 2px dashed var(--accent-madder) !important",
-      "outline-offset: 2px !important",
+      "outline: round(calc(2px * var(--show-me-scale, 1)), 1px) dashed var(--accent-madder) !important",
+      "outline-offset: round(calc(2px * var(--show-me-scale, 1)), 1px) !important",
     ]);
   });
 

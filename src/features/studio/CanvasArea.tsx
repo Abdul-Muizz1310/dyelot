@@ -1,6 +1,6 @@
 "use client";
 
-import { type RefObject, useLayoutEffect } from "react";
+import { type CSSProperties, type RefObject, useLayoutEffect } from "react";
 import { Canvas } from "@/features/preview/Canvas";
 import { FIXED_FRAMES } from "@/features/preview/templates";
 import { useFitStore, useFrameFit } from "@/features/preview/useFrameFit";
@@ -44,6 +44,8 @@ export function CanvasArea({
       tabIndex={0}
       data-canvas-region=""
       data-show-me={showMe === "" ? undefined : showMe}
+      // highlight.css multiplies the outline by this, so it stays 2 px on screen at any fit (M-7).
+      style={{ "--show-me-scale": String(1 / fit.scale) } as CSSProperties}
       inert={inert}
       // Below 768 px the board keeps an 8 px side margin, so a phone window shows its 360 px screens at
       // a fit of 0.95 or more (section 7.4).

@@ -13,7 +13,10 @@
  *
  * `!important` beats R2-30's `[data-canvas] * { outline-color }` and
  * the canvas focus ring. An outline takes no layout space, so no part
- * moves, and nothing here transitions.
+ * moves, and nothing here transitions. The canvas region sets
+ * `--show-me-scale` to the inverse of the fit, so the outline stays
+ * 2 px on screen when the frame scales down; Chromium draws an outline
+ * in whole layout pixels, so the scaled value rounds to one.
  * ───────────────────────────────────────────────────────────── */
 
 [data-show-me~="background"] [data-canvas] [data-roles~="background"],
@@ -65,6 +68,6 @@
 [data-show-me~="font-display"] [data-canvas] [data-roles~="font-display"],
 [data-show-me~="font-body"] [data-canvas] [data-roles~="font-body"],
 [data-show-me-cell] {
-  outline: 2px dashed var(--accent-madder) !important;
-  outline-offset: 2px !important;
+  outline: round(calc(2px * var(--show-me-scale, 1)), 1px) dashed var(--accent-madder) !important;
+  outline-offset: round(calc(2px * var(--show-me-scale, 1)), 1px) !important;
 }

@@ -60,7 +60,7 @@ function PaletteSteps({
       {deviation !== undefined && (
         <p
           data-seed-deviation=""
-          className="mt-0.5 font-mono text-[10px] text-fg-muted leading-snug"
+          className="mt-0.5 font-mono text-[11px] text-fg-muted leading-snug"
         >
           Seed moved ΔE {deviation.deltaEOK.toFixed(3)} at step {deviation.step}
         </p>
