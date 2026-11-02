@@ -4,7 +4,7 @@ import "./fields.css";
 import { ChevronDown, CircleAlert, CircleCheck } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useId, useState } from "react";
 import type { RoleName } from "@/engine";
-import type { KitState } from "./states";
+import { type KitState, withRing } from "./states";
 
 // The kit's text fields and select (section 7.5): a visible label, the control and, for the
 // invalid and success states, a message tied to it with `aria-describedby`. Values are the
@@ -63,7 +63,7 @@ function fieldRoles(state: KitState): string {
 function controlState(state: KitState, description: string | undefined) {
   return {
     "data-state": state,
-    "data-roles": fieldRoles(state),
+    "data-roles": withRing(fieldRoles(state), state),
     disabled: state === "disabled",
     "aria-invalid": state === "invalid" || undefined,
     "aria-describedby": description,

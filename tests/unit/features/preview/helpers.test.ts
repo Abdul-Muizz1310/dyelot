@@ -18,6 +18,7 @@ import {
   KIT_COMPONENTS,
   KIT_STATES,
   statesOf,
+  withRing,
 } from "@/features/preview/kit/states";
 import { swatches, TEXT_PAIRS } from "@/features/preview/swatches";
 import { clock, tideAt } from "@/features/preview/tide";
@@ -281,6 +282,26 @@ describe("the kit's components and states (section 7.5, F-TPL-03)", () => {
       }
     }
     expect([...seen].sort()).toEqual([...KIT_STATES].sort());
+  });
+
+  it("F-TPL-03 withRing names ring on a part in the forced focus-visible state, and only there", () => {
+    expect(withRing("input background foreground", "focus-visible")).toBe(
+      "input background foreground ring",
+    );
+    for (const state of KIT_STATES.filter((item) => item !== "focus-visible")) {
+      expect(withRing("primary primary-foreground", state), state).toBe(
+        "primary primary-foreground",
+      );
+    }
+    expect(withRing("primary", undefined)).toBe("primary");
+    // A part that already names ring keeps one ring.
+    expect(withRing("ring background", "focus-visible")).toBe("ring background");
+  });
+
+  it("F-TPL-03 withRing throws for roles that are not a string and for an unknown state, naming itself", () => {
+    expect(() => withRing(3 as never, "default")).toThrow(TypeError);
+    expect(() => withRing("primary", "blurred" as never)).toThrow(RangeError);
+    expect(() => withRing("primary", "blurred" as never)).toThrow(/^withRing:/);
   });
 
   it("gives a control the interactive states it supports", () => {

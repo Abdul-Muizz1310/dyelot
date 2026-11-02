@@ -3,7 +3,7 @@
 import "./button.css";
 import { LoaderCircle } from "lucide-react";
 import type { ReactNode, Ref } from "react";
-import type { ButtonVariant, KitState } from "./states";
+import { type ButtonVariant, type KitState, withRing } from "./states";
 
 // The kit's button (section 7.5, R2-20): five variants, each painting with its roles and naming
 // them in `data-roles`. A forced state is `data-state`; disabled and loading are real states.
@@ -49,7 +49,7 @@ export function Button({
       data-kit={state === undefined ? undefined : "button"}
       data-variant={variant}
       data-state={state}
-      data-roles={BUTTON_ROLES[variant]}
+      data-roles={withRing(BUTTON_ROLES[variant], state)}
       disabled={state === "disabled"}
       aria-disabled={loading || undefined}
       aria-busy={loading || undefined}

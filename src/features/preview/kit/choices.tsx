@@ -5,7 +5,7 @@ import { Check, Minus } from "lucide-react";
 import { m } from "motion/react";
 import { useId, useLayoutEffect, useRef, useState } from "react";
 import { useKitMotion } from "./motion";
-import type { KitState } from "./states";
+import { type KitState, withRing } from "./states";
 
 // The kit's checkbox, radio, switch and segmented control (section 7.5). Each is a native control or
 // a button with its ARIA role; a click changes its own state and nothing else (R2-20). The switch's
@@ -25,7 +25,7 @@ export function Checkbox({ label, state }: { label: string; state: KitState }) {
           className="kit-checkbox"
           data-kit="checkbox"
           data-state={state}
-          data-roles="input background primary primary-foreground foreground"
+          data-roles={withRing("input background primary primary-foreground foreground", state)}
           defaultChecked={state === "selected"}
           disabled={state === "disabled"}
           aria-invalid={state === "invalid" || undefined}
@@ -76,7 +76,7 @@ export function Radio({
           className="kit-radio"
           data-kit="radio"
           data-state={state}
-          data-roles={roles.radio}
+          data-roles={withRing(roles.radio, state)}
           defaultChecked={state === "selected"}
           disabled={state === "disabled"}
           onChange={onPick}
@@ -103,7 +103,10 @@ export function Switch({ label, state }: { label: string; state?: KitState }) {
       data-kit={state === undefined ? undefined : "switch"}
       data-kit-demo={state === undefined ? "switch" : undefined}
       data-state={state}
-      data-roles="foreground input background primary primary-foreground font-body"
+      data-roles={withRing(
+        "foreground input background primary primary-foreground font-body",
+        state,
+      )}
       disabled={state === "disabled"}
       onClick={() => setOn((value) => !value)}
     >

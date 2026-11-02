@@ -1,4 +1,4 @@
-import { assertOneOf } from "@/features/studio/guards";
+import { assertOneOf, assertString } from "@/features/studio/guards";
 
 // The kit's components and the states each supports (spec section 7.5, F-TPL-03). The kitchen sink
 // renders every pair; a forced state is `data-state` on the component (R2-20). Pure data.
@@ -105,6 +105,18 @@ export const KIT_COMPONENTS = Object.freeze([
 export type KitComponentId = (typeof KIT_COMPONENTS)[number]["id"];
 
 const IDS: readonly KitComponentId[] = KIT_COMPONENTS.map((entry) => entry.id);
+
+/**
+ * A part's `data-roles` for its state: in the forced `focus-visible` state the part paints the spec's
+ * focus ring, so it names `ring` too, and F1's "show me" finds it (spec section 7.5, fix round 1).
+ */
+export function withRing(roles: string, state: KitState | undefined): string {
+  assertString(roles, "withRing: roles");
+  if (state === undefined) return roles;
+  assertOneOf(state, KIT_STATES, "withRing: state");
+  if (state !== "focus-visible" || roles.split(/\s+/).includes("ring")) return roles;
+  return `${roles} ring`;
+}
 
 /** The states `id` supports; an unknown id is a RangeError, a non-string a TypeError. */
 export function statesOf(id: KitComponentId): readonly KitState[] {

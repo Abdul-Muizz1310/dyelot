@@ -13,7 +13,7 @@ import {
 import { type ReactNode, useId, useState } from "react";
 import { SAMPLE_PLACES } from "../copy";
 import { Button } from "./Button";
-import type { KitState } from "./states";
+import { type KitState, withRing } from "./states";
 
 // The kit's surfaces (section 7.5): the interactive card, alert, tooltip, dialog, sheet and toast.
 // An alert is a tinted surface with an icon and a title, never a colored left edge (research D4).
@@ -33,7 +33,7 @@ export function Card({ title, meta, state }: { title: string; meta: string; stat
       data-kit={state === undefined ? undefined : "card"}
       data-state={state}
       data-concentric="card"
-      data-roles="card card-foreground border font-body"
+      data-roles={withRing("card card-foreground border font-body", state)}
       disabled={state === "disabled"}
       onClick={() => setPressed((value) => !value)}
     >

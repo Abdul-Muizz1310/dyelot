@@ -12,7 +12,7 @@ import {
   useState,
 } from "react";
 import { useKitMotion } from "./motion";
-import type { KitState } from "./states";
+import { type KitState, withRing } from "./states";
 
 // The kit's tabs, tab bar and menu (sections 7.5 and 7.7). A specimen shows one tab or one menu item
 // in a forced state. The live tab list and the tab bar follow the ARIA tabs pattern: arrow keys, Home
@@ -30,7 +30,7 @@ export function TabSpecimen({ label, state }: { label: string; state: KitState }
         className="kit-tab kit-t-label"
         data-kit="tab"
         data-state={state}
-        data-roles={TAB_ROLES}
+        data-roles={withRing(TAB_ROLES, state)}
         disabled={state === "disabled"}
       >
         {label}
@@ -137,7 +137,7 @@ export function MenuSpecimen({ state }: { state: KitState }) {
     className: "kit-menu-item kit-t-body-sm",
     "data-kit": "menu-item",
     "data-state": state,
-    "data-roles": "popover popover-foreground accent accent-foreground font-body",
+    "data-roles": withRing("popover popover-foreground accent accent-foreground font-body", state),
   };
   return (
     <div role="menu" aria-label="Reading actions" className="kit-menu">
