@@ -13,6 +13,7 @@ import {
   roleRows,
   showMe,
   showMeMode,
+  showMeVision,
 } from "./inspect";
 import { NamesSection } from "./Names";
 import { PanelSection } from "./PanelSection";
@@ -31,6 +32,10 @@ import type { Highlight } from "./view";
 
 type PendingFix = { readonly fix: FixRequest; readonly before: DesignSpec };
 
+/** What the Findings section's status region says after a fix (R2-10, fix round 1). */
+const cleared = (level: string) => `Contrast raised to ${level}. The finding is cleared.`;
+const KEPT = "Raising the contrast did not clear this finding.";
+
 /** No highlighted cells: one array, so the memoized scales see the same value each render. */
 const NO_CELLS: Highlight["cells"] = Object.freeze([]);
 
@@ -47,6 +52,7 @@ export function Inspector({
   const preset = useStudio(store, (studio) => studio.preset);
   const mode = useStudio(store, (studio) => studio.view.mode);
   const cells = useStudio(store, (studio) => studio.view.highlight?.cells);
+  const failed = useStudio(store, (studio) => studio.status.phase === "failed");
   const findings = useMemo(() => lintSpec(spec), [spec]);
   const rows = useMemo(() => roleRows(spec), [spec]);
   const failures = useFontFailures(spec.type.families);
@@ -54,6 +60,7 @@ export function Inspector({
   const [selected, setSelected] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingFix | null>(null);
   const [kept, setKept] = useState<{ key: string; spec: DesignSpec } | null>(null);
+  const [outcome, setOutcome] = useState<{ text: string; spec: DesignSpec } | null>(null);
 
   // A finding that leaves the list takes its highlight with it, before the canvas paints again.
   useLayoutEffect(() => {
@@ -62,12 +69,21 @@ export function Inspector({
     store.getState().setView({ highlight: null });
   }, [selected, findings, store]);
 
-  // A fix's outcome, once a new spec has committed (R2-10, C-INSPECT-17).
+  // A fix's outcome, once a new spec has committed (R2-10, C-INSPECT-17), named in the section's status
+  // region; a kept finding's card says so too.
   useEffect(() => {
     if (pending === null || spec === pending.before) return;
     setPending(null);
-    if (fixOutcome(pending.fix, spec, findings) === "kept") setKept({ key: pending.fix.key, spec });
+    const result = fixOutcome(pending.fix, spec, findings);
+    if (result === "superseded") return;
+    if (result === "kept") setKept({ key: pending.fix.key, spec });
+    setOutcome({ text: result === "kept" ? KEPT : cleared(pending.fix.level), spec });
   }, [pending, spec, findings]);
+
+  // A fix whose regeneration fails answers for nothing later (C-INSPECT-27).
+  useEffect(() => {
+    if (pending !== null && failed) setPending(null);
+  }, [pending, failed]);
 
   // A step finding's cells scroll into view inside the inspector (F-INSP-07).
   useEffect(() => {
@@ -88,8 +104,13 @@ export function Inspector({
     }
     const highlight = showMe(finding);
     const shown = showMeMode(finding);
+    const vision = showMeVision(finding);
     setSelected(key);
-    setView(shown === null ? { highlight } : { highlight, mode: shown });
+    setView({
+      highlight,
+      ...(shown === null ? {} : { mode: shown }),
+      ...(vision === null ? {} : { vision }),
+    });
     if (highlight.roles.length > 0) onCanvasShown();
   }
 
@@ -128,6 +149,7 @@ export function Inspector({
         params={params}
         selected={selected}
         kept={kept !== null && kept.spec === spec ? kept.key : null}
+        outcome={outcome !== null && outcome.spec === spec ? outcome.text : ""}
         onShowMe={toggleShowMe}
         onFix={fix}
       />
