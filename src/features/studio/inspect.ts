@@ -1,8 +1,10 @@
 import {
   CONTRAST_LEVELS,
   type ContrastLevel,
+  type Deficiency,
   type Finding,
   FONT_CATALOG,
+  type FontCategory,
   type Hex,
   hexToRgb,
   type Mode,
@@ -107,7 +109,7 @@ const SETS: Readonly<Record<string, readonly RoleName[]>> = Object.freeze({
   status: ["success", "warning", "destructive", "info"],
   chart: CHARTS,
 });
-const VIEWS = ["none", "protan", "deutan", "tritan"];
+const VIEWS: readonly ("none" | Deficiency)[] = ["none", "protan", "deutan", "tritan"];
 
 /** The plain-language title of each rule (C-INSPECT-14). */
 const TITLES: Readonly<Record<RuleId, string>> = Object.freeze({
@@ -332,7 +334,7 @@ export function showMe(finding: Finding): Highlight {
     case "S1": {
       const [set, view, ...rest] = subject.split("/");
       const members = set === undefined ? undefined : SETS[set];
-      const known = members !== undefined && VIEWS.includes(view ?? "") && rest.length === 0;
+      const known = members !== undefined && isOneOf(view, VIEWS) && rest.length === 0;
       return known ? roles(members) : EMPTY;
     }
     case "S2":
@@ -376,6 +378,20 @@ export function showMeMode(finding: Finding): Mode | null {
   checkFinding(finding, "showMeMode");
   assertOneOf(finding.mode, MODES, "showMeMode: finding.mode");
   return MODELESS.has(finding.id) ? null : finding.mode;
+}
+
+/**
+ * The vision view "show me" sets for a finding: S1's subject names the view (`<set>/<view>`) under which
+ * its colors are too close, so the canvas shows them that way. Null for every other rule, and for an S1
+ * subject of an unknown shape (fix round 1, M-4).
+ */
+export function showMeVision(finding: Finding): "none" | Deficiency | null {
+  checkFinding(finding, "showMeVision");
+  assertString(finding.subject, "showMeVision: finding.subject");
+  if (finding.id !== "S1") return null;
+  const [set, view, ...rest] = finding.subject.split("/");
+  if (set === undefined || SETS[set] === undefined || rest.length > 0) return null;
+  return isOneOf(view, VIEWS) ? view : null;
 }
 
 /** A number to at most three decimals, trailing zeros dropped, with U+2212 for a minus. */
@@ -435,13 +451,27 @@ export function nameTargets(spec: DesignSpec): readonly NameTarget[] {
   return [...palettes, ...charts];
 }
 
-/** The status line for a family that did not load: it and the first font of its fallback stack. */
-export function fontNote(id: string): string {
+/**
+ * The kind of face each catalog category falls back to. A stack's first entry (`ui-sans-serif`, …) is a
+ * family only Safari knows, so the note names the generic kind every browser ends on (fix round 1, M-3).
+ */
+const FALLBACK_KINDS: Readonly<Record<FontCategory, string>> = Object.freeze({
+  sans: "the system sans-serif",
+  display: "the system sans-serif",
+  serif: "the system serif",
+  mono: "the system monospace",
+});
+
+/**
+ * The status line for a family that did not load, and the fallback phrase inside it, which the
+ * inspector keeps on one line ("sans-serif" holds a hyphen).
+ */
+export function fontNote(id: string): { text: string; fallback: string } {
   assertString(id, "fontNote: id");
   const font = FONT_CATALOG.find((entry) => entry.id === id);
   if (font === undefined) throw new RangeError(`fontNote: unknown font id ${JSON.stringify(id)}`);
-  const fallback = (font.fallback.split(",")[0] ?? "").trim().replaceAll('"', "");
-  return `${font.family} did not load. The canvas uses ${fallback} instead.`;
+  const fallback = FALLBACK_KINDS[font.category];
+  return { text: `${font.family} did not load. The canvas uses ${fallback} instead.`, fallback };
 }
 
 /**

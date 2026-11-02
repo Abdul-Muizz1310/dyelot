@@ -115,7 +115,7 @@ export function Inspector({
         {failures.length > 0 && (
           <div className="mb-4 space-y-1 rounded-md border border-border-bright bg-page px-3 py-2 text-foreground text-xs leading-snug">
             {failures.map((id) => (
-              <p key={id}>{fontNote(id)}</p>
+              <FontLine key={id} id={id} />
             ))}
           </div>
         )}
@@ -145,6 +145,19 @@ export function Inspector({
         </PanelSection>
       )}
     </section>
+  );
+}
+
+/** One font failure: its sentence, with the fallback phrase kept on one line ("sans-serif"). */
+function FontLine({ id }: { id: string }) {
+  const { text, fallback } = fontNote(id);
+  const at = text.indexOf(fallback);
+  return (
+    <p>
+      {text.slice(0, at)}
+      <span className="whitespace-nowrap">{fallback}</span>
+      {text.slice(at + fallback.length)}
+    </p>
   );
 }
 

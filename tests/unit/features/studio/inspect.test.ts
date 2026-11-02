@@ -25,11 +25,12 @@ import {
   roleRows,
   showMe,
   showMeMode,
+  showMeVision,
 } from "@/features/studio/inspect";
 import type { DesignSpec } from "@/spec";
 import { defaultSpec, richSpec, withValue } from "../../spec/support";
 
-// Cases C-INSPECT-05 to C-INSPECT-15 and C-INSPECT-18 to C-INSPECT-24 of docs/specs/02-studio.md,
+// Cases C-INSPECT-05 to C-INSPECT-15, C-INSPECT-18 to C-INSPECT-24 and C-INSPECT-26 of docs/specs/02-studio.md,
 // section 6.9: the inspector's pure helpers (section 5.8). C-INSPECT-01 to 04 are fixes.test.ts and
 // store-fix.test.ts, C-INSPECT-16 fix-scan-*.test.ts and C-INSPECT-17 inspector-fix.test.tsx.
 
@@ -363,6 +364,26 @@ describe("findingKey", () => {
   });
 });
 
+describe("showMeVision", () => {
+  it.each([
+    ["status/deutan", "deutan"],
+    ["status/protan", "protan"],
+    ["chart/tritan", "tritan"],
+    ["chart/none", "none"],
+  ] as const)("C-INSPECT-26 S1 on %s shows the %s view", (subject, view) => {
+    expect(showMeVision(finding("S1", subject))).toBe(view);
+  });
+
+  it("C-INSPECT-26 is null for every other rule and for an S1 subject of an unknown shape", () => {
+    for (const id of RULE_IDS.filter((rule) => rule !== "S1")) {
+      expect(showMeVision(finding(id, "status/deutan")), id).toBeNull();
+    }
+    for (const subject of ["status", "status/sepia", "brand/deutan", "chart/deutan/x", ""]) {
+      expect(showMeVision(finding("S1", subject)), subject).toBeNull();
+    }
+  });
+});
+
 describe("showMeMode", () => {
   it("C-INSPECT-19 is the finding's mode, and null for T1 and T4", () => {
     for (const id of RULE_IDS) {
@@ -437,11 +458,21 @@ describe("nameTargets", () => {
 
 describe("fontNote", () => {
   it.each([
-    ["unbounded", "Unbounded did not load. The canvas uses ui-sans-serif instead."],
-    ["literata", "Literata did not load. The canvas uses ui-serif instead."],
-    ["fragment-mono", "Fragment Mono did not load. The canvas uses ui-monospace instead."],
-  ] as const)("C-INSPECT-22 names %s and its first fallback", (id, note) => {
-    expect(fontNote(id)).toBe(note);
+    ["unbounded", "the system sans-serif", "Unbounded"],
+    ["host-grotesk", "the system sans-serif", "Host Grotesk"],
+    ["literata", "the system serif", "Literata"],
+    ["fragment-mono", "the system monospace", "Fragment Mono"],
+  ] as const)("C-INSPECT-22 names %s and the kind of its fallback, %s", (id, fallback, family) => {
+    expect(fontNote(id)).toEqual({
+      text: `${family} did not load. The canvas uses ${fallback} instead.`,
+      fallback,
+    });
+  });
+
+  it("C-INSPECT-22 never names a ui-* family, which only Safari knows", () => {
+    for (const id of ["unbounded", "literata", "fragment-mono", "geist", "tiny5", "gloock"]) {
+      expect(fontNote(id).text, id).not.toMatch(/ui-/);
+    }
   });
 });
 
@@ -501,6 +532,9 @@ describe("R-05: a wrong type is a TypeError, an out-of-domain value a RangeError
     ["findingKey", () => findingKey(null as never), T],
     ["findingKey", () => findingKey(finding("K3" as never, "a/b")), R],
     ["showMeMode", () => showMeMode(null as never), T],
+    ["showMeVision", () => showMeVision(null as never), T],
+    ["showMeVision", () => showMeVision(finding("K3" as never, "status/deutan")), R],
+    ["showMeVision", () => showMeVision(finding("S1", 1 as never)), T],
     ["showMeMode", () => showMeMode(finding("C1", "a/b", { mode: "dim" as never })), R],
     ["findingMeasure", () => findingMeasure(null as never), T],
     ["findingMeasure", () => findingMeasure(finding("C1", "a/b", { measured: Number.NaN })), R],
