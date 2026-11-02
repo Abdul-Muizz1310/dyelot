@@ -127,13 +127,15 @@ function Today({ copy }: { copy: CanvasCopy }) {
     (event) => `${name(event)} at ${clock(event.hour)}, ${meters(event)}`,
   ).join("; ")}; ${nowLabel}.`;
   return (
-    <div className="lp-today" data-roles="card card-foreground border font-body">
+    <div className="lp-today" data-roles="card card-foreground border">
       <div className="lp-today-head">
         <p className="lp-card-title">
           <span className="kit-t-body kit-display" data-roles="card-foreground font-display">
             {today.place}
           </span>
-          <span className="kit-t-caption">{today.note}</span>
+          <span className="kit-t-caption" data-roles="card-foreground font-body">
+            {today.note}
+          </span>
         </p>
         <Badge tone="accent" copyLabel>
           {copy.label}
@@ -150,7 +152,9 @@ function Today({ copy }: { copy: CanvasCopy }) {
       <dl className="lp-events">
         {TIDE_EVENTS.map((event) => (
           <div key={event.hour} className="lp-event">
-            <dt className="kit-t-body-sm">{name(event)}</dt>
+            <dt className="kit-t-body-sm" data-roles="card-foreground font-body">
+              {name(event)}
+            </dt>
             <dd className="lp-event-values kit-mono kit-t-body-sm">
               <span className="kit-num">{clock(event.hour)}</span>
               <span className="kit-num">{meters(event)}</span>
@@ -197,12 +201,14 @@ function Features({ copy }: { copy: CanvasCopy }) {
 function Moorings({ copy }: { copy: CanvasCopy }) {
   const { moorings } = TEXT;
   return (
-    <div className="lp-moorings" data-roles="card card-foreground border font-body">
+    <div className="lp-moorings" data-roles="card card-foreground border">
       <p className="lp-card-title">
         <span className="kit-t-body kit-display" data-roles="card-foreground font-display">
           {moorings.title}
         </span>
-        <span className="kit-t-caption">{moorings.note}</span>
+        <span className="kit-t-caption" data-roles="card-foreground font-body">
+          {moorings.note}
+        </span>
       </p>
       {copy.items.length === 0 ? (
         <p
@@ -215,7 +221,7 @@ function Moorings({ copy }: { copy: CanvasCopy }) {
         </p>
       ) : (
         <table data-list="" className="lp-table kit-t-body-sm">
-          <thead>
+          <thead data-roles="card-foreground border font-body">
             <tr>
               <th scope="col" className="kit-t-caption">
                 {moorings.place}
@@ -336,12 +342,11 @@ function Pricing({ copy }: { copy: CanvasCopy }) {
 
 function Footer() {
   return (
-    <footer
-      className="lp-footer kit-wrap"
-      data-roles="foreground muted-foreground border font-body"
-    >
+    <footer className="lp-footer kit-wrap" data-roles="foreground muted-foreground border">
       <Brand />
-      <p className="lp-footer-note kit-t-caption">{TEXT.footer.note}</p>
+      <p className="lp-footer-note kit-t-caption" data-roles="muted-foreground font-body">
+        {TEXT.footer.note}
+      </p>
       <ul className="lp-footer-links kit-t-body-sm">
         {[...TEXT.nav, { label: TEXT.footer.top, to: "top" as const }].map((link) => (
           <li key={link.to}>

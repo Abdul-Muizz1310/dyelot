@@ -132,7 +132,7 @@ export function Input({
   const message = messageOf(state, messages);
   return (
     <div className="kit-field">
-      <label htmlFor={id} className="kit-field-label kit-t-label">
+      <label htmlFor={id} className="kit-field-label kit-t-label" data-roles="foreground font-body">
         {label}
       </label>
       <input
@@ -162,7 +162,7 @@ export function Textarea({ label, state, value, placeholder, messages = {}, hint
   const message = messageOf(state, messages);
   return (
     <div className="kit-field">
-      <label htmlFor={id} className="kit-field-label kit-t-label">
+      <label htmlFor={id} className="kit-field-label kit-t-label" data-roles="foreground font-body">
         {label}
       </label>
       <textarea
@@ -200,7 +200,7 @@ export function Select({
   const placeholder = state === "placeholder";
   return (
     <div className="kit-field">
-      <label htmlFor={id} className="kit-field-label kit-t-label">
+      <label htmlFor={id} className="kit-field-label kit-t-label" data-roles="foreground font-body">
         {label}
       </label>
       <span className="kit-select-wrap">
@@ -254,7 +254,7 @@ export function ColorField({
   const id = useId();
   return (
     <div className="kit-field">
-      <label htmlFor={id} className="kit-field-label kit-t-label">
+      <label htmlFor={id} className="kit-field-label kit-t-label" data-roles="foreground font-body">
         {label}
       </label>
       <span className="kit-color-row">
@@ -303,7 +303,11 @@ export function Slider({
   return (
     <div className="kit-field">
       <span className="kit-slider-head">
-        <label htmlFor={id} className="kit-field-label kit-t-label">
+        <label
+          htmlFor={id}
+          className="kit-field-label kit-t-label"
+          data-roles="foreground font-body"
+        >
           {label}
         </label>
         <output htmlFor={id} className="kit-num kit-t-label" data-roles="foreground font-body">

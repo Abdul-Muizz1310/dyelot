@@ -53,7 +53,7 @@ export function ConfirmDialog({
         aria-labelledby={`${id}-title`}
         aria-describedby={`${id}-body`}
         className="kit-confirm"
-        data-roles="popover popover-foreground border font-body"
+        data-roles="popover popover-foreground border"
         onKeyDown={(event) => containKeys(event, dialog.current, onClose)}
       >
         <h2
@@ -63,7 +63,7 @@ export function ConfirmDialog({
         >
           {title}
         </h2>
-        <p id={`${id}-body`} className="kit-t-body-sm">
+        <p id={`${id}-body`} className="kit-t-body-sm" data-roles="popover-foreground font-body">
           {body}
         </p>
         <div className="kit-actions">

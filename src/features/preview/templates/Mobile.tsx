@@ -238,8 +238,8 @@ function Feed({ copy }: { copy: CanvasCopy }) {
         </p>
       </div>
       <div className="mb-now">
-        <div className="mb-now-card" data-roles="card card-foreground border font-body">
-          <p className="kit-t-label">
+        <div className="mb-now-card" data-roles="card card-foreground border">
+          <p className="kit-t-label" data-roles="card-foreground font-body">
             {feed.now.label}, {feed.now.place}
           </p>
           <p
@@ -248,7 +248,7 @@ function Feed({ copy }: { copy: CanvasCopy }) {
           >
             {now.toFixed(1)} m
           </p>
-          <p className="kit-t-body-sm">
+          <p className="kit-t-body-sm" data-roles="card-foreground font-body">
             {next.kind === "low" ? feed.now.falling : feed.now.rising}{" "}
             <span className="kit-num">
               {clock(next.hour)}, {next.meters.toFixed(1)} m

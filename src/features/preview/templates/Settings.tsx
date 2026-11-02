@@ -108,9 +108,11 @@ export function Settings({ spec, view }: { spec: DesignSpec; view: View }) {
               <Section
                 to="danger"
                 className="st-danger"
-                roles="background foreground border destructive font-body"
+                roles="background foreground border destructive"
               >
-                <p className="kit-t-body-sm">{TEXT.danger.body}</p>
+                <p className="kit-t-body-sm" data-roles="foreground font-body">
+                  {TEXT.danger.body}
+                </p>
                 <Button variant="destructive" ref={opener} onPress={() => setConfirming(true)}>
                   {TEXT.danger.action}
                 </Button>
@@ -147,7 +149,7 @@ export function Settings({ spec, view }: { spec: DesignSpec; view: View }) {
 function Section({
   to,
   className,
-  roles = "background foreground border font-body",
+  roles = "background foreground border",
   children,
 }: {
   to: SettingsSection;
@@ -335,8 +337,8 @@ function Console({ copy }: { copy: CanvasCopy }) {
         <Input {...settings.id} state="read-only" name="console-id" autoComplete="off" />
         <Input {...settings.harbor} state="disabled" name="harbor-code" autoComplete="off" />
       </div>
-      <div className="st-plan" data-roles="foreground muted-foreground border font-body">
-        <p className="st-plan-name kit-t-body">
+      <div className="st-plan" data-roles="foreground muted-foreground border">
+        <p className="st-plan-name kit-t-body" data-roles="foreground font-body">
           {plan.name}
           <Badge tone="accent" copyLabel>
             {copy.label}

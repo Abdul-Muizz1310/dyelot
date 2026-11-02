@@ -124,7 +124,7 @@ export function BarsTable({
   // A table cannot shrink below its content, so the visually hidden box is a wrapper around it.
   return (
     <div className="kit-sr-only">
-      <table className="kit-t-caption">
+      <table className="kit-t-caption" data-roles="foreground font-body">
         <caption>{caption}</caption>
         <thead>
           <tr>

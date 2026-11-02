@@ -63,7 +63,7 @@ export function Dashboard({ view }: { view: View }) {
   // The toast's dismissal lives here, the dashboard's root, so a view toggle keeps it (section 7.7).
   const [toast, setToast] = useState(true);
   return (
-    <div data-template-root="dashboard" className="db" data-roles="background foreground font-body">
+    <div data-template-root="dashboard" className="db" data-roles="background foreground">
       <Sidebar />
       <div className="db-main">
         <header className="db-header" data-roles="background foreground">
@@ -93,7 +93,9 @@ export function Dashboard({ view }: { view: View }) {
           </button>
         </header>
         <fieldset className="db-filters">
-          <legend className="kit-sr-only">{TEXT.filters.label}</legend>
+          <legend className="kit-sr-only" data-roles="foreground font-body">
+            {TEXT.filters.label}
+          </legend>
           <Segmented legend={TEXT.filters.range} options={TEXT.filters.ranges} />
           <div className="db-chips">
             {TEXT.filters.chips.map((chip) => (
@@ -182,9 +184,9 @@ function Kpis({ copy }: { copy: CanvasCopy }) {
   ] as const;
   return (
     <div data-kpis="" className="db-kpis">
-      <div data-kpi-lead="" className="db-lead" data-roles="card card-foreground border font-body">
+      <div data-kpi-lead="" className="db-lead" data-roles="card card-foreground border">
         <div className="db-lead-head">
-          <p className="kit-t-label">
+          <p className="kit-t-label" data-roles="card-foreground font-body">
             {lead.label}, {lead.place}
           </p>
           <Badge tone="accent" copyLabel>
@@ -198,21 +200,23 @@ function Kpis({ copy }: { copy: CanvasCopy }) {
         >
           {now.toFixed(1)} m
         </p>
-        <p className="db-lead-next kit-t-body-sm">
+        <p className="db-lead-next kit-t-body-sm" data-roles="card-foreground font-body">
           {next.kind === "low" ? lead.falling : lead.rising}{" "}
           <span className="kit-num">
             {clock(next.hour)}, {next.meters.toFixed(1)} m
           </span>
         </p>
         <Level value={now} max={TIDE_RANGE} />
-        <p className="kit-t-caption">
+        <p className="kit-t-caption" data-roles="card-foreground font-body">
           <RichText runs={lead.note} copy={copy} />
         </p>
       </div>
-      <dl className="db-stats" data-roles="foreground muted-foreground border font-body">
+      <dl className="db-stats" data-roles="foreground muted-foreground border">
         {values.map(([label, value]) => (
           <div key={label} className="db-stat">
-            <dt className="kit-t-body-sm kit-muted">{label}</dt>
+            <dt className="kit-t-body-sm kit-muted" data-roles="muted-foreground font-body">
+              {label}
+            </dt>
             <dd
               data-kpi-value=""
               className="kit-num kit-t-h4 kit-display"
@@ -259,7 +263,7 @@ function Alerts() {
       data-chart=""
       aria-labelledby={target("alerts")}
       className="db-panel db-alerts"
-      data-roles="background foreground border font-body"
+      data-roles="background foreground border"
     >
       <PanelHead to="alerts" title={alerts.title} intro={alerts.intro} />
       <div className="db-chart">

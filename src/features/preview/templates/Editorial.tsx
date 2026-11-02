@@ -39,7 +39,7 @@ export function Editorial({ view }: { view: View }) {
     <article
       data-template-root="editorial"
       className="ed kit-page"
-      data-roles="background foreground font-body"
+      data-roles="background foreground"
     >
       <Entrance className="ed-head kit-wrap">
         <header className="ed-header">
@@ -148,7 +148,7 @@ function BlockView({ block, copy }: { block: Block; copy: CanvasCopy }) {
   switch (block.kind) {
     case "p":
       return (
-        <p className="ed-p kit-t-body">
+        <p className="ed-p kit-t-body" data-roles="foreground font-body">
           <RichText runs={block.runs} copy={copy} link={link} note={noteIds} />
         </p>
       );
@@ -166,13 +166,15 @@ function BlockView({ block, copy }: { block: Block; copy: CanvasCopy }) {
       );
     case "quote":
       return (
-        <figure className="ed-quote" data-roles="foreground muted-foreground primary font-body">
+        <figure className="ed-quote" data-roles="foreground muted-foreground primary">
           <blockquote className="ed-quote-text kit-t-h3" data-roles="foreground font-display">
             <p>
               <RichText runs={block.runs} copy={copy} />
             </p>
           </blockquote>
-          <figcaption className="kit-t-caption">{block.cite}</figcaption>
+          <figcaption className="kit-t-caption" data-roles="muted-foreground font-body">
+            {block.cite}
+          </figcaption>
         </figure>
       );
     case "code":
