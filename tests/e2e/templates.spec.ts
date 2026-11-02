@@ -30,15 +30,19 @@ import {
   figureLines,
   HERO_FIGURE,
   heroMetrics,
+  mobileOverflow,
   mountMotion,
   overflow,
   paintedContrast,
   pictographs,
   resolveColors,
   roleColor,
+  SCREENS,
+  screenOf,
   setFrame,
   showTemplate,
   slop,
+  smallTargets,
   TYPE_STEPS,
   templateRoot,
   typeStepOf,
@@ -50,7 +54,8 @@ import {
 // to F-TPL-08 and F-TPL-38, and axe in both modes), the landing and editorial templates of section
 // 7.6 (Task 2.8, F-TPL-09 to F-TPL-21 and F-TPL-38 to F-TPL-42) and the dashboard and settings
 // templates of section 7.7 (Task 2.9, F-TPL-22 to F-TPL-31 and F-TPL-37), which also join the sweeps
-// of section 7.6. The mobile template joins this file with Task 2.10.
+// of section 7.6, and the mobile template of section 7.7 (Task 2.10a, F-TPL-32 to F-TPL-36), which joins
+// the sweeps at its own three 360 px screens.
 
 const MODES = ["light", "dark"] as const;
 const RADII = ["sm", "md", "lg", "xl", "2xl", "full"];
@@ -686,21 +691,24 @@ test.describe("7.5 The kitchen sink", () => {
 
 /** The templates of section 7.6. */
 const SECTION_76 = ["landing", "editorial"] as const satisfies readonly TemplateId[];
-/** The templates of section 7.7 that Task 2.9 builds; the mobile template joins with Task 2.10. */
+/** The page templates of section 7.7 (Task 2.9); the mobile template draws screens, not a page. */
 const SECTION_77 = ["dashboard", "settings"] as const satisfies readonly TemplateId[];
-/** The page templates of sections 7.6 and 7.7, which run the shared sweeps. */
+/** The page templates of sections 7.6 and 7.7: they follow the frame switcher. */
 const PAGES = [...SECTION_76, ...SECTION_77] as const;
-/** Every template built so far: the mobile template joins with Task 2.10. */
+/** The templates the shared sweeps run: the page templates and the mobile template (Task 2.10a). */
+const SWEPT = [...PAGES, "mobile"] as const satisfies readonly TemplateId[];
+/** Every template. */
 const EVERY_TEMPLATE = [
   "landing",
   "editorial",
   "dashboard",
   "settings",
+  "mobile",
   "kitchen-sink",
 ] as const satisfies readonly TemplateId[];
 
-/** A template other than `id`, shown first so that `id` mounts afresh: the mobile stand-in. */
-const elsewhere = (id: TemplateId): TemplateId => (id === "mobile" ? "landing" : "mobile");
+/** A template other than `id`, shown first so that `id` mounts afresh. */
+const elsewhere = (id: TemplateId): TemplateId => (id === "landing" ? "editorial" : "landing");
 
 test.describe("7.6 The landing and editorial templates", () => {
   test.describe.configure({ mode: "serial" });
@@ -902,7 +910,7 @@ test.describe("7.6 The landing and editorial templates", () => {
   });
 
   test("F-TPL-17 each template has one entrance, nothing else animates on mount, and reduced motion places it at once", async () => {
-    for (const id of PAGES) {
+    for (const id of SWEPT) {
       // Another template first, so this one mounts afresh.
       await showTemplate(page, elsewhere(id));
       const sampled = mountMotion(page, id);
@@ -917,7 +925,7 @@ test.describe("7.6 The landing and editorial templates", () => {
     const reduce = page.getByRole("switch", { name: "Reduce motion", exact: true });
     await reduce.click();
     await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
-    for (const id of PAGES) {
+    for (const id of SWEPT) {
       await showTemplate(page, elsewhere(id));
       const sampled = mountMotion(page, id);
       await showTemplate(page, id);
@@ -932,7 +940,7 @@ test.describe("7.6 The landing and editorial templates", () => {
   });
 
   test("F-TPL-18 one h1 on the landing page, headings without gaps, and the article's H1 to H4 in order", async () => {
-    for (const id of PAGES) {
+    for (const id of SWEPT) {
       const root = await showTemplate(page, id);
       const levels = await root
         .locator("h1, h2, h3, h4, h5, h6")
@@ -1008,7 +1016,7 @@ test.describe("7.6 The landing and editorial templates", () => {
 
   test("F-TPL-20 editorial links are primary and underlined, selection is the spec's, and in-page links keep the hash", async () => {
     await setFrame(page, 1280);
-    for (const id of PAGES) {
+    for (const id of SWEPT) {
       const root = await showTemplate(page, id);
       // Every in-page link names a target inside the template.
       const missing = await root.evaluate((element) =>
@@ -1052,6 +1060,7 @@ test.describe("7.6 The landing and editorial templates", () => {
       ["landing", "Pricing"],
       ["dashboard", "Gauges"],
       ["settings", "Danger zone"],
+      ["mobile", "Open Samphire Bay"],
     ] as const) {
       const scope = await showTemplate(page, id);
       const before = await page.evaluate(() => window.location.hash);
@@ -1113,6 +1122,12 @@ test.describe("7.6 The landing and editorial templates", () => {
           expect(report.off, `${label} ${frame} ${id}`).toEqual([]);
         }
       }
+      // The mobile template once: its screens are 360 px whatever the switcher holds.
+      const mobile = await typeTriples(await showTemplate(page, "mobile"));
+      expect(mobile.checked, `${label} mobile`).toBeGreaterThan(25);
+      expect(mobile.classes, `${label} mobile classes`).toEqual([]);
+      expect(mobile.off, `${label} mobile`).toEqual([]);
+      await showTemplate(page, "landing");
     };
     await check("default");
     // Below 480 px of frame the headlines set h2 and the price h4; from 480 px, display and h3.
@@ -1157,6 +1172,12 @@ test.describe("7.6 The landing and editorial templates", () => {
         expect(report.checked, `${mode} ${id}`).toBeGreaterThan(60);
         expect(report.unnamed, `${mode} ${id}`).toEqual([]);
       }
+      const mobile = await showTemplate(page, "mobile");
+      await eachTab(mobile, async (tab) => {
+        const report = await unnamedPaint(mobile);
+        expect(report.checked, `${mode} mobile ${tab}`).toBeGreaterThan(60);
+        expect(report.unnamed, `${mode} mobile ${tab}`).toEqual([]);
+      });
     }
     await dark.click();
     await expect(canvasFrame(page)).toHaveAttribute("data-mode", "light");
@@ -1326,6 +1347,19 @@ test("F-TPL-39 every painted color is named on a design whose 46 role colors are
     expect(open.unnamed, `${mode} dialog`).toEqual([]);
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
+    // The mobile template with each tab panel shown, then with its bottom sheet open.
+    const mobile = await showTemplate(page, "mobile");
+    await eachTab(mobile, async (tab) => {
+      const report = await unnamedPaint(mobile);
+      expect(report.checked, `${mode} mobile ${tab}`).toBeGreaterThan(60);
+      expect(report.unnamed, `${mode} mobile ${tab}`).toEqual([]);
+    });
+    const sheet = await openSheet(mobile);
+    const layer = await unnamedPaint(mobile.locator(".kit-sheet-layer"));
+    expect(layer.checked, `${mode} sheet`).toBeGreaterThan(8);
+    expect(layer.unnamed, `${mode} sheet`).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(sheet).toHaveCount(0);
   }
 });
 
@@ -1368,7 +1402,7 @@ async function fontsReady(page: Page): Promise<void> {
     .toBe(true);
 }
 
-test("F-TPL-40 every preset fits the four page templates at 360 and 768, with real and with edge copy", async ({
+test("F-TPL-40 every preset fits the page templates at 360 and 768 and the mobile screens, with real and with edge copy", async ({
   page,
 }) => {
   test.setTimeout(300_000);
@@ -1431,9 +1465,47 @@ test("F-TPL-40 every preset fits the four page templates at 360 and 768, with re
         failures.push(...(await barRoom(root, `${id} settings 1280`)));
       }
     }
+    // The mobile template at its own three 360 px screens, with the sheet closed and then open.
+    const mobile = await showTemplate(page, "mobile");
+    for (const copy of ["Real copy", "Edge-case copy"] as const) {
+      await copies.getByRole("radio", { name: copy, exact: true }).check();
+      const name = `${id} mobile ${copy}`;
+      measured++;
+      const [over, words, figures] = await Promise.all([
+        mobileOverflow(mobile),
+        brokenWords(mobile),
+        figureLines(mobile),
+      ]);
+      const shown = await mobile.evaluate((element) => ({
+        copy: element.closest("[data-canvas]")?.getAttribute("data-copy"),
+        text: element.textContent ?? "",
+      }));
+      if (shown.copy !== (copy === "Real copy" ? "real" : "edge")) {
+        failures.push(`${name}: the frame shows ${shown.copy} copy`);
+      }
+      if (copy === "Edge-case copy" && !shown.text.includes(COPY.edge.word)) {
+        failures.push(`${name}: no edge word`);
+      }
+      if (words.checked < 50) failures.push(`${name}: only ${words.checked} words measured`);
+      failures.push(...over.map((part) => `${name}: ${part}`));
+      if (words.broken.length > 0) failures.push(`${name}: ${words.broken.join(", ")}`);
+      const split = figures.filter((line) => !line.endsWith(" 1"));
+      if (split.length > 0) failures.push(`${name}: figures ${split.join(", ")}`);
+      const sheet = await openSheet(mobile);
+      const [open, sheetWords] = await Promise.all([mobileOverflow(mobile), brokenWords(sheet)]);
+      if (sheetWords.checked < 15) {
+        failures.push(`${name} sheet: only ${sheetWords.checked} words measured`);
+      }
+      failures.push(...open.map((part) => `${name} sheet: ${part}`));
+      if (sheetWords.broken.length > 0) {
+        failures.push(`${name} sheet: ${sheetWords.broken.join(", ")}`);
+      }
+      await page.keyboard.press("Escape");
+      await expect(sheet).toHaveCount(0);
+    }
   }
   console.log(`F-TPL-40: ${measured} views in ${((Date.now() - started) / 1000).toFixed(1)} s`);
-  expect(measured).toBe(PRESET_IDS.length * PAGES.length * 4);
+  expect(measured).toBe(PRESET_IDS.length * (PAGES.length * 4 + 2));
   expect(failures).toEqual([]);
 });
 
@@ -2180,4 +2252,492 @@ test("F-TPL-27 the shared color resolver reads every syntax the browser computes
   expect(computed).toMatch(/^oklab\(/);
   const [fromComputed] = await resolveColors(page, [computed]);
   expect(fromComputed?.[3]).toBe(1);
+});
+
+/** The mobile tab bar's tabs, in order, and the one the template opens on (section 7.7). */
+const TABS = ["Today", "Places", "Alerts", "Crew"] as const;
+
+/**
+ * The parts where axe may leave color-contrast nodes undecided in the mobile template (F-TPL-36): the
+ * open bottom sheet. Axe compares the stack of elements under each line of a text, and the lines of a
+ * sheet's wrapped sentence lie over different parts of the inert screen beneath it ("partially
+ * overlaps other elements"), though the sheet's own opaque fill covers them all.
+ */
+const MOBILE_UNDECIDED: readonly string[] = [".kit-bottom-sheet"];
+
+/** Shows the mobile template with the frame switcher holding `held`, chosen on the landing page first. */
+async function showMobile(page: Page, held: 360 | 768 | 1280): Promise<Locator> {
+  await showTemplate(page, "landing");
+  await setFrame(page, held);
+  const root = await showTemplate(page, "mobile");
+  await expect(canvasFrame(page)).toHaveAttribute("data-frame", String(held));
+  return root;
+}
+
+/**
+ * Selects each tab of the mobile tab bar in turn, waits for the bar to come to rest (a pill's fill
+ * transitions between its roles), runs `run`, and selects "Alerts" again.
+ */
+async function eachTab(root: Locator, run: (tab: string) => Promise<void>): Promise<void> {
+  const bar = screenOf(root, "tabs").getByRole("tablist");
+  for (const tab of TABS) {
+    await bar.getByRole("tab", { name: tab, exact: true }).click();
+    await expect(bar.getByRole("tab", { name: tab, exact: true })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await bar.evaluate((element) =>
+      Promise.allSettled(
+        element.getAnimations({ subtree: true }).map((animation) => animation.finished),
+      ),
+    );
+    await run(tab);
+  }
+  await bar.getByRole("tab", { name: "Alerts", exact: true }).click();
+}
+
+/**
+ * Opens the mobile template's bottom sheet and waits until it has risen. Once the sheet has risen it
+ * settles (`animation: none`), which may cancel the scrim's last frame: a cancelled animation counts as
+ * done.
+ */
+async function openSheet(root: Locator): Promise<Locator> {
+  const detail = screenOf(root, "detail");
+  await detail.getByRole("button", { name: "Set an alert", exact: true }).click();
+  const sheet = detail.getByRole("dialog");
+  await expect(sheet).toBeVisible();
+  await sheet.evaluate((element) =>
+    Promise.allSettled(
+      (element.closest(".kit-sheet-layer") ?? element)
+        .getAnimations({ subtree: true })
+        .map((animation) => animation.finished),
+    ),
+  );
+  return sheet;
+}
+
+/** Counts every Escape that reaches the window in `window.__escapes` (F-TPL-34). */
+async function countEscapes(page: Page): Promise<() => Promise<number>> {
+  await page.evaluate(() => {
+    const counted = window as unknown as { __escapes: number };
+    counted.__escapes = 0;
+    window.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") counted.__escapes += 1;
+    });
+  });
+  return () => page.evaluate(() => (window as unknown as { __escapes: number }).__escapes);
+}
+
+test.describe("7.7 The mobile template", () => {
+  test.describe.configure({ mode: "serial" });
+  let page: Page;
+
+  test.beforeAll(async ({ browser }) => {
+    // A page of its own context: axe's builder needs one.
+    const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    page = await context.newPage();
+    await stubSeeds(page);
+    await openStudio(page);
+    await page.evaluate(() => document.fonts.ready);
+  });
+
+  test.afterAll(async () => {
+    await page.context().close();
+  });
+
+  test("F-TPL-32 three 360 px screens whatever the frame, and the switcher waits for another template", async () => {
+    const frames = page
+      .getByRole("region", { name: "Canvas toolbar" })
+      .getByRole("group", { name: "Frame", exact: true });
+    for (const [held, rows] of [
+      [360, 3],
+      [768, 2],
+      [1280, 1],
+    ] as const) {
+      const root = await showMobile(page, held);
+      // The switcher is disabled, and its note says why.
+      const radios = frames.getByRole("radio");
+      await expect(radios).toHaveCount(3);
+      for (const radio of await radios.all()) await expect(radio, `${held}`).toBeDisabled();
+      await expect(frames).toHaveAccessibleDescription("Three 360 px screens");
+      // Each screen is a 360 px size container named frame: a probe of the kit's below-768 class is
+      // hidden inside it, while on the board it follows the canvas frame.
+      const shape = await root.evaluate((element) => {
+        const frame = element.closest<HTMLElement>("[data-canvas][data-frame]");
+        if (frame === null) throw new Error("no frame");
+        const outer = frame.getBoundingClientRect();
+        const scale = outer.width / frame.offsetWidth;
+        const probe = (host: Element) => {
+          const span = document.createElement("span");
+          span.className = "kit-sr-only-below-768";
+          span.textContent = "A probe of the frame container";
+          host.append(span);
+          const width = span.getBoundingClientRect().width / scale;
+          span.remove();
+          return width;
+        };
+        return {
+          fit: scale,
+          board: probe(element),
+          screens: [...element.querySelectorAll<HTMLElement>("[data-phone]")].map((screen) => {
+            const box = screen.getBoundingClientRect();
+            const style = getComputedStyle(screen);
+            return {
+              name: screen.dataset.phone,
+              width: screen.offsetWidth,
+              container: `${style.containerType} ${style.containerName}`,
+              top: Math.round((box.top - outer.top) / scale),
+              inside: box.left >= outer.left - 0.5 && box.right <= outer.right + 0.5,
+              probe: probe(screen),
+            };
+          }),
+        };
+      });
+      expect(shape.screens.map((screen) => screen.name)).toEqual(["feed", "detail", "tabs"]);
+      for (const screen of shape.screens) {
+        const name = `${held} ${screen.name}`;
+        expect(screen.width, name).toBe(360);
+        expect(screen.container, name).toMatch(/^inline-size .*\bframe\b/);
+        // At most 1 × 1 px, measured through the fit's scale (1.01 as the overflow measure allows).
+        expect(screen.probe, `${name}: the probe is hidden inside the screen`).toBeLessThanOrEqual(
+          1.01,
+        );
+        expect(screen.inside, `${name}: inside the canvas frame`).toBe(true);
+      }
+      expect(new Set(shape.screens.map((screen) => screen.top)).size, `${held} rows`).toBe(rows);
+      if (held === 1280) {
+        expect(shape.fit, "the 1280 frame scales down").toBeLessThan(1);
+        expect(shape.board, "the board's probe is laid out at 1280").toBeGreaterThan(1);
+      }
+      expect(await mobileOverflow(root), `${held}`).toEqual([]);
+    }
+    // Another template brings the switcher back with the frame it held.
+    await showTemplate(page, "landing");
+    for (const radio of await frames.getByRole("radio").all()) await expect(radio).toBeEnabled();
+    await expect(frames.getByRole("radio", { name: "1280", exact: true })).toBeChecked();
+    await expect(canvasFrame(page)).toHaveAttribute("data-frame", "1280");
+    await expect(frames).toHaveAccessibleDescription(/^fit \d+%$/);
+  });
+
+  test("F-TPL-33 every button, link, tab and input in the screens has a 44 × 44 px hit area", async () => {
+    for (const held of [1280, 360] as const) {
+      const root = await showMobile(page, held);
+      for (const density of ["comfortable", "dense"] as const) {
+        await toolbarRadio(page, "Density", density).check();
+        await expect(canvasFrame(page)).toHaveAttribute("data-density", density);
+        let checked = 0;
+        for (const name of SCREENS) {
+          const report = await smallTargets(screenOf(root, name));
+          checked += report.checked;
+          expect(report.small, `${held} ${density} ${name}`).toEqual([]);
+        }
+        expect(checked, `${held} ${density} targets`).toBeGreaterThanOrEqual(12);
+        // With the sheet open: its lead times and its two buttons.
+        const sheet = await openSheet(root);
+        const open = await smallTargets(sheet);
+        expect(open.checked, `${held} ${density} sheet targets`).toBeGreaterThanOrEqual(6);
+        expect(open.small, `${held} ${density} sheet`).toEqual([]);
+        await page.keyboard.press("Escape");
+        await expect(sheet).toHaveCount(0);
+      }
+      await toolbarRadio(page, "Density", "comfortable").check();
+    }
+    await showTemplate(page, "landing");
+    await setFrame(page, 1280);
+  });
+
+  test("F-TPL-34 the bottom sheet is contained, keeps focus and closes by Escape and Cancel", async () => {
+    const root = await showMobile(page, 1280);
+    const detail = screenOf(root, "detail");
+    const opener = detail.getByRole("button", { name: "Set an alert", exact: true });
+    const escapes = await countEscapes(page);
+    const inSheet = () =>
+      page.evaluate(() => document.activeElement?.closest("[role='dialog']") != null);
+    for (const close of ["Escape", "Cancel"] as const) {
+      const sheet = await openSheet(root);
+      await expect(sheet).toHaveAttribute("aria-modal", "true");
+      await expect(sheet).toHaveAccessibleName(/alert me before high water/i);
+      await expect(sheet).toHaveAccessibleDescription(/nothing is sent/i);
+      const placed = await sheet.evaluate((element) => {
+        const screen = element.closest<HTMLElement>("[data-phone]");
+        const layer = element.closest(".kit-sheet-layer");
+        if (screen === null || layer === null) throw new Error("no screen or layer");
+        const probe = document.createElement("span");
+        probe.style.boxShadow = "var(--shadow-4)";
+        probe.style.borderRadius = "var(--radius-2xl)";
+        element.append(probe);
+        const expected = getComputedStyle(probe);
+        const [shadow, radius] = [expected.boxShadow, expected.borderTopLeftRadius];
+        probe.remove();
+        const style = getComputedStyle(element);
+        const box = element.getBoundingClientRect();
+        const frame = screen.getBoundingClientRect();
+        const positions: string[] = [];
+        for (let node: Element | null = element; node !== null; node = node.parentElement) {
+          positions.push(getComputedStyle(node).position);
+          if (node.hasAttribute("data-template-root")) break;
+        }
+        return {
+          modal: element.matches(":modal"),
+          popover: element.matches(":popover-open"),
+          positions,
+          inside:
+            box.left >= frame.left - 0.5 &&
+            box.right <= frame.right + 0.5 &&
+            box.top >= frame.top - 0.5,
+          bottom: Math.abs(box.bottom - frame.bottom),
+          shadow: style.boxShadow === shadow,
+          corners: [
+            style.borderTopLeftRadius,
+            style.borderTopRightRadius,
+            style.borderBottomRightRadius,
+            style.borderBottomLeftRadius,
+          ],
+          radius,
+          // The rest of the detail screen is inert; the other screens are not.
+          rest: [...screen.querySelectorAll("*")]
+            .filter((node) => !layer.contains(node))
+            .every((node) => node.closest("[inert]") !== null),
+          others: [...document.querySelectorAll("[data-phone]")]
+            .filter((other) => other !== screen)
+            .every((other) => other.closest("[inert]") === null && !other.querySelector("[inert]")),
+        };
+      });
+      expect(placed.modal).toBe(false);
+      expect(placed.popover).toBe(false);
+      expect(placed.positions).toContain("absolute");
+      expect(placed.positions).not.toContain("fixed");
+      expect(placed.inside, "inside the detail screen").toBe(true);
+      expect(placed.bottom, "at the screen's bottom").toBeLessThanOrEqual(1);
+      expect(placed.shadow, "--shadow-4").toBe(true);
+      expect(placed.corners).toEqual([placed.radius, placed.radius, "0px", "0px"]);
+      expect(placed.rest, "the rest of the detail screen is inert").toBe(true);
+      expect(placed.others, "the other screens are not").toBe(true);
+      await expect(sheet.getByRole("radio", { checked: true })).toBeFocused();
+      for (const key of ["Tab", "Tab", "Tab", "Tab", "Shift+Tab", "Shift+Tab"]) {
+        await page.keyboard.press(key);
+        expect(await inSheet(), key).toBe(true);
+      }
+      if (close === "Escape") {
+        await page.keyboard.press("Escape");
+      } else {
+        await sheet.getByRole("button", { name: "Cancel", exact: true }).focus();
+        await page.keyboard.press("Space");
+      }
+      await expect(sheet, close).toHaveCount(0);
+      await expect(opener, close).toBeFocused();
+    }
+    // Under the pointer: a click on the description, the title or the scrim keeps focus in the
+    // sheet, and Escape still closes it.
+    for (const where of ["description", "title", "scrim"] as const) {
+      const sheet = await openSheet(root);
+      if (where === "description") await sheet.getByText(/nothing is sent/i).click();
+      else if (where === "title") await sheet.getByRole("heading").click();
+      else {
+        // The scrim at the top of the screen, above the sheet and clear of its rounded corners.
+        const layer = root.locator(".kit-sheet-layer");
+        const box = await layer.boundingBox();
+        await layer.click({ position: { x: (box?.width ?? 0) / 2, y: 12 } });
+      }
+      expect(await inSheet(), `after a click on the ${where}`).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(sheet, `Escape after a click on the ${where}`).toHaveCount(0);
+      await expect(opener).toBeFocused();
+    }
+    expect(await escapes(), "Escapes that reached the window").toBe(0);
+    // It rises over --duration-base with --ease-decelerate, and not at all under reduced motion.
+    await opener.click();
+    const sheet = detail.getByRole("dialog");
+    const rise = await sheet.evaluate((element) => {
+      const probe = document.createElement("span");
+      probe.style.animationDuration = "var(--duration-base)";
+      probe.style.animationTimingFunction = "var(--ease-decelerate)";
+      element.append(probe);
+      const expected = getComputedStyle(probe);
+      const own = getComputedStyle(element);
+      const result = {
+        name: own.animationName,
+        duration: own.animationDuration === expected.animationDuration,
+        easing: own.animationTimingFunction === expected.animationTimingFunction,
+      };
+      probe.remove();
+      return result;
+    });
+    expect(rise.name).not.toBe("none");
+    expect(rise.duration, "--duration-base").toBe(true);
+    expect(rise.easing, "--ease-decelerate").toBe(true);
+    await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
+    const reduce = page.getByRole("switch", { name: "Reduce motion", exact: true });
+    await reduce.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+    await opener.click();
+    expect(await sheet.evaluate((element) => getComputedStyle(element).animationName)).toBe("none");
+    await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
+    await reduce.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
+    // A lead time saved shows in the alert row; one picked and cancelled does not.
+    const row = detail.locator("[data-alert-row]");
+    await expect(row).toContainText("30 min");
+    await openSheet(root);
+    await sheet.getByRole("radio", { name: "1 hour", exact: true }).check();
+    await sheet.getByRole("button", { name: "Save alert", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    await expect(opener).toBeFocused();
+    await expect(row).toContainText("1 hour");
+    await openSheet(root);
+    await expect(sheet.getByRole("radio", { name: "1 hour", exact: true })).toBeChecked();
+    await sheet.getByRole("radio", { name: "15 min", exact: true }).check();
+    await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(row).toContainText("1 hour");
+    // Open, with a lead time picked, the sheet holds across a mode toggle: its state is the root's.
+    await openSheet(root);
+    await sheet.getByRole("radio", { name: "2 hours", exact: true }).check();
+    const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
+    await dark.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-mode", "dark");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.getByRole("radio", { name: "2 hours", exact: true })).toBeChecked();
+    await dark.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-mode", "light");
+    await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(row).toContainText("1 hour");
+  });
+
+  test("F-TPL-35 the tab bar is a tablist with a roving tab stop, arrows, Home and End", async () => {
+    const root = await showMobile(page, 1280);
+    const bar = screenOf(root, "tabs").getByRole("tablist");
+    await expect(bar).toHaveAccessibleName("Saltmarsh, sample");
+    await expect(bar.getByRole("tab")).toHaveCount(4);
+    /** Each tab: its name, selection, tab stop and panel. */
+    const tabs = () =>
+      bar.evaluate((element) =>
+        [...element.querySelectorAll<HTMLElement>("[role='tab']")].map((tab) => {
+          const panel = document.getElementById(tab.getAttribute("aria-controls") ?? "");
+          return {
+            name: (tab.textContent ?? "").trim(),
+            selected: tab.getAttribute("aria-selected"),
+            stop: tab.tabIndex,
+            panel:
+              panel === null
+                ? null
+                : {
+                    role: panel.getAttribute("role"),
+                    labelled: panel.getAttribute("aria-labelledby") === tab.id,
+                    shown: !panel.hidden && panel.getBoundingClientRect().height > 0,
+                  },
+          };
+        }),
+      );
+    const expectSelected = async (name: string, label: string) => {
+      const now = await tabs();
+      expect(
+        now.map((tab) => tab.name),
+        label,
+      ).toEqual([...TABS]);
+      for (const tab of now) {
+        const on = tab.name === name;
+        expect(tab.selected, `${label} ${tab.name}`).toBe(String(on));
+        expect(tab.stop, `${label} ${tab.name} tab stop`).toBe(on ? 0 : -1);
+        expect(tab.panel, `${label} ${tab.name} panel`).toEqual({
+          role: "tabpanel",
+          labelled: true,
+          shown: on,
+        });
+      }
+    };
+    await expectSelected("Alerts", "first");
+    // One committed edit first, so undo has something to do if an arrow leaks.
+    const first = await lotId(page).textContent();
+    await page
+      .getByRole("complementary", { name: "Inputs" })
+      .getByRole("button", { name: "Regenerate", exact: true })
+      .click();
+    await expect(lotId(page)).not.toHaveText(first ?? "");
+    await settled(page);
+    const lot = await lotId(page).textContent();
+    const toolbar = page.getByRole("region", { name: "Canvas toolbar" });
+    const undo = toolbar.getByRole("button", { name: "Undo", exact: true });
+    const redo = toolbar.getByRole("button", { name: "Redo", exact: true });
+    await bar.getByRole("tab", { selected: true }).focus();
+    for (const [key, name] of [
+      ["ArrowRight", "Crew"],
+      ["ArrowRight", "Today"],
+      ["ArrowLeft", "Crew"],
+      ["ArrowLeft", "Alerts"],
+      ["Home", "Today"],
+      ["ArrowLeft", "Crew"],
+      ["End", "Crew"],
+      ["Home", "Today"],
+      ["End", "Crew"],
+    ] as const) {
+      await page.keyboard.press(key);
+      await expectSelected(name, key);
+      await expect(bar.getByRole("tab", { name, exact: true }), key).toBeFocused();
+      // The arrows stay with the tab bar: no undo or redo, so the lot and the history hold.
+      await expect(lotId(page), key).toHaveText(lot ?? "");
+      await expect(undo, key).toHaveAttribute("aria-disabled", "false");
+      await expect(redo, key).toHaveAttribute("aria-disabled", "true");
+    }
+    await bar.getByRole("tab", { name: "Places", exact: true }).click();
+    await expectSelected("Places", "click");
+    const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
+    await dark.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-mode", "dark");
+    await expectSelected("Places", "after a mode toggle");
+    await dark.click();
+    await bar.getByRole("tab", { name: "Alerts", exact: true }).click();
+    await undo.click();
+    await expect(lotId(page)).toHaveText(first ?? "");
+    await settled(page);
+  });
+
+  test("F-TPL-36 axe finds no violation in the mobile template, in light and dark, at 1280 and 360, and with the sheet open", async () => {
+    const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
+    /** Axe on the canvas frame: no violation, and each undecided node pinned and measured. */
+    const scan = async (name: string) => {
+      const results = await new AxeBuilder({ page }).include("[data-canvas][data-frame]").analyze();
+      expect(
+        results.violations.map((violation) => ({
+          id: violation.id,
+          nodes: violation.nodes.slice(0, 5).map((node) => node.target.join(" ")),
+        })),
+        name,
+      ).toEqual([]);
+      const undecided = results.incomplete
+        .filter((result) => result.id === "color-contrast")
+        .flatMap((result) => result.nodes.map((node) => String(node.target[0])));
+      const outside = await page.evaluate(
+        ({ selectors, parts }) =>
+          selectors.filter(
+            (selector) =>
+              !parts.some((part) => document.querySelector(selector)?.closest(part) != null),
+          ),
+        { selectors: undecided, parts: [...MOBILE_UNDECIDED] },
+      );
+      expect(outside, `${name} undecided outside the pinned parts`).toEqual([]);
+      for (const pair of await paintedContrast(page, undecided)) {
+        expect(pair.ratio, `${name} ${pair.selector} ${pair.reason}`).toBeGreaterThanOrEqual(
+          pair.threshold,
+        );
+      }
+    };
+    for (const mode of MODES) {
+      for (const frame of [1280, 360] as const) {
+        const root = await showMobile(page, frame);
+        if (mode === "dark" && (await canvasFrame(page).getAttribute("data-mode")) !== "dark") {
+          await dark.click();
+        }
+        await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+        await scan(`${mode} ${frame}`);
+        const sheet = await openSheet(root);
+        await scan(`${mode} ${frame} with the sheet open`);
+        await page.keyboard.press("Escape");
+        await expect(sheet).toHaveCount(0);
+      }
+    }
+    await dark.click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-mode", "light");
+    await showTemplate(page, "landing");
+    await setFrame(page, 1280);
+  });
 });

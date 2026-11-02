@@ -5,7 +5,8 @@ import { canvasFrame } from "./studio-support";
 
 // Shared helpers for the template flows of docs/specs/02-studio.md, sections 7.5 to 7.7: the
 // template and frame switches, and the structural checks every template runs (F-TPL-13, F-TPL-15,
-// F-TPL-16, F-TPL-37, F-TPL-38 and F-TPL-39). Task 2.10 reuses them for the mobile template.
+// F-TPL-16, F-TPL-37, F-TPL-38 and F-TPL-39), with the mobile template's screens and hit areas
+// (F-TPL-32, F-TPL-33).
 
 /** The type steps, smallest first. */
 export const TYPE_STEPS = [
@@ -352,14 +353,16 @@ export async function unnamedPaint(
  * F-TPL-09, F-TPL-10: whether anything in the frame overflows it: the frame's own scroll width,
  * and every element of `scope` whose box ends past the frame's right edge (layout px). Content in a
  * visually hidden box (section 7.6: clipped by `overflow: hidden` to at most 1 × 1 px, such as the
- * chart's data table) is not on screen, so it is not measured.
+ * chart's data table) is not on screen, so it is not measured. The frame is the canvas frame, or
+ * the nearest match of `frameSelector` from `scope` up (a mobile screen, `[data-phone]`).
  */
 export function overflow(
   scope: Locator,
+  frameSelector = "[data-canvas][data-frame]",
 ): Promise<{ scroll: number; client: number; past: string[] }> {
-  return scope.evaluate((root) => {
-    const frame = root.closest<HTMLElement>("[data-canvas][data-frame]");
-    if (frame === null) throw new Error("overflow: no frame");
+  return scope.evaluate((root, selector) => {
+    const frame = root.closest<HTMLElement>(selector);
+    if (frame === null) throw new Error(`overflow: no frame ${selector}`);
     const box = frame.getBoundingClientRect();
     const scale = box.width / frame.offsetWidth;
     const clipped = (element: Element) => {
@@ -389,7 +392,86 @@ export function overflow(
       }
     }
     return { scroll: frame.scrollWidth, client: frame.clientWidth, past: past.slice(0, 10) };
-  });
+  }, frameSelector);
+}
+
+/** The mobile template's three screens (`data-phone`), in order (section 7.7). */
+export const SCREENS = ["feed", "detail", "tabs"] as const;
+export type Screen = (typeof SCREENS)[number];
+
+/** A screen of the mobile template whose root is `root`. */
+export const screenOf = (root: Locator, name: Screen): Locator =>
+  root.locator(`[data-phone="${name}"]`);
+
+/**
+ * F-TPL-32, F-TPL-40, F-CANVAS-09: the overflow measure of the mobile template, on the canvas frame
+ * and on each of its screens. Returns each failure, named; an empty list passes.
+ */
+export async function mobileOverflow(root: Locator): Promise<string[]> {
+  const failures: string[] = [];
+  const outer = await overflow(root);
+  if (outer.scroll > outer.client) failures.push(`frame: scroll ${outer.scroll} > ${outer.client}`);
+  failures.push(...outer.past.map((part) => `past the frame: ${part}`));
+  for (const name of SCREENS) {
+    const screen = screenOf(root, name);
+    if ((await screen.count()) !== 1) {
+      failures.push(`${name}: no screen`);
+      continue;
+    }
+    const report = await overflow(screen, "[data-phone]");
+    if (report.scroll > report.client) {
+      failures.push(`${name}: scroll ${report.scroll} > ${report.client}`);
+    }
+    failures.push(...report.past.map((part) => `past ${name}: ${part}`));
+  }
+  return failures;
+}
+
+/**
+ * F-TPL-33: the buttons, links, tabs and inputs in `scope` that show (laid out, not inert) whose hit
+ * area is under `min` layout px on a side. The hit area is the element's box divided by the fit; for
+ * an input, select or textarea, the larger of its box and the `label` that wraps it.
+ */
+export function smallTargets(
+  scope: Locator,
+  min = 44,
+): Promise<{ checked: number; small: string[] }> {
+  return scope.evaluate((root, min) => {
+    const frame = root.closest<HTMLElement>("[data-canvas][data-frame]");
+    if (frame === null) throw new Error("smallTargets: no frame");
+    const scale = frame.getBoundingClientRect().width / frame.offsetWidth;
+    const small: string[] = [];
+    let checked = 0;
+    for (const target of root.querySelectorAll<HTMLElement>(
+      "button, a[href], [role='tab'], input, select, textarea",
+    )) {
+      if (target.closest("[inert]") !== null) continue;
+      const own = target.getBoundingClientRect();
+      if (own.width === 0 && own.height === 0) continue;
+      let [width, height] = [own.width, own.height];
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLSelectElement ||
+        target instanceof HTMLTextAreaElement
+      ) {
+        for (const label of target.labels ?? []) {
+          if (!label.contains(target)) continue;
+          const box = label.getBoundingClientRect();
+          width = Math.max(width, box.width);
+          height = Math.max(height, box.height);
+        }
+      }
+      checked++;
+      const [w, h] = [width / scale, height / scale];
+      if (w < min - 0.05 || h < min - 0.05) {
+        const name = (target.getAttribute("aria-label") ?? target.textContent ?? "").trim();
+        small.push(
+          `${target.tagName.toLowerCase()} "${name.slice(0, 30)}" ${w.toFixed(1)}×${h.toFixed(1)}`,
+        );
+      }
+    }
+    return { checked, small };
+  }, min);
 }
 
 /** The computed color of a role inside `scope`, as the browser writes it. */
@@ -628,8 +710,11 @@ export type PaintedPair = {
  * or 18.66 px at weight 700 or more). Every color goes through the shared resolver, so any syntax
  * reads. The fill is the first opaque background from the node up. The pair is not measured, and its
  * ratio is 0 with a reason, when the node is missing, its text color is unreadable or translucent, or,
- * on the way up to and including the fill, an element has an `opacity` below 1, a `background-image`,
- * a background the browser cannot read or a partly transparent one: the helper does not blend.
+ * on the way up to and including the fill, an element has a `background-image`, a background the
+ * browser cannot read or a partly transparent one; and when any element from the node up to and
+ * including the template root (`data-template-root`) has an `opacity` below 1, the fill and the
+ * elements above it included, since a faded ancestor fades the text and its fill together. The helper
+ * does not blend.
  */
 export async function paintedContrast(
   page: Page,
@@ -664,6 +749,15 @@ export async function paintedContrast(
         const fill = resolve(own.backgroundColor);
         if (fill === null) return refuse(`unreadable fill ${own.backgroundColor} on ${name(node)}`);
         if (fill[3] >= 0.999) {
+          // Above the fill, up to the template root: a faded ancestor fades the pair together.
+          const top = element.closest("[data-template-root]");
+          if (top !== null && top !== node && top.contains(node)) {
+            for (let up = node.parentElement; up !== null; up = up.parentElement) {
+              const faded = Number.parseFloat(getComputedStyle(up).opacity);
+              if (faded < 1) return refuse(`opacity ${faded} on ${name(up)}, above the fill`);
+              if (up === top) break;
+            }
+          }
           const size = Number.parseFloat(style.fontSize);
           const weight = Number(style.fontWeight);
           return {

@@ -65,7 +65,8 @@ export function Picker({
  * toolbar's compact form, so the toolbar keeps to three rows at 1280 × 800 (F-CANVAS-17): the legend
  * beside the options (a floated legend joins the fieldset's grid), 11 px text, options 28 px tall
  * (F-CANVAS-18), and `note`, a live reading such as the frame's fit, set under the
- * legend and tied to the group as its description (review M-5).
+ * legend and tied to the group as its description (review M-5). `disabled` disables the whole group
+ * (a fieldset), which keeps its value: the frame switcher while the mobile template shows (F-TPL-32).
  */
 export function Choice<T extends string>({
   legend,
@@ -74,6 +75,7 @@ export function Choice<T extends string>({
   onChange,
   inline = false,
   note,
+  disabled = false,
 }: {
   legend: string;
   value: T;
@@ -81,6 +83,7 @@ export function Choice<T extends string>({
   onChange(value: T): void;
   inline?: boolean;
   note?: ReactNode;
+  disabled?: boolean;
 }) {
   const name = useId();
   const noteId = useId();
@@ -90,6 +93,7 @@ export function Choice<T extends string>({
     : `${LABEL} mb-1.5`;
   return (
     <fieldset
+      disabled={disabled}
       aria-describedby={noted ? noteId : undefined}
       className={inline ? "grid grid-cols-[auto_auto] items-center gap-x-1" : "min-w-0 space-y-1.5"}
     >
@@ -104,7 +108,7 @@ export function Choice<T extends string>({
         {options.map((option) => (
           <label
             key={option.value}
-            className={`relative flex items-center justify-center rounded-[5px] text-center text-fg-muted hover:text-foreground has-checked:bg-border has-checked:font-medium has-checked:text-foreground has-checked:shadow-[inset_0_0_0_1px_var(--border-bright)] ${inline ? "min-h-7 min-w-6 flex-none px-1 text-[11px]" : "min-h-8 min-w-0 flex-1 px-1.5 text-xs"}`}
+            className={`relative flex items-center justify-center rounded-[5px] text-center text-fg-muted hover:text-foreground has-disabled:cursor-not-allowed has-disabled:opacity-60 has-disabled:hover:text-fg-muted has-checked:bg-border has-checked:font-medium has-checked:text-foreground has-checked:shadow-[inset_0_0_0_1px_var(--border-bright)] ${inline ? "min-h-7 min-w-6 flex-none px-1 text-[11px]" : "min-h-8 min-w-0 flex-1 px-1.5 text-xs"}`}
           >
             <input
               type="radio"

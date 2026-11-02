@@ -48,6 +48,22 @@
   color: var(--sidebar-accent-foreground);
 }
 
+/* A link on a touch surface (the mobile template's screens, section 7.7): `primary` text whose box
+ * is at least `--control-height` on each side, a phone's touch target (F-TPL-33). */
+.kit-link[data-tone="touch"] {
+  display: inline-flex;
+  min-width: var(--control-height);
+  min-height: var(--control-height);
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration-line: none;
+}
+.kit-link[data-tone="touch"]:hover {
+  text-decoration-line: underline;
+}
+
 /* A note number sits raised in the line without opening the line's leading. */
 .kit-note-ref {
   line-height: 0;

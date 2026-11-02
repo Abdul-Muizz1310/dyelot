@@ -7,6 +7,7 @@ import {
   DASHBOARD_TEXT,
   EDITORIAL_TEXT,
   LANDING_TEXT,
+  MOBILE_TEXT,
   type Run,
   SAMPLE_PLACES,
   SETTINGS_TEXT,
@@ -19,7 +20,7 @@ import {
   statesOf,
 } from "@/features/preview/kit/states";
 import { swatches, TEXT_PAIRS } from "@/features/preview/swatches";
-import { tideAt } from "@/features/preview/tide";
+import { clock, tideAt } from "@/features/preview/tide";
 import { canvasStyle, cssVariables, roleVar } from "@/features/preview/vars";
 import { freshParams, resolveParams } from "@/features/studio/params";
 import { densityVars, themeVars } from "@/theme/vars";
@@ -338,12 +339,19 @@ const SLOTS = ["word", "person", "amount"];
 
 describe("the template copy (sections 7.6 and 7.7, R2-21, F-CANVAS-09)", () => {
   it("copyOf gives each template its real copy and the one edge copy of R2-21", () => {
-    expect(COPY_OWNERS).toEqual(["kitchen-sink", "landing", "editorial", "dashboard", "settings"]);
+    expect(COPY_OWNERS).toEqual([
+      "kitchen-sink",
+      "landing",
+      "editorial",
+      "dashboard",
+      "settings",
+      "mobile",
+    ]);
     expect(Object.isFrozen(COPY_OWNERS)).toBe(true);
     expect(copyOf("kitchen-sink", "real")).toBe(COPY.real);
     for (const owner of COPY_OWNERS) expect(copyOf(owner, "edge")).toBe(COPY.edge);
     const reals = COPY_OWNERS.map((owner) => copyOf(owner, "real"));
-    expect(new Set(reals.map((copy) => copy.title)).size).toBe(5);
+    expect(new Set(reals.map((copy) => copy.title)).size).toBe(6);
     for (const copy of reals) {
       expect(Object.keys(copy).sort()).toEqual(Object.keys(COPY.edge).sort());
       expect(copy.items.length).toBeGreaterThan(1);
@@ -357,8 +365,8 @@ describe("the template copy (sections 7.6 and 7.7, R2-21, F-CANVAS-09)", () => {
   it("R-05: copyOf names itself for an owner or a kind of the wrong type or outside its set", () => {
     expect(() => copyOf(3 as never, "real")).toThrow(TypeError);
     expect(() => copyOf(3 as never, "real")).toThrow(/^copyOf: owner/);
-    expect(() => copyOf("mobile" as never, "real")).toThrow(RangeError);
-    expect(() => copyOf("mobile" as never, "real")).toThrow(/^copyOf: owner/);
+    expect(() => copyOf("pricing" as never, "real")).toThrow(RangeError);
+    expect(() => copyOf("pricing" as never, "real")).toThrow(/^copyOf: owner/);
     expect(() => copyOf("landing", null as never)).toThrow(TypeError);
     expect(() => copyOf("landing", "long" as never)).toThrow(RangeError);
     expect(() => copyOf("landing", "long" as never)).toThrow(/^copyOf: kind/);
@@ -370,6 +378,7 @@ describe("the template copy (sections 7.6 and 7.7, R2-21, F-CANVAS-09)", () => {
       editorial: [copyOf("editorial", "real"), EDITORIAL_TEXT],
       dashboard: [copyOf("dashboard", "real"), DASHBOARD_TEXT],
       settings: [copyOf("settings", "real"), SETTINGS_TEXT],
+      mobile: [copyOf("mobile", "real"), MOBILE_TEXT],
     };
     for (const [owner, parts] of Object.entries(texts)) {
       const all = strings(parts);
@@ -387,10 +396,17 @@ describe("the template copy (sections 7.6 and 7.7, R2-21, F-CANVAS-09)", () => {
     expect(deepFrozen(EDITORIAL_TEXT)).toBe(true);
     expect(deepFrozen(DASHBOARD_TEXT)).toBe(true);
     expect(deepFrozen(SETTINGS_TEXT)).toBe(true);
+    expect(deepFrozen(MOBILE_TEXT)).toBe(true);
   });
 
   it("fills slots only from the copy's strings, and each template shows its edge slots", () => {
-    for (const run of runs([LANDING_TEXT, EDITORIAL_TEXT, DASHBOARD_TEXT, SETTINGS_TEXT])) {
+    for (const run of runs([
+      LANDING_TEXT,
+      EDITORIAL_TEXT,
+      DASHBOARD_TEXT,
+      SETTINGS_TEXT,
+      MOBILE_TEXT,
+    ])) {
       if ("slot" in run) expect(SLOTS).toContain(run.slot);
     }
     const slotsOf = (value: unknown) =>
@@ -403,6 +419,10 @@ describe("the template copy (sections 7.6 and 7.7, R2-21, F-CANVAS-09)", () => {
     expect(slotsOf(DASHBOARD_TEXT.lead.note)).toEqual(["word"]);
     expect(slotsOf(DASHBOARD_TEXT.toast.text)).toEqual(["person"]);
     expect(slotsOf(SETTINGS_TEXT.boat.color.hint)).toEqual(["word"]);
+    // The mobile template: the detail's alert sentence holds the word and the feed's crew entry the
+    // person; its title, amount, items and label are the copy's own fields.
+    expect(slotsOf(MOBILE_TEXT.detail.alert.note)).toEqual(["word"]);
+    expect(slotsOf(MOBILE_TEXT.feed.day.crew.text)).toEqual(["person"]);
   });
 
   it("links the article's text only to its sections and notes, and refers to each note once, in order", () => {
@@ -492,5 +512,39 @@ describe("the template copy (sections 7.6 and 7.7, R2-21, F-CANVAS-09)", () => {
     expect(SETTINGS_TEXT.moorings.units.options.length).toBeGreaterThan(1);
     expect(SETTINGS_TEXT.danger.dialog.cancel).toBe("Cancel");
     expect(SETTINGS_TEXT.danger.dialog.confirm).toBe(SETTINGS_TEXT.danger.action);
+  });
+
+  it("gives the mobile template its parts: three screens, a sheet's lead times, four tabs, one story", () => {
+    expect(Object.keys(MOBILE_TEXT.screens)).toEqual(["feed", "detail", "tabs"]);
+    // The sheet's lead times are distinct and hold the saved one.
+    const { options, value } = MOBILE_TEXT.sheet;
+    expect(options.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(options).size).toBe(options.length);
+    expect(options).toContain(value);
+    // Four tabs with distinct keys, the selected one among them; each label fits a quarter of a
+    // 360 px screen in the widest catalog face (six characters at most).
+    const keys = MOBILE_TEXT.tabs.items.map((tab) => tab.key);
+    expect(keys).toEqual(["today", "places", "alerts", "crew"]);
+    expect(keys).toContain(MOBILE_TEXT.tabs.selected);
+    for (const tab of MOBILE_TEXT.tabs.items) expect(tab.label.length).toBeLessThanOrEqual(6);
+    expect(MOBILE_TEXT.tabs.alerts.rules.length).toBe(3);
+    expect(new Set(MOBILE_TEXT.tabs.alerts.rules.map((rule) => rule.on))).toEqual(
+      new Set([true, false]),
+    );
+    expect(MOBILE_TEXT.tabs.crew.people.map((person) => person.name)).toContain(
+      copyOf("mobile", "real").person,
+    );
+    // One story with the console: the moorings read the dashboard's gauges, the first the sample
+    // tide at 09:30; the crew entry and the late gauge happen when the console's table says.
+    const readings = DASHBOARD_TEXT.gauges.readings;
+    const { levels } = MOBILE_TEXT.feed.moorings;
+    expect(levels.length).toBeGreaterThanOrEqual(copyOf("mobile", "real").items.length);
+    expect(levels).toEqual(readings.map((reading) => reading.level).slice(0, levels.length));
+    expect(levels[0]).toBe(Number(tideAt(9.5).toFixed(1)));
+    expect(MOBILE_TEXT.detail.place).toBe(copyOf("mobile", "real").items[0]);
+    const { crew, late } = MOBILE_TEXT.feed.day;
+    expect(clock(crew.hour)).toBe(readings[1]?.report);
+    expect(clock(late.hour)).toBe(readings[2]?.report);
+    expect(readings[2]?.state).toBe("late");
   });
 });

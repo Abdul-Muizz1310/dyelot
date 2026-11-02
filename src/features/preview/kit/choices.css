@@ -43,6 +43,18 @@
 .kit-radio:checked {
   box-shadow: inset 0 0 0 3px var(--background);
 }
+/* On a popover (a sheet): the label takes the popover's text role, the radio's well its fill. */
+.kit-check[data-surface="popover"],
+.kit-legend[data-surface="popover"] {
+  color: var(--popover-foreground);
+}
+.kit-check[data-surface="popover"] .kit-radio {
+  background-color: var(--popover);
+}
+.kit-check[data-surface="popover"] .kit-radio:checked {
+  background-color: var(--primary);
+  box-shadow: inset 0 0 0 3px var(--popover);
+}
 .kit-checkbox[aria-invalid="true"] {
   border-color: var(--destructive);
 }

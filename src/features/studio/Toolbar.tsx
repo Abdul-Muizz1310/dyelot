@@ -2,7 +2,7 @@
 
 import { type ReactNode, type RefObject, useId, useState } from "react";
 import { FrameSwitcher } from "@/features/preview/FrameSwitcher";
-import { TEMPLATE_LABELS } from "@/features/preview/templates";
+import { FIXED_FRAMES, TEMPLATE_LABELS } from "@/features/preview/templates";
 import { TOOL_BUTTON } from "./chrome";
 import { Choice, ChromeSwitch, Picker, same } from "./controls";
 import { isOneOf } from "./guards";
@@ -77,7 +77,11 @@ export function Toolbar({
     >
       {drawerButton("inputs", "Inputs")}
       {drawerButton("inspector", "Inspector")}
-      <FrameSwitcher frame={view.frame} onChange={(frame) => setView({ frame })} />
+      <FrameSwitcher
+        frame={view.frame}
+        fixed={FIXED_FRAMES[view.template]}
+        onChange={(frame) => setView({ frame })}
+      />
       <Picker
         label="Template"
         inline

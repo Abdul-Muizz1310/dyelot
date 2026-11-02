@@ -1,0 +1,55 @@
+/* The kit's bottom sheet (spec section 7.7, F-TPL-34): a scrim over the screen that holds it and a
+ * popover surface at its bottom edge, both positioned inside the screen (absolute), so the frame's
+ * scale holds them. The surface takes `--shadow-4` and `--radius-2xl` on its two top corners only. The
+ * scrim darkens in both modes: it mixes the text color in light and the page in dark, the two roles
+ * the layer names. */
+
+.kit-sheet-layer {
+  --kit-sheet-scrim: var(--foreground);
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  overscroll-behavior: contain;
+  background-color: color-mix(in oklab, var(--kit-sheet-scrim) 40%, transparent);
+  animation: kit-sheet-scrim var(--duration-base) var(--ease-decelerate);
+}
+[data-canvas][data-mode="dark"] .kit-sheet-layer {
+  --kit-sheet-scrim: var(--background);
+}
+.kit-bottom-sheet {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-6) var(--space-6);
+  border: 1px solid var(--border);
+  border-bottom: 0;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-4);
+  animation: kit-sheet-in var(--duration-base) var(--ease-decelerate);
+}
+.kit-bottom-sheet-title {
+  color: var(--popover-foreground);
+}
+.kit-bottom-sheet .kit-actions {
+  padding-top: var(--space-2);
+}
+/* Risen once: a later motion toggle never raises it again. */
+.kit-sheet-layer[data-settled],
+.kit-sheet-layer[data-settled] .kit-bottom-sheet {
+  animation: none;
+}
+
+@keyframes kit-sheet-scrim {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes kit-sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+}

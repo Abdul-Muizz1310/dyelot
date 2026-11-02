@@ -3,13 +3,20 @@
 import "./navigation.css";
 import { Bookmark, Check } from "lucide-react";
 import { m } from "motion/react";
-import { type KeyboardEvent, useId, useLayoutEffect, useRef, useState } from "react";
+import {
+  type KeyboardEvent,
+  type ReactNode,
+  useId,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import { useKitMotion } from "./motion";
 import type { KitState } from "./states";
 
-// The kit's tabs and menu (section 7.5). A specimen shows one tab or one menu item in a forced
-// state. The live tab list follows the ARIA tabs pattern: arrow keys, Home and End move the
-// selection with the focus, and the indicator slides on the spec's spring.
+// The kit's tabs, tab bar and menu (sections 7.5 and 7.7). A specimen shows one tab or one menu item
+// in a forced state. The live tab list and the tab bar follow the ARIA tabs pattern: arrow keys, Home
+// and End move the selection with the focus; the tab list's indicator slides on the spec's spring.
 
 const TAB_ROLES = "muted-foreground foreground muted primary";
 
@@ -151,6 +158,96 @@ export function MenuSpecimen({ state }: { state: KitState }) {
           Save the reading
         </div>
       )}
+    </div>
+  );
+}
+
+/** A tab of the tab bar: its key, its label and its icon. */
+export type TabBarItem<T extends string> = {
+  readonly key: T;
+  readonly label: string;
+  readonly icon: ReactNode;
+};
+
+/**
+ * A phone's tab bar (section 7.7, F-TPL-35): a named `tablist` of tabs, each an icon over its label,
+ * with one tab stop, the selected tab. ←, →, Home and End move the selection and the focus together
+ * (← and → wrap), and a click selects. The selection lives in the caller, so a view toggle keeps it;
+ * `ids(key)` names each tab and the `tabpanel` it controls, which the caller renders. The selected tab
+ * sets its icon on a `secondary` pill and its label in `foreground`; the others are `muted-foreground`.
+ */
+export function TabBar<T extends string>({
+  label,
+  items,
+  selected,
+  onSelect,
+  ids,
+}: {
+  label: string;
+  items: readonly TabBarItem<T>[];
+  selected: T;
+  onSelect: (key: T) => void;
+  ids: (key: T) => { readonly tab: string; readonly panel: string };
+}) {
+  const tabs = useRef(new Map<T, HTMLButtonElement>());
+  if (!items.some((item) => item.key === selected)) {
+    throw new RangeError(`TabBar: no tab ${JSON.stringify(selected)} among its items`);
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    const move = NEXT[event.key];
+    if (move === undefined) return;
+    event.preventDefault();
+    const next =
+      items[
+        move(
+          items.findIndex((item) => item.key === selected),
+          items.length,
+        )
+      ];
+    if (next === undefined) return;
+    onSelect(next.key);
+    tabs.current.get(next.key)?.focus();
+  }
+
+  return (
+    <div
+      role="tablist"
+      aria-label={label}
+      className="kit-tabbar"
+      data-roles="background border"
+      onKeyDown={onKeyDown}
+    >
+      {items.map((item) => {
+        const on = item.key === selected;
+        const { tab, panel } = ids(item.key);
+        return (
+          <button
+            key={item.key}
+            ref={(element) => {
+              if (element === null) tabs.current.delete(item.key);
+              else tabs.current.set(item.key, element);
+            }}
+            type="button"
+            role="tab"
+            id={tab}
+            aria-selected={on}
+            aria-controls={panel}
+            tabIndex={on ? 0 : -1}
+            className="kit-tabbar-tab kit-t-label"
+            data-roles={on ? "foreground" : "muted-foreground"}
+            onClick={() => onSelect(item.key)}
+          >
+            <span
+              className="kit-tabbar-pill"
+              data-roles={on ? "secondary secondary-foreground" : "muted muted-foreground"}
+            >
+              {item.icon}
+            </span>
+            {item.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

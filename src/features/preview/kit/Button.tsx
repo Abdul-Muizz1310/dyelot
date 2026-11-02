@@ -24,6 +24,7 @@ export function Button({
   onPress,
   describedBy,
   ref,
+  id,
   children,
 }: {
   variant: ButtonVariant;
@@ -34,12 +35,15 @@ export function Button({
   describedBy?: string;
   /** The button element, for a part that moves focus to it (the confirm dialog, its opener). */
   ref?: Ref<HTMLButtonElement>;
+  /** The id a link inside the template moves focus to (R2-20). */
+  id?: string;
   children: ReactNode;
 }) {
   const loading = state === "loading";
   return (
     <button
       ref={ref}
+      id={id}
       type="button"
       className="kit-button kit-t-label"
       data-kit={state === undefined ? undefined : "button"}
@@ -54,6 +58,33 @@ export function Button({
     >
       {loading ? <LoaderCircle aria-hidden="true" className="kit-spin" /> : icon}
       {children}
+    </button>
+  );
+}
+
+/**
+ * A button that shows an icon only (section 7.7): its name is `label`, in `aria-label`. It is ghost, the
+ * text color on the page with `muted` on hover, and a square of `--control-height`. Like every preview
+ * control it does nothing beyond its own state (R2-20).
+ */
+export function IconButton({
+  label,
+  icon,
+  onPress,
+}: {
+  label: string;
+  icon: ReactNode;
+  onPress?: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      className="kit-icon-button"
+      data-roles={BUTTON_ROLES.ghost}
+      onClick={onPress}
+    >
+      {icon}
     </button>
   );
 }

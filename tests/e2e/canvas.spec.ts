@@ -29,16 +29,18 @@ import {
 import {
   brokenWords,
   figureLines,
+  mobileOverflow,
   mountMotion,
   overflow,
+  screenOf,
   setFrame,
   showTemplate,
   templateRoot,
 } from "./template-support";
 
 // The canvas flows of docs/specs/02-studio.md, section 7.4 (Task 2.7): F-CANVAS-01 to 10 and 12 to
-// 19, with F-CANVAS-07 to 09 extended to the landing and editorial templates (Task 2.8) and to the
-// dashboard and settings templates (Task 2.9). F-CANVAS-11
+// 19, with F-CANVAS-07 to 09 extended to the landing and editorial templates (Task 2.8), to the
+// dashboard and settings templates (Task 2.9) and to the mobile template (Task 2.10a). F-CANVAS-11
 // ("Show me") is driven from the inspector and lands with it in Task 2.10. A flow that names no
 // viewport runs at 1280 × 800.
 
@@ -62,10 +64,10 @@ const reduceMotion = (page: Page) =>
   page.getByRole("switch", { name: "Reduce motion", exact: true });
 const modeSwitch = (page: Page) => page.getByRole("switch", { name: "Dark mode", exact: true });
 
-/** The page templates of sections 7.6 and 7.7 (Tasks 2.8 and 2.9). */
+/** The page templates of sections 7.6 and 7.7 (Tasks 2.8 and 2.9): they follow the frame switcher. */
 const PAGES = ["landing", "editorial", "dashboard", "settings"] as const;
-/** A template other than `id`, shown first so that `id` mounts afresh: the mobile stand-in. */
-const elsewhere = (id: TemplateId): TemplateId => (id === "mobile" ? "landing" : "mobile");
+/** A template other than `id`, shown first so that `id` mounts afresh. */
+const elsewhere = (id: TemplateId): TemplateId => (id === "landing" ? "editorial" : "landing");
 
 /** Opens the studio on the first stubbed design and shows the kitchen sink. */
 async function openSink(page: Page): Promise<void> {
@@ -918,7 +920,7 @@ test.describe("7.4 Motion on the page templates", () => {
     await openStudio(page);
     await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
     // Each template mounts under the preference: its entrance is in place from its first frame.
-    for (const id of PAGES) {
+    for (const id of [...PAGES, "mobile"] as const) {
       await showTemplate(page, elsewhere(id));
       const sampled = mountMotion(page, id);
       await templateSelect(page).selectOption(id);
@@ -974,6 +976,57 @@ test.describe("7.4 Motion on the page templates", () => {
     expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
     await expect(quiet).not.toHaveAttribute("aria-checked", before ?? "");
   });
+
+  test("F-CANVAS-07 Reduce motion stops the mobile template, keeps its tab and sheet and never replays the entrance", async ({
+    page,
+  }) => {
+    await stubSeeds(page);
+    await openStudio(page);
+    const mobile = await showTemplate(page, "mobile");
+    // Without the switch the template's parts transition.
+    expect((await motionReport(page)).running.length).toBeGreaterThan(0);
+    const bar = screenOf(mobile, "tabs").getByRole("tablist");
+    const places = bar.getByRole("tab", { name: "Places", exact: true });
+    await places.click();
+    await expect(places).toHaveAttribute("aria-selected", "true");
+    const detail = screenOf(mobile, "detail");
+    await detail.getByRole("button", { name: "Set an alert", exact: true }).click();
+    const sheet = detail.getByRole("dialog");
+    await expect(sheet).toBeVisible();
+    const hour = sheet.getByRole("radio", { name: "1 hour", exact: true });
+    await hour.check();
+    await sheet.evaluate((element) =>
+      Promise.allSettled(element.getAnimations().map((animation) => animation.finished)),
+    );
+    await reduceMotion(page).click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+    const report = await motionReport(page);
+    expect(report.elements).toBeGreaterThan(300);
+    expect(report.running).toEqual([]);
+    // Off again: the tab, the open sheet and its pick hold, the entrance does not replay, and the
+    // sheet does not rise again.
+    await reduceMotion(page).click();
+    await expect(reduceMotion(page)).toHaveAttribute("aria-checked", "false");
+    expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
+    await expect(places).toHaveAttribute("aria-selected", "true");
+    await expect(sheet).toBeVisible();
+    await expect(hour).toBeChecked();
+    expect(await sheet.evaluate((element) => element.getAnimations().length)).toBe(0);
+    await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(sheet).toHaveCount(0);
+    // Chosen while the switch is on, the template is in place from its first frame.
+    await reduceMotion(page).click();
+    await showTemplate(page, elsewhere("mobile"));
+    const sampled = mountMotion(page, "mobile");
+    await templateSelect(page).selectOption("mobile");
+    const mounted = await sampled;
+    expect(mounted.entrance).toEqual(["1 none"]);
+    expect(mounted.moved).toEqual([]);
+    expect(mounted.targets).toEqual([]);
+    expect((await motionReport(page)).running).toEqual([]);
+    await reduceMotion(page).click();
+    expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
+  });
 });
 
 test("F-CANVAS-09 edge-case copy fills the page templates' slots, and nothing breaks or overflows", async ({
@@ -1014,8 +1067,23 @@ test("F-CANVAS-09 edge-case copy fills the page templates' slots, and nothing br
     }
     await setFrame(page, 1280);
   }
+  // The mobile template's screens are 360 px whatever the switcher holds: measured once.
+  const mobile = await showTemplate(page, "mobile");
+  for (const text of [edge.word, edge.title, edge.person, edge.amount]) {
+    await expect(mobile.getByText(text, { exact: false }).first(), `mobile ${text}`).toBeVisible();
+  }
+  await expect(mobile.locator("[data-copy-label]").first()).toHaveText(edge.label);
+  await expect(mobile.locator("[data-list]")).toHaveAttribute("data-empty", "");
+  await expect(mobile.locator("[data-list-item]")).toHaveCount(0);
+  const lines = await figureLines(mobile);
+  expect(lines.length, "mobile figures").toBeGreaterThan(0);
+  expect(lines.filter((line) => !line.endsWith(" 1"))).toEqual([]);
+  const words = await brokenWords(mobile);
+  expect(words.checked, "mobile words").toBeGreaterThan(80);
+  expect(words.broken).toEqual([]);
+  expect(await mobileOverflow(mobile)).toEqual([]);
   await toolbarRadio(page, "Copy", "Real copy").check();
-  for (const id of PAGES) {
+  for (const id of [...PAGES, "mobile"] as const) {
     const root = await showTemplate(page, id);
     expect(await root.locator("[data-list-item]").count(), id).toBeGreaterThan(1);
     await expect(root.locator("[data-copy-label]").first(), id).not.toHaveText(edge.label);

@@ -17,7 +17,7 @@ function focusTarget(event: MouseEvent<HTMLAnchorElement>, id: string, part: str
   target.focus();
 }
 
-type LinkTone = "prose" | "quiet" | "sidebar";
+type LinkTone = "prose" | "quiet" | "sidebar" | "touch";
 
 /** The roles a link paints with, by tone; a sidebar link takes the accent pair on hover and when current. */
 function linkRoles(tone: LinkTone, current: boolean): string {
@@ -26,6 +26,8 @@ function linkRoles(tone: LinkTone, current: boolean): string {
       return "primary";
     case "quiet":
       return "foreground";
+    case "touch":
+      return "primary";
     case "sidebar":
       return current
         ? "sidebar-accent sidebar-accent-foreground"
@@ -40,7 +42,8 @@ function linkRoles(tone: LinkTone, current: boolean): string {
 /**
  * A link to the element `to` names inside the template. `prose` is the article's link, `primary`
  * text with an underline (F-TPL-20); `quiet` is a navigation link in the text color; `sidebar` is a
- * link of the dashboard's sidebar, on the sidebar roles, and `current` marks the page it is on.
+ * link of the dashboard's sidebar, on the sidebar roles, and `current` marks the page it is on; `touch`
+ * is a link on a phone screen, `primary` text at least `--control-height` on each side (F-TPL-33).
  */
 export function TextLink({
   to,

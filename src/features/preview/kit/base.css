@@ -8,6 +8,12 @@
  * fields sm, cards xl, sheets 2xl, chips and switches full.
  * ───────────────────────────────────────────────────────────── */
 
+/* The density's control height, kept on every canvas so a touch surface can raise it from there
+ * (kit/phone.css, spec section 7.7). */
+[data-canvas] {
+  --kit-density-control: var(--control-height);
+}
+
 /* Type steps */
 .kit-t-caption {
   font-size: var(--text-caption);

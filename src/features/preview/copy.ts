@@ -1,7 +1,7 @@
 import { assertOneOf } from "@/features/studio/guards";
 
 // The canvas copy (spec R2-21, sections 7.6 and 7.7, F-CANVAS-09): real sample copy for each template,
-// set in the world of a fictional tide-reading app, its console and an essay on natural dyes, and the one edge-case copy
+// set in the world of a fictional tide-reading app, its console, its phone app and an essay on natural dyes, and the one edge-case copy
 // that tests a layout: a 40-character unbroken word, a 90-character title, a name with diacritics, a
 // large number, an empty list and a one-character label. Places, people, prices and readings are
 // fictional and labeled "sample". Pure data, deeply frozen.
@@ -824,15 +824,213 @@ export const SETTINGS_TEXT: SettingsText = frozen<SettingsText>({
   },
 });
 
+// ── The mobile template: Saltmarsh's phone app (section 7.7) ──────────────────────────────────
+
+/** The mobile template's three screens, in order. */
+export type MobileScreen = "feed" | "detail" | "tabs";
+/** The tabs of the app's tab bar, in order. */
+export type MobileTab = "today" | "places" | "alerts" | "crew";
+
+export type MobileText = {
+  readonly brand: string;
+  readonly sample: string;
+  /** Each screen's caption on the board, which names its region. */
+  readonly screens: Readonly<Record<MobileScreen, string>>;
+  readonly feed: {
+    /** The app bar's icon button. */
+    readonly search: string;
+    readonly intro: string;
+    readonly now: {
+      readonly label: string;
+      readonly place: string;
+      readonly falling: string;
+      readonly rising: string;
+      /** The link to the detail screen. */
+      readonly open: string;
+    };
+    readonly day: {
+      readonly title: string;
+      readonly high: string;
+      readonly low: string;
+      /** The badge on the day's next tide event. */
+      readonly next: string;
+      /** A reading logged by the crew, at `hour`: it holds the `person` slot. */
+      readonly crew: { readonly hour: number; readonly text: Rich };
+      /** A gauge that has gone quiet, at the hour of its last report. */
+      readonly late: { readonly hour: number; readonly text: string; readonly badge: string };
+    };
+    readonly moorings: {
+      readonly title: string;
+      /** Each saved mooring's level now, in meters, in the order of the copy's items. */
+      readonly levels: readonly number[];
+      readonly empty: string;
+    };
+  };
+  readonly detail: {
+    /** The link back to the feed. */
+    readonly back: string;
+    readonly share: string;
+    readonly place: string;
+    readonly gauge: string;
+    /** The words after the change in the last hour. */
+    readonly change: string;
+    readonly events: string;
+    /** The start of the curve's name; the day's events and the "now" time follow. */
+    readonly figure: string;
+    readonly now: string;
+    readonly stored: string;
+    readonly alert: {
+      readonly label: string;
+      /** The sentence of the alert row: it holds the `word` slot. */
+      readonly note: Rich;
+      readonly action: string;
+    };
+  };
+  readonly sheet: {
+    readonly title: string;
+    readonly body: string;
+    readonly legend: string;
+    readonly options: readonly string[];
+    /** The lead time saved at first. */
+    readonly value: string;
+    readonly cancel: string;
+    readonly save: string;
+  };
+  readonly tabs: {
+    /** The tab bar's accessible name. */
+    readonly label: string;
+    readonly items: readonly { readonly key: MobileTab; readonly label: string }[];
+    /** The tab the screen opens on. */
+    readonly selected: MobileTab;
+    readonly today: { readonly title: string; readonly intro: string };
+    readonly places: { readonly title: string; readonly intro: string };
+    readonly alerts: {
+      readonly title: string;
+      readonly rules: readonly { readonly label: string; readonly on: boolean }[];
+      readonly note: string;
+      /** The link to the detail screen's "Set an alert". */
+      readonly link: string;
+    };
+    readonly crew: {
+      readonly title: string;
+      readonly people: readonly { readonly name: string; readonly role: string }[];
+    };
+  };
+};
+
+const MOBILE_REAL: CanvasCopy = frozen<CanvasCopy>({
+  title: "Today at your moorings",
+  word: "slipway",
+  person: "Tamsin Rook",
+  amount: "2,916",
+  items: SAMPLE_PLACES.slice(0, 3),
+  label: "Spring",
+});
+
+export const MOBILE_TEXT: MobileText = frozen<MobileText>({
+  brand: "Saltmarsh",
+  sample: "sample",
+  screens: { feed: "Feed", detail: "Detail and sheet", tabs: "Tab bar" },
+  feed: {
+    search: "Search moorings",
+    intro: "Sample readings from your gauges, Thursday.",
+    now: {
+      label: "Water now",
+      place: SAMPLE_PLACES[0],
+      falling: "Falling to low water",
+      rising: "Rising to high water",
+      open: `Open ${SAMPLE_PLACES[0]}`,
+    },
+    day: {
+      title: "On the water today",
+      high: "High water",
+      low: "Low water",
+      next: "Next",
+      // The console's table (section 7.7): Heron Staithe reported at 09:26, Gull Point last at 08:52.
+      crew: {
+        hour: 9 + 26 / 60,
+        text: [{ slot: "person" }, ` logged 2.3 m at ${SAMPLE_PLACES[1]}.`],
+      },
+      late: {
+        hour: 8 + 52 / 60,
+        text: `The gauge at ${SAMPLE_PLACES[2]} has gone quiet.`,
+        badge: "Late",
+      },
+    },
+    moorings: {
+      title: "Your moorings",
+      // The console's gauges, so the phone and the console tell one story.
+      levels: DASHBOARD_TEXT.gauges.readings.map((reading) => reading.level).slice(0, 3),
+      empty: "No moorings saved yet. Save one from its tide table.",
+    },
+  },
+  detail: {
+    back: "Today",
+    share: "Share this mooring",
+    place: SAMPLE_PLACES[0],
+    gauge: "Gauge 1 of 4, sample readings",
+    change: "in the last hour",
+    events: "Today's tides",
+    figure: "Sample tide curve for today",
+    now: "now",
+    stored: "Readings this season",
+    alert: {
+      label: "Alert before high water",
+      note: ["Saltmarsh tells you before the water reaches the ", { slot: "word" }, "."],
+      action: "Set an alert",
+    },
+  },
+  sheet: {
+    title: "Alert me before high water",
+    body: "Pick how early Saltmarsh warns you. In this sample, nothing is sent.",
+    legend: "How early",
+    options: ["15 min", "30 min", "1 hour", "2 hours"],
+    value: "30 min",
+    cancel: "Cancel",
+    save: "Save alert",
+  },
+  tabs: {
+    label: "Saltmarsh, sample",
+    items: [
+      { key: "today", label: "Today" },
+      { key: "places", label: "Places" },
+      { key: "alerts", label: "Alerts" },
+      { key: "crew", label: "Crew" },
+    ],
+    selected: "alerts",
+    today: { title: "Today", intro: `The next tides at ${SAMPLE_PLACES[0]}, sample.` },
+    places: { title: "Places", intro: "Every gauge the crew reads, sample." },
+    alerts: {
+      title: "Alerts",
+      rules: [
+        { label: `High water at ${SAMPLE_PLACES[0]}`, on: true },
+        { label: `Low water at ${SAMPLE_PLACES[0]}`, on: false },
+        { label: "A gauge that goes quiet", on: true },
+      ],
+      note: "Sample alerts. Nothing is sent from this preview.",
+      link: "Change how early alerts come",
+    },
+    crew: {
+      title: "Crew",
+      people: [
+        { name: "Maren Holt", role: "Skipper, owner" },
+        { name: "Tamsin Rook", role: "Crew" },
+        { name: "Ivo Penhale", role: "Crew, harbor office" },
+      ],
+    },
+  },
+});
+
 // ── Which copy a template shows ───────────────────────────────────────────────────────────────
 
-/** The templates whose copy lives here; the mobile template joins with Task 2.10. */
+/** The templates whose copy lives here. */
 export const COPY_OWNERS = Object.freeze([
   "kitchen-sink",
   "landing",
   "editorial",
   "dashboard",
   "settings",
+  "mobile",
 ] as const);
 export type CopyOwner = (typeof COPY_OWNERS)[number];
 
@@ -844,6 +1042,7 @@ const REAL: Readonly<Record<CopyOwner, CanvasCopy>> = Object.freeze({
   editorial: EDITORIAL_REAL,
   dashboard: DASHBOARD_REAL,
   settings: SETTINGS_REAL,
+  mobile: MOBILE_REAL,
 });
 
 /**

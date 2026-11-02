@@ -6,12 +6,12 @@ import { Dashboard } from "./Dashboard";
 import { Editorial } from "./Editorial";
 import { KitchenSink } from "./KitchenSink";
 import { Landing } from "./Landing";
-import { Pending } from "./Pending";
+import { Mobile } from "./Mobile";
 import { Settings } from "./Settings";
 
 // The canvas templates (spec section 7.4): the kitchen sink (Task 2.7), the landing page and the
-// editorial article (Task 2.8), the dashboard and the settings (Task 2.9); the mobile template
-// arrives with Task 2.10 and shows a stand-in now.
+// editorial article (Task 2.8), the dashboard and the settings (Task 2.9), and the mobile template
+// (Task 2.10a).
 
 /** The template switcher's labels, in the order of `TEMPLATE_IDS`. */
 export const TEMPLATE_LABELS: Readonly<Record<TemplateId, string>> = Object.freeze({
@@ -21,6 +21,14 @@ export const TEMPLATE_LABELS: Readonly<Record<TemplateId, string>> = Object.free
   mobile: "mobile",
   editorial: "editorial",
   "kitchen-sink": "kitchen sink",
+});
+
+/**
+ * The templates whose screens keep their own width whatever the frame switcher holds, with the note the
+ * disabled switcher shows (F-TPL-32): the mobile template draws three 360 px screens.
+ */
+export const FIXED_FRAMES: Readonly<Partial<Record<TemplateId, string>>> = Object.freeze({
+  mobile: "Three 360 px screens",
 });
 
 export function Template({ spec, view }: { spec: DesignSpec; view: View }) {
@@ -35,7 +43,11 @@ export function Template({ spec, view }: { spec: DesignSpec; view: View }) {
       return <Dashboard view={view} />;
     case "settings":
       return <Settings spec={spec} view={view} />;
-    default:
-      return <Pending id={view.template} label={TEMPLATE_LABELS[view.template]} />;
+    case "mobile":
+      return <Mobile view={view} />;
+    default: {
+      const unknown: never = view.template;
+      throw new RangeError(`Template: no template ${JSON.stringify(unknown)}`);
+    }
   }
 }

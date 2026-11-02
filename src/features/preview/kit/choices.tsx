@@ -25,7 +25,7 @@ export function Checkbox({ label, state }: { label: string; state: KitState }) {
           className="kit-checkbox"
           data-kit="checkbox"
           data-state={state}
-          data-roles="input background primary primary-foreground"
+          data-roles="input background primary primary-foreground foreground"
           defaultChecked={state === "selected"}
           disabled={state === "disabled"}
           aria-invalid={state === "invalid" || undefined}
@@ -38,11 +38,37 @@ export function Checkbox({ label, state }: { label: string; state: KitState }) {
   );
 }
 
-/** A radio. On its own it is a group of one (a specimen); a `RadioGroup` gives its radios one `name`. */
-export function Radio({ label, state, name }: { label: string; state: KitState; name?: string }) {
+/** The surface a choice sits on: the page, or a popover (a sheet), whose text role it takes. */
+export type ChoiceSurface = "page" | "popover";
+
+/** The roles of a choice's label and of its radio, by the surface it sits on. */
+const SURFACE_ROLES: Readonly<Record<ChoiceSurface, { label: string; radio: string }>> = {
+  page: { label: "foreground", radio: "input background primary foreground" },
+  popover: { label: "popover-foreground", radio: "input popover primary foreground" },
+};
+
+/**
+ * A radio. On its own it is a group of one (a specimen); a `RadioGroup` gives its radios one `name`
+ * and, when its caller listens, `onPick`. On a popover (`surface`) its label takes the popover's text
+ * role and its well the popover's fill.
+ */
+export function Radio({
+  label,
+  state,
+  name,
+  onPick,
+  surface = "page",
+}: {
+  label: string;
+  state: KitState;
+  name?: string;
+  onPick?: () => void;
+  surface?: ChoiceSurface;
+}) {
   const own = useId();
+  const roles = SURFACE_ROLES[surface];
   return (
-    <label className="kit-check kit-t-body-sm" data-roles="foreground">
+    <label className="kit-check kit-t-body-sm" data-surface={surface} data-roles={roles.label}>
       <span className="kit-check-box">
         <input
           type="radio"
@@ -50,9 +76,10 @@ export function Radio({ label, state, name }: { label: string; state: KitState; 
           className="kit-radio"
           data-kit="radio"
           data-state={state}
-          data-roles="input background primary"
+          data-roles={roles.radio}
           defaultChecked={state === "selected"}
           disabled={state === "disabled"}
+          onChange={onPick}
         />
       </span>
       {label}
@@ -124,20 +151,29 @@ export function Segmented({ legend, options }: { legend: string; options: readon
   );
 }
 
-/** A labeled group of radios that share one name; `value` starts checked. */
+/** A labeled group of radios that share one name; `value` starts checked, and `onChange` hears each pick. */
 export function RadioGroup({
   legend,
   options,
   value,
+  onChange,
+  surface = "page",
 }: {
   legend: string;
   options: readonly string[];
   value: string;
+  onChange?: (value: string) => void;
+  /** The surface the group sits on, the page or a popover (a sheet). */
+  surface?: ChoiceSurface;
 }) {
   const name = useId();
   return (
     <fieldset className="kit-fieldset">
-      <legend className="kit-legend kit-t-label" data-roles="foreground">
+      <legend
+        className="kit-legend kit-t-label"
+        data-surface={surface}
+        data-roles={SURFACE_ROLES[surface].label}
+      >
         {legend}
       </legend>
       <div className="kit-choice-list">
@@ -147,6 +183,8 @@ export function RadioGroup({
             label={option}
             name={name}
             state={option === value ? "selected" : "default"}
+            onPick={onChange === undefined ? undefined : () => onChange(option)}
+            surface={surface}
           />
         ))}
       </div>
