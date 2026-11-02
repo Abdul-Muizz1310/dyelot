@@ -1502,9 +1502,15 @@ async function expectBarStays(page: Page, name: string): Promise<void> {
 /**
  * F-TPL-30: opens the settings' confirm dialog three times and clicks its description, its title and
  * then its scrim. After each click focus stays inside the dialog, and Escape closes it and gives
- * focus back to the opener.
+ * focus back to the opener. `held`, if given, runs while the dialog itself holds focus after the
+ * click on its description: there no button keeps the arrows, only the canvas region's rule does.
  */
-async function clickInsideDialog(page: Page, root: Locator, opener: Locator): Promise<void> {
+async function clickInsideDialog(
+  page: Page,
+  root: Locator,
+  opener: Locator,
+  held?: () => Promise<void>,
+): Promise<void> {
   const inDialog = () =>
     page.evaluate(() => document.activeElement?.closest("[role='alertdialog']") != null);
   for (const where of ["description", "title", "scrim"] as const) {
@@ -1520,6 +1526,10 @@ async function clickInsideDialog(page: Page, root: Locator, opener: Locator): Pr
       await layer.click({ position: { x: 6, y: (box?.height ?? 0) / 2 } });
     }
     expect(await inDialog(), `after a click on the ${where}`).toBe(true);
+    if (where === "description" && held !== undefined) {
+      await expect(dialog).toBeFocused();
+      await held();
+    }
     await page.keyboard.press("Escape");
     await expect(dialog, `Escape after a click on the ${where}`).toHaveCount(0);
     await expect(opener).toBeFocused();
@@ -1828,12 +1838,6 @@ test.describe("7.7 The dashboard and settings templates", () => {
         expect(await inDialog(), key).toBe(true);
       }
       await cancel.focus();
-      // The studio's keys do nothing here: no undo or redo, so the lot and the history hold.
-      for (const key of ["ArrowLeft", "ArrowRight"]) await page.keyboard.press(key);
-      await expect(dialog).toBeVisible();
-      await expect(lotId(page)).toHaveText(lot ?? "");
-      await expect(undo).toHaveAttribute("aria-disabled", "false");
-      await expect(redo).toHaveAttribute("aria-disabled", "true");
       if (close === "Escape") {
         const results = await new AxeBuilder({ page })
           .include("[data-canvas][data-frame]")
@@ -1847,8 +1851,14 @@ test.describe("7.7 The dashboard and settings templates", () => {
       await expect(opener).toBeFocused();
     }
     // A click on the dialog's text, on its title or on the scrim keeps focus inside it, so Escape
-    // still closes it.
-    await clickInsideDialog(page, root, opener);
+    // still closes it. With the dialog itself focused, the studio's keys do nothing: no undo or redo,
+    // so the lot and the history hold.
+    await clickInsideDialog(page, root, opener, async () => {
+      for (const key of ["ArrowLeft", "ArrowRight"]) await page.keyboard.press(key);
+      await expect(lotId(page)).toHaveText(lot ?? "");
+      await expect(undo).toHaveAttribute("aria-disabled", "false");
+      await expect(redo).toHaveAttribute("aria-disabled", "true");
+    });
     expect(await page.evaluate(() => (window as unknown as { __escapes: number }).__escapes)).toBe(
       0,
     );
