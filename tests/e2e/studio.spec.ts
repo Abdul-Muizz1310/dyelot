@@ -1882,6 +1882,8 @@ test.describe("7.9 Accessibility", () => {
     await page.setViewportSize(PHONE);
     await openStudio(page);
     await button(page, "Inputs").click();
+    // The drawer shows at once, so its heading takes focus (Task 2.10b).
+    await expect(inputsAside(page).getByRole("heading", { name: "Inputs" })).toBeFocused();
     const durations = await page.evaluate(() =>
       [...document.querySelectorAll("aside, [data-toast]")].flatMap((el) =>
         getComputedStyle(el)
