@@ -1004,13 +1004,22 @@ test.describe("7.4 Motion on the page templates", () => {
     expect(report.elements).toBeGreaterThan(300);
     expect(report.running).toEqual([]);
     // Off again: the tab, the open sheet and its pick hold, the entrance does not replay, and the
-    // sheet does not rise again.
+    // sheet does not rise again: every animation that starts in its layer from here on is counted,
+    // so a rise that ends before the checks below still shows.
+    await sheet.evaluate((element) => {
+      const counted = window as unknown as { __rises: number };
+      counted.__rises = 0;
+      element.closest(".kit-sheet-layer")?.addEventListener("animationstart", () => {
+        counted.__rises += 1;
+      });
+    });
     await reduceMotion(page).click();
     await expect(reduceMotion(page)).toHaveAttribute("aria-checked", "false");
     expect(new Set(await entranceOpacities(page))).toEqual(new Set([1]));
     await expect(places).toHaveAttribute("aria-selected", "true");
     await expect(sheet).toBeVisible();
     await expect(hour).toBeChecked();
+    expect(await page.evaluate(() => (window as unknown as { __rises: number }).__rises)).toBe(0);
     expect(await sheet.evaluate((element) => element.getAnimations().length)).toBe(0);
     await sheet.getByRole("button", { name: "Cancel", exact: true }).click();
     await expect(sheet).toHaveCount(0);
