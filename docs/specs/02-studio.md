@@ -1652,12 +1652,14 @@ Three terms the cases use:
 - A **logo row** is an element with three or more children that each hold only an image (an `img`, an `svg` that is not a
   lucide icon, or an element with `role="img"`) and no text.
 - Two parts are of **equal size** when their layout widths and heights each differ by 1 px or less.
+- Text is **visually hidden** when a box that `overflow: hidden` clips to at most 1 × 1 px holds it (the chart's data table
+  of section 7.7, a rail link's label). It is not on screen, so the overflow measure of F-TPL-09 skips it.
 
 An SVG in a template is either a lucide icon or a drawn figure (`data-figure`, `role="img"` and a name), such as the tide curve.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| F-TPL-09 | pass | The landing page renders in the 360, 768 and 1280 px frames without overflow (`scrollWidth` at most `clientWidth`, and no element's box extends past the frame's right edge) | plan |
+| F-TPL-09 | pass | The landing page renders in the 360, 768 and 1280 px frames without overflow (`scrollWidth` at most `clientWidth`, and no element's box extends past the frame's right edge; visually hidden text is not measured) | plan |
 | F-TPL-10 | pass | The editorial article renders in all three frames without overflow, by the same measure | plan |
 | F-TPL-11 | pass | The editorial body paragraph measure is 60 to 75 characters: its computed `max-width` divided by the width of `1ch` in its font falls in [60, 75], and at the 1280 frame its laid-out width, in the same `ch`, falls in [60, 75] too; the figure, the code block and the quote end at the same right edge as the text | plan, research D1 rule 19, review |
 | F-TPL-12 | pass | Both templates pass axe with zero violations in light and in dark, at 360 and at 1280 px. The color-contrast nodes axe cannot decide (`incomplete`, the parts of the landing's tide card over the `primary` block) lie only inside that card, and the test measures its pair: `wcagRatio` of `card-foreground` on `card` is at least 4.5 in both modes | plan, review |
@@ -1695,19 +1697,20 @@ The dashboard, "Saltmarsh's console":
   `sidebar-primary` and the current link `sidebar-accent` with `sidebar-accent-foreground`. From 768 px of frame it is a column
   of labeled links; below 768 px it collapses by container query to a rail of icons, and each link keeps its name in visually
   hidden text. Its links move focus to the page's sections (F-TPL-20).
-- **Header:** the `h1` and the command button. The shortcut hint is text in a `kbd`, hidden from the accessibility tree; no key
-  is bound to it, and the button does nothing (R2-20).
+- **Header:** the `h1` and the command button. The shortcut hint is text in a `kbd`, hidden from the accessibility tree, so the
+  button's name is its label; no key is bound to it, and the button does nothing (R2-20).
 - **Filters:** a segmented range and three state chips, in a labeled group. Each changes only its own state (R2-20).
 - **KPI row** (`data-kpis`, the template's one entrance): a lead value on a `card` beside a list of three values, varied by
   hierarchy. No KPI is an icon card. Each value (`data-kpi-value`) is a figure in tabular numerals; below 480 px of frame the
-  lead value sets the `h2` triple instead of `h1`, by the variable override of section 7.6.
+  lead value sets the `h2` triple instead of `h1`, by the variable override of section 7.6. The lead value is the sample tide
+  (section 6.12) at 09:30 at the first mooring, and the gauge table's first row reads the same level and hourly change.
 - **Chart** (`data-chart`): a drawn figure of the week's alerts as stacked bars, one kind per chart role in order (`chart-1` to
   `chart-5`), gridlines in `border`, axis labels in `muted-foreground`. Its accessible name sums it up (the week's total, each
   kind's total and the busiest day), and a visually hidden table holds every value it draws. The numbers come from `stackBars`
   (section 6.13).
 - **Dense table** (`data-list`, rows `data-list-item`): the gauges at the saved moorings, with numeric cells (`data-numeric`:
   level, change in the last hour, battery) and a state badge. Below 640 px of frame the change and battery columns leave the
-  layout (`display: none`).
+  layout (`display: none`), and below 480 px the report column does too.
 - **Toast** (`role="status"`): inside the template, not in a portal or the top layer. Its dismissal is state of the dashboard,
   so a view toggle keeps it. The **empty panel** (`data-empty-panel`) has a title, a sentence and one action.
 
@@ -1715,8 +1718,9 @@ The settings:
 - **Its own scroll area.** The template is an app window of a fixed height (36rem below 640 px of frame, 45rem from 640 px).
   Its form scrolls inside a scroll area that the template owns (`data-scroll-area`, `overflow-y: auto`), and the save bar
   (`data-save-bar`) is sticky to that area's bottom, never to the canvas region (section 7.6). The area's bottom scroll padding
-  is the bar's height, so a field that takes focus is never under the bar (WCAG 2.4.11). At a 1280 × 800 window the whole
-  template fits in the canvas region in each frame.
+  is the bar's height, so a field that takes focus is never under the bar (WCAG 2.4.11). Below 480 px of frame the bar's
+  note leaves the layout, so its two actions keep one row. At a 1280 × 800 window the whole template fits in the canvas
+  region in each frame.
 - **Fields.** Each control has a visible label tied to it (`label` with `for`, a wrapping `label`, or a `legend` for a group).
   Native controls (date, color, range) take their tint from the canvas's `accent-color` and `color-scheme`; no source names a
   system color. The color input starts at the design's `chart-1` (under the view's vision) until the user picks one.
@@ -1743,7 +1747,7 @@ Under "Edge-case copy" each template swaps the six cases of R2-21 into its slots
 | F-TPL-24 | pass | The dashboard's table is dense: each body row's layout height equals `--control-height` within 1 px in each of the three densities, so the density toggle changes it (40, 36 and 32 px) | decision |
 | F-TPL-25 | pass | The dashboard renders in all three frames without overflow (the measure of F-TPL-09). The sidebar paints `--sidebar`, `--sidebar-foreground` and `--sidebar-border`; at the 768 and 1280 frames it is at least 200 px wide with its link labels laid out, and below 768 px (the 360 frame) it collapses by container query to a rail at most 64 px wide whose links keep their accessible names | plan, review |
 | F-TPL-26 | pass | The dashboard shows a toast (`role="status"`) inside its template root and an empty panel (`data-empty-panel`) with a title (a heading), a sentence and exactly one action (a button). Dismissing the toast removes it, and toggling the mode keeps it dismissed | decision, review |
-| F-TPL-27 | pass | The dashboard and settings pass axe with zero violations in light and dark at 1280 px, and at 360 px; every color-contrast node axe cannot decide (`incomplete`) is in the test's explicit list | plan, review |
+| F-TPL-27 | pass | The dashboard and settings pass axe with zero violations in light and dark at 1280 px, and at 360 px. Every color-contrast node axe cannot decide (`incomplete`) is a segment of the filters' segmented control, whose radio covers its label; the test measures those two pairs (`muted-foreground` on `muted`, `foreground` on `background`) at 4.5:1 or more in both modes | plan, review |
 | F-TPL-28 | pass | The settings page renders every input type listed, each with a visible label tied to it: `input` of type text, email, password, number, range, date and color, a `textarea`, a `select`, a checkbox, a radio group (its `legend`) and a switch (`role="switch"`) | plan |
 | F-TPL-29 | pass | Every validation state renders for the text input: default, focus (the forced `focus-visible`: a 2 px solid `--ring` outline), invalid (message below, `aria-invalid`, `aria-describedby` naming the message), valid (`data-state="success"` and its message, no `aria-invalid`), disabled, read-only | plan |
 | F-TPL-30 | pass | The danger zone's destructive button opens a confirm dialog (`role="alertdialog"`, `aria-modal="true"`, a label and a description) with "Cancel" and a destructive action, positioned over the template (`position: absolute`, not in the top layer). While it is open the rest of the template is `inert` and axe finds no violation; focus starts on "Cancel"; Tab and Shift+Tab stay in the dialog; Escape and "Cancel" each close it and return focus to the opener. The Escape press never reaches the window, so no studio shortcut or drawer reacts, at 1280 × 800 and at 360 × 740; Space and the arrows in the dialog do not regenerate, undo or redo | research D1 (Nielsen), ruling |
