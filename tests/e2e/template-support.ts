@@ -267,7 +267,7 @@ export async function unnamedPaint(
   scope: Locator,
 ): Promise<{ checked: number; unnamed: string[] }> {
   await installColorResolver(scope.page());
-  return scope.evaluate((root, roles) => {
+  const report = await scope.evaluate((root, roles) => {
     const resolve = (window as unknown as ColorHost).__dyelotRgba;
     if (resolve === undefined) throw new Error("unnamedPaint: no color resolver");
     const probe = document.createElement("span");
@@ -351,43 +351,61 @@ export async function unnamedPaint(
         unnamed.set(name, (unnamed.get(name) ?? 0) + 1);
       }
     }
-    // A face token's carrier (fix round 1, I-1): never the template root, and no text in the other face
-    // below it, so "show me" lands on the text in question. Faces that cannot be told apart are skipped.
-    if (display !== body) {
-      const holds = { display: new Set<Element>(), body: new Set<Element>() };
-      for (const element of [root, ...root.querySelectorAll("*")]) {
-        const own = [...element.childNodes].some(
-          (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "",
-        );
-        if (!own) continue;
-        const family = getComputedStyle(element).fontFamily;
-        const face = family === display ? "display" : family === body ? "body" : null;
-        if (face === null) continue;
-        for (let node: Element | null = element; node !== null; node = node.parentElement) {
-          holds[face].add(node);
-          if (node === root) break;
-        }
-      }
-      for (const carrier of [root, ...root.querySelectorAll("[data-roles]")]) {
-        const named = (carrier.getAttribute("data-roles") ?? "").split(/\s+/);
-        const label = `${carrier.tagName.toLowerCase()}.${[...carrier.classList].join(".")}`;
-        for (const [token, other] of [
-          ["font-display", "body"],
-          ["font-body", "display"],
-        ] as const) {
-          if (!named.includes(token)) continue;
-          if (carrier.hasAttribute("data-template-root")) {
-            const name = `${label} names ${token} on the template root`;
-            unnamed.set(name, (unnamed.get(name) ?? 0) + 1);
-          } else if (holds[other].has(carrier)) {
-            const name = `${label} names ${token} around ${other}-face text`;
-            unnamed.set(name, (unnamed.get(name) ?? 0) + 1);
-          }
-        }
-      }
-    }
     return { checked, unnamed: [...unnamed].map(([name, count]) => `${name} ×${count}`) };
   }, ROLE_NAMES);
+  return { checked: report.checked, unnamed: [...report.unnamed, ...(await faceCarriers(scope))] };
+}
+
+/**
+ * F-TPL-39, F-INSP-15: the face tokens' carriers in `scope` that "show me" would box wrongly. An element
+ * naming `font-display` or `font-body` is never the template root, and no element whose own text is
+ * set in the other face sits inside it (fix round 1, I-1), so the outline lands on the text in
+ * question. Faces that cannot be told apart are skipped. Each entry reads "<element> names <token> on
+ * the template root ×n" or "<element> names <token> around <face>-face text ×n".
+ */
+export function faceCarriers(scope: Locator): Promise<string[]> {
+  return scope.evaluate((root) => {
+    const probe = document.createElement("span");
+    root.append(probe);
+    probe.style.fontFamily = "var(--font-display)";
+    const display = getComputedStyle(probe).fontFamily;
+    probe.style.fontFamily = "var(--font-body)";
+    const body = getComputedStyle(probe).fontFamily;
+    probe.remove();
+    if (display === body) return [];
+    const found = new Map<string, number>();
+    const holds = { display: new Set<Element>(), body: new Set<Element>() };
+    for (const element of [root, ...root.querySelectorAll("*")]) {
+      const own = [...element.childNodes].some(
+        (node) => node.nodeType === Node.TEXT_NODE && (node.textContent ?? "").trim() !== "",
+      );
+      if (!own) continue;
+      const family = getComputedStyle(element).fontFamily;
+      const face = family === display ? "display" : family === body ? "body" : null;
+      if (face === null) continue;
+      for (let node: Element | null = element; node !== null; node = node.parentElement) {
+        holds[face].add(node);
+        if (node === root) break;
+      }
+    }
+    for (const carrier of [root, ...root.querySelectorAll("[data-roles]")]) {
+      const named = (carrier.getAttribute("data-roles") ?? "").split(/\s+/);
+      const label = `${carrier.tagName.toLowerCase()}.${[...carrier.classList].join(".")}`;
+      for (const [token, other] of [
+        ["font-display", "body"],
+        ["font-body", "display"],
+      ] as const) {
+        if (!named.includes(token)) continue;
+        const name = carrier.hasAttribute("data-template-root")
+          ? `${label} names ${token} on the template root`
+          : holds[other].has(carrier)
+            ? `${label} names ${token} around ${other}-face text`
+            : null;
+        if (name !== null) found.set(name, (found.get(name) ?? 0) + 1);
+      }
+    }
+    return [...found].map(([name, count]) => `${name} ×${count}`);
+  });
 }
 
 /**

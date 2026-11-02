@@ -39,6 +39,7 @@ import {
 import {
   canvasAtRest,
   eachTab,
+  faceCarriers,
   installColorResolver,
   openSheet,
   overflow,
@@ -324,33 +325,48 @@ const findingsStatus = (page: Page) => region(page, "Findings").getByRole("statu
 
 /** Opens the inspector drawer from the toolbar and waits for its heading to take focus. */
 /**
- * The role table's crowding (F-INSP-02): a hex, ratio, level, score or header cell whose text its cell
- * cuts, a line's visible part outside the table, or two parts on one line less than 3 px apart. A
- * cell's visible part is its text (not the visually hidden kind), icon and swatch, measured as drawn.
+ * Crowding in the inspector's mono lines (F-INSP-02, F-INSP-14): a value or cell its box cuts, a hex or
+ * ratio set to end in an ellipsis, a line's visible part outside its bound, or two parts on one line
+ * less than 3 px apart. A part is one child of the line (a table cell, or a step's number, swatch, hex
+ * or ratio): its text (not the visually hidden kind), icons and swatches, measured as drawn.
  */
-function crowdedRoles(page: Page): Promise<string[]> {
-  return region(page, "Roles")
-    .getByRole("table")
-    .evaluate((table) => {
+function crowded(scope: Locator, lines: string, bound: string): Promise<string[]> {
+  return scope.evaluate(
+    (root, [lineSelector, boundSelector]) => {
       const problems: string[] = [];
-      for (const cell of table.querySelectorAll(
-        "[data-hex], [data-ratio], [data-level], [data-lc], thead th",
-      )) {
-        if (cell.scrollWidth > cell.clientWidth + 0.5)
-          problems.push(`cut: ${cell.textContent} ${cell.scrollWidth}>${cell.clientWidth}`);
-      }
-      const edge = table.getBoundingClientRect();
-      for (const line of table.querySelectorAll("thead tr, tr[data-mode]")) {
-        const name = `${line.closest("tbody")?.getAttribute("data-pair") ?? "header"} ${line.getAttribute("data-mode") ?? ""}`;
+      const shown = (element: Element) => element.closest(".sr-only") === null;
+      for (const line of root.querySelectorAll(lineSelector)) {
+        const edge = (line.closest(boundSelector) ?? root).getBoundingClientRect();
+        const name = [
+          line.closest("[data-pair], [data-palette]")?.getAttribute("data-pair") ??
+            line.closest("[data-palette]")?.getAttribute("data-palette") ??
+            "header",
+          line.getAttribute("data-mode") ?? line.getAttribute("data-step") ?? "",
+        ].join(" ");
+        const values = [
+          ...line.children,
+          ...line.querySelectorAll("[data-hex], [data-ratio], [data-level], [data-lc]"),
+        ].filter(shown);
+        for (const value of new Set(values)) {
+          if (value.scrollWidth > value.clientWidth + 0.5)
+            problems.push(
+              `${name}: cut "${(value.textContent ?? "").trim()}" ${value.scrollWidth}>${value.clientWidth}`,
+            );
+          if (
+            value.matches("[data-hex], [data-ratio]") &&
+            getComputedStyle(value).textOverflow !== "clip"
+          )
+            problems.push(`${name}: "${(value.textContent ?? "").trim()}" ends in an ellipsis`);
+        }
         const parts: { text: string; left: number; right: number }[] = [];
-        for (const cell of line.children) {
-          const rects = [...cell.querySelectorAll("svg, [data-swatch]")].map((part) =>
-            part.getBoundingClientRect(),
-          );
+        for (const cell of [...line.children].filter(shown)) {
+          const rects = [cell, ...cell.querySelectorAll("*")]
+            .filter((part) => part instanceof SVGSVGElement || part.hasAttribute("data-swatch"))
+            .map((part) => part.getBoundingClientRect());
           const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
           for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
             const parent = node.parentElement;
-            if (parent === null || parent.closest(".sr-only") !== null) continue;
+            if (parent === null || !shown(parent)) continue;
             if ((node.textContent ?? "").trim() === "") continue;
             const range = document.createRange();
             range.selectNodeContents(node);
@@ -365,7 +381,7 @@ function crowdedRoles(page: Page): Promise<string[]> {
         }
         for (const part of parts) {
           if (part.left < edge.left - 0.5 || part.right > edge.right + 0.5)
-            problems.push(`${name}: "${part.text}" reaches outside the table`);
+            problems.push(`${name}: "${part.text}" reaches outside its ${boundSelector}`);
         }
         for (let at = 1; at < parts.length; at += 1) {
           const [before, after] = [parts[at - 1], parts[at]];
@@ -378,7 +394,47 @@ function crowdedRoles(page: Page): Promise<string[]> {
         }
       }
       return problems;
-    });
+    },
+    [lines, bound] as const,
+  );
+}
+
+/** The role table's crowding (F-INSP-02): its header and every mode line, bound by the table. */
+const crowdedRoles = (page: Page) =>
+  crowded(region(page, "Roles").getByRole("table"), "thead tr, tr[data-mode]", "table");
+
+/** The scales' crowding (F-INSP-14): every step line, bound by its palette's column. */
+const crowdedScales = (page: Page) =>
+  crowded(region(page, "Scales"), "li[data-step]", "[data-palette]");
+
+/**
+ * The inspector drawer at a narrow width, in light and in dark (F-INSP-02, F-INSP-14): the body's
+ * sideways scroll, the scrollbar it shows, and the crowding of the role table and the scales.
+ */
+async function narrowDrawer(page: Page): Promise<Record<string, unknown>> {
+  await stubSeeds(page);
+  await openStudio(page);
+  const seen: Record<string, unknown> = {};
+  for (const mode of MODES) {
+    if (mode === "dark") {
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+      await page.keyboard.press("Alt+KeyT");
+      await expect(canvasFrame(page)).toHaveAttribute("data-mode", "dark");
+    }
+    await openInspector(page);
+    const sizes = await scrollArea(page).evaluate((area) => ({
+      scrollbar: (area as HTMLElement).offsetWidth - area.clientWidth - area.clientLeft * 2,
+      sideways: area.scrollWidth - area.clientWidth,
+    }));
+    seen[mode] = {
+      ...sizes,
+      roles: await crowdedRoles(page),
+      scales: await crowdedScales(page),
+    };
+    await page.keyboard.press("Escape");
+    await expect(inspectorAside(page)).not.toHaveAttribute("data-open", /.*/);
+  }
+  return seen;
 }
 
 async function openInspector(page: Page): Promise<void> {
@@ -963,6 +1019,15 @@ test.describe("7.8 Show me", () => {
         expect(report.missing, `${id} ${template}`).toEqual([]);
         expect(report.stray, `${id} ${template}`).toEqual([]);
         expect(report.shown, `${id} ${template}`).toBeGreaterThan(0);
+        if (template === "kitchen-sink") {
+          // On both panes no face token sits around text in the other face (fix round 2, M-2). The
+          // sink's own captions name no roles, so the full paint check stays out of scope here.
+          for (const pane of MODES) {
+            const panel = root.locator(`[data-pane="${pane}"]`);
+            await expect(panel).toHaveCount(1);
+            expect(await faceCarriers(panel), `${id} kitchen sink ${pane} pane`).toEqual([]);
+          }
+        }
         if (template !== "kitchen-sink") {
           // Every text in the face has a carrier whose outline shows past .canvas-fit (I-1).
           const carriers = await hiddenCarriers(root, face);
@@ -1062,6 +1127,42 @@ test.describe("7.8 Fixes", () => {
     await expect(findingItem(page, key)).toHaveCount(0);
     await expect(findingsHeading(page)).toBeFocused();
     await expect(canvasRegion(page)).not.toHaveAttribute("data-show-me", /.+/);
+  });
+
+  test("F-INSP-09 F-STUDIO-23 a Show me pressed with the pointer and left by a click elsewhere holds no claim on focus", async ({
+    page,
+  }) => {
+    const spec = ringFixture();
+    await openStudio(page, linkOf(spec));
+    const key = keyOf(spec, "F1", "light", "ring/background");
+    const show = showMeButton(page, key);
+    await show.scrollIntoViewIfNeeded();
+    await show.click();
+    await expect(show).toBeFocused();
+    // A click on chrome that takes no focus: the inputs panel's keyboard hint.
+    await page
+      .getByRole("complementary", { name: "Inputs" })
+      .getByText("regenerates", { exact: false })
+      .first()
+      .click();
+    const active = () => page.evaluate(() => document.activeElement === document.body);
+    expect(await active()).toBe(true);
+    const scroll = () =>
+      scrollArea(page).evaluate((area) => ({
+        top: area.scrollTop,
+        max: area.scrollHeight - area.clientHeight,
+      }));
+    const before = await scroll();
+    // Space regenerates from the page, and F1 leaves the list.
+    await page.keyboard.press("Space");
+    await settled(page);
+    await expect(findingItem(page, key)).toHaveCount(0);
+    await page.evaluate(() => new Promise((done) => requestAnimationFrame(() => done(null))));
+    expect(await active(), "focus stays on the body").toBe(true);
+    await expect(findingsHeading(page)).not.toBeFocused();
+    // The inspector keeps its place; a shorter list only pulls a position past its new end back to it.
+    const after = await scroll();
+    expect(after.top).toBe(Math.min(before.top, after.max));
   });
 
   test("F-INSP-10 at AAA a fixable finding says the contrast is already AAA and has no button", async ({
@@ -1333,6 +1434,32 @@ test("F-INSP-02 F-INSP-14 the inspector drawer scrolls inside itself at 360 px a
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
   // F-INSP-02: every value of the role table shows whole and apart in the 320 px drawer at 11 px.
   expect(await crowdedRoles(page)).toEqual([]);
+});
+
+test("F-INSP-02 F-INSP-14 in the drawer of a 345 px window every hex and ratio shows whole, in light and dark", async ({
+  page,
+}) => {
+  // A 345 px window gives the drawer the width a 360 px window with a 15 px classic scrollbar gives it.
+  await page.setViewportSize({ width: 345, height: 740 });
+  const quiet = { scrollbar: 0, sideways: 0, roles: [], scales: [] };
+  expect(await narrowDrawer(page)).toEqual({ light: quiet, dark: quiet });
+});
+
+test("F-INSP-02 F-INSP-14 with a classic scrollbar the 360 px drawer shows every hex and ratio whole", async ({
+  playwright,
+  baseURL,
+}) => {
+  // Playwright hides scrollbars in headless Chromium; without --hide-scrollbars Chromium on Linux
+  // draws a classic scrollbar that takes 15 px of layout, as a desktop browser with classic bars does.
+  const browser = await playwright.chromium.launch({ ignoreDefaultArgs: ["--hide-scrollbars"] });
+  try {
+    const context = await browser.newContext({ baseURL, viewport: PHONE });
+    const page = await context.newPage();
+    const quiet = { scrollbar: 15, sideways: 0, roles: [], scales: [] };
+    expect(await narrowDrawer(page)).toEqual({ light: quiet, dark: quiet });
+  } finally {
+    await browser.close();
+  }
 });
 
 test("F-INSP-14 F-A11Y-03 at 360 px the inspector drawer is walked by keyboard with the madder ring, and keeps focus on a click", async ({
