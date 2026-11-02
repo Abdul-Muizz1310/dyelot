@@ -12,8 +12,8 @@ import { containKeys, tabStops } from "./contain";
 // focus to its first stop, keeps Tab and Shift+Tab inside, and closes on Escape, which it stops. Under
 // the pointer focus stays inside: the sheet itself takes focus when its text is clicked, and a press
 // on the scrim leaves focus where it was. It rises once, on the spec's base duration and decelerate
-// easing; once risen, opened under reduced motion, or with its rise cancelled by a motion toggle, it is
-// settled, so a later motion toggle never raises it again.
+// easing; once risen, or once reduced motion has held at any moment while it is open (a toggle during
+// the rise cancels the rise), it is settled, so a later motion toggle never raises it again.
 
 export function BottomSheet({
   title,
@@ -41,17 +41,12 @@ export function BottomSheet({
     const element = sheet.current;
     if (element !== null) (tabStops(element)[0] ?? element).focus();
   }, []);
-  // A motion toggle during the rise cancels it, and no `animationend` follows: settle then too. React
-  // has no `onAnimationCancel`, so the listener is the element's own.
+  // Reduced motion at any moment while the sheet is open settles it. A toggle during the rise cancels
+  // the rise, and no `animationend` follows; nor does an `animationcancel` when the rise is still
+  // pending, so the setting itself, not an event, decides.
   useEffect(() => {
-    const element = sheet.current;
-    if (element === null) return;
-    const settle = (event: AnimationEvent) => {
-      if (event.target === element) setSettled(true);
-    };
-    element.addEventListener("animationcancel", settle);
-    return () => element.removeEventListener("animationcancel", settle);
-  }, []);
+    if (reduced) setSettled(true);
+  }, [reduced]);
   return (
     // The scrim is not a control: a press on it only keeps focus inside the sheet.
     // biome-ignore lint/a11y/noStaticElementInteractions: the handler keeps focus put; it is no action.

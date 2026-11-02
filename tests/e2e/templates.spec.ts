@@ -939,8 +939,35 @@ test.describe("7.6 The landing and editorial templates", () => {
       expect(report.targets, id).toEqual([]);
       expect(report.entrance, id).toEqual(["1 none"]);
     }
+    /** Mounts each page template from the mobile template, whose board takes another width. */
+    const fromMobile = async (setting: string) => {
+      // The switcher waits while the mobile template shows: the frame is set on a page template.
+      await showTemplate(page, "landing");
+      await setFrame(page, 1280);
+      for (const id of PAGES) {
+        await showTemplate(page, "mobile");
+        const sampled = mountMotion(page, id);
+        await templateSelect(page).selectOption(id);
+        const report = await sampled;
+        const name = `${setting}: ${id} from mobile`;
+        expect(report.entrances, name).toBe(1);
+        expect(report.moved, name).toEqual([]);
+        expect(report.targets, name).toEqual([]);
+        expect(report.entrance, name).toEqual(["1 none"]);
+        // The frame shows the held width from the first sampled frame, never the board's.
+        expect(report.widths, name).toEqual([1280]);
+      }
+    };
+    await fromMobile("switch");
     await reduce.click();
     await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
+    // The system's setting: the chrome's global rule gives every property a 0.01 ms transition.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    try {
+      await fromMobile("system");
+    } finally {
+      await page.emulateMedia({ reducedMotion: null });
+    }
   });
 
   test("F-TPL-18 one h1 on the landing page, headings without gaps, and the article's H1 to H4 in order", async () => {
@@ -1372,6 +1399,10 @@ test("F-TPL-39 every painted color is named on a design whose 46 role colors are
     const layer = await unnamedPaint(mobile.locator(".kit-sheet-layer"));
     expect(layer.checked, `${mode} sheet`).toBeGreaterThan(8);
     expect(layer.unnamed, `${mode} sheet`).toEqual([]);
+    // The whole template with the sheet open: the inert screens and their dim layers too.
+    const whole = await unnamedPaint(mobile);
+    expect(whole.checked, `${mode} template with the sheet open`).toBeGreaterThan(60);
+    expect(whole.unnamed, `${mode} template with the sheet open`).toEqual([]);
     await page.keyboard.press("Escape");
     await expect(sheet).toHaveCount(0);
   }
@@ -1520,14 +1551,19 @@ test("F-TPL-40 every preset fits the page templates at 360 and 768 and the mobil
       if (copy === "Edge-case copy") {
         await eachTab(mobile, async (tab) => {
           if (tab === "Alerts") return;
+          // Only the tab bar screen changes with its tab: measure it alone.
+          const tabs = screenOf(mobile, "tabs");
           const [panel, panelWords] = await Promise.all([
-            mobileOverflow(mobile),
-            brokenWords(screenOf(mobile, "tabs")),
+            overflow(tabs, "[data-phone]"),
+            brokenWords(tabs),
           ]);
           if (panelWords.checked < 10) {
             failures.push(`${name} ${tab}: only ${panelWords.checked} words measured`);
           }
-          failures.push(...panel.map((part) => `${name} ${tab}: ${part}`));
+          if (panel.scroll > panel.client) {
+            failures.push(`${name} ${tab}: scroll ${panel.scroll} > ${panel.client}`);
+          }
+          failures.push(...panel.past.map((part) => `${name} ${tab}: past the screen: ${part}`));
           if (panelWords.broken.length > 0) {
             failures.push(`${name} ${tab}: ${panelWords.broken.join(", ")}`);
           }
@@ -2318,6 +2354,24 @@ async function showMobile(page: Page, held: 360 | 768 | 1280): Promise<Locator> 
   return root;
 }
 
+/**
+ * F-TPL-34: each mobile screen's dim layer at rest, as "<screen> <opacity> <visibility>". The detail
+ * screen has its sheet's own scrim, so its layer stays hidden. Waits for the transitions to end.
+ */
+function dims(root: Locator): Promise<string[]> {
+  return root.evaluate(async (element) => {
+    const layers = [...element.querySelectorAll<HTMLElement>("[data-phone] .kit-phone-dim")];
+    await Promise.allSettled(
+      layers.flatMap((layer) => layer.getAnimations().map((animation) => animation.finished)),
+    );
+    return layers.map((layer) => {
+      const style = getComputedStyle(layer);
+      const screen = layer.closest<HTMLElement>("[data-phone]")?.dataset.phone ?? "?";
+      return `${screen} ${style.opacity} ${style.visibility}`;
+    });
+  });
+}
+
 /** Counts every Escape that reaches the window in `window.__escapes` (F-TPL-34). */
 async function countEscapes(page: Page): Promise<() => Promise<number>> {
   await page.evaluate(() => {
@@ -2535,9 +2589,15 @@ test.describe("7.7 The mobile template", () => {
       const radios = (await controlLabels(sheet)).filter((control) => control.kind === "radio");
       expect(radios, "four lead times").toHaveLength(4);
       for (const radio of radios) {
-        expect(radio.legend, `${radio.id}: the group's legend shows`).toBe(true);
-        expect(radio.labeled, `${radio.id}: its label shows`).toBe(true);
+        expect(radio.legend, `"${radio.text}": the group's legend shows`).toBe(true);
+        expect(radio.labeled, `"${radio.text}": its label shows`).toBe(true);
       }
+      // The two other screens show their dim layer while the sheet is open.
+      expect(await dims(root), "the feed and tab bar screens are dimmed").toEqual([
+        "feed 1 visible",
+        "detail 0 hidden",
+        "tabs 1 visible",
+      ]);
       await expect(sheet.getByRole("radio", { checked: true })).toBeFocused();
       for (const key of ["Tab", "Tab", "Tab", "Tab", "Shift+Tab", "Shift+Tab"]) {
         await page.keyboard.press(key);
@@ -2569,6 +2629,39 @@ test.describe("7.7 The mobile template", () => {
       await expect(sheet, `Escape after a click on the ${where}`).toHaveCount(0);
       await expect(opener).toBeFocused();
     }
+    // Outside the sheet, at a window where the three screens share a row: a press on the feed screen,
+    // on a tab of the tab bar screen or on the board between two screens keeps focus in the sheet.
+    await page.setViewportSize({ width: 1920, height: 1080 });
+    for (const where of ["feed", "tabs", "board"] as const) {
+      const sheet = await openSheet(root);
+      const target =
+        where === "feed"
+          ? screenOf(root, "feed").locator("h1")
+          : where === "tabs"
+            ? screenOf(root, "tabs").getByRole("tab", { name: "Places", exact: true })
+            : screenOf(root, "feed");
+      await target.scrollIntoViewIfNeeded();
+      const box = await target.boundingBox();
+      if (box === null) throw new Error(`no box for the ${where}`);
+      if (where === "board") {
+        // Between the feed and the detail screens, on the board itself.
+        const detail = await screenOf(root, "detail").boundingBox();
+        if (detail === null) throw new Error("no box for the detail screen");
+        await page.mouse.click((box.x + box.width + detail.x) / 2, box.y + 120);
+      } else {
+        await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      }
+      expect(await inSheet(), `after a press on the ${where}`).toBe(true);
+      await page.keyboard.press("Escape");
+      await expect(sheet, `Escape after a press on the ${where}`).toHaveCount(0);
+      await expect(opener).toBeFocused();
+    }
+    expect(await dims(root), "the dim layers are hidden once the sheet closes").toEqual([
+      "feed 0 hidden",
+      "detail 0 hidden",
+      "tabs 0 hidden",
+    ]);
+    await page.setViewportSize({ width: 1280, height: 800 });
     expect(await escapes(), "Escapes that reached the window").toBe(0);
     // It rises over --duration-base with --ease-decelerate, read as the rise starts, so a busy runner
     // that reaches the sheet after it has settled cannot miss it; and not at all under reduced motion.
@@ -2788,6 +2881,12 @@ test.describe("7.7 The mobile template", () => {
         await scan(`${name} with the sheet open`);
         await page.keyboard.press("Escape");
         await expect(sheet).toHaveCount(0);
+        // The other screens' dim layers fade out; the next scan reads the screens at rest.
+        expect(await dims(root), `${name}: the dims at rest`).toEqual([
+          "feed 0 hidden",
+          "detail 0 hidden",
+          "tabs 0 hidden",
+        ]);
       }
     }
     await page.setViewportSize({ width: 1280, height: 800 });

@@ -9,7 +9,8 @@ import { type ReactNode, useId } from "react";
 // its 360 px whatever the canvas frame holds. It is a touch surface (`data-touch`), where the kit's
 // controls reach 44 px. A region named by its caption on the board, it opens with a status bar that
 // the accessibility tree skips. `overlay` (a bottom sheet) sits over the screen; while it shows, the
-// caller sets `inert`, and the rest of the screen takes no focus or click.
+// caller sets `inert`, and the rest of the screen takes no focus or click. `dimmed` draws a scrim over the
+// whole screen, for a screen that a sheet on another screen makes inert.
 
 export function PhoneScreen({
   name,
@@ -17,6 +18,7 @@ export function PhoneScreen({
   caption,
   time,
   inert = false,
+  dimmed = false,
   overlay,
   children,
 }: {
@@ -28,6 +30,8 @@ export function PhoneScreen({
   /** The status bar's clock, "09:30". */
   time: string;
   inert?: boolean;
+  /** Draws the scrim over the screen: a sheet on another screen holds the template. */
+  dimmed?: boolean;
   overlay?: ReactNode;
   children: ReactNode;
 }) {
@@ -51,6 +55,14 @@ export function PhoneScreen({
             </span>
           </div>
           {children}
+          {/* Inside the body, so it is inert with it; it covers the screen, positioned against the
+              section. */}
+          <span
+            aria-hidden="true"
+            className="kit-phone-dim"
+            data-dimmed={dimmed ? "" : undefined}
+            data-roles="foreground background"
+          />
         </div>
         {overlay}
       </section>

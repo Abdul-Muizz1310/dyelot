@@ -932,6 +932,20 @@ test.describe("7.4 Motion on the page templates", () => {
       expect(mounted.targets, id).toEqual([]);
       expect((await motionReport(page)).running, id).toEqual([]);
     }
+    // Each page template also mounts from the mobile template, whose board takes another width: the
+    // frame shows the held width from the first sampled frame, and nothing transitions.
+    for (const id of PAGES) {
+      await showTemplate(page, "mobile");
+      const sampled = mountMotion(page, id);
+      await templateSelect(page).selectOption(id);
+      const mounted = await sampled;
+      const name = `${id} from mobile`;
+      expect(mounted.entrance, name).toEqual(["1 none"]);
+      expect(mounted.moved, name).toEqual([]);
+      expect(mounted.targets, name).toEqual([]);
+      expect(mounted.widths, name).toEqual([1280]);
+      expect((await motionReport(page)).running, name).toEqual([]);
+    }
   });
 
   test("F-CANVAS-07 Reduce motion stops the dashboard and settings, keeps their state and never replays the entrance", async ({

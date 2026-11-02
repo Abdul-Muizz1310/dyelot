@@ -47,9 +47,10 @@ import { clock, TIDE_EVENTS, TIDE_RANGE, type TideEvent, tideAt } from "../tide"
 // three 360 px screens on a board: the feed, a mooring's detail with its bottom sheet, and the app's
 // tab bar. Each screen is a size container named `frame` and a touch surface, whatever the canvas
 // frame holds. While the sheet is open the rest of the template is inert, the other two screens
-// included, so `aria-modal` holds and no link moves focus into the inert detail. The sheet's open state, the lead time saved and the one picked, and the selected tab
-// live here, the template's root, so a view toggle keeps them. Under edge-case copy the slots of
-// R2-21 swap in.
+// included and dimmed, so `aria-modal` holds and no link moves focus into the inert detail; a press
+// anywhere in the template outside the sheet keeps focus in it. The sheet's open state, the lead
+// time saved and the one picked, and the selected tab live here, the template's root, so a view
+// toggle keeps them. Under edge-case copy the slots of R2-21 swap in.
 
 /** "Now" on the sample day's tide: 09:30, as on the landing's tide card and the console. */
 const NOW = 9.5;
@@ -104,9 +105,27 @@ export function Mobile({ view }: { view: View }) {
   };
   const time = clock(NOW);
   return (
-    <div data-template-root="mobile" className="mb" data-roles="muted muted-foreground">
+    // While the sheet is open, a press outside it keeps focus put: the screens beside it are inert, so
+    // a press there lands here, and the canvas region would take focus from the sheet.
+    // biome-ignore lint/a11y/noStaticElementInteractions: the handler keeps focus put; it is no action.
+    <div
+      data-template-root="mobile"
+      className="mb"
+      data-roles="muted muted-foreground"
+      onMouseDown={(event) => {
+        if (!open || !(event.target instanceof Element)) return;
+        if (event.target.closest(".kit-bottom-sheet") === null) event.preventDefault();
+      }}
+    >
       <Entrance className="mb-row">
-        <PhoneScreen name="feed" number="01" caption={TEXT.screens.feed} time={time} inert={open}>
+        <PhoneScreen
+          name="feed"
+          number="01"
+          caption={TEXT.screens.feed}
+          time={time}
+          inert={open}
+          dimmed={open}
+        >
           <Feed copy={copy} />
         </PhoneScreen>
         <PhoneScreen
@@ -151,7 +170,14 @@ export function Mobile({ view }: { view: View }) {
             }}
           />
         </PhoneScreen>
-        <PhoneScreen name="tabs" number="03" caption={TEXT.screens.tabs} time={time} inert={open}>
+        <PhoneScreen
+          name="tabs"
+          number="03"
+          caption={TEXT.screens.tabs}
+          time={time}
+          inert={open}
+          dimmed={open}
+        >
           <Tabs tab={tab} onTab={setTab} />
         </PhoneScreen>
       </Entrance>

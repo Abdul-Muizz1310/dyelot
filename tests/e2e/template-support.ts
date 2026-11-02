@@ -457,6 +457,8 @@ export type ControlLabel = {
   readonly labeled: boolean;
   /** Whether its group's legend shows, or null outside a `fieldset`. */
   readonly legend: boolean | null;
+  /** Its first label's text, which names it in a failure message (a kit radio has no `id`). */
+  readonly text: string;
 };
 
 /**
@@ -489,7 +491,13 @@ export function controlLabels(scope: Locator): Promise<ControlLabel[]> {
       const labeled =
         (labels.some(shown) || (kind === "switch" && shown(control))) &&
         (group == null || shown(legend));
-      return { kind, labeled, id: control.id, legend: group == null ? null : shown(legend) };
+      return {
+        kind,
+        labeled,
+        id: control.id,
+        legend: group == null ? null : shown(legend),
+        text: (labels[0]?.textContent ?? control.textContent ?? "").trim(),
+      };
     }),
   );
 }
@@ -664,58 +672,67 @@ export function brokenWords(scope: Locator): Promise<{ checked: number; broken: 
  * template `id` mounts. It records each element's opacity and transform (values a script drives) and
  * the target of every animation the frame holds (`getAnimations({ subtree: true })`: CSS animations,
  * CSS transitions and scripted animations). It returns the elements other than the entrance whose
- * values changed, the targets other than the entrance, and the entrance's own states. Start it before
- * switching to the template.
+ * values changed, the targets other than the entrance, the entrance's own states, and the frame's layout
+ * width on each sampled frame (`widths`, each new value once, in order). Start it before switching to
+ * the template.
  */
 export function mountMotion(page: Page, id: TemplateId, ms = 600) {
   return canvasFrame(page).evaluate(
     (frame, { id, ms }) =>
-      new Promise<{ entrances: number; moved: string[]; targets: string[]; entrance: string[] }>(
-        (resolve) => {
-          const name = (element: Element) =>
-            `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`;
-          const seen = new Map<Element, Set<string>>();
-          const targets = new Map<Element, Set<string>>();
-          let start: number | null = null;
-          const tick = () => {
-            const root = frame.querySelector(`[data-template-root="${id}"]`);
-            if (root !== null) {
-              start ??= performance.now();
-              for (const element of [root, ...root.querySelectorAll("*")]) {
-                const style = getComputedStyle(element);
-                const values = seen.get(element) ?? new Set<string>();
-                values.add(`${style.opacity} ${style.transform}`);
-                seen.set(element, values);
-              }
-              for (const animation of frame.getAnimations({ subtree: true })) {
-                const effect = animation.effect;
-                const target = effect instanceof KeyframeEffect ? effect.target : null;
-                if (target === null) continue;
-                const kinds = targets.get(target) ?? new Set<string>();
-                kinds.add(animation.constructor.name);
-                targets.set(target, kinds);
-              }
+      new Promise<{
+        entrances: number;
+        moved: string[];
+        targets: string[];
+        entrance: string[];
+        widths: number[];
+      }>((resolve) => {
+        const name = (element: Element) =>
+          `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`;
+        const seen = new Map<Element, Set<string>>();
+        const targets = new Map<Element, Set<string>>();
+        const widths: number[] = [];
+        let start: number | null = null;
+        const tick = () => {
+          const root = frame.querySelector(`[data-template-root="${id}"]`);
+          if (root !== null) {
+            start ??= performance.now();
+            const width = (frame as HTMLElement).offsetWidth;
+            if (widths[widths.length - 1] !== width) widths.push(width);
+            for (const element of [root, ...root.querySelectorAll("*")]) {
+              const style = getComputedStyle(element);
+              const values = seen.get(element) ?? new Set<string>();
+              values.add(`${style.opacity} ${style.transform}`);
+              seen.set(element, values);
             }
-            if (start === null || performance.now() - start < ms) {
-              requestAnimationFrame(tick);
-              return;
+            for (const animation of frame.getAnimations({ subtree: true })) {
+              const effect = animation.effect;
+              const target = effect instanceof KeyframeEffect ? effect.target : null;
+              if (target === null) continue;
+              const kinds = targets.get(target) ?? new Set<string>();
+              kinds.add(animation.constructor.name);
+              targets.set(target, kinds);
             }
-            const entrances = frame.querySelectorAll("[data-entrance]");
-            const entrance = entrances[0];
-            resolve({
-              entrances: entrances.length,
-              moved: [...seen]
-                .filter(([element, values]) => element !== entrance && values.size > 1)
-                .map(([element]) => name(element)),
-              targets: [...targets]
-                .filter(([element]) => element !== entrance)
-                .map(([element, kinds]) => `${name(element)} (${[...kinds].join(", ")})`),
-              entrance: entrance === undefined ? [] : [...(seen.get(entrance) ?? [])],
-            });
-          };
-          tick();
-        },
-      ),
+          }
+          if (start === null || performance.now() - start < ms) {
+            requestAnimationFrame(tick);
+            return;
+          }
+          const entrances = frame.querySelectorAll("[data-entrance]");
+          const entrance = entrances[0];
+          resolve({
+            entrances: entrances.length,
+            moved: [...seen]
+              .filter(([element, values]) => element !== entrance && values.size > 1)
+              .map(([element]) => name(element)),
+            targets: [...targets]
+              .filter(([element]) => element !== entrance)
+              .map(([element, kinds]) => `${name(element)} (${[...kinds].join(", ")})`),
+            entrance: entrance === undefined ? [] : [...(seen.get(entrance) ?? [])],
+            widths,
+          });
+        };
+        tick();
+      }),
     { id, ms },
   );
 }
