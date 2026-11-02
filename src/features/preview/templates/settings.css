@@ -10,7 +10,9 @@
 
 .st {
   --kit-pad: var(--space-4);
-  --kit-bar-room: 5rem;
+  /* The save bar's room below a focused target: its control, its padding, its edge, and a gap. The
+   * bar keeps one row in every frame, so this is never less than its height (F-TPL-31). */
+  --kit-bar-room: calc(var(--control-height) + 2 * var(--space-3) + 1px + var(--space-2));
   position: relative;
   display: grid;
   height: 36rem;
@@ -187,7 +189,7 @@
   z-index: 1;
   bottom: 0;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2) var(--space-4);
@@ -197,15 +199,16 @@
   background-color: var(--background);
   box-shadow: var(--shadow-3);
 }
-/* Below 480 px of frame the bar keeps its two actions on one row; the note leaves the layout. */
-@container frame (width < 480px) {
+/* Below 1000 px of frame the note leaves the layout, so the bar keeps its two actions on one row in
+ * every preset (aurora's wider type wrapped it at 768 px). */
+@container frame (width < 1000px) {
   .st-save-bar > p {
     display: none;
   }
 }
 .st-save-actions {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--space-2);
   margin-inline-start: auto;
 }

@@ -119,6 +119,9 @@ describe("the stacked bars (section 6.13)", () => {
       [TWO, -5],
       [TWO, 2.5],
       [TWO, Number.NaN],
+      // A count past the safe integers, and an axis of more than 100 steps (review M-4).
+      [[{ name: "a", values: [2 ** 53] }], 5],
+      [[{ name: "a", values: [1000] }], 1],
     ];
     for (const [series, step] of range) {
       expect(

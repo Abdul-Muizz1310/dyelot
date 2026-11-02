@@ -101,7 +101,7 @@
   }
 }
 
-/* Text that only assistive technology reads: the chart's data table, a rail link's label. */
+/* Text that only assistive technology reads: the chart's data table. */
 .kit-sr-only {
   position: absolute;
   width: 1px;
@@ -112,4 +112,20 @@
   border: 0;
   clip-path: inset(50%);
   white-space: nowrap;
+}
+
+/* Text that only assistive technology reads below 768 px of frame, and that shows from 768 px: a
+ * rail link's label, which keeps naming its link when the rail drops it. */
+@container frame (width < 768px) {
+  .kit-sr-only-narrow {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }

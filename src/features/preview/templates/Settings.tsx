@@ -250,6 +250,7 @@ function Boat({ copy, spec, view }: { copy: CanvasCopy; spec: DesignSpec; view: 
         <ColorField
           label={boat.color.label}
           value={picked ?? chart}
+          swatchRole={picked === null ? "chart-1" : undefined}
           hint={<RichText runs={boat.color.hint} copy={copy} />}
           onChange={setPicked}
         />

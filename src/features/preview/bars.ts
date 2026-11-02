@@ -32,8 +32,10 @@ export type BarStack = {
 
 /** The chart roles a series can paint with: `chart-1` to `chart-5`. */
 const MAX_SERIES = 5;
+/** The most steps an axis holds: 101 ticks at most, so no count allocates a runaway axis. */
+const MAX_STEPS = 100;
 
-const isCount = (value: number) => Number.isInteger(value) && value >= 0;
+const isCount = (value: number) => Number.isSafeInteger(value) && value >= 0;
 
 function checkSeries(series: unknown): asserts series is readonly BarSeries[] {
   if (!Array.isArray(series)) {
@@ -102,6 +104,11 @@ export function stackBars(series: readonly BarSeries[], step: number): BarStack 
   const seriesTotals = series.map((entry) => entry.values.reduce((sum, value) => sum + value, 0));
   const largest = Math.max(...columnTotals);
   const max = Math.max(step, Math.ceil(largest / step) * step);
+  if (max / step > MAX_STEPS) {
+    throw new RangeError(
+      `stackBars: an axis to ${max} at step ${step} needs ${max / step} steps, more than ${MAX_STEPS}`,
+    );
+  }
   return Object.freeze({
     columnTotals: Object.freeze(columnTotals),
     seriesTotals: Object.freeze(seriesTotals),

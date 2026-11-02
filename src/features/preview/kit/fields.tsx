@@ -3,6 +3,7 @@
 import "./fields.css";
 import { ChevronDown, CircleAlert, CircleCheck } from "lucide-react";
 import { type ChangeEvent, type ReactNode, useId, useState } from "react";
+import type { RoleName } from "@/engine";
 import type { KitState } from "./states";
 
 // The kit's text fields and select (section 7.5): a visible label, the control and, for the
@@ -238,11 +239,14 @@ export function ColorField({
   label,
   value,
   hint,
+  swatchRole,
   onChange,
 }: {
   label: string;
   value: string;
   hint: ReactNode;
+  /** The role the swatch shows while it shows one of the design's colors (F-TPL-39). */
+  swatchRole?: RoleName;
   onChange: (value: string) => void;
 }) {
   const id = useId();
@@ -258,7 +262,9 @@ export function ColorField({
           className="kit-color"
           value={value}
           aria-describedby={`${id}-hint`}
-          data-roles="input background"
+          data-roles={
+            swatchRole === undefined ? "input background" : `input background ${swatchRole}`
+          }
           onChange={(event: ChangeEvent<HTMLInputElement>) => onChange(event.target.value)}
         />
         <span className="kit-num kit-mono kit-t-body-sm" data-roles="foreground">

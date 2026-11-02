@@ -16,9 +16,9 @@ import {
   canvasVars,
   designFor,
   FRESH,
-  inputsAside,
   lotId,
   openStudio,
+  rgbToHex,
   seedOf,
   settled,
   stubSeeds,
@@ -32,6 +32,7 @@ import {
   heroMetrics,
   mountMotion,
   overflow,
+  paintedContrast,
   pictographs,
   roleColor,
   setFrame,
@@ -1243,20 +1244,18 @@ test.describe("7.6 The landing and editorial templates", () => {
             undecided,
           );
           expect(outside, `${mode} ${frame} ${id} undecided outside the tide card`).toEqual([]);
+          // Each undecided text is measured as painted: its color against the fill behind it.
+          for (const pair of await paintedContrast(page, undecided)) {
+            expect(pair.ratio, `${mode} ${frame} ${id} ${pair.selector}`).toBeGreaterThanOrEqual(
+              pair.threshold,
+            );
+          }
         }
       }
     }
     await dark.click();
     await setFrame(page, 1280);
     await expect(templateRoot(page, "landing").or(templateRoot(page, "editorial"))).toBeVisible();
-    // The tide card's own pair, which axe cannot see over the block, is measured here.
-    for (const mode of MODES) {
-      const roles = first().color.roles[mode];
-      expect(
-        wcagRatio(hexToRgb(roles["card-foreground"]), hexToRgb(roles.card)),
-        mode,
-      ).toBeGreaterThanOrEqual(4.5);
-    }
   });
 });
 
@@ -1308,8 +1307,45 @@ test("F-TPL-39 every painted color is named on a design whose 46 role colors are
       expect(report.checked, `${mode} ${id}`).toBeGreaterThan(60);
       expect(report.unnamed, `${mode} ${id}`).toEqual([]);
     }
+    // Once more with the settings' confirm dialog open: its layer, surface, title and buttons.
+    const settings = await showTemplate(page, "settings");
+    await settings.getByRole("button", { name: "Delete console", exact: true }).click();
+    const dialog = settings.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    await dialog.evaluate((element) =>
+      Promise.all(
+        (element.closest(".kit-confirm-layer") ?? element)
+          .getAnimations({ subtree: true })
+          .map((animation) => animation.finished),
+      ),
+    );
+    const open = await unnamedPaint(settings.locator(".kit-confirm-layer"));
+    expect(open.checked, `${mode} dialog`).toBeGreaterThan(5);
+    expect(open.unnamed, `${mode} dialog`).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
   }
 });
+
+/**
+ * F-TPL-31: the save bar keeps one row, so its height is at most the room its scroll area keeps
+ * below a focused target (the area's computed `scroll-padding-bottom`). Returns the failure, if any.
+ */
+async function barRoom(root: Locator, name: string): Promise<string[]> {
+  const room = await root.evaluate((element) => {
+    const area = element.querySelector<HTMLElement>("[data-scroll-area]");
+    const bar = element.querySelector<HTMLElement>("[data-save-bar]");
+    if (area === null || bar === null) return null;
+    return {
+      bar: bar.offsetHeight,
+      padding: Number.parseFloat(getComputedStyle(area).scrollPaddingBottom),
+    };
+  });
+  if (room === null) return [`${name}: no scroll area or save bar`];
+  return room.bar <= room.padding
+    ? []
+    : [`${name}: the save bar is ${room.bar} px, its scroll padding ${room.padding} px`];
+}
 
 /** Waits until the canvas's three families have loaded, so text is measured in its own face. */
 async function fontsReady(page: Page): Promise<void> {
@@ -1384,7 +1420,13 @@ test("F-TPL-40 every preset fits the four page templates at 360 and 768, with re
           if (words.broken.length > 0) failures.push(`${name}: ${words.broken.join(", ")}`);
           const split = figures.filter((line) => !line.endsWith(" 1"));
           if (split.length > 0) failures.push(`${name}: figures ${split.join(", ")}`);
+          if (template === "settings") failures.push(...(await barRoom(root, name)));
         }
+      }
+      // F-TPL-31: the settings' save bar at the 1280 frame as well.
+      if (template === "settings") {
+        await setFrame(page, 1280);
+        failures.push(...(await barRoom(root, `${id} settings 1280`)));
       }
     }
   }
@@ -1457,6 +1499,33 @@ async function expectBarStays(page: Page, name: string): Promise<void> {
   }
 }
 
+/**
+ * F-TPL-30: opens the settings' confirm dialog three times and clicks its description, its title and
+ * then its scrim. After each click focus stays inside the dialog, and Escape closes it and gives
+ * focus back to the opener.
+ */
+async function clickInsideDialog(page: Page, root: Locator, opener: Locator): Promise<void> {
+  const inDialog = () =>
+    page.evaluate(() => document.activeElement?.closest("[role='alertdialog']") != null);
+  for (const where of ["description", "title", "scrim"] as const) {
+    await opener.click();
+    const dialog = root.getByRole("alertdialog");
+    await expect(dialog).toBeVisible();
+    if (where === "description") await dialog.getByText(/nothing is deleted/i).click();
+    else if (where === "title") await dialog.getByRole("heading").click();
+    else {
+      // The scrim beside the dialog, halfway down: the frame's rounded corners clip the layer's own.
+      const layer = root.locator(".kit-confirm-layer");
+      const box = await layer.boundingBox();
+      await layer.click({ position: { x: 6, y: (box?.height ?? 0) / 2 } });
+    }
+    expect(await inDialog(), `after a click on the ${where}`).toBe(true);
+    await page.keyboard.press("Escape");
+    await expect(dialog, `Escape after a click on the ${where}`).toHaveCount(0);
+    await expect(opener).toBeFocused();
+  }
+}
+
 test.describe("7.7 The dashboard and settings templates", () => {
   test.describe.configure({ mode: "serial" });
   let page: Page;
@@ -1498,6 +1567,17 @@ test.describe("7.7 The dashboard and settings templates", () => {
         expect(shape.width, `${frame} column`).toBeGreaterThanOrEqual(200);
         for (const width of shape.labels) expect(width, `${frame} label`).toBeGreaterThan(20);
       }
+      // The KPI row stacks the lead card above the week's values below 1000 px of frame (M-5).
+      const kpis = await root.locator("[data-kpis]").evaluate((element) => {
+        const lead = element.querySelector("[data-kpi-lead]")?.getBoundingClientRect();
+        const stats = element.querySelector(".db-stats")?.getBoundingClientRect();
+        return lead === undefined || stats === undefined
+          ? null
+          : { stacked: stats.top >= lead.bottom - 0.5, beside: stats.left >= lead.right - 0.5 };
+      });
+      expect(kpis, `${frame} KPI row`).toEqual(
+        frame === 1280 ? { stacked: false, beside: true } : { stacked: true, beside: false },
+      );
       for (const name of ["Overview", "Alerts", "Gauges", "Exports"]) {
         await expect(
           sidebar.getByRole("link", { name, exact: true }),
@@ -1599,14 +1679,29 @@ test.describe("7.7 The dashboard and settings templates", () => {
           node.getBoundingClientRect().width > 1 &&
           (node.textContent ?? "").trim() !== "";
         const labels = [...(control.labels ?? [])];
-        const legend = control.closest("fieldset")?.querySelector(":scope > legend");
+        const group = control.closest("fieldset");
+        const legend = group?.querySelector(":scope > legend");
+        // A control in a group needs the group's legend on screen as well as its own label.
         const labeled =
-          labels.some(shown) ||
-          (kind === "switch" && shown(control)) ||
-          (kind === "radio" && shown(legend) && labels.some(shown));
-        return { kind, labeled, id: control.id };
+          (labels.some(shown) || (kind === "switch" && shown(control))) &&
+          (group == null || shown(legend));
+        return { kind, labeled, id: control.id, legend: group == null ? null : shown(legend) };
       }),
     );
+    // At least one radio group and one checkbox group show their legend.
+    for (const kind of ["radio", "checkbox"]) {
+      expect(
+        controls.some((control) => control.kind === kind && control.legend === true),
+        `${kind} group with a shown legend`,
+      ).toBe(true);
+    }
+    // The color input shows the design's chart-1 and names it.
+    const swatch = await root.locator('input[type="color"]').evaluate((input) => ({
+      value: (input as HTMLInputElement).value,
+      roles: (input.getAttribute("data-roles") ?? "").split(/\s+/),
+    }));
+    expect(rgbToHex(await roleColor(root, "chart-1"))).toBe(swatch.value);
+    expect(swatch.roles).toContain("chart-1");
     const kinds = new Set(controls.map((control) => control.kind));
     for (const kind of [
       "text",
@@ -1674,7 +1769,20 @@ test.describe("7.7 The dashboard and settings templates", () => {
     await setFrame(page, 1280);
     const root = await showTemplate(page, "settings");
     const opener = root.getByRole("button", { name: "Delete console", exact: true });
+    // One committed edit first, so undo has something to do if an arrow leaks out of the dialog.
+    const first = await lotId(page).textContent();
+    await page
+      .getByRole("complementary", { name: "Inputs" })
+      .getByRole("button", { name: "Regenerate", exact: true })
+      .click();
+    await expect(lotId(page)).not.toHaveText(first ?? "");
+    await settled(page);
     const lot = await lotId(page).textContent();
+    const toolbar = page.getByRole("region", { name: "Canvas toolbar" });
+    const undo = toolbar.getByRole("button", { name: "Undo", exact: true });
+    const redo = toolbar.getByRole("button", { name: "Redo", exact: true });
+    await expect(undo).toHaveAttribute("aria-disabled", "false");
+    await expect(redo).toHaveAttribute("aria-disabled", "true");
     await page.evaluate(() => {
       const counted = window as unknown as { __escapes: number };
       counted.__escapes = 0;
@@ -1720,9 +1828,12 @@ test.describe("7.7 The dashboard and settings templates", () => {
         expect(await inDialog(), key).toBe(true);
       }
       await cancel.focus();
-      // The studio's keys do nothing here: no regenerate, undo or redo.
+      // The studio's keys do nothing here: no undo or redo, so the lot and the history hold.
       for (const key of ["ArrowLeft", "ArrowRight"]) await page.keyboard.press(key);
       await expect(dialog).toBeVisible();
+      await expect(lotId(page)).toHaveText(lot ?? "");
+      await expect(undo).toHaveAttribute("aria-disabled", "false");
+      await expect(redo).toHaveAttribute("aria-disabled", "true");
       if (close === "Escape") {
         const results = await new AxeBuilder({ page })
           .include("[data-canvas][data-frame]")
@@ -1735,10 +1846,17 @@ test.describe("7.7 The dashboard and settings templates", () => {
       await expect(dialog).toHaveCount(0);
       await expect(opener).toBeFocused();
     }
+    // A click on the dialog's text, on its title or on the scrim keeps focus inside it, so Escape
+    // still closes it.
+    await clickInsideDialog(page, root, opener);
     expect(await page.evaluate(() => (window as unknown as { __escapes: number }).__escapes)).toBe(
       0,
     );
     await expect(lotId(page)).toHaveText(lot ?? "");
+    // Back to the first design, for the flows that follow.
+    await undo.click();
+    await expect(lotId(page)).toHaveText(first ?? "");
+    await settled(page);
   });
 
   test("F-TPL-31 the save bar sticks inside the settings scroll area at fit below 1 and at fit 1", async () => {
@@ -1809,24 +1927,17 @@ test.describe("7.7 The dashboard and settings templates", () => {
           expect(outside, `${mode} ${frame} ${id} undecided outside the segmented control`).toEqual(
             [],
           );
+          // Each undecided segment is measured as painted: its text against the fill behind it.
+          for (const pair of await paintedContrast(page, undecided)) {
+            expect(pair.ratio, `${mode} ${frame} ${id} ${pair.selector}`).toBeGreaterThanOrEqual(
+              pair.threshold,
+            );
+          }
         }
       }
     }
     await dark.click();
     await setFrame(page, 1280);
-    // The segmented control's two pairs, which axe cannot see under the radios, are measured here.
-    for (const mode of MODES) {
-      const roles = first().color.roles[mode];
-      for (const [text, fill] of [
-        ["muted-foreground", "muted"],
-        ["foreground", "background"],
-      ] as const) {
-        expect(
-          wcagRatio(hexToRgb(roles[text]), hexToRgb(roles[fill])),
-          `${mode} ${text} on ${fill}`,
-        ).toBeGreaterThanOrEqual(4.5);
-      }
-    }
   });
 });
 
@@ -1928,12 +2039,10 @@ test("F-TPL-30 Escape in the settings dialog never reaches a studio drawer at 36
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(opener).toBeFocused();
+  await clickInsideDialog(page, root, opener);
+  // The drawer check: a drawer closes on an Escape that reaches the window's key handler, and the
+  // counter on the window shows that none did.
   expect(await page.evaluate(() => (window as unknown as { __escapes: number }).__escapes)).toBe(0);
-  await expect(inputsAside(page)).not.toHaveAttribute("data-open", "");
-  await expect(page.getByRole("button", { name: "Inputs", exact: true })).toHaveAttribute(
-    "aria-expanded",
-    "false",
-  );
 });
 
 test("F-TPL-31 the save bar stays inside the scroll area and the region after the region scrolls", async ({
@@ -1954,4 +2063,63 @@ test("F-TPL-31 the save bar stays inside the scroll area and the region after th
   );
   expect(scrolled).toBeGreaterThan(0);
   await expectBarStays(page, "768 frame at 1280 × 600");
+});
+
+test("F-TPL-31 a section heading focused from behind the save bar ends above it at 768 in the default design and in aurora", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await stubSeeds(page);
+  await openStudio(page);
+  const preset = page
+    .getByRole("complementary", { name: "Inputs" })
+    .getByRole("combobox", { name: "Preset", exact: true });
+  /** Where a heading ends against the bar: its bottom and the bar's top, on screen. */
+  const ends = (root: Locator, key: string) =>
+    root.evaluate((element, key) => {
+      const bar = element.querySelector("[data-save-bar]")?.getBoundingClientRect();
+      const target = element.querySelector(`[id="settings-${key}"]`)?.getBoundingClientRect();
+      return bar === undefined || target === undefined
+        ? { bottom: Number.POSITIVE_INFINITY, barTop: 0 }
+        : { bottom: target.bottom, barTop: bar.top };
+    }, key);
+  for (const id of ["default", "aurora"] as const) {
+    await preset.selectOption(id);
+    await settled(page);
+    await fontsReady(page);
+    const root = await showTemplate(page, "settings");
+    await setFrame(page, 768);
+    const links = root.getByRole("navigation", { name: "Settings sections", exact: true });
+    // The real path: from the area's start, the "Boat" link focuses a heading near the bar.
+    await scrollArea(page, "start");
+    await links.getByRole("link", { name: "Boat", exact: true }).click();
+    await expect(root.locator('[id="settings-boat"]')).toBeFocused();
+    const boat = await ends(root, "boat");
+    expect(boat.bottom, `${id} Boat from the start`).toBeLessThanOrEqual(boat.barTop + 0.5);
+    // A heading scrolled entirely behind the bar, its top just under the bar's top, then focused.
+    for (const [key, name] of [
+      ["moorings", "Moorings"],
+      ["alerts", "Alerts"],
+      ["console", "Console"],
+    ] as const) {
+      const behind = await root.evaluate((element, key) => {
+        const area = element.querySelector<HTMLElement>("[data-scroll-area]");
+        const bar = element.querySelector("[data-save-bar]");
+        const target = element.querySelector(`[id="settings-${key}"]`);
+        if (!area || !bar || !target) return false;
+        const scale = area.getBoundingClientRect().height / area.offsetHeight;
+        const shift = target.getBoundingClientRect().top - bar.getBoundingClientRect().top - scale;
+        area.scrollTop += shift / scale;
+        const [b, h] = [bar.getBoundingClientRect(), target.getBoundingClientRect()];
+        return h.top >= b.top && h.bottom <= b.bottom;
+      }, key);
+      expect(behind, `${id} ${name}: the heading lies behind the bar`).toBe(true);
+      await links.getByRole("link", { name, exact: true }).click();
+      await expect(root.locator(`[id="settings-${key}"]`)).toBeFocused();
+      const end = await ends(root, key);
+      expect(end.bottom, `${id} ${name}: the heading ends above the bar`).toBeLessThanOrEqual(
+        end.barTop + 0.5,
+      );
+    }
+  }
 });

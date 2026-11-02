@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page } from "@playwright/test";
-import { ROLE_NAMES } from "@/engine";
+import { type Rgb, ROLE_NAMES, wcagRatio } from "@/engine";
 import type { TemplateId } from "@/features/studio/view";
 import { canvasFrame } from "./studio-support";
 
@@ -546,4 +546,69 @@ export function antiSlop(
     }
     return { stripes, clipped, strokes: [...strokes], foreign };
   });
+}
+
+/** One undecided text's painted pair: its text color, the fill behind it, their ratio and the bar it must clear. */
+export type PaintedPair = {
+  readonly selector: string;
+  readonly color: string;
+  readonly fill: string;
+  readonly ratio: number;
+  readonly threshold: number;
+};
+
+/**
+ * F-TPL-12, F-TPL-27: for each element that axe could not decide (its `selector`), the painted text
+ * color against the fill behind it, the opaque background of the nearest element (itself or an
+ * ancestor) that paints one, and the WCAG ratio it must reach: 4.5, or 3 for large text (24 px, or
+ * 18.66 px at weight 700 or more). A selector that finds nothing, a text color that is not opaque or
+ * text with no opaque fill behind it gives a ratio of 0, so it fails.
+ */
+export async function paintedContrast(
+  page: Page,
+  selectors: readonly string[],
+): Promise<PaintedPair[]> {
+  const paints = await page.evaluate(
+    (selectors) =>
+      selectors.map((selector) => {
+        const element = document.querySelector(selector);
+        if (element === null) return { selector, color: "", fill: "", large: false };
+        const alpha = (value: string) =>
+          value.startsWith("rgba(")
+            ? Number(value.slice(value.lastIndexOf(",") + 1, -1))
+            : value.startsWith("rgb(")
+              ? 1
+              : 0;
+        let fill = "";
+        for (let node: Element | null = element; node !== null; node = node.parentElement) {
+          const background = getComputedStyle(node).backgroundColor;
+          if (alpha(background) === 1) {
+            fill = background;
+            break;
+          }
+        }
+        const style = getComputedStyle(element);
+        const size = Number.parseFloat(style.fontSize);
+        const weight = Number(style.fontWeight);
+        return {
+          selector,
+          color: alpha(style.color) === 1 ? style.color : "",
+          fill,
+          large: size >= 24 || (size >= 18.66 && weight >= 700),
+        };
+      }),
+    selectors,
+  );
+  // `rgb(r, g, b)` as sRGB channels from 0 to 1, the engine's `Rgb`.
+  const channels = (value: string): Rgb => {
+    const [r = 0, g = 0, b = 0] = (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+    return [r / 255, g / 255, b / 255];
+  };
+  return paints.map(({ selector, color, fill, large }) => ({
+    selector,
+    color,
+    fill,
+    ratio: color === "" || fill === "" ? 0 : wcagRatio(channels(color), channels(fill)),
+    threshold: large ? 3 : 4.5,
+  }));
 }

@@ -57,18 +57,6 @@
   justify-content: center;
   padding-inline: 0;
 }
-/* In the rail a label is for assistive technology only; the link keeps it as its name. */
-.db-label {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  margin: -1px;
-  padding: 0;
-  border: 0;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
 .db-crew {
   display: none;
 }
@@ -79,15 +67,6 @@
   .db-brand {
     justify-content: start;
     padding-inline: var(--space-2);
-  }
-  .db-label {
-    position: static;
-    width: auto;
-    height: auto;
-    overflow: visible;
-    margin: 0;
-    clip-path: none;
-    white-space: normal;
   }
   .db-sidebar .kit-link[data-tone="sidebar"] {
     justify-content: start;
@@ -197,7 +176,7 @@
   display: grid;
   gap: var(--space-4);
 }
-@container frame (min-width: 768px) {
+@container frame (min-width: 1000px) {
   .db-kpis {
     grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
     align-items: start;
