@@ -488,7 +488,7 @@ so native controls follow the spec's mode and not the chrome's dark scheme; the 
   studio's first-load state with `newSeed` stubbed to return `"seed-1"`. A fake `clock` and fake timers drive every
   debounce and every coalesce window. A `StubClient` posts requests and replies in any order the test chooses.
 - **Case ids.** `C-ENTRY`, `C-NORM`, `C-FONT`, `C-LOAD`, `C-PAIR`, `C-PRESET`, `C-TASTE`, `C-NAME`, `C-THEME`, `C-DENSITY`,
-  `C-STORE`, `C-WORK`, `C-HASH`, `C-DRAFT`, `C-INSPECT`, `C-GUARD`, `C-REPO`; flows `F-STUDIO`, `F-INPUT`,
+  `C-STORE`, `C-WORK`, `C-HASH`, `C-DRAFT`, `C-INSPECT`, `C-GUARD`, `C-REPO`, `C-TIDE`; flows `F-STUDIO`, `F-INPUT`,
   `F-KEY`, `F-CANVAS`, `F-TPL`, `F-INSP`, `F-A11Y`, `F-HOME`.
 
 ### Invariants
@@ -1393,6 +1393,30 @@ built by the test. The flows F-KEY-01 to F-KEY-14 run the same rules in the brow
 | C-INPUTS-04 | pass | `autoPairingLabel(seed)` is `Auto (<label>)` with the label of `choosePairing(seed)`; a non-string seed throws `TypeError` | ruling |
 | C-INPUTS-05 | pass | `GAMUT_LABELS` names `srgb` "sRGB" and `p3` "Display P3", and `SEED_FIELD_MESSAGE` is the message of F-INPUT-09 | decision |
 
+### 6.12 The sample tide (Task 2.8)
+
+Tests: `tests/unit/features/preview/tide.test.ts`. File: `src/features/preview/tide.ts`, a pure helper held to the floors of
+95 and 90 like the preview helpers of Task 2.7. The landing's tide card draws its curve, lists its events and names its
+figure from this one source (F-TPL-42).
+
+```ts
+const TIDE_RANGE: number; // the meters a full height stands for: 5
+function tideAt(hour: number): number; // meters at `hour`, 0 to 24
+type TideEvent = { readonly kind: "high" | "low"; readonly hour: number; readonly meters: number };
+const TIDE_EVENTS: readonly TideEvent[]; // the day's extremes, in time order, frozen
+function clock(hour: number): string; // "06:42"
+```
+
+`tideAt` is a semidiurnal wave with a smaller diurnal term, so the day's two high waters differ (the diurnal inequality).
+`TIDE_EVENTS` holds the local extremes of `tideAt` sampled at every minute from 00:01 to 23:59.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-TIDE-01 | pass | `tideAt` stays inside (0, `TIDE_RANGE`) at every minute of the day, and `TIDE_RANGE` is 5 | added |
+| C-TIDE-02 | pass | `TIDE_EVENTS` alternates low and high in time order; each event's `meters` is `tideAt(event.hour)` and is a strict extreme against `tideAt` a minute before and after; there are two highs and they differ by at least 0.1 m | review |
+| C-TIDE-03 | pass | `clock(6.7)` is `"06:42"`, `clock(0)` is `"00:00"`, `clock(24)` is `"24:00"`, and `clock(9.5)` is `"09:30"`: the hour and the minute, rounded to the nearest minute, each two digits | added |
+| C-TIDE-04 | failure | R-05: `tideAt` and `clock` throw `TypeError` for a value that is not a number and `RangeError` for `NaN`, an infinity or an hour outside [0, 24], each naming the function | added |
+
 ## 7. Flows (UI, covered by Playwright)
 
 Tests: `tests/e2e/studio.spec.ts`, `tests/e2e/canvas.spec.ts` (section 7.4), `tests/e2e/templates.spec.ts`,
@@ -1529,8 +1553,8 @@ every toolbar target is at least 28 px tall and 24 px wide. The canvas passes `{
 | F-CANVAS-04 | pass | The mode toggle switches the canvas variables between the light and dark `themeVars`, and Alt+T does the same | decision |
 | F-CANVAS-05 | pass | The density group changes `--control-height` and the kit's control heights (40, 36 and 32 px) | decision |
 | F-CANVAS-06 | pass | The vision group recomputes the canvas colors: with `protan`, `--destructive` equals `toHex(simulate(hexToRgb(<stored hex>), "protan"))`; `none` restores the stored hexes | decision, plan |
-| F-CANVAS-07 | pass | With "Reduce motion" on, kit animations and transitions stop (computed `animation-name` is `none` and transition durations are at most 0.01 ms) and Motion springs do not run; the switch keeps the preview's own state and never replays the entrance, and once it is off the springs run again, also in parts that mounted while it was on. The same holds on the landing and editorial templates: nothing inside them animates or transitions longer than 0.01 ms, a template chosen while the switch is on shows its entrance in place at once, and toggling the switch keeps the landing's open FAQ item and never replays the entrance | plan, review |
-| F-CANVAS-08 | pass | With the operating-system preference `prefers-reduced-motion: reduce`, the same holds without the switch, on the kitchen sink and on the landing and editorial templates | decision |
+| F-CANVAS-07 | pass | With "Reduce motion" on, kit animations and transitions stop (computed `animation-name` is `none` and transition durations are at most 0.01 ms) and Motion springs do not run; the switch keeps the preview's own state and never replays the entrance, and once it is off the springs run again, also in parts that mounted while it was on. The same holds on the landing and editorial templates: nothing inside them animates or transitions longer than 0.01 ms, a template chosen while the switch is on shows its entrance in place from its first frame and holds no animation (sampled from mount, as F-TPL-17 does), and toggling the switch keeps the landing's open FAQ item and never replays the entrance | plan, review |
+| F-CANVAS-08 | pass | With the operating-system preference `prefers-reduced-motion: reduce`, the same holds without the switch, on the kitchen sink and on the landing and editorial templates: each template, mounted under the preference, shows its entrance in place from its first frame and holds no animation | decision, review |
 | F-CANVAS-09 | pass | "Edge-case copy" swaps in the long word, the long title, the diacritics, the large number, the empty list and the one-character label, and no template overflows its frame; in the 360, 768 and 1280 frames each reading on screen keeps its number on one line, and the place and observer text of the readings breaks only at spaces and hyphens (every word of 20 characters or fewer has one client rect; only the 40-character word may break anywhere). The landing and editorial templates show the six edge cases in their slots (section 7.6) and do not overflow the 360, 768 and 1280 frames; in them every figure on screen (`.kit-num`) keeps one line, and every word of 20 characters or fewer in any text on screen has one client rect | ruling, review |
 | F-CANVAS-10 | pass | The template switcher shows each of the six templates; the choice is kept across edits and view changes | decision |
 | F-CANVAS-11 | pass | "Show me" (section 7.8) outlines the elements whose `data-roles` hold the role, in madder, 2 px dashed with a 2 px offset, and clears when another is chosen or the finding is dismissed | decision |
@@ -1564,7 +1588,7 @@ invalid, success, placeholder, empty, as the component supports them. A forced s
 | F-TPL-06 | pass | The kitchen sink fits the 360, 768 and 1280 px frames without horizontal overflow | plan |
 | F-TPL-07 | pass | The kit uses icons from `lucide-react` only, each with `stroke-width` equal to `--icon-stroke` | decision |
 | F-TPL-08 | pass | Concentric radii hold: an image inside a card with padding `p` has radius `max(0, card radius − p)` (computed), and a segmented control's outer radius equals its inner radius plus its padding | research D5 |
-| F-TPL-38 | pass | Type triples: in both panes at the 1280 and 360 frames, and in the landing and editorial templates at the same frames (once with the default design and once with the `editorial` type context, whose `display` step is a fluid `cqi` clamp), every element on screen with its own text (outside an inert specimen) has the computed `font-size`, `line-height` and `letter-spacing` of one type step, resolved from a probe set from that step's three variables in the same pane; each `.kit-t-<step>` class sets exactly that triple, and no preview stylesheet or style object sets a step's size anywhere else (the `[data-canvas]` root keeps the body triple). Numbered after F-TPL-37 because F-TPL-09 is the landing page's | review |
+| F-TPL-38 | pass | Type triples: in both panes at the 1280 and 360 frames, and in the landing and editorial templates at the same frames (once with the default design and once with the `editorial` type context, whose `display` step is a fluid `cqi` clamp), every element on screen with its own text (outside an inert specimen) has the computed `font-size`, `line-height` and `letter-spacing` of one type step, resolved from a probe set from that step's three variables in the same pane; each `.kit-t-<step>` class sets exactly that triple, and no preview stylesheet or style object sets a step's size anywhere else (the `[data-canvas]` root keeps the body triple). At the 360 frame the landing's hero headline and the article's title set the `h2` triple and the landing's price the `h4` triple, and at the 1280 frame they set `display` and `h3` (section 7.6). Numbered after F-TPL-37 because F-TPL-09 is the landing page's | review |
 
 ### 7.6 The landing and editorial templates (Task 2.8)
 
@@ -1578,8 +1602,12 @@ inline code span and a code block, a figure with a caption, footnotes, links (`p
 Both templates are built from the kit (section 7.5) and keep the canvas rules of R2-20, R2-21 and R2-30. Every color is a
 bridge variable, and every part names the roles it paints in `data-roles`; text set in the display face adds `font-display`,
 so T1's "show me" finds it (section 6.9). Text takes its size, leading and tracking only from a `.kit-t-<step>` class
-(F-TPL-38). The layout answers the `frame` container and no media query. A link moves focus to its target inside the template
-and leaves the address bar alone, because links navigate nowhere (R2-20). The copy lives in `src/features/preview/copy.ts`: it
+(F-TPL-38). The layout answers the `frame` container and no media query. Below 480 px of frame the landing's hero headline and the
+article's title set the `h2` triple instead of `display`, and the landing's price the `h4` triple instead of `h3`: the
+part overrides its step's three variables (`--text-display: var(--text-h2)`, the leading and the tracking) inside
+`@container frame (width < 480px)`, so its `.kit-t-<step>` class still sets one whole triple. No part is sticky: in a frame
+that the fit scales down, a sticky part drifts as the canvas region scrolls. A link moves focus to its target inside the
+template and leaves the address bar alone, because links navigate nowhere (R2-20). The copy lives in `src/features/preview/copy.ts`: it
 is fictional, it is labeled "sample", and its places come from `SAMPLE_PLACES`. Under "Edge-case copy" each template swaps the
 six cases of R2-21 into its slots:
 - on the landing page, the hero headline takes the 90-character title, the hero's lead the 40-character word, the quote the
@@ -1588,8 +1616,10 @@ six cases of R2-21 into its slots:
 - in the article, the H1, the standfirst, the byline, the dye log, the list of places and the badge do the same.
 
 Three terms the cases use:
-- A **hero-metric block** is an element of the landing hero (`data-block="hero"`) whose own text is a figure (digits with
-  separators, an optional currency sign and an optional unit) set at the `h2` step or larger.
+- A **hero-metric block** is an element of the landing hero (`data-block="hero"`) whose own text is a figure set at the
+  `h2` step or larger. A figure is a number (an optional currency sign or `#`, an optional sign, digits with separators),
+  an optional suffix (`%`, `+`, `×` or `x`, `/n`, or a unit of up to three letters with an optional `+`), and at most two
+  words after it: `10K+`, `3×`, `24/7`, `#1`, `4.9/5`, `1M+ readings` and `99.9% uptime` are figures.
 - A **logo row** is an element with three or more children that each hold only an image (an `img`, an `svg` that is not a
   lucide icon, or an element with `role="img"`) and no text.
 - Two parts are of **equal size** when their layout widths and heights each differ by 1 px or less.
@@ -1600,18 +1630,21 @@ An SVG in a template is either a lucide icon or a drawn figure (`data-figure`, `
 |---|---|---|---|
 | F-TPL-09 | pass | The landing page renders in the 360, 768 and 1280 px frames without overflow (`scrollWidth` at most `clientWidth`, and no element's box extends past the frame's right edge) | plan |
 | F-TPL-10 | pass | The editorial article renders in all three frames without overflow, by the same measure | plan |
-| F-TPL-11 | pass | The editorial body paragraph measure is 60 to 75 characters: its computed `max-width` divided by the width of `1ch` in its font falls in [60, 75] | plan, research D1 rule 19 |
-| F-TPL-12 | pass | Both templates pass axe with zero violations in light and in dark, at 360 and at 1280 px | plan |
+| F-TPL-11 | pass | The editorial body paragraph measure is 60 to 75 characters: its computed `max-width` divided by the width of `1ch` in its font falls in [60, 75], and at the 1280 frame its laid-out width, in the same `ch`, falls in [60, 75] too; the figure, the code block and the quote end at the same right edge as the text | plan, research D1 rule 19, review |
+| F-TPL-12 | pass | Both templates pass axe with zero violations in light and in dark, at 360 and at 1280 px. The color-contrast nodes axe cannot decide (`incomplete`, the parts of the landing's tide card over the `primary` block) lie only inside that card, and the test measures its pair: `wcagRatio` of `card-foreground` on `card` is at least 4.5 in both modes | plan, review |
 | F-TPL-13 | pass | The landing features block (`data-block="features"`) is a list beside a product moment (`data-moment`): at the 1280 and 768 frames the two boxes share a vertical span and do not overlap horizontally. No element in the block has three or more children of equal size that each hold an icon (an `svg`). The same check runs on the dashboard's KPI row, which does not hold three or more equal icon cards; that half lands with the dashboard (Task 2.9), and Task 2.8 builds the check so it can be reused | plan, decision |
 | F-TPL-14 | pass | No element in either template has `background-clip: text` with a transparent text fill (no gradient text) | plan, decision |
 | F-TPL-15 | pass | No text node in any template holds an emoji or other pictograph (`\p{Extended_Pictographic}`). Every `svg` is a lucide icon drawn at `--icon-stroke`, or a drawn figure with `data-figure`, `role="img"` and an accessible name. Every template runs the check, the kitchen sink included; a later template joins by adding its id | decision |
 | F-TPL-16 | pass | No template has a logo row or the text "trusted by", and each shows the word "sample" on screen; the landing hero holds no hero-metric block. A later template joins by adding its id | decision |
-| F-TPL-17 | pass | Each template has exactly one orchestrated entrance (`data-entrance` appears once), and nothing else animates when it mounts: every running animation in the frame targets the entrance. Chosen while "Reduce motion" is on, the template shows its entrance in place at once, with no running animation. The landing and editorial templates run the check; a later template joins by adding its id | decision |
+| F-TPL-17 | pass | Each template has exactly one orchestrated entrance (`data-entrance` appears once), and nothing else animates when it mounts: sampled on every frame from mount, every animation the frame holds (`getAnimations({ subtree: true })`: CSS animations, CSS transitions and scripted animations) targets the entrance, and no other element's opacity or transform changes. Chosen while "Reduce motion" is on, the template shows its entrance in place from its first frame, with no animation at all. The landing and editorial templates run the check; a later template joins by adding its id | decision |
 | F-TPL-18 | pass | The landing page has one `h1`; headings descend without gaps; the article's H1 to H4 exist in order | plan |
 | F-TPL-19 | pass | Radius and spacing vary by hierarchy: the landing page uses at least three distinct radius tokens and three distinct spacing tokens in its computed styles (a computed radius, padding, margin or gap that equals the value of a `--radius-*` or nonzero `--space-*` token) | decision |
-| F-TPL-20 | pass | The editorial template shows every link as `primary` text with an underline (there is no link role and no visited style), and its selection uses the spec's `--primary` and `--primary-foreground`. Every in-page link of both templates names a target inside the template; following one moves focus to the target and leaves `location.hash` as it was, so the studio's link stays in the address bar (R2-20) | research D5, ruling |
+| F-TPL-20 | pass | The editorial template shows every link as `primary` text with an underline (there is no link role and no visited style), and its selection uses the spec's `--primary` and `--primary-foreground`. Every in-page link of both templates names a target inside the template; following one moves focus to the target and leaves `location.hash` as it was, so the studio's link stays in the address bar (R2-20). This holds for a contents link, a landing navigation link, a note reference (focus moves to its note) and the note's "Back to the text" link (focus returns to the reference) | research D5, ruling, review |
 | F-TPL-21 | pass | The FAQ accordion opens and closes by keyboard (Enter and Space on its buttons), with `aria-expanded` and the panel shown or hidden to match | I-M2-03 |
-| F-TPL-39 | pass | Every painted color is named: in the landing and editorial templates, in both modes, each opaque text color (of an element with its own text), background color, border color (of a drawn border) and SVG fill or stroke equals the computed color of a role named in the `data-roles` of the element or of its nearest ancestor that has `data-roles`; and every element whose own text is set in the display face, when the display and body faces differ, has `font-display` in those `data-roles`. Task 2.10's "show me" (F-CANVAS-11) finds parts by these names | ruling, R2-20 |
+| F-TPL-39 | pass | Every painted color is named: in the landing and editorial templates, in both modes, each opaque text color (of an element with its own text), background color, border color (of a drawn border) and SVG fill or stroke equals the computed color of a role named in the `data-roles` of the element or of its nearest ancestor that has `data-roles`; and every element whose own text is set in the display face, when the display and body faces differ, has `font-display` in those `data-roles`. The `::before`, `::after` and `::marker` boxes that paint count as their element's paints. The check runs on the test design and on a fixture whose 46 role colors are pairwise distinct in each mode (each repeated hex moved by a few codes, opened through `#s=`), so a part cannot pass by naming a role that shares another's color. Task 2.10's "show me" (F-CANVAS-11) finds parts by these names | ruling, R2-20, review |
+| F-TPL-40 | pass | A preset sweep: for each of the 14 presets, in both templates, at the 360 and 768 frames, with real and with edge copy, nothing overflows the frame, every figure on screen keeps one line, and no word of 20 characters or fewer has more than one client rect. The 40-character word of R2-21 is the only word that may break | ruling |
+| F-TPL-41 | pass | The article's contents: at the 1280 frame the contents column sits beside the body (their boxes share a vertical span and do not overlap horizontally) and is not sticky, and each contents link moves focus to its section and leaves `location.hash` as it was | ruling, review |
+| F-TPL-42 | pass | The landing's tide card tells one story (section 6.12): its events list shows each event of `TIDE_EVENTS` with `clock(hour)` and its meters to one decimal, the figure's accessible name holds each event's time and the "now" time, and the "now" line carries a visible label with that time | review |
 
 ### 7.7 The dashboard, settings and mobile templates (Tasks 2.9 and 2.10)
 
@@ -1718,6 +1751,8 @@ Each row lists the cases that carry the item. Every case with the item's tag in 
 | A fix for the taste rules T1 to T4 | R2-26 | Not scheduled |
 | Fonts beyond the 40 families | umbrella §6 ("about 40") | Not scheduled |
 | Drafts do not restore the preset's view settings (mode, density); after a reload a dark preset shows a light canvas until toggled | R2-06, R2-13 item 7, Task 2.6 | Revisit with M6 polish |
+| The `poster` type context has no fluid step: its `display` step (137 px at body 18, ratio 1.5) cannot set a word at phone widths. Below 480 px of frame the landing and the article set their headline at `h2` (section 7.6) | Task 2.8, ruling 2 | M3 (a fluid poster display) or a lint rule |
+| The canvas loads only upright files, so emphasis renders a synthesized oblique. The article's pull quote is set upright; `em` stays | R2-03, Task 2.8 review | M3 export or M6 polish (each family's italic files) |
 
 ## 10. Done when
 
