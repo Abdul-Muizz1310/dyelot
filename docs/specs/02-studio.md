@@ -1404,7 +1404,7 @@ the computed custom properties on `[data-canvas]`.
 
 The studio is a client page at `/studio`. Its regions are landmarks: the inputs panel (`<aside aria-label="Inputs">`), the
 canvas (`<main aria-label="Canvas">`) and the inspector (`<aside aria-label="Inspector">`). The page has one `h1`,
-visually hidden, "dyelot studio". The toolbar above the canvas has one order, in the DOM and for Tab: below 1024 px the drawer buttons "Inputs" and
+visually hidden, "dyelot studio"; a template on the canvas sets its own `h1` under it (F-TPL-18). The toolbar above the canvas has one order, in the DOM and for Tab: below 1024 px the drawer buttons "Inputs" and
 "Inspector" first, then the frame switcher, the template switcher, the mode toggle, the density group, "Reduce motion", the
 copy group, the vision group, "Undo", "Redo" and "Copy link". Below 640 px the five view controls (the mode toggle, the
 density group, "Reduce motion", the copy group and the vision group) sit in a disclosure: a button "View" with
@@ -1417,7 +1417,7 @@ Geist Mono. The strip is a group labeled "Primary scale, 11 steps" with 11 swatc
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| F-STUDIO-01 | pass | `/studio` answers 200, has one `h1`, a title and a description of its own, a canonical link, and an entry in `sitemap.xml`; the home page keeps its own | plan |
+| F-STUDIO-01 | pass | `/studio` answers 200, has one `h1` outside the canvas (the template inside `[data-canvas]` carries its own, F-TPL-18), a title and a description of its own, a canonical link, and an entry in `sitemap.xml`; the home page keeps its own | plan, ruling |
 | F-STUDIO-02 | pass | At 1280 px the three regions are visible side by side: inputs 320 px, inspector 360 px, canvas fluid in between (each ±1 px) | decision, plan |
 | F-STUDIO-03 | pass | At 1100 px the inputs panel is a 320 px column, the inspector is a drawer, and the toolbar shows "Inspector"; the open Inspector drawer makes the inputs column `inert`, and closing it returns focus to "Inspector" | ruling, review |
 | F-STUDIO-04 | pass | At 360 px both panels are drawers, the toolbar shows "Inputs" and "Inspector", and `document.documentElement.scrollWidth` is at most 360 | RF5, plan |
