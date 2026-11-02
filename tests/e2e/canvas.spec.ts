@@ -31,6 +31,7 @@ import {
   eachTab,
   figureLines,
   frameSwitch,
+  installColorResolver,
   mobileOverflow,
   mountMotion,
   openSheet,
@@ -44,8 +45,8 @@ import {
 // The canvas flows of docs/specs/02-studio.md, section 7.4 (Task 2.7): F-CANVAS-01 to 10 and 12 to
 // 19, with F-CANVAS-07 to 09 extended to the landing and editorial templates (Task 2.8), to the
 // dashboard and settings templates (Task 2.9) and to the mobile template (Task 2.10a). F-CANVAS-11
-// ("Show me") is driven from the inspector and lands with it in Task 2.10. A flow that names no
-// viewport runs at 1280 × 800.
+// ("Show me") is driven from the inspector and lives in inspector.spec.ts (Task 2.10b); F-CANVAS-01 here
+// runs once with its highlight shown. A flow that names no viewport runs at 1280 × 800.
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -124,6 +125,104 @@ function chromeColors(): string[] {
   return [...hexes.map((hex) => `rgb(${channels(hex)})`), ...rgbs];
 }
 
+/**
+ * F-CANVAS-01: walks every element of the canvas frame and reports each computed color equal to a
+ * chrome color, and each outline that is not the canvas's `--ring`, read through the shared sRGB
+ * resolver. A spec color that equals a chrome value by chance is skipped by value. With `highlighted`
+ * roles, madder is allowed only as the `outline-color` of an element whose `data-roles` name one of
+ * them (the "show me" overlay, R2-20); `exempted` counts those. A probe marked `data-probe` is named in
+ * its hits.
+ */
+async function chromeHits(page: Page, highlighted: readonly string[]) {
+  await installColorResolver(page);
+  const spec = first();
+  const specColors: string[] = MODES.flatMap((mode) => [
+    ...Object.values(spec.color.roles[mode]),
+    ...Object.values(spec.color.palettes).flatMap((palette) =>
+      palette[mode].map((step) => step.hex),
+    ),
+  ]);
+  return canvasFrame(page).evaluate(
+    (frame, { chrome, skip, highlighted }) => {
+      const resolve = (window as unknown as { __dyelotRgba: (v: string) => number[] | null })
+        .__dyelotRgba;
+      // sRGB channels and alpha to two decimals: a chrome value with alpha matches only that alpha.
+      const keys = new Map<string, string | null>();
+      const key = (value: string): string | null => {
+        const known = keys.get(value);
+        if (known !== undefined) return known;
+        const rgba = resolve(value);
+        const found =
+          rgba === null || rgba[3] === 0
+            ? null
+            : [...rgba.slice(0, 3), Number(rgba[3]?.toFixed(2))].join(",");
+        keys.set(value, found);
+        return found;
+      };
+      const hexKey = (hex: string) =>
+        [...[1, 3, 5].map((at) => Number.parseInt(hex.slice(at, at + 2), 16)), 1].join(",");
+      const chromeKeys = new Set(chrome.map(key).filter((value) => value !== null));
+      const skipKeys = new Set(skip.map(hexKey));
+      const madder = "246,108,109,1";
+      const rings = new Map<Element, string | null>();
+      const ringOf = (element: Element) => {
+        const canvas = element.closest("[data-pane]") ?? frame;
+        const known = rings.get(canvas);
+        if (known !== undefined) return known;
+        const probe = document.createElement("span");
+        probe.style.color = "var(--ring)";
+        canvas.append(probe);
+        const ring = key(getComputedStyle(probe).color);
+        probe.remove();
+        rings.set(canvas, ring);
+        return ring;
+      };
+      const hits: string[] = [];
+      let checked = 0;
+      let exempted = 0;
+      for (const element of [frame, ...frame.querySelectorAll("*")]) {
+        const style = getComputedStyle(element);
+        const probe = element.closest<HTMLElement>("[data-probe]")?.dataset.probe;
+        const label = `${element.tagName}${probe === undefined ? "" : ` [probe ${probe}]`}`;
+        const roles = (element.getAttribute("data-roles") ?? "").split(/\s+/);
+        const lit = roles.some((role) => highlighted.includes(role));
+        const colors: [string, string][] = [
+          ["color", style.color],
+          ["background-color", style.backgroundColor],
+          ["outline-color", style.outlineColor],
+          ["fill", style.fill],
+          ["stroke", style.stroke],
+          ["caret-color", style.caretColor],
+          ["text-decoration-color", style.textDecorationColor],
+        ];
+        for (const side of ["Top", "Right", "Bottom", "Left"] as const) {
+          colors.push([`border-${side.toLowerCase()}-color`, style[`border${side}Color`]]);
+        }
+        for (const match of style.boxShadow.matchAll(/(?:rgba?|oklab|oklch|color)\([^)]*\)/g)) {
+          colors.push(["box-shadow", match[0]]);
+        }
+        for (const [property, value] of colors) {
+          checked++;
+          const found = key(value);
+          if (found === null || skipKeys.has(found)) continue;
+          if (lit && property === "outline-color" && found === madder) {
+            exempted++;
+            continue;
+          }
+          if (chromeKeys.has(found)) hits.push(`${label} ${property} ${value}`);
+        }
+        const outline = key(style.outlineColor);
+        const exempt = lit && outline === madder;
+        if (!exempt && outline !== ringOf(element)) {
+          hits.push(`${label} outline-color ${style.outlineColor} is not --ring`);
+        }
+      }
+      return { hits, checked, exempted };
+    },
+    { chrome: chromeColors(), skip: specColors, highlighted },
+  );
+}
+
 test.describe("7.4 The canvas on the kitchen sink", () => {
   test.describe.configure({ mode: "serial" });
   let page: Page;
@@ -152,63 +251,59 @@ test.describe("7.4 The canvas on the kitchen sink", () => {
   });
 
   test("F-CANVAS-01 no computed color inside the canvas is a chrome color", async () => {
-    const spec = first();
-    const specColors: string[] = MODES.flatMap((mode) => [
-      ...Object.values(spec.color.roles[mode]),
-      ...Object.values(spec.color.palettes).flatMap((palette) =>
-        palette[mode].map((step) => step.hex),
-      ),
-    ]);
-    const report = await canvasFrame(page).evaluate(
-      (frame, { chrome, skip }) => {
-        const hexOf = (color: string) => {
-          const [r = 0, g = 0, b = 0] = (color.match(/[\d.]+/g) ?? []).map(Number);
-          return `#${[r, g, b].map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
-        };
-        const ringOf = (element: Element) => {
-          const canvas = element.closest("[data-pane]") ?? frame;
-          const probe = document.createElement("span");
-          probe.style.color = "var(--ring)";
-          canvas.append(probe);
-          const ring = getComputedStyle(probe).color;
-          probe.remove();
-          return ring;
-        };
-        const hits: string[] = [];
-        let checked = 0;
-        for (const element of [frame, ...frame.querySelectorAll("*")]) {
-          const style = getComputedStyle(element);
-          const colors: [string, string][] = [
-            ["color", style.color],
-            ["background-color", style.backgroundColor],
-            ["outline-color", style.outlineColor],
-            ["fill", style.fill],
-            ["stroke", style.stroke],
-            ["caret-color", style.caretColor],
-            ["text-decoration-color", style.textDecorationColor],
-          ];
-          for (const side of ["Top", "Right", "Bottom", "Left"] as const) {
-            colors.push([`border-${side.toLowerCase()}-color`, style[`border${side}Color`]]);
-          }
-          for (const match of style.boxShadow.matchAll(/rgba?\([^)]*\)/g)) {
-            colors.push(["box-shadow", match[0]]);
-          }
-          for (const [property, value] of colors) {
-            checked++;
-            if (!value.startsWith("rgb")) continue;
-            if (skip.includes(hexOf(value))) continue;
-            if (chrome.includes(value)) hits.push(`${element.tagName} ${property} ${value}`);
-          }
-          if (style.outlineColor !== ringOf(element)) {
-            hits.push(`${element.tagName} outline-color ${style.outlineColor} is not --ring`);
-          }
-        }
-        return { hits, checked };
-      },
-      { chrome: chromeColors(), skip: specColors },
-    );
+    const report = await chromeHits(page, []);
     expect(report.checked).toBeGreaterThan(5000);
     expect(report.hits).toEqual([]);
+  });
+
+  test("F-CANVAS-01 with a highlight shown, madder is only the outline of a highlighted part", async () => {
+    const show = page
+      .locator('aside#studio-inspector [data-finding="N3 light border/background"]')
+      .getByRole("button", { name: "Show me", exact: true });
+    await show.click();
+    await expect(canvasRegion(page)).toHaveAttribute("data-show-me", "border background");
+    try {
+      const report = await chromeHits(page, ["border", "background"]);
+      expect(report.checked).toBeGreaterThan(5000);
+      expect(report.hits).toEqual([]);
+      expect(report.exempted, "the walk saw outlined parts").toBeGreaterThan(0);
+      // The exemption is that narrow: a madder text color on a highlighted part, and a madder
+      // outline on a part that names no highlighted role, are each reported.
+      const probes = await canvasFrame(page).evaluate((frame) => {
+        const named = frame.querySelector<HTMLElement>('[data-roles~="border"]');
+        const other = [...frame.querySelectorAll<HTMLElement>("[data-roles]")].find((element) => {
+          const roles = (element.getAttribute("data-roles") ?? "").split(/\s+/);
+          return !roles.includes("border") && !roles.includes("background");
+        });
+        if (named === null || other === undefined) return null;
+        named.dataset.probe = "color";
+        named.style.color = "#f66c6d";
+        other.dataset.probe = "outline";
+        other.style.outline = "2px dashed #f66c6d";
+        return [named.tagName, other.tagName];
+      });
+      expect(probes, "two probe parts").not.toBeNull();
+      const probed = await chromeHits(page, ["border", "background"]);
+      expect(
+        probed.hits.filter((hit) => hit.includes("[probe color]") && hit.includes(" color ")),
+      ).not.toHaveLength(0);
+      expect(
+        probed.hits.filter(
+          (hit) => hit.includes("[probe outline]") && hit.includes("outline-color"),
+        ),
+      ).not.toHaveLength(0);
+      expect(probed.hits.every((hit) => hit.includes("[probe "))).toBe(true);
+    } finally {
+      await canvasFrame(page).evaluate((frame) => {
+        for (const element of frame.querySelectorAll<HTMLElement>("[data-probe]")) {
+          element.style.color = "";
+          element.style.outline = "";
+          delete element.dataset.probe;
+        }
+      });
+      await show.click();
+      await expect(canvasRegion(page)).not.toHaveAttribute("data-show-me", /.+/);
+    }
   });
 
   test("F-CANVAS-12 inside the canvas the browser surfaces follow the spec", async () => {

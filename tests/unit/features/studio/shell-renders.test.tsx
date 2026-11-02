@@ -38,8 +38,16 @@ class StubResizeObserver {
   disconnect() {}
 }
 
+/** The inspector's Names section waits for an IntersectionObserver that never reports (Task 2.10b). */
+class StubIntersectionObserver {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+
 beforeEach(() => {
   vi.stubGlobal("ResizeObserver", StubResizeObserver);
+  vi.stubGlobal("IntersectionObserver", StubIntersectionObserver);
   // A 1280 × 800 window: no media query of the shell's drawers matches below its width.
   vi.stubGlobal(
     "matchMedia",

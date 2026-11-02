@@ -1,6 +1,7 @@
 "use client";
 
 import "./studio.css";
+import "./highlight.css";
 import Link from "next/link";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { createFitStore, FitContext } from "@/features/preview/useFrameFit";
@@ -9,6 +10,7 @@ import { createStudioClient } from "./client";
 import { DraftsAnnouncer } from "./DraftsAnnouncer";
 import { safeStorage } from "./drafts";
 import { InputsPanel } from "./InputsPanel";
+import { Inspector } from "./Inspector";
 import { LotTag } from "./LotTag";
 import { Notices } from "./Notices";
 import { bindStudioWindow, createStudioStore, randomSeed, type StudioStore } from "./store";
@@ -164,6 +166,13 @@ function StudioShell({ store }: { store: StudioStore }) {
             closeLabel="Close inspector"
             canClose={isDrawer.inspector}
             onClose={closeDrawer}
+          />
+          <Inspector
+            store={store}
+            onCanvasShown={() => {
+              // A drawer covers the canvas: it closes so the outline shows (section 7.8).
+              if (open === "inspector") closeDrawer();
+            }}
           />
         </aside>
         {open !== null && (

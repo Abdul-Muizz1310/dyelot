@@ -1,0 +1,70 @@
+/* ─────────────────────────────────────────────────────────────
+ * "Show me" (spec section 7.8, F-CANVAS-11, R2-20): the inspector's
+ * highlight, a studio-chrome overlay in madder. It is drawn here and
+ * never under src/features/preview, so the canvas holds only the
+ * spec's colors apart from this one outline (I-M2-04).
+ *
+ * The canvas region carries the highlighted roles in `data-show-me`;
+ * a part is outlined when its `data-roles` name one of them. CSS has
+ * no way to match one attribute's word against another's, so each of
+ * the 46 roles of ROLE_NAMES, `font-display` and `font-body` has its
+ * selector (C-GUARD-06 checks the list). The inspector's scale cells
+ * take the same outline (`data-show-me-cell`).
+ *
+ * `!important` beats R2-30's `[data-canvas] * { outline-color }` and
+ * the canvas focus ring. An outline takes no layout space, so no part
+ * moves, and nothing here transitions.
+ * ───────────────────────────────────────────────────────────── */
+
+[data-show-me~="background"] [data-canvas] [data-roles~="background"],
+[data-show-me~="foreground"] [data-canvas] [data-roles~="foreground"],
+[data-show-me~="card"] [data-canvas] [data-roles~="card"],
+[data-show-me~="card-foreground"] [data-canvas] [data-roles~="card-foreground"],
+[data-show-me~="popover"] [data-canvas] [data-roles~="popover"],
+[data-show-me~="popover-foreground"] [data-canvas] [data-roles~="popover-foreground"],
+[data-show-me~="muted"] [data-canvas] [data-roles~="muted"],
+[data-show-me~="muted-foreground"] [data-canvas] [data-roles~="muted-foreground"],
+[data-show-me~="secondary"] [data-canvas] [data-roles~="secondary"],
+[data-show-me~="secondary-foreground"] [data-canvas] [data-roles~="secondary-foreground"],
+[data-show-me~="accent"] [data-canvas] [data-roles~="accent"],
+[data-show-me~="accent-foreground"] [data-canvas] [data-roles~="accent-foreground"],
+[data-show-me~="primary"] [data-canvas] [data-roles~="primary"],
+[data-show-me~="primary-foreground"] [data-canvas] [data-roles~="primary-foreground"],
+[data-show-me~="destructive"] [data-canvas] [data-roles~="destructive"],
+[data-show-me~="destructive-foreground"] [data-canvas] [data-roles~="destructive-foreground"],
+[data-show-me~="destructive-subtle"] [data-canvas] [data-roles~="destructive-subtle"],
+[data-show-me~="destructive-subtle-foreground"] [data-canvas] [data-roles~="destructive-subtle-foreground"],
+[data-show-me~="success"] [data-canvas] [data-roles~="success"],
+[data-show-me~="success-foreground"] [data-canvas] [data-roles~="success-foreground"],
+[data-show-me~="success-subtle"] [data-canvas] [data-roles~="success-subtle"],
+[data-show-me~="success-subtle-foreground"] [data-canvas] [data-roles~="success-subtle-foreground"],
+[data-show-me~="warning"] [data-canvas] [data-roles~="warning"],
+[data-show-me~="warning-foreground"] [data-canvas] [data-roles~="warning-foreground"],
+[data-show-me~="warning-subtle"] [data-canvas] [data-roles~="warning-subtle"],
+[data-show-me~="warning-subtle-foreground"] [data-canvas] [data-roles~="warning-subtle-foreground"],
+[data-show-me~="info"] [data-canvas] [data-roles~="info"],
+[data-show-me~="info-foreground"] [data-canvas] [data-roles~="info-foreground"],
+[data-show-me~="info-subtle"] [data-canvas] [data-roles~="info-subtle"],
+[data-show-me~="info-subtle-foreground"] [data-canvas] [data-roles~="info-subtle-foreground"],
+[data-show-me~="border"] [data-canvas] [data-roles~="border"],
+[data-show-me~="input"] [data-canvas] [data-roles~="input"],
+[data-show-me~="ring"] [data-canvas] [data-roles~="ring"],
+[data-show-me~="sidebar"] [data-canvas] [data-roles~="sidebar"],
+[data-show-me~="sidebar-foreground"] [data-canvas] [data-roles~="sidebar-foreground"],
+[data-show-me~="sidebar-primary"] [data-canvas] [data-roles~="sidebar-primary"],
+[data-show-me~="sidebar-primary-foreground"] [data-canvas] [data-roles~="sidebar-primary-foreground"],
+[data-show-me~="sidebar-accent"] [data-canvas] [data-roles~="sidebar-accent"],
+[data-show-me~="sidebar-accent-foreground"] [data-canvas] [data-roles~="sidebar-accent-foreground"],
+[data-show-me~="sidebar-border"] [data-canvas] [data-roles~="sidebar-border"],
+[data-show-me~="sidebar-ring"] [data-canvas] [data-roles~="sidebar-ring"],
+[data-show-me~="chart-1"] [data-canvas] [data-roles~="chart-1"],
+[data-show-me~="chart-2"] [data-canvas] [data-roles~="chart-2"],
+[data-show-me~="chart-3"] [data-canvas] [data-roles~="chart-3"],
+[data-show-me~="chart-4"] [data-canvas] [data-roles~="chart-4"],
+[data-show-me~="chart-5"] [data-canvas] [data-roles~="chart-5"],
+[data-show-me~="font-display"] [data-canvas] [data-roles~="font-display"],
+[data-show-me~="font-body"] [data-canvas] [data-roles~="font-body"],
+[data-show-me-cell] {
+  outline: 2px dashed var(--accent-madder) !important;
+  outline-offset: 2px !important;
+}

@@ -3,6 +3,7 @@ import { expect, type Page, test } from "@playwright/test";
 import {
   deltaEOK,
   fontStack,
+  lintSpec,
   normalizeSeed,
   PAIRINGS,
   PRESET_IDS,
@@ -11,6 +12,7 @@ import {
   ROLE_NAMES,
 } from "@/engine";
 import { autoPairingLabel, seedHex } from "@/features/studio/inputs";
+import { findingKey } from "@/features/studio/inspect";
 import { lockSeed } from "@/features/studio/params";
 import { linkUrl, writeHash } from "@/features/studio/url";
 import { encodeSpec, normalizeSpec } from "@/spec";
@@ -43,6 +45,7 @@ import {
   stubSeeds,
   tampered,
 } from "./studio-support";
+import { installColorResolver } from "./template-support";
 
 // The flows of docs/specs/02-studio.md assigned to Task 2.6: F-STUDIO-01 to 22 (section 7.1),
 // F-INPUT-01 to 15 (7.2), F-KEY-01 to 13 (7.3) and the accessibility flows of 7.9 for /studio.
@@ -1550,7 +1553,11 @@ test.describe("7.3 Keyboard", () => {
   test("F-KEY-11 Tab follows the DOM order and every chrome control shows the madder ring", async ({
     page,
   }) => {
+    await stubSeeds(page);
     await openStudio(page);
+    // The inspector follows the canvas: its scroll area, then each finding's actions (Task 2.10b).
+    const findings = lintSpec(first()).map(findingKey);
+    expect(findings.length).toBeGreaterThan(0);
     const stops = [
       page.getByRole("link", { name: "Skip to canvas", exact: true }),
       page.getByRole("link", { name: "dyelot", exact: true }),
@@ -1558,9 +1565,29 @@ test.describe("7.3 Keyboard", () => {
       ...toolbarStops(page),
       canvasRegion(page),
     ];
+    const inspectorStops = [
+      inspectorAside(page).locator("[data-scroll-area]"),
+      ...findings.map((key) =>
+        inspectorAside(page)
+          .locator(`[data-finding="${key}"]`)
+          .getByRole("button", { name: "Show me", exact: true }),
+      ),
+    ];
     await focusBody(page);
     for (const stop of stops) {
       await page.keyboard.press("Tab");
+      await expect(stop).toBeFocused();
+      await expectRing(page);
+    }
+    // The canvas's own controls come next (their ring is the spec's --ring, R2-30); the inspector after.
+    const inCanvas = () =>
+      page.evaluate(() => document.activeElement?.closest("[data-canvas-region]") != null);
+    for (let presses = 0; presses < 200; presses++) {
+      await page.keyboard.press("Tab");
+      if (!(await inCanvas())) break;
+    }
+    for (const [i, stop] of inspectorStops.entries()) {
+      if (i > 0) await page.keyboard.press("Tab");
       await expect(stop).toBeFocused();
       await expectRing(page);
     }
@@ -1678,21 +1705,125 @@ function chromaScript() {
   };
 }
 
+/** The first design with the light primary's step 100 equal to its step 50: K1 and K2 there. */
+function stepLink(): string {
+  const spec = structuredClone(first());
+  const [fifty] = spec.color.palettes.primary.light;
+  (spec.color.palettes.primary.light as unknown as unknown[])[1] = { ...fifty, step: 100 };
+  return `#s=${encodeSpec(normalizeSpec(spec))}`;
+}
+
+/** The "Show me" of the step fixture's K1 finding, which outlines two scale cells. */
+const stepShowMe = (page: Page) =>
+  inspectorAside(page)
+    .locator('[data-finding="K1 light primary-50/primary-100"]')
+    .getByRole("button", { name: "Show me", exact: true });
+
+/**
+ * F-A11Y-04: every chromatic color the chrome paints outside `[data-canvas]`, read through the shared
+ * sRGB resolver: text, background, drawn borders and outlines. Allowed are the house neutrals, madder
+ * on the primary action and the focused control, the data swatches, and madder as the outline of a
+ * highlighted scale cell (`data-show-me-cell`), which `exempted` counts.
+ */
+async function chromaOffenders(page: Page) {
+  await installColorResolver(page);
+  return page.evaluate((source) => {
+    const chroma = new Function(`return (${source})`)() as (rgb: number[]) => number;
+    const resolve = (window as unknown as { __dyelotRgba: (v: string) => number[] | null })
+      .__dyelotRgba;
+    const root = getComputedStyle(document.documentElement);
+    // The house neutrals of src/app/globals.css: tinted greys shared by the portfolio's chrome.
+    const neutrals = ["--fg-muted", "--border", "--border-bright", "--panel"].map((name) =>
+      root.getPropertyValue(name).trim().toLowerCase(),
+    );
+    const hex = (rgb: number[]) =>
+      `#${rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+    // A partly transparent color reads back from the resolver's canvas with its channels rounded
+    // through the alpha, so a house neutral is matched within two codes per channel.
+    const channels = (text: string) =>
+      [1, 3, 5].map((at) => Number.parseInt(text.slice(at, at + 2), 16));
+    const isNeutral = (rgb: number[]) =>
+      neutrals.some((neutral) =>
+        channels(neutral).every((value, i) => Math.abs(value - (rgb[i] ?? -99)) <= 2),
+      );
+    const allowed = "[data-primary], :focus-visible";
+    const problems: string[] = [];
+    let exempted = 0;
+    for (const el of document.querySelectorAll("body *")) {
+      if (el.closest("[data-canvas], [data-swatch], script, style")) continue;
+      const style = getComputedStyle(el);
+      const colors: [string, string][] = [
+        ["color", style.color],
+        ["background-color", style.backgroundColor],
+      ];
+      for (const side of ["Top", "Right", "Bottom", "Left"] as const) {
+        if (
+          style[`border${side}Style`] !== "none" &&
+          Number.parseFloat(style[`border${side}Width`]) > 0
+        ) {
+          colors.push([`border-${side.toLowerCase()}`, style[`border${side}Color`]]);
+        }
+      }
+      if (style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0) {
+        colors.push(["outline", style.outlineColor]);
+      }
+      const label = `${el.tagName.toLowerCase()}${el.closest("[data-probe]") === null ? "" : " [probe]"}`;
+      for (const [property, value] of colors) {
+        const rgba = resolve(value);
+        if (rgba === null) {
+          problems.push(`${label} ${property} unreadable ${value}`);
+          continue;
+        }
+        if (rgba[3] === 0) continue;
+        const rgb = rgba.slice(0, 3);
+        if (chroma(rgb) <= 0.02 || isNeutral(rgb)) continue;
+        if (hex(rgb) === "#f66c6d" && el.closest(allowed) !== null) continue;
+        if (hex(rgb) === "#f66c6d" && property === "outline" && el.matches("[data-show-me-cell]")) {
+          exempted++;
+          continue;
+        }
+        problems.push(`${label} ${property} ${value}`);
+      }
+    }
+    return { problems, exempted };
+  }, chromaScript().toString());
+}
+
 test.describe("7.9 Accessibility", () => {
   test("F-A11Y-01 axe finds no violation at 1280 px and with each drawer open at 360 px", async ({
     page,
   }) => {
-    await openStudio(page);
+    // Seven full-page axe runs over the filled inspector: about 5 s each under the full suite.
+    test.setTimeout(120_000);
+    await openStudio(page, stepLink());
+    await expect(inspectorAside(page).locator("[data-finding]").first()).toBeVisible();
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
+    // The inspector filled, with a highlight shown, in both canvas modes (Task 2.10b).
+    await stepShowMe(page).click();
+    for (const mode of ["light", "dark"] as const) {
+      if (mode === "dark") await modeSwitch(page).click();
+      await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+      expect((await new AxeBuilder({ page }).analyze()).violations, mode).toEqual([]);
+    }
     await page.setViewportSize(PHONE);
-    for (const name of ["Inputs", "Inspector"]) {
-      await button(page, name).click();
-      await expect(page.getByRole("heading", { name, exact: true })).toBeFocused();
-      expect((await new AxeBuilder({ page }).analyze()).violations, name).toEqual([]);
-      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
-        360,
-      );
-      await page.keyboard.press("Escape");
+    // Below 640 px the mode switch sits in the closed View disclosure: Alt+T flips the mode.
+    for (const mode of ["dark", "light"] as const) {
+      if (mode === "light") {
+        await focusBody(page);
+        await page.keyboard.press("Alt+KeyT");
+      }
+      await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+      for (const name of ["Inputs", "Inspector"]) {
+        await button(page, name).click();
+        await expect(page.getByRole("heading", { name, exact: true })).toBeFocused();
+        expect((await new AxeBuilder({ page }).analyze()).violations, `${name} ${mode}`).toEqual(
+          [],
+        );
+        expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(
+          360,
+        );
+        await page.keyboard.press("Escape");
+      }
     }
   });
 
@@ -1703,9 +1834,19 @@ test.describe("7.9 Accessibility", () => {
   });
 
   test("F-A11Y-02 every chrome control has a hit area of at least 24 × 24 px", async ({ page }) => {
-    for (const viewport of [{ width: 1280, height: 800 }, PHONE]) {
+    for (const [viewport, drawer] of [
+      [{ width: 1280, height: 800 }, false],
+      [PHONE, false],
+      [PHONE, true],
+    ] as const) {
       await page.setViewportSize(viewport);
-      await openStudio(page);
+      // The same link again is a same-document navigation: leave the page first.
+      await page.goto("about:blank");
+      await openStudio(page, stepLink());
+      if (drawer) {
+        await button(page, "Inspector").click();
+        await expect(inspectorAside(page)).toBeVisible();
+      }
       const small = await page.evaluate(() =>
         [...document.querySelectorAll("a[href], button, input, select, textarea, [tabindex='0']")]
           .filter((el) => !el.closest("[data-canvas], [inert]"))
@@ -1714,57 +1855,56 @@ test.describe("7.9 Accessibility", () => {
           .filter(({ box }) => box.width < 24 || box.height < 24)
           .map(({ el, box }) => `${el.outerHTML.slice(0, 80)} ${box.width}×${box.height}`),
       );
-      expect(small, `${viewport.width} px`).toEqual([]);
+      expect(small, `${viewport.width} px${drawer ? ", inspector drawer" : ""}`).toEqual([]);
     }
   });
 
   test("F-A11Y-04 the chrome stays achromatic apart from madder where it belongs and the swatches", async ({
     page,
   }) => {
-    await openStudio(page);
-    await radio(page, "Chroma", "vivid").focus();
-    const offenders = await page.evaluate((source) => {
-      const chroma = new Function(`return (${source})`)() as (rgb: number[]) => number;
-      const root = getComputedStyle(document.documentElement);
-      // The house neutrals of src/app/globals.css: tinted greys shared by the portfolio's chrome.
-      const neutrals = ["--fg-muted", "--border", "--border-bright", "--panel"].map((name) =>
-        root.getPropertyValue(name).trim().toLowerCase(),
-      );
-      const hex = (rgb: number[]) =>
-        `#${rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
-      const allowed = "[data-primary], :focus-visible";
-      const problems: string[] = [];
-      for (const el of document.querySelectorAll("body *")) {
-        if (el.closest("[data-canvas], [data-swatch], script, style")) continue;
-        const style = getComputedStyle(el);
-        const colors: [string, string][] = [
-          ["color", style.color],
-          ["background-color", style.backgroundColor],
-        ];
-        for (const side of ["Top", "Right", "Bottom", "Left"] as const) {
-          if (
-            style[`border${side}Style`] !== "none" &&
-            Number.parseFloat(style[`border${side}Width`]) > 0
-          ) {
-            colors.push([`border-${side.toLowerCase()}`, style[`border${side}Color`]]);
-          }
-        }
-        if (style.outlineStyle !== "none" && Number.parseFloat(style.outlineWidth) > 0) {
-          colors.push(["outline", style.outlineColor]);
-        }
-        for (const [property, value] of colors) {
-          const parts = value.match(/[\d.]+/g)?.map(Number) ?? [];
-          const [r = 0, g = 0, b = 0, alpha = 1] = parts;
-          if (alpha === 0) continue;
-          const rgb = [r, g, b];
-          if (chroma(rgb) <= 0.02 || neutrals.includes(hex(rgb))) continue;
-          if (hex(rgb) === "#f66c6d" && el.closest(allowed) !== null) continue;
-          problems.push(`${el.tagName.toLowerCase()} ${property} ${value}`);
-        }
+    await openStudio(page, stepLink());
+    // A step finding's cells carry the "show me" outline in the inspector (Task 2.10b).
+    await stepShowMe(page).click();
+    await expect(inspectorAside(page).locator("[data-show-me-cell]")).toHaveCount(2);
+    for (const mode of ["light", "dark"] as const) {
+      if (mode === "dark") await modeSwitch(page).click();
+      await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+      await radio(page, "Chroma", "vivid").focus();
+      const report = await chromaOffenders(page);
+      expect(report.exempted, mode).toBeGreaterThan(0);
+      expect(report.problems, mode).toEqual([]);
+    }
+    // The outline's exemption is that narrow: madder text on a highlighted cell, and a madder outline
+    // on a cell that is not highlighted, are each reported.
+    await page.evaluate(() => {
+      const lit = document.querySelector<HTMLElement>("[data-show-me-cell]");
+      const plain = document.querySelector<HTMLElement>("[data-step]:not([data-show-me-cell])");
+      if (lit === null || plain === null) throw new Error("no cells to probe");
+      lit.dataset.probe = "";
+      lit.style.color = "#f66c6d";
+      plain.dataset.probe = "";
+      plain.style.outline = "2px dashed #f66c6d";
+    });
+    const probed = (await chromaOffenders(page)).problems;
+    expect(probed.filter((problem) => problem.startsWith("li [probe] color"))).toHaveLength(1);
+    expect(probed.filter((problem) => problem.startsWith("li [probe] outline"))).toHaveLength(1);
+    expect(probed.every((problem) => problem.includes("[probe]"))).toBe(true);
+    await page.reload();
+    await ready(page);
+    // At 360 px with the inspector drawer open, in both canvas modes.
+    await page.setViewportSize(PHONE);
+    for (const mode of ["light", "dark"] as const) {
+      if (mode === "dark") {
+        await focusBody(page);
+        await page.keyboard.press("Alt+KeyT");
       }
-      return problems;
-    }, chromaScript().toString());
-    expect(offenders).toEqual([]);
+      await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+      await button(page, "Inspector").click();
+      await expect(inspectorAside(page)).toBeVisible();
+      const report = await chromaOffenders(page);
+      expect(report.problems, `360 ${mode}`).toEqual([]);
+      await page.keyboard.press("Escape");
+    }
   });
 
   test("F-A11Y-08 the studio surround keeps the dot grid without the madder crown", async ({

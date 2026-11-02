@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { generateSystem } from "@/engine";
+import { generateSystem, ROLE_NAMES } from "@/engine";
 import { freshParams, resolveParams } from "@/features/studio/params";
 import { densityVars, themeVars } from "@/theme/vars";
 import { deriveTailwind } from "../../engine/lint/tailwind-source";
@@ -14,7 +14,7 @@ import {
   previewFiles,
 } from "./guard-rules";
 
-// The preview source guard of docs/specs/02-studio.md, section 6.10: C-GUARD-01 to C-GUARD-05. The
+// The preview source guard of docs/specs/02-studio.md, section 6.10: C-GUARD-01 to C-GUARD-06. The
 // canvas is styled only by the spec's custom properties (I-M2-04), so no file under
 // src/features/preview names a color of its own.
 
@@ -212,8 +212,12 @@ describe("C-GUARD-03 and C-GUARD-04 the preview folder", () => {
 });
 
 describe("C-GUARD-05 madder stays on the focus ring, the active state and the primary action", () => {
-  it("lists the chrome files that name madder: the focus ring and the primary action", () => {
-    expect(madderFiles(ROOT)).toEqual(["src/app/globals.css", "src/features/studio/chrome.ts"]);
+  it("lists the chrome files that name madder: the focus ring, the primary action and the show me outline", () => {
+    expect(madderFiles(ROOT)).toEqual([
+      "src/app/globals.css",
+      "src/features/studio/chrome.ts",
+      "src/features/studio/highlight.css",
+    ]);
   });
 
   it("finds madder in chrome.ts only in the primary action's styles", () => {
@@ -227,6 +231,59 @@ describe("C-GUARD-05 madder stays on the focus ring, the active state and the pr
   it("keeps the madder focus ring in globals.css outside the canvas", () => {
     const css = readFileSync(path.join(ROOT, "src/app/globals.css"), "utf8");
     expect(css).toMatch(/:focus-visible\s*\{\s*outline:\s*2px solid var\(--accent-madder\)/);
+  });
+});
+
+describe("C-GUARD-06 highlight.css draws the show me outline on the named parts only", () => {
+  const css = () =>
+    readFileSync(path.join(ROOT, "src/features/studio/highlight.css"), "utf8").replace(
+      /\/\*[\s\S]*?\*\//g,
+      "",
+    );
+  /** Each rule of the file: its selectors and its declarations, whitespace collapsed. */
+  const rules = () =>
+    [...css().matchAll(/([^{}]+)\{([^{}]*)\}/g)].map(([, selectors = "", body = ""]) => ({
+      selectors: selectors
+        .split(",")
+        .map((selector) => selector.trim().replace(/\s+/g, " "))
+        .filter(Boolean),
+      declarations: body
+        .split(";")
+        .map((declaration) => declaration.trim().replace(/\s+/g, " "))
+        .filter(Boolean),
+    }));
+
+  it("holds one rule: the dashed madder outline with its offset, each declaration important", () => {
+    const found = rules();
+    expect(found).toHaveLength(1);
+    expect(found[0]?.declarations).toEqual([
+      "outline: 2px dashed var(--accent-madder) !important",
+      "outline-offset: 2px !important",
+    ]);
+  });
+
+  it("selects each of the 46 roles, font-display and font-body once, and the highlighted cells", () => {
+    const selectors = rules()[0]?.selectors ?? [];
+    const canvas = selectors.filter((selector) => selector !== "[data-show-me-cell]");
+    expect(selectors).toContain("[data-show-me-cell]");
+    const tokens = canvas.map((selector) => {
+      const match =
+        /^\[data-show-me~="([a-z0-9-]+)"\] \[data-canvas\] \[data-roles~="([a-z0-9-]+)"\]$/.exec(
+          selector,
+        );
+      expect(match, selector).not.toBeNull();
+      expect(match?.[1], selector).toBe(match?.[2]);
+      return match?.[1] ?? "";
+    });
+    expect(tokens).toHaveLength(48);
+    expect(new Set(tokens)).toEqual(new Set([...ROLE_NAMES, "font-display", "font-body"]));
+  });
+
+  it("keeps data-show-me out of the preview folder: the canvas never draws the outline itself", () => {
+    const naming = previewFiles(PREVIEW).filter((file) =>
+      readFileSync(file, "utf8").includes("data-show-me"),
+    );
+    expect(naming).toEqual([]);
   });
 });
 

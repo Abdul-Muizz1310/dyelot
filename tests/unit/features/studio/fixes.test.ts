@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import { type ContrastLevel, type Finding, generateSystem, RULE_IDS, type RuleId } from "@/engine";
-import { fixFor } from "@/features/studio/fixes";
+import { fixFor, fixTarget } from "@/features/studio/fixes";
 import { FRESH_PARAMS } from "./support";
 
-// Cases are C-INSPECT-01 to C-INSPECT-03 of docs/specs/02-studio.md, section 6.8 (R2-10).
+// Cases are C-INSPECT-01 to C-INSPECT-03 and C-INSPECT-25 of docs/specs/02-studio.md, section 6.8 (R2-10).
 // C-INSPECT-04, the fix applied through the store, lives in store-fix.test.ts.
 
 vi.mock("@/engine", async (importOriginal) => {
@@ -79,5 +79,27 @@ describe("fixFor", () => {
     expect(() => fixFor(finding("F1"), { ...at("AA"), contrastLevel: "AAAA" } as never)).toThrow(
       /^fixFor: params.contrastLevel/,
     );
+  });
+});
+
+describe("fixTarget", () => {
+  it("C-INSPECT-25 gives the level each fixable rule raises to, and null for every other rule", () => {
+    expect(fixTarget("C1")).toBe("AA+");
+    for (const id of ["C5", "N1", "F1"] as const) expect(fixTarget(id), id).toBe("AAA");
+    for (const id of RULE_IDS.filter((rule) => !["C1", "C5", "N1", "F1"].includes(rule))) {
+      expect(fixTarget(id), id).toBeNull();
+    }
+  });
+
+  it("C-INSPECT-25 agrees with fixFor at AA", () => {
+    for (const id of RULE_IDS) {
+      expect(fixFor(finding(id), at("AA"))?.contrastLevel ?? null, id).toBe(fixTarget(id));
+    }
+  });
+
+  it("C-INSPECT-25 throws RangeError for an unknown id and TypeError for a non-string, naming fixTarget", () => {
+    expect(() => fixTarget("K3" as never)).toThrow(RangeError);
+    expect(() => fixTarget("K3" as never)).toThrow(/^fixTarget: id/);
+    expect(() => fixTarget(3 as never)).toThrow(TypeError);
   });
 });

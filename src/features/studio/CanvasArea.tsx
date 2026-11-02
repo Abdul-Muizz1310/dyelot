@@ -24,6 +24,8 @@ export function CanvasArea({
   const busy = useStudio(store, (studio) => studio.status.phase === "generating");
   const spec = useStudio(store, (studio) => studio.spec);
   const view = useStudio(store, (studio) => studio.view);
+  // "Show me" (F-CANVAS-11): the highlighted roles, which highlight.css outlines inside the canvas.
+  const showMe = view.highlight === null ? "" : view.highlight.roles.join(" ");
   // The mobile template keeps its own width: its board takes the canvas area's (F-TPL-32).
   const board = FIXED_FRAMES[view.template] !== undefined;
   const { stageRef, fit, width } = useFrameFit(view.frame, board);
@@ -41,6 +43,7 @@ export function CanvasArea({
       // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas region scrolls, so it takes focus for keyboard scrolling (F-KEY-11, F-CANVAS-13).
       tabIndex={0}
       data-canvas-region=""
+      data-show-me={showMe === "" ? undefined : showMe}
       inert={inert}
       // Below 768 px the board keeps an 8 px side margin, so a phone window shows its 360 px screens at
       // a fit of 0.95 or more (section 7.4).

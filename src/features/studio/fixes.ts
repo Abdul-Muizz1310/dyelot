@@ -19,6 +19,12 @@ const FIX_TARGETS: Readonly<Partial<Record<Finding["id"], ContrastLevel>>> = Obj
   F1: "AAA",
 });
 
+/** The level a rule's fix raises the design to (C1 `AA+`; C5, N1 and F1 `AAA`), or null for no fix. */
+export function fixTarget(id: Finding["id"]): ContrastLevel | null {
+  assertOneOf(id, RULE_IDS, "fixTarget: id");
+  return FIX_TARGETS[id] ?? null;
+}
+
 /**
  * The patch that fixes a finding by raising the contrast level: C1 to `AA+`, and C5, N1 and F1 to
  * `AAA`. Null for any other rule, and when the current level is already at or above the target.
