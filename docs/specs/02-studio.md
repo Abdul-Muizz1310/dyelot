@@ -1206,8 +1206,9 @@ Tests: `tests/unit/theme/vars.test.ts`, in the `node` project (R2-22).
 Tests: `tests/unit/features/studio/{store,store-replies,store-persist,store-property,protocol,client,url,drafts,params,view,lot}.test.ts`,
 and `store-lock-{seeds,pair-aa,pair-aaa,primary-aa,primary-aaa}.test.ts` for C-STORE-34 and C-STORE-41 (about 800
 generations through the store, split so they run in parallel). Section 6.8's C-INSPECT-01 to 04 are in `fixes.test.ts`
-and `store-fix.test.ts`, C-INSPECT-16 in `fix-scan-{srgb,p3}.test.ts` (288 generations each, split so they run in
-parallel) and C-INSPECT-17 in `inspector-fix.test.tsx` (jsdom, the inspector on a store with a stub client).
+and `store-fix.test.ts`, C-INSPECT-16 in `fix-scan-{srgb,p3}.test.ts` (288 generations each, in a third Vitest project,
+`scan`, that runs after the other two with `sequence.groupOrder`, its two files in parallel: beside the CPU-bound property
+cases they pushed those past their timeouts) and C-INSPECT-17 in `inspector-fix.test.tsx` (jsdom, the inspector on a store with a stub client).
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
