@@ -29,6 +29,10 @@ import type { Highlight } from "./view";
 // "Show me" is pressed, and a fix on its way. The highlight itself is the view's (`view.highlight`),
 // which the canvas region and the scales read; the rest comes from the store and `inspect.ts`. The body
 // is positioned, so its visually hidden labels stay inside its scroll box and never lengthen the page.
+// Its content sits in an inline-size container, so the padding answers the width left beside a classic
+// scrollbar (Chromium answers a query on the scroll container itself at its width before the scrollbar
+// appears): below 317 px (the 285 px the role table needs, plus 16 px a side) the sides drop to 8 px,
+// and every hex and ratio still shows whole (section 7.8, Task 2.10b fix round 2).
 
 type PendingFix = { readonly fix: FixRequest; readonly before: DesignSpec };
 
@@ -130,42 +134,46 @@ export function Inspector({
       // biome-ignore lint/a11y/noNoninteractiveTabindex: the inspector's body scrolls, so it takes focus for keyboard scrolling (F-INSP-14, R2-15 item 2).
       tabIndex={0}
       aria-label="Inspector contents"
-      className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pt-4 pb-8 focus-visible:outline-offset-[-2px]"
+      className="relative min-h-0 flex-1 overflow-y-auto overscroll-contain pt-4 pb-8 focus-visible:outline-offset-[-2px]"
     >
-      <div role="status" data-font-status="">
-        {failures.length > 0 && (
-          <div className="mb-4 space-y-1 rounded-md border border-border-bright bg-page px-3 py-2 text-foreground text-xs leading-snug">
-            {failures.map((id) => (
-              <FontLine key={id} id={id} />
-            ))}
+      <div className="@container">
+        <div data-inspector-body="" className="px-4 @max-[317px]:px-2">
+          <div role="status" data-font-status="">
+            {failures.length > 0 && (
+              <div className="mb-4 space-y-1 rounded-md border border-border-bright bg-page px-3 py-2 text-foreground text-xs leading-snug">
+                {failures.map((id) => (
+                  <FontLine key={id} id={id} />
+                ))}
+              </div>
+            )}
           </div>
-        )}
+          <Scales spec={spec} mode={mode} cells={cells ?? NO_CELLS} />
+          <RoleTable rows={rows} />
+          <NamesSection spec={spec} />
+          <Findings
+            findings={findings}
+            params={params}
+            selected={selected}
+            kept={kept !== null && kept.spec === spec ? kept.key : null}
+            outcome={outcome !== null && outcome.spec === spec ? outcome.text : ""}
+            onShowMe={toggleShowMe}
+            onFix={fix}
+          />
+          {notes !== null && (
+            <PanelSection
+              title="Preset notes"
+              note={`${notes.label}: what its values answer, and what the spec cannot hold yet.`}
+            >
+              {notes.guards.length > 0 && (
+                <NoteList heading="Accessibility guards" items={notes.guards} />
+              )}
+              {notes.unexpressed.length > 0 && (
+                <NoteList heading="Not in the spec yet" items={notes.unexpressed} />
+              )}
+            </PanelSection>
+          )}
+        </div>
       </div>
-      <Scales spec={spec} mode={mode} cells={cells ?? NO_CELLS} />
-      <RoleTable rows={rows} />
-      <NamesSection spec={spec} />
-      <Findings
-        findings={findings}
-        params={params}
-        selected={selected}
-        kept={kept !== null && kept.spec === spec ? kept.key : null}
-        outcome={outcome !== null && outcome.spec === spec ? outcome.text : ""}
-        onShowMe={toggleShowMe}
-        onFix={fix}
-      />
-      {notes !== null && (
-        <PanelSection
-          title="Preset notes"
-          note={`${notes.label}: what its values answer, and what the spec cannot hold yet.`}
-        >
-          {notes.guards.length > 0 && (
-            <NoteList heading="Accessibility guards" items={notes.guards} />
-          )}
-          {notes.unexpressed.length > 0 && (
-            <NoteList heading="Not in the spec yet" items={notes.unexpressed} />
-          )}
-        </PanelSection>
-      )}
     </section>
   );
 }

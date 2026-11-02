@@ -128,7 +128,7 @@ function HexCell({ hex, name }: { hex: Hex; name: "foreground" | "fill" }) {
         className="size-2 shrink-0 rounded-[2px] shadow-[0_0_0_1px_var(--border-bright)]"
         style={{ backgroundColor: hex }}
       />
-      <span data-hex={name} translate="no" className="truncate text-foreground">
+      <span data-hex={name} translate="no" className="text-foreground">
         {hex}
       </span>
     </span>

@@ -85,7 +85,7 @@ function PaletteSteps({
                 className={`size-3 rounded-[2px] ${isSeed ? "shadow-[0_0_0_1px_var(--page),0_0_0_2px_var(--foreground)]" : ""}`}
                 style={{ backgroundColor: step.hex }}
               />
-              <span data-hex="" translate="no" className="truncate text-foreground">
+              <span data-hex="" translate="no" className="text-foreground">
                 {step.hex}
               </span>
               <span data-ratio="" className="text-right text-fg-muted">
