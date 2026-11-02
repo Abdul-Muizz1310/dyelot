@@ -1853,11 +1853,14 @@ test.describe("7.7 The dashboard and settings templates", () => {
     // A click on the dialog's text, on its title or on the scrim keeps focus inside it, so Escape
     // still closes it. With the dialog itself focused, the studio's keys do nothing: no undo or redo,
     // so the lot and the history hold.
+    // Each key is checked on its own: an undo and a redo in a row would leave the lot as it was.
     await clickInsideDialog(page, root, opener, async () => {
-      for (const key of ["ArrowLeft", "ArrowRight"]) await page.keyboard.press(key);
-      await expect(lotId(page)).toHaveText(lot ?? "");
-      await expect(undo).toHaveAttribute("aria-disabled", "false");
-      await expect(redo).toHaveAttribute("aria-disabled", "true");
+      for (const key of ["ArrowLeft", "ArrowRight"]) {
+        await page.keyboard.press(key);
+        await expect(lotId(page), key).toHaveText(lot ?? "");
+        await expect(undo, key).toHaveAttribute("aria-disabled", "false");
+        await expect(redo, key).toHaveAttribute("aria-disabled", "true");
+      }
     });
     expect(await page.evaluate(() => (window as unknown as { __escapes: number }).__escapes)).toBe(
       0,
