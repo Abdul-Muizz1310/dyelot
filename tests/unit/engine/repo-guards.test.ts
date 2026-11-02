@@ -1,5 +1,13 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { builtinModules } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -546,6 +554,8 @@ describe("C-REPO-M2-03 the new pure folders and helpers keep the pure-core floor
     "inputs",
   ])("measures src/features/studio/%s.ts by name and holds it to 95 and 90", (name) => {
     const file = `src/features/studio/${name}.ts`;
+    // A floor on a file that does not exist measures nothing: the helper must be there (Task 2.10b).
+    expect(existsSync(path.join(ROOT, file)), `${file} exists`).toBe(true);
     expect(include()).toContain(file);
     expect(thresholds()?.[file]).toEqual(FLOORS);
   });
@@ -555,6 +565,7 @@ describe("C-REPO-M2-03 the new pure folders and helpers keep the pure-core floor
     "measures src/features/preview/%s.ts by name and holds it to 95 and 90",
     (name) => {
       const file = `src/features/preview/${name}.ts`;
+      expect(existsSync(path.join(ROOT, file)), `${file} exists`).toBe(true);
       expect(include()).toContain(file);
       expect(thresholds()?.[file]).toEqual(FLOORS);
     },

@@ -9,7 +9,7 @@ import {
   usesKey,
 } from "@/features/studio/shortcuts";
 
-// Cases C-KEYS-01 to C-KEYS-12 of docs/specs/02-studio.md, section 6.11: the key rules of R2-15.
+// Cases C-KEYS-01 to C-KEYS-14 of docs/specs/02-studio.md, section 6.11: the key rules of R2-15.
 
 const NO_DRAWER = { drawerOpen: false };
 const DRAWER = { drawerOpen: true };
@@ -312,6 +312,23 @@ describe("an open drawer keeps Space and the arrows (R2-15 item 2)", () => {
     expect(shortcutFor(CTRL_S, heading, DRAWER)).toEqual({ kind: "copy-link" });
     const lock = build(`<button ${SEED_SLOT}="accent">lock</button>`);
     expect(shortcutFor(L, lock, DRAWER)).toEqual({ kind: "toggle-lock", slot: "accent" });
+  });
+});
+
+describe("the inspector's scroll area (C-KEYS-14)", () => {
+  it("C-KEYS-14 Space, ← and → give null on the scroll area; Alt+T and Mod+S still fire there", () => {
+    const area = build(
+      '<aside aria-label="Inspector"><div tabindex="0" data-scroll-area data-target></div></aside>',
+    );
+    expect(usesKey(area)).toBe(true);
+    for (const key of [SPACE, LEFT, RIGHT]) {
+      expect(shortcutFor(key, area, NO_DRAWER)).toBeNull();
+    }
+    expect(shortcutFor(ALT_T, area, NO_DRAWER)).toEqual({ kind: "toggle-mode" });
+    expect(shortcutFor(CTRL_S, area, NO_DRAWER)).toEqual({ kind: "copy-link" });
+    // Only the area itself keeps them: a plain element inside it is the page's.
+    const inside = build("<div data-scroll-area><p data-target>text</p></div>");
+    expect(shortcutFor(SPACE, inside, NO_DRAWER)).toEqual({ kind: "regenerate" });
   });
 });
 

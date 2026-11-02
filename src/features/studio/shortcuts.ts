@@ -26,6 +26,8 @@ export type Shortcut =
 export const CANVAS_REGION = "[data-canvas-region]";
 /** On each seed row's native color input and lock toggle: the slot that L locks. */
 export const SEED_SLOT = "data-seed-slot";
+/** On the inspector's scroll area, which takes focus so Space and the arrows scroll it (R2-15 item 2). */
+export const SCROLL_AREA = "data-scroll-area";
 
 /** Input types that are not text fields (R2-15 item 1). */
 const NOT_TEXT = new Set(["color", "checkbox", "radio", "range", "button"]);
@@ -61,10 +63,12 @@ export function isTextField(element: Element): boolean {
 
 /**
  * A control that uses Space or the arrows itself (R2-15 item 2): a button, a summary, a link, a
- * checkbox, radio, range or color input, or an element with one of the roles of the ruling.
+ * checkbox, radio, range or color input, an element with one of the roles of the ruling, or the
+ * inspector's scroll area, which scrolls with them.
  */
 export function usesKey(element: Element): boolean {
   if (element instanceof HTMLButtonElement) return true;
+  if (element.hasAttribute(SCROLL_AREA)) return true;
   if (element instanceof HTMLInputElement && KEY_INPUTS.has(element.type)) return true;
   const tag = element.tagName.toLowerCase();
   if (tag === "summary") return true;

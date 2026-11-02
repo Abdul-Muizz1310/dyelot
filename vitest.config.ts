@@ -10,6 +10,8 @@ const PURE_CORE_TESTS = [
   "tests/unit/theme/**/*.test.{ts,tsx}",
   // The build scripts run under Node and spawn it; they have no DOM.
   "tests/unit/scripts/**/*.test.{ts,tsx}",
+  // The R2-10 scan (C-INSPECT-16) reads only the engine; under jsdom it runs twice as slow.
+  "tests/unit/features/studio/fix-scan-*.test.ts",
 ];
 
 /** The floor of the pure core, held by every pure helper too (spec R2-22). */
@@ -87,7 +89,7 @@ export default defineConfig({
         "src/lib/site/**",
         "src/features/fonts/load.ts",
         // The studio's pure helpers (spec R2-22). The store, the worker shell and the UI are
-        // covered by the flows; inspect.ts arrives with Task 2.10 and is held to the floor then.
+        // covered by the flows; inspect.ts holds the inspector's helpers (Task 2.10b).
         ...STUDIO_HELPERS,
         ...PREVIEW_HELPERS,
       ],
