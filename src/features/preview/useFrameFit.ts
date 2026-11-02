@@ -92,6 +92,14 @@ export function useFrameFit(
     observer.observe(stage);
     return () => observer.disconnect();
   }, []);
+  // The canvas region changes its padding when the board starts or ends (section 7.4), in the same
+  // commit. Measuring again before paint lets the first frame show the new fit; the observer alone
+  // would answer a frame later (the Task 2.10a review, round 3, M-1).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `board` is the trigger, not an input: the region's padding changes with it.
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (stage !== null && stage.clientWidth > 0) setAvailable(stage.clientWidth);
+  }, [board]);
   return useMemo(() => {
     if (available === null) return { stageRef, fit: UNMEASURED, width: frame };
     if (!board) return { stageRef, fit: frameFit(available, frame), width: frame };
