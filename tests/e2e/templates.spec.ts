@@ -1278,6 +1278,11 @@ test.describe("7.6 The landing and editorial templates", () => {
   });
 
   test("F-TPL-12 axe finds no violation in either template, in light and dark, at 360 and 1280", async () => {
+    // Eight full axe runs, 9 to 16 s alone (Task 2.10b, C5).
+    test.setTimeout(60_000);
+    // The Frame group is disabled while the mobile template shows, as F-TPL-39 leaves it, so start on a
+    // page template whatever ran before: `setFrame` would otherwise wait out the test (C5).
+    await showTemplate(page, SECTION_76[0]);
     const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
     for (const mode of MODES) {
       if (mode === "dark") await dark.click();
