@@ -1140,10 +1140,21 @@ test.describe("7.2 The inputs panel", () => {
   test("F-INPUT-07 a drag in the color input is one undo step (F-INPUT-15)", async ({ page }) => {
     await stubSeeds(page);
     await openStudio(page);
-    const picker = page.getByLabel("Pick primary", { exact: true });
-    for (let i = 0; i < 12; i++) {
-      await pickColor(picker, `#${(0x204060 + i * 0x0a0a02).toString(16)}`);
-    }
+    // A drag: twelve picks 16 ms apart on the one input, as the picker sends them. Each pick through a
+    // fresh label lookup scanned the whole page, so a busy machine spread the twelve past the 1 s window
+    // (Task 2.10b: the filled inspector added about 3,000 elements to scan).
+    const hexes = Array.from(
+      { length: 12 },
+      (_, i) => `#${(0x204060 + i * 0x0a0a02).toString(16)}`,
+    );
+    await page.getByLabel("Pick primary", { exact: true }).evaluate(async (input, values) => {
+      const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set;
+      for (const value of values) {
+        setter?.call(input, value);
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 16));
+      }
+    }, hexes);
     await settled(page);
     await expect(button(page, "Lock primary")).toHaveAttribute("aria-pressed", "true");
     await button(page, "Undo").click();
