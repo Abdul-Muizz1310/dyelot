@@ -1,4 +1,5 @@
 import { Moon, Sun } from "lucide-react";
+import { memo } from "react";
 import type { Hex } from "@/engine";
 import type { ModeCell, RoleRow } from "./inspect";
 import { PanelSection } from "./PanelSection";
@@ -11,7 +12,7 @@ import { PanelSection } from "./PanelSection";
 
 const MODES = ["light", "dark"] as const;
 
-export function RoleTable({ rows }: { rows: readonly RoleRow[] }) {
+export const RoleTable = memo(function RoleTable({ rows }: { rows: readonly RoleRow[] }) {
   return (
     <PanelSection
       title="Roles"
@@ -78,7 +79,7 @@ export function RoleTable({ rows }: { rows: readonly RoleRow[] }) {
       </table>
     </PanelSection>
   );
-}
+});
 
 function ModeLine({ mode, cell }: { mode: (typeof MODES)[number]; cell: ModeCell }) {
   const Icon = mode === "light" ? Sun : Moon;

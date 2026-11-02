@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { type Mode, PALETTE_NAMES, type PaletteName, type Step } from "@/engine";
 import type { DesignSpec } from "@/spec";
 import { PanelSection } from "./PanelSection";
@@ -10,7 +11,7 @@ import type { Highlight } from "./view";
 
 type Palette = DesignSpec["color"]["palettes"][PaletteName];
 
-export function Scales({
+export const Scales = memo(function Scales({
   spec,
   mode,
   cells,
@@ -37,7 +38,7 @@ export function Scales({
       </div>
     </PanelSection>
   );
-}
+});
 
 function PaletteSteps({
   palette,

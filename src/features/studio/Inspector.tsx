@@ -20,6 +20,7 @@ import { RoleTable } from "./RoleTable";
 import { Scales } from "./Scales";
 import { type StudioStore, useStudio } from "./store";
 import { useFontFailures } from "./useFontFailures";
+import type { Highlight } from "./view";
 
 // The inspector (spec section 7.8): a font-status message, then Scales, Roles, Names, Findings and
 // Preset notes, in a body that scrolls inside the column or the drawer and takes focus so the keyboard
@@ -29,6 +30,9 @@ import { useFontFailures } from "./useFontFailures";
 // is positioned, so its visually hidden labels stay inside its scroll box and never lengthen the page.
 
 type PendingFix = { readonly fix: FixRequest; readonly before: DesignSpec };
+
+/** No highlighted cells: one array, so the memoized scales see the same value each render. */
+const NO_CELLS: Highlight["cells"] = Object.freeze([]);
 
 export function Inspector({
   store,
@@ -116,7 +120,7 @@ export function Inspector({
           </div>
         )}
       </div>
-      <Scales spec={spec} mode={mode} cells={cells ?? []} />
+      <Scales spec={spec} mode={mode} cells={cells ?? NO_CELLS} />
       <RoleTable rows={rows} />
       <NamesSection spec={spec} />
       <Findings

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { type NameIndex, nearestName } from "@/engine";
 import type { DesignSpec } from "@/spec";
 import { nameTargets } from "./inspect";
@@ -16,7 +16,7 @@ type Names =
   | { readonly phase: "waiting" | "loading" | "failed" }
   | { readonly phase: "ready"; readonly index: NameIndex };
 
-export function NamesSection({ spec }: { spec: DesignSpec }) {
+export const NamesSection = memo(function NamesSection({ spec }: { spec: DesignSpec }) {
   const section = useRef<HTMLElement>(null);
   const [names, setNames] = useState<Names>({ phase: "waiting" });
   useEffect(() => {
@@ -92,4 +92,4 @@ export function NamesSection({ spec }: { spec: DesignSpec }) {
       </ul>
     </PanelSection>
   );
-}
+});
