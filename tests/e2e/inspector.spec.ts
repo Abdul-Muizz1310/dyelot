@@ -323,6 +323,64 @@ const findingsHeading = (page: Page) =>
 const findingsStatus = (page: Page) => region(page, "Findings").getByRole("status");
 
 /** Opens the inspector drawer from the toolbar and waits for its heading to take focus. */
+/**
+ * The role table's crowding (F-INSP-02): a hex, ratio, level, score or header cell whose text its cell
+ * cuts, a line's visible part outside the table, or two parts on one line less than 3 px apart. A
+ * cell's visible part is its text (not the visually hidden kind), icon and swatch, measured as drawn.
+ */
+function crowdedRoles(page: Page): Promise<string[]> {
+  return region(page, "Roles")
+    .getByRole("table")
+    .evaluate((table) => {
+      const problems: string[] = [];
+      for (const cell of table.querySelectorAll(
+        "[data-hex], [data-ratio], [data-level], [data-lc], thead th",
+      )) {
+        if (cell.scrollWidth > cell.clientWidth + 0.5)
+          problems.push(`cut: ${cell.textContent} ${cell.scrollWidth}>${cell.clientWidth}`);
+      }
+      const edge = table.getBoundingClientRect();
+      for (const line of table.querySelectorAll("thead tr, tr[data-mode]")) {
+        const name = `${line.closest("tbody")?.getAttribute("data-pair") ?? "header"} ${line.getAttribute("data-mode") ?? ""}`;
+        const parts: { text: string; left: number; right: number }[] = [];
+        for (const cell of line.children) {
+          const rects = [...cell.querySelectorAll("svg, [data-swatch]")].map((part) =>
+            part.getBoundingClientRect(),
+          );
+          const walker = document.createTreeWalker(cell, NodeFilter.SHOW_TEXT);
+          for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+            const parent = node.parentElement;
+            if (parent === null || parent.closest(".sr-only") !== null) continue;
+            if ((node.textContent ?? "").trim() === "") continue;
+            const range = document.createRange();
+            range.selectNodeContents(node);
+            rects.push(range.getBoundingClientRect());
+          }
+          if (rects.length === 0) continue;
+          parts.push({
+            text: (cell.textContent ?? "").trim(),
+            left: Math.min(...rects.map((rect) => rect.left)),
+            right: Math.max(...rects.map((rect) => rect.right)),
+          });
+        }
+        for (const part of parts) {
+          if (part.left < edge.left - 0.5 || part.right > edge.right + 0.5)
+            problems.push(`${name}: "${part.text}" reaches outside the table`);
+        }
+        for (let at = 1; at < parts.length; at += 1) {
+          const [before, after] = [parts[at - 1], parts[at]];
+          if (before === undefined || after === undefined) continue;
+          const gap = after.left - before.right;
+          if (gap < 3)
+            problems.push(
+              `${name}: "${before.text}" and "${after.text}" ${gap.toFixed(1)} px apart`,
+            );
+        }
+      }
+      return problems;
+    });
+}
+
 async function openInspector(page: Page): Promise<void> {
   await button(page, "Inspector").click();
   await expect(inspectorAside(page).getByRole("heading", { name: "Inspector" })).toBeFocused();
@@ -450,6 +508,8 @@ test.describe("7.8 The inspector's sections", () => {
       getComputedStyle(element.querySelector("thead th") as Element).fontSize,
     ]);
     expect(sizes).toEqual(["11px", "11px"]);
+    // Every value shows whole and apart at 11 px (the drawer's case is under F-INSP-14).
+    expect(await crowdedRoles(page)).toEqual([]);
     // M-1: scrolled to the middle of the table, the header sits at the scroll area's top edge, so no row
     // shows above it.
     await scrollArea(page).evaluate((area) => {
@@ -1255,7 +1315,7 @@ test.describe("7.7 The mobile fit with the inspector (F-TPL-32)", () => {
   });
 });
 
-test("F-INSP-14 the inspector drawer scrolls inside itself at 360 px and keeps the page from scrolling sideways", async ({
+test("F-INSP-02 F-INSP-14 the inspector drawer scrolls inside itself at 360 px and keeps the page from scrolling sideways", async ({
   page,
 }) => {
   await page.setViewportSize(PHONE);
@@ -1271,6 +1331,8 @@ test("F-INSP-14 the inspector drawer scrolls inside itself at 360 px and keeps t
   expect(sizes.scroll).toBeGreaterThan(sizes.client);
   expect(sizes.width, "no sideways scroller inside").toBeLessThanOrEqual(sizes.clientWidth);
   expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(360);
+  // F-INSP-02: every value of the role table shows whole and apart in the 320 px drawer at 11 px.
+  expect(await crowdedRoles(page)).toEqual([]);
 });
 
 test("F-INSP-14 F-A11Y-03 at 360 px the inspector drawer is walked by keyboard with the madder ring, and keeps focus on a click", async ({

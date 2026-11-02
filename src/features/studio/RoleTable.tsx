@@ -8,7 +8,11 @@ import { PanelSection } from "./PanelSection";
 // three lines so every value fits a 320 px drawer without a sideways scroller: the pair and its kind,
 // then a light line and a dark line with the two hexes beside their swatches, the WCAG ratio, the pass
 // level and the signed advisory score. The level is text, and a fail also carries ✕. The column
-// header stays at the top of the scroll area while the rows pass under it.
+// header stays at the top of the scroll area while the rows pass under it. At 11 px Geist Mono a
+// character is 7 px wide, so the columns are cut to the widest value plus a gap: an 8-character level
+// with its 6 px lead, a 5-character ratio, and two auto columns of a swatch and a 7-character hex that
+// share the rest (64 px each in the 287 px table of a 320 px drawer). The scores take at most four
+// characters, so "advisory" hangs left over the level column's free space instead of widening its own.
 
 const MODES = ["light", "dark"] as const;
 
@@ -24,9 +28,9 @@ export const RoleTable = memo(function RoleTable({ rows }: { rows: readonly Role
           <col className="w-4" />
           <col />
           <col />
-          <col className="w-9" />
-          <col className="w-[3.75rem]" />
-          <col className="w-[3.375rem]" />
+          <col className="w-[2.375rem]" />
+          <col className="w-[3.875rem]" />
+          <col className="w-[2.6875rem]" />
         </colgroup>
         <thead>
           <tr className="text-left text-[11px] text-fg-muted *:sticky *:-top-4 *:z-10 *:bg-panel *:shadow-[inset_0_-1px_0_var(--border)]">
@@ -46,7 +50,7 @@ export const RoleTable = memo(function RoleTable({ rows }: { rows: readonly Role
               level
             </th>
             <th scope="col" className="pb-1 text-right font-normal">
-              <abbr title="Lc, the advisory perceptual score" className="no-underline">
+              <abbr title="Lc, the advisory perceptual score" className="-ml-4 no-underline">
                 advisory
               </abbr>
             </th>
@@ -117,7 +121,7 @@ function ModeLine({ mode, cell }: { mode: (typeof MODES)[number]; cell: ModeCell
 
 function HexCell({ hex, name }: { hex: Hex; name: "foreground" | "fill" }) {
   return (
-    <span className="flex min-w-0 items-center gap-1">
+    <span className="flex min-w-0 items-center gap-[3px]">
       <span
         data-swatch=""
         aria-hidden="true"
