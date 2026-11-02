@@ -59,6 +59,10 @@ export async function setFrame(page: Page, frame: 360 | 768 | 1280): Promise<voi
  * F-TPL-13: every element in `scope` that has three or more children of equal size (layout widths
  * and heights within 1 px) that each hold an icon (an `svg`). Equal icon cards as page structure are
  * on the anti-slop list (research D4); the dashboard's KPI row runs the same check (Task 2.9).
+ *
+ * Run it on one block (the landing's features block, the dashboard's KPI row), never on a template
+ * root: a check list or a closed accordion holds equal rows with an icon each, and that is not a
+ * card grid.
  */
 export function equalIconSiblings(scope: Locator): Promise<string[]> {
   return scope.evaluate((root) => {
@@ -299,4 +303,118 @@ export function roleColor(scope: Locator, role: string): Promise<string> {
     probe.remove();
     return color;
   }, role);
+}
+
+/**
+ * F-TPL-16: the hero-metric blocks of `hero`, the landing's `data-block="hero"`: each element whose own
+ * text is a figure set at the `h2` step or larger (section 7.6).
+ */
+export function heroMetrics(hero: Locator): Promise<string[]> {
+  return hero.evaluate((element) => {
+    const probe = document.createElement("span");
+    probe.style.fontSize = "var(--text-h2)";
+    element.append(probe);
+    const h2 = Number.parseFloat(getComputedStyle(probe).fontSize);
+    probe.remove();
+    const figure = /^[$€£¥]?\s*[+−-]?\d[\d,.:\s]*(%|\s?[A-Za-z]{1,3})?$/;
+    return [element, ...element.querySelectorAll("*")]
+      .filter((node) => {
+        const own = [...node.childNodes]
+          .filter((child) => child.nodeType === Node.TEXT_NODE)
+          .map((child) => child.textContent ?? "")
+          .join("")
+          .trim();
+        return figure.test(own) && Number.parseFloat(getComputedStyle(node).fontSize) >= h2 - 0.01;
+      })
+      .map((node) => node.textContent ?? "");
+  });
+}
+
+/**
+ * F-CANVAS-09, F-TPL-40: the figures (`.kit-num`) on screen in `scope`, each as its text and the
+ * number of lines it takes ("4.1 m 1").
+ */
+export function figureLines(scope: Locator): Promise<string[]> {
+  return scope.evaluate((element) =>
+    [...element.querySelectorAll(".kit-num")]
+      .filter((figure) => figure.getBoundingClientRect().width > 0)
+      .map((figure) => {
+        const range = document.createRange();
+        range.selectNodeContents(figure);
+        const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
+        return `${figure.textContent} ${tops.size}`;
+      }),
+  );
+}
+
+/**
+ * F-CANVAS-09, F-TPL-40: the words of 20 characters or fewer (a hyphen ends a word) on screen in
+ * `scope` that take more than one client rect, and how many words were measured. Only a longer word,
+ * such as the 40-character word of R2-21, may break inside itself.
+ */
+export function brokenWords(scope: Locator): Promise<{ checked: number; broken: string[] }> {
+  return scope.evaluate((element) => {
+    const broken: string[] = [];
+    let checked = 0;
+    const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
+      if ((node.parentElement?.getBoundingClientRect().width ?? 0) === 0) continue;
+      const text = node.textContent ?? "";
+      for (const match of text.matchAll(/[^\s-]+-?/g)) {
+        if (match[0].length > 20) continue;
+        const range = document.createRange();
+        range.setStart(node, match.index);
+        range.setEnd(node, match.index + match[0].length);
+        const rects = [...range.getClientRects()].filter((rect) => rect.width > 0);
+        checked++;
+        if (rects.length > 1) broken.push(`${match[0]} in ${rects.length} pieces`);
+      }
+    }
+    return { checked, broken };
+  });
+}
+
+/**
+ * Samples, on every frame for `ms` after the template `id` mounts, each element's opacity and
+ * transform inside the frame: which elements other than the entrance changed, and the entrance's own
+ * opacities and transforms. Start it before switching to the template.
+ */
+export function mountMotion(page: Page, id: TemplateId, ms = 600) {
+  return canvasFrame(page).evaluate(
+    (frame, { id, ms }) =>
+      new Promise<{ entrances: number; moved: string[]; entrance: string[] }>((resolve) => {
+        const seen = new Map<Element, Set<string>>();
+        let start: number | null = null;
+        const tick = () => {
+          const root = frame.querySelector(`[data-template-root="${id}"]`);
+          if (root !== null) {
+            start ??= performance.now();
+            for (const element of [root, ...root.querySelectorAll("*")]) {
+              const style = getComputedStyle(element);
+              const values = seen.get(element) ?? new Set<string>();
+              values.add(`${style.opacity} ${style.transform}`);
+              seen.set(element, values);
+            }
+          }
+          if (start === null || performance.now() - start < ms) {
+            requestAnimationFrame(tick);
+            return;
+          }
+          const entrances = frame.querySelectorAll("[data-entrance]");
+          const entrance = entrances[0];
+          const moved = [...seen]
+            .filter(([element, values]) => element !== entrance && values.size > 1)
+            .map(
+              ([element]) => `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`,
+            );
+          resolve({
+            entrances: entrances.length,
+            moved,
+            entrance: entrance === undefined ? [] : [...(seen.get(entrance) ?? [])],
+          });
+        };
+        tick();
+      }),
+    { id, ms },
+  );
 }

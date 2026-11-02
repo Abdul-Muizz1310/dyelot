@@ -1,0 +1,36 @@
+/* The kit's page layout (spec section 7.6): the gutter a template's sections share, stepped by the
+ * `frame` container (16, 32 and 64 px), a section's head, and the empty state of a list. */
+
+.kit-page {
+  --kit-gutter: var(--space-4);
+  display: grid;
+}
+@container frame (min-width: 640px) {
+  .kit-page {
+    --kit-gutter: var(--space-8);
+  }
+}
+@container frame (min-width: 1000px) {
+  .kit-page {
+    --kit-gutter: var(--space-16);
+  }
+}
+
+.kit-wrap {
+  min-width: 0;
+  padding-inline: var(--kit-gutter);
+}
+
+.kit-section-head {
+  display: grid;
+  max-width: 40rem;
+  gap: var(--space-3);
+  text-wrap: pretty;
+}
+
+.kit-empty {
+  padding: var(--space-4);
+  border-radius: var(--radius-md);
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}

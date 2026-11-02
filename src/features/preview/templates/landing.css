@@ -6,32 +6,7 @@
  * product cards xl, the color blocks 2xl.
  * ───────────────────────────────────────────────────────────── */
 
-.lp {
-  --kit-gutter: var(--space-4);
-  display: grid;
-}
-@container frame (min-width: 640px) {
-  .lp {
-    --kit-gutter: var(--space-8);
-  }
-}
-@container frame (min-width: 1000px) {
-  .lp {
-    --kit-gutter: var(--space-16);
-  }
-}
-
-.lp-wrap {
-  min-width: 0;
-  padding-inline: var(--kit-gutter);
-}
-
-.lp-section-head {
-  display: grid;
-  max-width: 40rem;
-  gap: var(--space-3);
-  text-wrap: pretty;
-}
+/* The page, its gutter and the section heads come from the kit (kit/page.css). */
 
 /* ── Navigation ───────────────────────────────────────────── */
 .lp-nav {
@@ -246,12 +221,6 @@
   align-items: center;
   gap: var(--space-2);
 }
-.lp-empty {
-  padding: var(--space-4);
-  border-radius: var(--radius-md);
-  background-color: var(--muted);
-  color: var(--muted-foreground);
-}
 
 /* ── Features: the moment and the list side by side ───────── */
 .lp-features {
@@ -359,14 +328,8 @@
   background-color: var(--muted);
   color: var(--foreground);
 }
-.lp-pricing-copy {
-  display: grid;
+.lp-band .lp-pricing-copy {
   max-width: 30rem;
-  gap: var(--space-3);
-  text-wrap: pretty;
-}
-.lp-pricing-copy > p {
-  color: var(--muted-foreground);
 }
 .lp-plan {
   display: grid;

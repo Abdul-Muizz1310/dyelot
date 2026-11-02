@@ -18,6 +18,8 @@ import {
 } from "./studio-support";
 import {
   equalIconSiblings,
+  heroMetrics,
+  mountMotion,
   overflow,
   pictographs,
   roleColor,
@@ -676,51 +678,6 @@ const EVERY_TEMPLATE = [
   "kitchen-sink",
 ] as const satisfies readonly TemplateId[];
 
-/**
- * Samples, on every frame for `ms` after the template `id` mounts, each element's opacity and
- * transform inside the frame: which elements other than the entrance changed, and the entrance's own
- * opacities and transforms. Start it before switching to the template.
- */
-function mountMotion(page: Page, id: TemplateId, ms = 600) {
-  return canvasFrame(page).evaluate(
-    (frame, { id, ms }) =>
-      new Promise<{ entrances: number; moved: string[]; entrance: string[] }>((resolve) => {
-        const seen = new Map<Element, Set<string>>();
-        let start: number | null = null;
-        const tick = () => {
-          const root = frame.querySelector(`[data-template-root="${id}"]`);
-          if (root !== null) {
-            start ??= performance.now();
-            for (const element of [root, ...root.querySelectorAll("*")]) {
-              const style = getComputedStyle(element);
-              const values = seen.get(element) ?? new Set<string>();
-              values.add(`${style.opacity} ${style.transform}`);
-              seen.set(element, values);
-            }
-          }
-          if (start === null || performance.now() - start < ms) {
-            requestAnimationFrame(tick);
-            return;
-          }
-          const entrances = frame.querySelectorAll("[data-entrance]");
-          const entrance = entrances[0];
-          const moved = [...seen]
-            .filter(([element, values]) => element !== entrance && values.size > 1)
-            .map(
-              ([element]) => `${element.tagName.toLowerCase()}.${[...element.classList].join(".")}`,
-            );
-          resolve({
-            entrances: entrances.length,
-            moved,
-            entrance: entrance === undefined ? [] : [...(seen.get(entrance) ?? [])],
-          });
-        };
-        tick();
-      }),
-    { id, ms },
-  );
-}
-
 test.describe("7.6 The landing and editorial templates", () => {
   test.describe.configure({ mode: "serial" });
   let page: Page;
@@ -845,26 +802,7 @@ test.describe("7.6 The landing and editorial templates", () => {
     }
     const hero = (await showTemplate(page, "landing")).locator('[data-block="hero"]');
     await expect(hero).toHaveCount(1);
-    const metrics = await hero.evaluate((element) => {
-      const probe = document.createElement("span");
-      probe.style.fontSize = "var(--text-h2)";
-      element.append(probe);
-      const h2 = Number.parseFloat(getComputedStyle(probe).fontSize);
-      probe.remove();
-      const figure = /^[$€£¥]?\s*[+−-]?\d[\d,.:\s]*(%|\s?[A-Za-z]{1,3})?$/;
-      return [element, ...element.querySelectorAll("*")]
-        .filter((node) => {
-          const own = [...node.childNodes]
-            .filter((child) => child.nodeType === Node.TEXT_NODE)
-            .map((child) => child.textContent ?? "")
-            .join("")
-            .trim();
-          return (
-            figure.test(own) && Number.parseFloat(getComputedStyle(node).fontSize) >= h2 - 0.01
-          );
-        })
-        .map((node) => node.textContent ?? "");
-    });
+    const metrics = await heroMetrics(hero);
     expect(metrics).toEqual([]);
   });
 
@@ -1044,10 +982,11 @@ test.describe("7.6 The landing and editorial templates", () => {
     await expect(panel).toBeHidden();
     await page.keyboard.press("Space");
     await expect(second).toHaveAttribute("aria-expanded", "true");
-    // Tab reaches the next question, and Enter closes the first, open by default.
+    // Shift+Tab reaches the first question, open by default, and Enter closes it.
     const first = triggers.first();
     await expect(first).toHaveAttribute("aria-expanded", "true");
-    await first.focus();
+    await page.keyboard.press("Shift+Tab");
+    await expect(first).toBeFocused();
     await page.keyboard.press("Enter");
     await expect(first).toHaveAttribute("aria-expanded", "false");
     await page.keyboard.press("Enter");

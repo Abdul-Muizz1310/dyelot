@@ -10,6 +10,7 @@ export { Input, Select, Textarea } from "./fields";
 export { Level, Skeins, TideCurve } from "./figures";
 export { Entrance, MotionScope } from "./motion";
 export { MenuSpecimen, TabSpecimen, TabsDemo } from "./navigation";
+export { SectionHead } from "./page";
 export { type NoteIds, NoteRef, RichText, TextLink } from "./prose";
 export {
   BUTTON_VARIANTS,

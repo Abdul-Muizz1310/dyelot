@@ -25,7 +25,14 @@ import {
   settled,
   stubSeeds,
 } from "./studio-support";
-import { overflow, setFrame, showTemplate, templateRoot } from "./template-support";
+import {
+  brokenWords,
+  figureLines,
+  overflow,
+  setFrame,
+  showTemplate,
+  templateRoot,
+} from "./template-support";
 
 // The canvas flows of docs/specs/02-studio.md, section 7.4 (Task 2.7): F-CANVAS-01 to 10 and 12 to
 // 19, with F-CANVAS-07 to 09 extended to the landing and editorial templates (Task 2.8). F-CANVAS-11
@@ -935,41 +942,14 @@ test("F-CANVAS-09 edge-case copy fills the landing and editorial slots, and noth
       await setFrame(page, frame);
       const name = `${id} ${frame}`;
       // Every figure on screen keeps one line.
-      const lines = await root.evaluate((element) =>
-        [...element.querySelectorAll(".kit-num")]
-          .filter((figure) => figure.getBoundingClientRect().width > 0)
-          .map((figure) => {
-            const range = document.createRange();
-            range.selectNodeContents(figure);
-            const tops = new Set([...range.getClientRects()].map((rect) => Math.round(rect.top)));
-            return `${figure.textContent} ${tops.size}`;
-          }),
-      );
+      const lines = await figureLines(root);
       expect(lines.length, name).toBeGreaterThan(0);
       expect(
         lines.filter((line) => !line.endsWith(" 1")),
         name,
       ).toEqual([]);
       // Every word of 20 characters or fewer (a hyphen ends a word) sits on one line.
-      const words = await root.evaluate((element) => {
-        const broken: string[] = [];
-        let checked = 0;
-        const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT);
-        for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-          if ((node.parentElement?.getBoundingClientRect().width ?? 0) === 0) continue;
-          const text = node.textContent ?? "";
-          for (const match of text.matchAll(/[^\s-]+-?/g)) {
-            if (match[0].length > 20) continue;
-            const range = document.createRange();
-            range.setStart(node, match.index);
-            range.setEnd(node, match.index + match[0].length);
-            const rects = [...range.getClientRects()].filter((rect) => rect.width > 0);
-            checked++;
-            if (rects.length > 1) broken.push(`${match[0]} in ${rects.length} pieces`);
-          }
-        }
-        return { checked, broken };
-      });
+      const words = await brokenWords(root);
       expect(words.checked, name).toBeGreaterThan(80);
       expect(words.broken, name).toEqual([]);
       const report = await overflow(root);

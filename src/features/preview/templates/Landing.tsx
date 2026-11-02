@@ -12,6 +12,7 @@ import {
   Entrance,
   Level,
   RichText,
+  SectionHead,
   TextLink,
   TideCurve,
 } from "../kit";
@@ -31,12 +32,12 @@ const NOW = 9.5;
 export function Landing({ view }: { view: View }) {
   const copy = copyOf("landing", view.copy);
   return (
-    <div data-template-root="landing" className="lp" data-roles="background foreground">
+    <div data-template-root="landing" className="lp kit-page" data-roles="background foreground">
       <Nav />
       <section
         data-block="hero"
         aria-labelledby={target("top")}
-        className="lp-hero lp-wrap"
+        className="lp-hero kit-wrap"
         data-roles="background foreground"
       >
         <Entrance className="lp-hero-grid">
@@ -71,22 +72,10 @@ export function Landing({ view }: { view: View }) {
       <section
         data-block="faq"
         aria-labelledby={target("faq")}
-        className="lp-faq lp-wrap"
+        className="lp-faq kit-wrap"
         data-roles="background foreground"
       >
-        <div className="lp-section-head">
-          <h2
-            id={target("faq")}
-            tabIndex={-1}
-            className="kit-t-h2 kit-display"
-            data-roles="foreground font-display"
-          >
-            {TEXT.faq.title}
-          </h2>
-          <p className="kit-t-body kit-muted" data-roles="muted-foreground">
-            {TEXT.faq.intro}
-          </p>
-        </div>
+        <SectionHead id={target("faq")} title={TEXT.faq.title} intro={TEXT.faq.intro} />
         <Accordion items={TEXT.faq.items} idPrefix="saltmarsh-question" />
       </section>
       <Footer />
@@ -105,7 +94,7 @@ function Brand() {
 
 function Nav() {
   return (
-    <nav aria-label="Saltmarsh, sample" className="lp-nav lp-wrap" data-roles="foreground border">
+    <nav aria-label="Saltmarsh, sample" className="lp-nav kit-wrap" data-roles="foreground border">
       <span className="lp-nav-brand">
         <Brand />
         <Badge tone="neutral">{TEXT.sample}</Badge>
@@ -171,22 +160,10 @@ function Features({ copy }: { copy: CanvasCopy }) {
     <section
       data-block="features"
       aria-labelledby={target("features")}
-      className="lp-features lp-wrap"
+      className="lp-features kit-wrap"
       data-roles="background foreground"
     >
-      <div className="lp-section-head">
-        <h2
-          id={target("features")}
-          tabIndex={-1}
-          className="kit-t-h2 kit-display"
-          data-roles="foreground font-display"
-        >
-          {features.title}
-        </h2>
-        <p className="kit-t-body kit-muted" data-roles="muted-foreground">
-          {features.intro}
-        </p>
-      </div>
+      <SectionHead id={target("features")} title={features.title} intro={features.intro} />
       <div className="lp-features-row">
         <div data-moment="" className="lp-features-moment">
           <Moorings copy={copy} />
@@ -223,7 +200,7 @@ function Moorings({ copy }: { copy: CanvasCopy }) {
         <p
           data-list=""
           data-empty=""
-          className="lp-empty kit-t-body-sm"
+          className="kit-empty kit-t-body-sm"
           data-roles="muted muted-foreground"
         >
           {moorings.empty}
@@ -277,7 +254,7 @@ function Moorings({ copy }: { copy: CanvasCopy }) {
 
 function Quote({ copy }: { copy: CanvasCopy }) {
   return (
-    <figure className="lp-quote lp-wrap" data-roles="background foreground border">
+    <figure className="lp-quote kit-wrap" data-roles="background foreground border">
       <span
         aria-hidden="true"
         className="lp-quote-mark kit-t-display kit-display"
@@ -309,23 +286,16 @@ function Pricing({ copy }: { copy: CanvasCopy }) {
     <section
       data-block="pricing"
       aria-labelledby={target("pricing")}
-      className="lp-pricing lp-wrap"
+      className="lp-pricing kit-wrap"
       data-roles="background foreground"
     >
       <div className="lp-band" data-roles="muted foreground">
-        <div className="lp-pricing-copy">
-          <h2
-            id={target("pricing")}
-            tabIndex={-1}
-            className="kit-t-h2 kit-display"
-            data-roles="foreground font-display"
-          >
-            {pricing.title}
-          </h2>
-          <p className="kit-t-body kit-muted" data-roles="muted-foreground">
-            {pricing.body}
-          </p>
-        </div>
+        <SectionHead
+          id={target("pricing")}
+          title={pricing.title}
+          intro={pricing.body}
+          className="lp-pricing-copy"
+        />
         <div className="lp-plan" data-roles="background foreground border">
           <p className="lp-plan-name kit-t-label">{pricing.plan}</p>
           <p className="lp-price">
@@ -354,7 +324,7 @@ function Pricing({ copy }: { copy: CanvasCopy }) {
 
 function Footer() {
   return (
-    <footer className="lp-footer lp-wrap" data-roles="foreground muted-foreground border">
+    <footer className="lp-footer kit-wrap" data-roles="foreground muted-foreground border">
       <Brand />
       <p className="lp-footer-note kit-t-caption">{TEXT.footer.note}</p>
       <ul className="lp-footer-links kit-t-body-sm">

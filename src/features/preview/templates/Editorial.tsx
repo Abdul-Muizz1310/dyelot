@@ -36,8 +36,12 @@ function link(to: string): string {
 export function Editorial({ view }: { view: View }) {
   const copy = copyOf("editorial", view.copy);
   return (
-    <article data-template-root="editorial" className="ed" data-roles="background foreground">
-      <Entrance className="ed-head ed-wrap">
+    <article
+      data-template-root="editorial"
+      className="ed kit-page"
+      data-roles="background foreground"
+    >
+      <Entrance className="ed-head kit-wrap">
         <header className="ed-header">
           <p className="ed-kicker kit-t-label" data-roles="muted-foreground">
             <Badge tone="accent" copyLabel>
@@ -62,7 +66,7 @@ export function Editorial({ view }: { view: View }) {
           </div>
         </header>
       </Entrance>
-      <div className="ed-layout ed-wrap">
+      <div className="ed-layout kit-wrap">
         <nav aria-labelledby={CONTENTS} className="ed-toc" data-roles="foreground border">
           <h2 id={CONTENTS} className="ed-toc-title kit-t-label">
             {TEXT.contents}
@@ -203,7 +207,7 @@ function BlockView({ block, copy }: { block: Block; copy: CanvasCopy }) {
             <p
               data-list=""
               data-empty=""
-              className="ed-empty kit-t-body-sm"
+              className="ed-empty kit-empty kit-t-body-sm"
               data-roles="muted muted-foreground"
             >
               {block.empty}
