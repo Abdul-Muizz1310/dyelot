@@ -2026,6 +2026,19 @@ test.describe("7.9 Accessibility", () => {
     expect(await weak(), "360 px, inputs drawer").toEqual([]);
   });
 
+  test("F-A11Y-05 at 360 px no route scrolls sideways", async ({ page }) => {
+    await page.setViewportSize(PHONE);
+    // Every route the app serves: the home page, the studio and the not-found page.
+    for (const route of ["/", "/studio", "/no-such-page"]) {
+      await page.goto(route);
+      if (route === "/studio") await ready(page);
+      const sideways = await page.evaluate(
+        () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      );
+      expect(sideways, route).toBeLessThanOrEqual(0);
+    }
+  });
+
   test("F-A11Y-06 with reduced motion the drawers and toasts move in 0.01 ms or less", async ({
     page,
   }) => {
