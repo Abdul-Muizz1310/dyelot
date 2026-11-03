@@ -1,6 +1,8 @@
 > Source: `docs/specs/dyelot-design.md` in the private `repos` meta-repo, copied here on 2026-11-01 (M0). The paths to `docs/research/`, `knowledge/` and the DR records point into that repo.
 >
 > M1 sync (2026-11-01): where the M1 spec, `docs/specs/01-color-engine.md`, refines this document, the sentence carries a note in italics that starts "Refined in M1". Its refinement table (section 1) lists each change with the reason. The rest of the text is unchanged.
+>
+> M2 sync (2026-11-03): where the M2 spec, `docs/specs/02-studio.md`, refines this document, the sentence carries a note in italics that starts "Refined in M2". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 
 # dyelot — a palette becomes a design system your coding agent can build
 
@@ -165,13 +167,20 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
   outer − padding); layered shadows tinted toward the background hue; dark mode shows elevation by
   surface lightness, not shadow.
 - **Motion.** Durations from 50 to 500 ms; standard, decelerate, accelerate and emphasized easings; springs
-  by visual duration and bounce; a budget per page; reduced motion swaps movement for fades.
+  by visual duration and bounce; a budget per page; reduced motion swaps movement for fades. *Refined in M2:
+  the spec stores one set of durations whatever the motion feel says. The canvas bridge, `themeVars`, scales them by
+  the feel (calm 1.25, brisk and playful 1) and caps each at 500 ms (R2-08).*
 - **Presets.** The ~20 styles from RR-0029 (minimal/Swiss, editorial, neo-brutalism, glass, dark dev-tool,
   bento, aurora, retro-futurism, tactile, maximalism, organic, dithering/pixel and the rest) as typed
-  parameter sets with their accessibility guards.
+  parameter sets with their accessibility guards. *Refined in M2: 14 presets, the 13 styles of the M2 plan plus a
+  neutral default.* *Refined in M2: each preset carries `guards`, its accessibility notes, which tests check, and
+  `unexpressed`, the traits `dyelot.spec/1` cannot hold yet, such as hard offset shadows, blur and grain.*
 - **Taste rules in the linter.** Flags with fixes: a generic display face; purple-to-blue on white unless
   asked for; verbatim Tailwind default hexes; more than three type sizes in a preview region; body under
-  16 px; measure outside 45–75ch; mixed radius languages; decorative glass on content.
+  16 px; measure outside 45–75ch; mixed radius languages; decorative glass on content. *Refined in M2: four
+  warnings, T1 to T4: a generic display face, the purple-on-white default, a Tailwind default hex at steps 300 to 800,
+  and body text under 16 px outside the dense context. They have no fix yet. The mixed-radius rule is dropped (R2-26).
+  The type-size count, the measure and decorative glass are not scheduled.*
 
 ## 7. Pages
 
@@ -189,19 +198,26 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
 
 - **Left: inputs.** Seed colors with locks; brief box (AI); image drop; import (DESIGN.md, shadcn CSS);
   harmony, contrast level, gamut, scale mode; preset; type pairing and context; space, radius, depth,
-  density; motion feel.
+  density; motion feel. *Refined in M2: the M2 studio shows no brief box, image drop or import. They wait for M4 and
+  later milestones.*
 - **Center: the canvas.** Six P0 templates on one shared spec: landing page, SaaS dashboard, settings and
   forms, three mobile screens, editorial article, and a kitchen sink with specimens. Templates use
   shadcn-style components themed only by the spec's role variables, scoped to the canvas, so what you see
   is what your agent will build. Container queries drive the 360, 768 and 1280 px frames. Toggles: light or
-  dark, density, reduced motion, increased contrast, real or edge-case copy.
+  dark, density, reduced motion, increased contrast, real or edge-case copy. *Refined in M2: the M2 canvas has no
+  increased-contrast toggle, and none is scheduled.*
 - **Right: inspector.** Scales with step contrast, the role table with WCAG and advisory scores, color
-  names, the color-blindness view, the linter with one-click fixes, the receipt.
+  names, the color-blindness view, the linter with one-click fixes, the receipt. *Refined in M2: the color-vision
+  view is a canvas toggle (none, protan, deutan or tritan) that recomputes every canvas color through `simulate`.*
+  *Refined in M2: fixes exist for C1, C5, N1 and F1. Each regenerates the design at a higher contrast level: `AA+` for
+  C1, `AAA` for the others. The M1 linter has no K3, so K3 has no fix (R2-10).* *Refined in M2: the receipt comes with
+  the export bundle in M3.*
 - **Keyboard.** Space regenerates unlocked colors; `L` locks the focused swatch; ← and → undo and redo;
   `Alt+T` flips the mode; `Mod+S` copies a share link; `Mod+E` opens export. Every control has a visible
-  label, a focus ring and a 24 px minimum target.
+  label, a focus ring and a 24 px minimum target. *Refined in M2: `Mod+E` is not bound, because export comes in M3.*
 - **Transitions.** React `<ViewTransition>` morphs a swatch into its token row and between templates;
-  every transition has a reduced-motion variant.
+  every transition has a reduced-motion variant. *Refined in M2: the M2 studio has no view transitions. They come in
+  M5.*
 
 ## 9. The export bundle (RR-0027)
 
