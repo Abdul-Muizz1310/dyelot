@@ -1,7 +1,8 @@
 "use client";
 
 import "./dialog.css";
-import { useId, useLayoutEffect, useRef } from "react";
+import { useReducedMotionConfig } from "motion/react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { Button } from "./Button";
 import { containKeys } from "./contain";
 
@@ -12,7 +13,9 @@ import { containKeys } from "./contain";
 // press, so no studio shortcut or drawer sees it. The caller gives focus back to its opener. Under the
 // pointer focus stays inside too: the dialog itself takes focus (`tabIndex={-1}`) when its text is
 // clicked, and a press on the scrim leaves focus where it was. Its keys are the kit's contained
-// overlay keys (contain.ts), which the mobile template's bottom sheet shares.
+// overlay keys (contain.ts), which the mobile template's bottom sheet shares. It fades in once; once in,
+// or once reduced motion has held at any moment while it is open, it is settled, so a later motion
+// toggle never plays the entrance again (final review, M-2: the sheet's guard).
 
 export function ConfirmDialog({
   title,
@@ -31,9 +34,16 @@ export function ConfirmDialog({
   const id = useId();
   const dialog = useRef<HTMLDivElement>(null);
   const first = useRef<HTMLButtonElement>(null);
+  const reduced = useReducedMotionConfig() === true;
+  const [settled, setSettled] = useState(reduced);
   useLayoutEffect(() => {
     first.current?.focus();
   }, []);
+  // As in the sheet: a toggle during the entrance cancels it, and no `animationend` follows, so the
+  // setting itself, not an event, decides.
+  useEffect(() => {
+    if (reduced) setSettled(true);
+  }, [reduced]);
 
   return (
     // The scrim is not a control: a press on it only keeps focus inside the dialog.
@@ -41,8 +51,12 @@ export function ConfirmDialog({
     <div
       className="kit-confirm-layer"
       data-roles="foreground background"
+      data-settled={settled ? "" : undefined}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) event.preventDefault();
+      }}
+      onAnimationEnd={(event) => {
+        if (event.target === dialog.current) setSettled(true);
       }}
     >
       <div

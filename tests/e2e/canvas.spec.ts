@@ -1206,6 +1206,84 @@ test.describe("7.4 Motion on the page templates", () => {
     expect(await sheet.evaluate((element) => element.getAnimations().length)).toBe(0);
     await expect(sheet).toBeVisible();
   });
+
+  test("F-CANVAS-07 Reduce motion toggled with the settings' confirm dialog open never replays its entrance", async ({
+    page,
+  }) => {
+    await stubSeeds(page);
+    await openStudio(page);
+    const settings = await showTemplate(page, "settings");
+    const opener = settings.getByRole("button", { name: "Delete console", exact: true });
+    const dialog = settings.getByRole("alertdialog");
+    const layer = settings.locator(".kit-confirm-layer");
+    /** From now on, counts every animation that starts in the dialog's layer. */
+    const countStarts = () =>
+      layer.evaluate((element) => {
+        const counted = window as unknown as { __starts: number };
+        counted.__starts = 0;
+        element.addEventListener("animationstart", () => {
+          counted.__starts += 1;
+        });
+      });
+    const starts = () => page.evaluate(() => (window as unknown as { __starts: number }).__starts);
+    const running = () =>
+      layer.evaluate((element) => element.getAnimations({ subtree: true }).length);
+    /** Switches Reduce motion off, waits longer than an entrance, and checks nothing replayed. */
+    const offAndQuiet = async (name: string) => {
+      await reduceMotion(page).click();
+      await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
+      await page.waitForTimeout(600);
+      expect(await starts(), `${name}: animations started in the layer`).toBe(0);
+      expect(await running(), `${name}: animations in the layer`).toBe(0);
+      await expect(dialog, name).toBeVisible();
+      await expect(layer, name).toHaveAttribute("data-settled", "");
+    };
+    // Opened at rest: the switch goes on and off while it stays open.
+    await opener.click();
+    await expect(dialog).toBeVisible();
+    await layer.evaluate((element) =>
+      Promise.allSettled(
+        element.getAnimations({ subtree: true }).map((animation) => animation.finished),
+      ),
+    );
+    await countStarts();
+    await reduceMotion(page).click();
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+    await offAndQuiet("at rest");
+    await dialog.getByRole("button", { name: "Cancel", exact: true }).click();
+    await expect(dialog).toHaveCount(0);
+    // Switched on 60 ms into the entrance, in the page so the timing holds; the entrance must still
+    // be running then, or the check proves nothing.
+    const during = await page.evaluate(
+      () =>
+        new Promise<boolean>((resolve, reject) => {
+          const opener = [
+            ...document.querySelectorAll<HTMLButtonElement>(
+              '[data-template-root="settings"] button',
+            ),
+          ].find((button) => (button.textContent ?? "").trim() === "Delete console");
+          const reduce = [...document.querySelectorAll<HTMLButtonElement>('[role="switch"]')].find(
+            (button) => (button.textContent ?? "").trim() === "Reduce motion",
+          );
+          if (opener === undefined || reduce === undefined) {
+            reject(new Error("no opener or Reduce motion switch"));
+            return;
+          }
+          opener.click();
+          setTimeout(() => {
+            const surface = document.querySelector(".kit-confirm");
+            const moving = surface !== null && surface.getAnimations().length > 0;
+            reduce.click();
+            resolve(moving);
+          }, 60);
+        }),
+    );
+    expect(during, "the entrance runs 60 ms in").toBe(true);
+    await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+    await expect(dialog).toBeVisible();
+    await countStarts();
+    await offAndQuiet("during the entrance");
+  });
 });
 
 test("F-CANVAS-20 under reduced motion a frame switch starts no transition and shows the new layout from its first frame", async ({

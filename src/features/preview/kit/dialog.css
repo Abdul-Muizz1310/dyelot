@@ -36,6 +36,11 @@
 .kit-confirm .kit-actions {
   padding-top: var(--space-2);
 }
+/* Faded in once: a later motion toggle never plays the entrance again (as the sheet). */
+.kit-confirm-layer[data-settled],
+.kit-confirm-layer[data-settled] .kit-confirm {
+  animation: none;
+}
 
 @keyframes kit-confirm-scrim {
   from {
