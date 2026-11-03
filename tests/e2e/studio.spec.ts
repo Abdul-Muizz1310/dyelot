@@ -1769,7 +1769,7 @@ async function chromaOffenders(page: Page) {
     const resolve = (window as unknown as { __dyelotRgba: (v: string) => number[] | null })
       .__dyelotRgba;
     const root = getComputedStyle(document.documentElement);
-    // The house neutrals of src/app/globals.css: tinted greys shared by the portfolio's chrome.
+    // The house neutrals of src/app/globals.css: tinted grays shared by the portfolio's chrome.
     const neutrals = ["--fg-muted", "--border", "--border-bright", "--panel"].map((name) =>
       root.getPropertyValue(name).trim().toLowerCase(),
     );

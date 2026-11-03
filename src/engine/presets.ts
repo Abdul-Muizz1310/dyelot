@@ -115,13 +115,13 @@ const LIST: readonly Preset[] = [
       mode: "light",
       density: "comfortable",
     },
-    ["Grey text stays at 4.5:1 or more", "Hairlines stay at 3:1 or more", "One accent"],
+    ["Gray text stays at 4.5:1 or more", "Hairlines stay at 3:1 or more", "One accent"],
     ["1 px rules between regions"],
   ),
   preset(
     "editorial",
     "Editorial",
-    "Warm greys and a serif voice for long reading.",
+    "Warm grays and a serif voice for long reading.",
     {
       harmony: "analogous",
       chroma: "muted",
@@ -203,7 +203,7 @@ const LIST: readonly Preset[] = [
       mode: "dark",
       density: "dense",
     },
-    ["Surfaces step by lightness", "Grey-on-grey keeps 4.5:1", "The page is not #000"],
+    ["Surfaces step by lightness", "Gray-on-gray keeps 4.5:1", "The page is not #000"],
     ["Borders at 6 to 12% white", "The command palette"],
   ),
   preset(
