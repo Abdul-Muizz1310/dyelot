@@ -765,6 +765,8 @@ test.describe("7.8 Show me", () => {
   }) => {
     await stubSeeds(page);
     await openStudio(page);
+    // Read the canvas at rest, after the landing's entrance (final review, I-1).
+    await canvasAtRest(page);
     const key = keyOf(first(), "N3", "light", "border/background");
     const before = await canvasBoxes(page);
     await showMeButton(page, key).click();
@@ -842,6 +844,8 @@ test.describe("7.8 Show me", () => {
   }) => {
     const spec = stepFixture();
     await openStudio(page, linkOf(spec));
+    // Read the canvas at rest, after the landing's entrance (final review, I-1).
+    await canvasAtRest(page);
     const n3 = keyOf(spec, "N3", "light", "border/background");
     const k1 = keyOf(spec, "K1", "light", "primary-50/primary-100");
     await showMeButton(page, n3).click();
@@ -891,6 +895,8 @@ test.describe("7.8 Show me", () => {
   test("F-CANVAS-11 a finding that leaves the list takes its outline with it", async ({ page }) => {
     const spec = ringFixture();
     await openStudio(page, linkOf(spec));
+    // Read the canvas at rest, after the landing's entrance (final review, I-1).
+    await canvasAtRest(page);
     const key = keyOf(spec, "F1", "light", "ring/background");
     await showMeButton(page, key).click();
     await expect(canvasRegion(page)).toHaveAttribute("data-show-me", "ring background");
@@ -959,6 +965,8 @@ test.describe("7.8 Show me", () => {
     await page.setViewportSize(PHONE);
     const spec = stepFixture();
     await openStudio(page, linkOf(spec));
+    // Read the canvas at rest, after the landing's entrance (final review, I-1).
+    await canvasAtRest(page);
     await openInspector(page);
     const n3 = keyOf(spec, "N3", "light", "border/background");
     await showMeButton(page, n3).click();

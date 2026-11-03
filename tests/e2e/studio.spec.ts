@@ -45,7 +45,7 @@ import {
   stubSeeds,
   tampered,
 } from "./studio-support";
-import { installColorResolver } from "./template-support";
+import { canvasAtRest, installColorResolver } from "./template-support";
 
 // The flows of docs/specs/02-studio.md assigned to Task 2.6: F-STUDIO-01 to 22 (section 7.1),
 // F-INPUT-01 to 15 (7.2), F-KEY-01 to 13 (7.3) and the accessibility flows of 7.9 for /studio.
@@ -1808,12 +1808,16 @@ test.describe("7.9 Accessibility", () => {
     test.setTimeout(120_000);
     await openStudio(page, stepLink());
     await expect(inspectorAside(page).locator("[data-finding]").first()).toBeVisible();
+    // Each axe run reads the canvas at rest: the landing's entrance fades its hero in, and a mode
+    // switch runs the kit's color transitions (final review, I-1).
+    await canvasAtRest(page);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
     // The inspector filled, with a highlight shown, in both canvas modes (Task 2.10b).
     await stepShowMe(page).click();
     for (const mode of ["light", "dark"] as const) {
       if (mode === "dark") await modeSwitch(page).click();
       await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
+      await canvasAtRest(page);
       expect((await new AxeBuilder({ page }).analyze()).violations, mode).toEqual([]);
     }
     await page.setViewportSize(PHONE);
@@ -1827,6 +1831,7 @@ test.describe("7.9 Accessibility", () => {
       for (const name of ["Inputs", "Inspector"]) {
         await button(page, name).click();
         await expect(page.getByRole("heading", { name, exact: true })).toBeFocused();
+        await canvasAtRest(page);
         expect((await new AxeBuilder({ page }).analyze()).violations, `${name} ${mode}`).toEqual(
           [],
         );
@@ -1841,6 +1846,8 @@ test.describe("7.9 Accessibility", () => {
   test("F-A11Y-01 axe finds no violation with the banner shown", async ({ page }) => {
     await openStudio(page, `#s=${tampered(encodeSpec(designFor(FRESH, "e2e-link")))}`);
     await expect(banner(page)).toBeVisible();
+    // Read at rest, after the landing's entrance (final review, I-1).
+    await canvasAtRest(page);
     expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
   });
 
