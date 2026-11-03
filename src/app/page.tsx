@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { PageFrame } from "@/components/terminal/PageFrame";
 import { Prompt } from "@/components/terminal/Prompt";
 import { TerminalWindow } from "@/components/terminal/TerminalWindow";
@@ -10,8 +11,8 @@ import { StructuredData } from "@/lib/site/structured-data";
 // the site title. The canonical names the page itself.
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
-// The page says what exists today, and nothing else: the product's one-liner and the work in
-// progress. Add a line here only when the feature behind it ships.
+// The page says what exists today, and nothing else: the product's one-liner, the work in progress
+// and a way into what shipped (the studio, M2). Add a line here only when the feature behind it ships.
 export default function Home() {
   return (
     <PageFrame active="home" statusLeft="dyelot ~/" statusRight="muizz-lab · MIT">
@@ -28,6 +29,14 @@ export default function Home() {
         <TerminalWindow title="status.log">
           <div className="space-y-2">
             <Prompt kind="comment">in progress: the color engine</Prompt>
+            <Link href="/studio" className="group block w-fit max-w-full">
+              <Prompt>
+                open{" "}
+                <span className="text-accent-madder underline-offset-4 group-hover:underline">
+                  the studio
+                </span>
+              </Prompt>
+            </Link>
             <a
               href={REPOSITORY_URL}
               target="_blank"
