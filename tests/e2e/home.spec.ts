@@ -43,7 +43,7 @@ test("the home page shows the prompt, the one-liner and the work in progress", a
   const main = page.getByRole("main");
   await expect(main).toContainText("$ dyelot");
   await expect(main).toContainText("a palette becomes a design system your coding agent can build");
-  await expect(main).toContainText("in progress: the color engine");
+  await expect(main).toContainText("in progress: the export bundle");
 });
 
 // Breaks when the repository link is dropped, mistyped or points at another repository, or when

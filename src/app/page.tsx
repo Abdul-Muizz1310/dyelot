@@ -28,7 +28,7 @@ export default function Home() {
         </div>
         <TerminalWindow title="status.log">
           <div className="space-y-2">
-            <Prompt kind="comment">in progress: the color engine</Prompt>
+            <Prompt kind="comment">in progress: the export bundle</Prompt>
             <Link href="/studio" className="group block w-fit max-w-full">
               <Prompt>
                 open{" "}
