@@ -6,9 +6,12 @@
 
 Status: written 2026-11-01 as Task 2.1 of the M2 plan (`docs/plans/2026-11-01-dyelot-m2-studio.md` in the meta-repo).
 Section 2 copies the plan's decisions word for word. Section 3 lists rulings that close gaps in the decisions
-(R2-01 to R2-30); the owner can overturn any of them by editing this file before the task that uses it starts. Tasks
+(R2-01 to R2-31); the owner can overturn any of them by editing this file before the task that uses it starts. Tasks
 2.2 to 2.10 implement against the cases in sections 6 and 7. Revised the same day after the spec review (fix round 1): rulings
 R2-25 to R2-30 are new, and R2-03, R2-05, R2-06, R2-08 to R2-10, R2-12, R2-13, R2-15, R2-17 and R2-23 changed.
+Task 2.11 closed M2 on 2026-11-03. It added R2-31 (the owner's two gates) with its guard cases C-REPO-M2-06 to 08, F-HOME-03,
+the motion spot check of F-TPL-40 and the rows of section 9 that the task reviews deferred. It also added an in-place note
+to the umbrella, `00-design.md`, at each row of the refinement table below; each note starts "Refined in M2".
 
 ## 1. Purpose and scope
 
@@ -288,7 +291,10 @@ then has every `vw` of the `clamp` string written as `cqi`, so the fluid size fo
    `bindStudioWindow(store, window)` connects `hashchange` (item 5 of R2-14), `pagehide` and a hidden page (`flush()`,
    C-HASH-13); it returns the function that disconnects them.
 2. The worker protocol lives in `src/features/studio/protocol.ts`: the types and the pure `runGenerate(request)`, which
-   never throws. `generate.worker.ts` only wires `onmessage` to it. An inline client runs `runGenerate` on a microtask
+   never throws. `generate.worker.ts` only wires `onmessage` to it. The build runs the worker from Turbopack's bundled
+   `static/chunks/turbopack-worker-*.js` and also copies `generate.worker.ts` itself, byte for byte, to
+   `.next/static/media/generate.worker.<hash>.ts`, the URL the `new URL(...)` reference resolves to; that asset holds
+   nothing but the worker's 311-byte source (checked at Task 2.11). An inline client runs `runGenerate` on a microtask
    when `Worker` is missing or throws on construction, so tests and locked-down browsers behave the same. Both clients
    come from `createGenerateClient(post)`, which keeps one request in flight and at most one pending (R2-29). The
    store's `deps.client` is a `StudioClient` (section 5.7) built over that flow. Its `generateNow(params, seed)` runs
@@ -474,6 +480,27 @@ so native controls follow the spec's mode and not the chrome's dark scheme; the 
 `--muted`; the fluid display size follows the canvas (R2-12). The only madder inside the canvas is the highlight overlay of
 "Show me" (R2-20). The chrome-only accessibility cases (the madder focus ring, the achromatic chrome) apply outside
 `[data-canvas]`.
+
+**R2-31 · Two gates (owner decision, 2026-11-03).** The local gate of each task leaves the slow property and scan tests
+to CI and to a milestone's close.
+1. `pnpm gate`, the gate of each task, runs `pnpm lint`, `pnpm typecheck`, `pnpm test:fast` and `pnpm test:e2e`.
+   `pnpm test:fast` is `vitest run --project core --project web`: every unit test file outside the slow set. It aims at 8
+   minutes or less on the reference machine (8 cores, 16 threads) when idle.
+2. `pnpm gate:full`, the gate that closes a milestone, runs `pnpm lint`, `pnpm typecheck`, `pnpm vitest run --coverage`
+   over every project with the folder floors enforced, and `pnpm test:e2e`. CI runs the same steps, and the build, on
+   every pull request and every push to `main`, as before.
+3. The slow set is a fixed list, never a timing rule at run time and never a lower `numRuns`. Task 2.11 timed each unit
+   test file alone (`vitest run <file>`, no coverage, start-up included) and listed every file that took 10 s or more:
+   `SLOW_TESTS` in `vitest.config.ts`, 20 files from 11.7 s to 27.3 s (the next file took 8.7 s), which run in the
+   projects `core-slow` (Node) and `web-slow` (jsdom); and `SCAN_TESTS`, the two C-INSPECT-16 files (29.7 s and 30.2 s),
+   which run in `scan` after the others (`sequence.groupOrder`). Each entry carries its measured time. A file joins or
+   leaves the list only on a measured solo time.
+4. The folder floors hold over the full run only. Without the slow set the `src/spec/**` floor fails (measured at Task
+   2.11: statements 94.69 % and branches 86.74 %, against 95 and 90), so `pnpm gate` runs without coverage, and
+   `pnpm gate:full` and CI enforce every floor.
+5. The e2e step builds the app: Playwright's web server runs `pnpm build && pnpm start` when no server holds port 3100,
+   so a gate starts with no server running. The web server's output is piped into the run's log, so a gate's log holds
+   the build's route table.
 
 ## 4. Conventions and invariants
 
@@ -1206,10 +1233,11 @@ Tests: `tests/unit/theme/vars.test.ts`, in the `node` project (R2-22).
 
 Tests: `tests/unit/features/studio/{store,store-replies,store-persist,store-property,protocol,client,url,drafts,params,view,lot}.test.ts`,
 and `store-lock-{seeds,pair-aa,pair-aaa,primary-aa,primary-aaa}.test.ts` for C-STORE-34 and C-STORE-41 (about 800
-generations through the store, split so they run in parallel). Section 6.8's C-INSPECT-01 to 04 are in `fixes.test.ts`
-and `store-fix.test.ts`, C-INSPECT-16 in `fix-scan-{srgb,p3}.test.ts` (288 generations each, in a third Vitest project,
-`scan`, that runs after the other two with `sequence.groupOrder`, its two files in parallel: beside the CPU-bound property
-cases they pushed those past their timeouts) and C-INSPECT-17 in `inspector-fix.test.tsx` (jsdom, the inspector on a store with a stub client).
+generations through the store, split so they run in parallel; the five are in the slow set of R2-31 and run in the
+`web-slow` project). Section 6.8's C-INSPECT-01 to 04 are in `fixes.test.ts`
+and `store-fix.test.ts`, C-INSPECT-16 in `fix-scan-{srgb,p3}.test.ts` (288 generations each, in a Vitest project of its
+own, `scan`, that runs after the others with `sequence.groupOrder`, its two files in parallel: beside the CPU-bound property
+cases they pushed those past their timeouts; `pnpm gate` leaves them out, R2-31) and C-INSPECT-17 in `inspector-fix.test.tsx` (jsdom, the inspector on a store with a stub client).
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -1363,7 +1391,8 @@ fill)`, and `lcText` is `formatLc(lc)`.
 
 ### 6.10 Source guards
 
-Tests: `tests/unit/features/preview/guard.test.ts`, `tests/unit/engine/repo-guards.test.ts`.
+Tests: `tests/unit/features/preview/guard.test.ts`, `tests/unit/engine/repo-guards.test.ts`, and
+`tests/unit/scripts/gate.test.ts` for the gates of R2-31 (C-REPO-M2-06 to 08).
 
 The preview guard is a function `findViolations(source: string): readonly string[]` that the test runs over every file
 under `src/features/preview/` and over fixtures. It flags: a Tailwind palette class (`bg|text|border|ring|fill|stroke|from|via|to|divide|outline|decoration|shadow|accent|caret|placeholder`
@@ -1398,6 +1427,9 @@ names the rule that fired.
 | C-REPO-M2-03 | pass | `vitest.config.ts` runs `tests/unit/theme/**` in the `node` project, and its coverage include and floors cover `src/theme/**`, `src/engine/fonts/**` and the named pure helper files of R2-22 at 95 and 90 | R2-22 |
 | C-REPO-M2-04 | pass | The M1 repository guards C-REPO-01 to C-REPO-05 pass unmodified, apart from C-REPO-02 and C-REPO-05, which R2-25 amends | plan |
 | C-REPO-M2-05 | pass | git tracks no font binary (woff, woff2, ttf, otf) outside `src/lib/site/fonts/`, the M0 share-card fonts | review |
+| C-REPO-M2-06 | pass | Every unit test file (each `*.test.ts` and `*.test.tsx` under `tests/unit/`) runs in exactly one Vitest project: Vitest's own file list over every project (`vitest list --filesOnly --json`) names each such file once and names no other file; a file in two projects, or in none, fails the case | R2-31 |
+| C-REPO-M2-07 | failure | Every entry of `SLOW_TESTS` and `SCAN_TESTS` is a unit test file that exists, listed once, and `SCAN_TESTS` holds the two C-INSPECT-16 files; a missing, misspelled or repeated entry fails the case | R2-31 |
+| C-REPO-M2-08 | pass | `pnpm gate` runs no slow file and every other unit test file: `gate` is `pnpm lint && pnpm typecheck && pnpm test:fast && pnpm test:e2e`; the file list of `test:fast` (its own arguments, with `vitest list --filesOnly --json` for `vitest run`) holds no entry of `SLOW_TESTS` or `SCAN_TESTS` and every other unit test file; `gate:full` is `pnpm lint && pnpm typecheck && pnpm vitest run --coverage && pnpm test:e2e`, with no project filter | R2-31 |
 
 ### 6.11 Shortcut and input helpers (Task 2.6)
 
@@ -1503,7 +1535,11 @@ function boardFit(available: number): { width: number; scale: number; label: str
 Tests: `tests/e2e/studio.spec.ts`, `tests/e2e/canvas.spec.ts` (section 7.4), `tests/e2e/templates.spec.ts`,
 `tests/e2e/inspector.spec.ts`, `tests/e2e/home.spec.ts`.
 Every flow runs against the production build. A flow that names no viewport runs at 1280 × 800. "Canvas variables" means
-the computed custom properties on `[data-canvas]`.
+the computed custom properties on `[data-canvas]`. The flows of a serial group share one page, so after each flow the
+group puts the canvas back on its own template (the kitchen sink in the groups of sections 7.4 and 7.5, the landing page
+in the others), on the 1280 frame and in the 1280 × 800 window. A `-g` filter can then run any of a group's flows in any combination. Without that
+step, a flow that left the mobile template showing would leave the Frame group disabled, and a later flow that sets a
+frame would wait out its timeout (Task 2.11).
 
 ### 7.1 Layout and the shell (Task 2.6)
 
@@ -1740,7 +1776,7 @@ An SVG in a template is either a lucide icon or a drawn figure (`data-figure`, `
 | F-TPL-20 | pass | The editorial template shows every link as `primary` text with an underline (there is no link role and no visited style), and its selection uses the spec's `--primary` and `--primary-foreground`. Every in-page link of the landing, editorial, dashboard, settings and mobile templates names a target inside the template; following one moves focus to the target and leaves `location.hash` as it was, so the studio's link stays in the address bar (R2-20). This holds for a contents link, a landing navigation link, a note reference (focus moves to its note), the note's "Back to the text" link (focus returns to the reference), a dashboard sidebar link, a settings section link and the mobile feed's "Open Samphire Bay" (focus moves to the detail screen's heading) | research D5, ruling, review |
 | F-TPL-21 | pass | The FAQ accordion opens and closes by keyboard (Enter and Space on its buttons), with `aria-expanded` and the panel shown or hidden to match | I-M2-03 |
 | F-TPL-39 | pass | Every painted color is named: in the landing, editorial, dashboard, settings and mobile templates (the mobile template once with each of its four tab panels shown), in both modes, each opaque text color (of an element with its own text), background color, border color (of a drawn border) and SVG fill or stroke equals the computed color of a role named in the `data-roles` of the element or of its nearest ancestor that has `data-roles`; and every element whose own text is set in the display face, when the display and body faces differ, has `font-display` in those `data-roles`, and every element whose own text is set in the body face, under the same condition, has `font-body` there (Task 2.10b). An element that names `font-display` or `font-body` is never the template root (`data-template-root`), and its subtree holds no element whose own text is set in the other face (fix round 1, I-1). The `::before`, `::after` and `::marker` boxes that paint count as their element's paints. Each paint and each role color is resolved to sRGB with alpha through the browser's own parse (as in F-TPL-12): a paint with alpha 1 is checked whatever its syntax, an opaque `color-mix` included; only a paint with some transparency, `none` or a `url(…)` is skipped, and a paint the browser cannot read counts as unnamed. The check runs on the test design and on a fixture whose 46 role colors are pairwise distinct in each mode (each repeated hex moved by a few codes, opened through `#s=`), so a part cannot pass by naming a role that shares another's color. On the fixture, the check also runs once with the settings' confirm dialog open and once with the mobile bottom sheet open, in both modes. Task 2.10's "show me" (F-CANVAS-11) finds parts by these names | ruling, R2-20, review |
-| F-TPL-40 | pass | A preset sweep: for each of the 14 presets, in the landing, editorial, dashboard and settings templates at the 360 and 768 frames, and in the mobile template at its own three 360 px screens with the sheet closed and open (and, under edge copy, with each of the three other tab panels shown), with real and with edge copy, nothing overflows the frame (for the mobile template: the canvas frame and each screen), every figure on screen keeps one line, and no word of 20 characters or fewer has more than one client rect. The 40-character word of R2-21 is the only word that may break | ruling |
+| F-TPL-40 | pass | A preset sweep: for each of the 14 presets, in the landing, editorial, dashboard and settings templates at the 360 and 768 frames, and in the mobile template at its own three 360 px screens with the sheet closed and open (and, under edge copy, with each of the three other tab panels shown), with real and with edge copy, nothing overflows the frame (for the mobile template: the canvas frame and each screen), every figure on screen keeps one line, and no word of 20 characters or fewer has more than one client rect. The 40-character word of R2-21 is the only word that may break. The sweep runs with the canvas's Reduce motion switch on, which places every entrance and transition at once and lays the canvas out as motion does at rest (F-CANVAS-20, the Task 2.10a addendum), so no view waits on motion (Task 2.11). A motion spot check keeps the motion path fitted: with the switch off, the `maximalism` and `retro-futurism` presets (playful motion; the poster and marketing contexts), in the landing and editorial templates at the 360 and 768 frames, with real and with edge copy, pass the same checks once the canvas is at rest | ruling, review |
 | F-TPL-41 | pass | The article's contents: at the 1280 frame the contents column sits beside the body (their boxes share a vertical span and do not overlap horizontally) and is not sticky, and each contents link moves focus to its section and leaves `location.hash` as it was | ruling, review |
 | F-TPL-42 | pass | The landing's tide card tells one story (section 6.12): its events list shows each event of `TIDE_EVENTS` with `clock(hour)` and its meters to one decimal, the figure's accessible name holds each event's time and the "now" time, and the "now" line carries a visible label with that time | review |
 
@@ -1992,6 +2028,7 @@ across lines ("the system sans-serif" keeps its hyphen whole); it is empty other
 | F-A11Y-09 | pass | WCAG 1.4.11: at 1280 px and at 360 px (with the inputs drawer open), every form control of the chrome (text and hex fields, color inputs, selects, segmented groups, lock toggles, the mode switch's track) has a border, and its border color has a contrast of at least 3:1 against the background it sits on (the nearest ancestor with an opaque background) | decision, review |
 | F-HOME-01 | pass | The home page keeps its single `h1` and gains a link "open the studio" with `href="/studio"`, in the list beside the GitHub link | decision, ruling |
 | F-HOME-02 | pass | Following the link opens `/studio` | decision |
+| F-HOME-03 | pass | The production build's `/sitemap.xml` lists the studio, `<loc>` `https://dyelot.vercel.app/studio`, beside the home page (section 10) | plan |
 
 ## 8. Review Focus coverage
 
@@ -2016,7 +2053,7 @@ Each row lists the cases that carry the item. Every case with the item's tag in 
 | Taste rules for type-size count, measure and decorative glass | umbrella §6 | Not scheduled |
 | A fix for K3, and a fix for K4 | decision, R2-10 | When K3 exists in the linter |
 | Density, canvas view and copy toggles in the share link | R2-07 | Not scheduled; the link holds the spec only |
-| Hard offset shadows, blur, grain and the other `unexpressed` style traits in the spec | R2-06 | M3 (spec fields) |
+| Hard offset shadows, blur, grain and the other `unexpressed` style traits in the spec | R2-06; owner decision D2 of the M3 spec (2026-11-03) | M3 writes them as prose in DESIGN.md; the spec fields and tokens come in M5 |
 | P1 and P2 templates (auth, pricing, product page, docs, states, charts page, email) | research D5 | Not scheduled |
 | Anomalous color-vision severities | M1 spec §8 | Not scheduled |
 | The `MONO` axis, `wdth`, `opsz` and `ROND` axes of the catalog's families (M2 copies the `wght` file only) | R2-03 | Not scheduled |
@@ -2025,12 +2062,15 @@ Each row lists the cases that carry the item. Every case with the item's tag in 
 | Drafts do not restore the preset's view settings (mode, density); after a reload a dark preset shows a light canvas until toggled | R2-06, R2-13 item 7, Task 2.6 | Revisit with M6 polish |
 | The `poster` type context has no fluid step: its `display` step (137 px at body 18, ratio 1.5) cannot set a word at phone widths. Below 480 px of frame the landing and the article set their headline at `h2` (section 7.6) | Task 2.8, ruling 2 | M3 (a fluid poster display) or a lint rule |
 | The canvas loads only upright files, so emphasis renders a synthesized oblique. The article's pull quote is set upright; `em` stays | R2-03, Task 2.8 review | M3 export or M6 polish (each family's italic files) |
+| Switching the system's reduced-motion setting on while the mobile sheet rises leaves the sheet unsettled. Motion reads the preference once, so CSS stops the rise, the sheet does not settle, and turning the setting off later raises it again. The canvas's Reduce motion switch settles it (F-CANVAS-07) | Task 2.10a review round 3, M-2 | M5 (motion) |
+| Chrome text at 11 px, the floor Task 2.7 accepted: the toolbar's inline legends and options (contrast 5.5 to 5.9:1), the panels' notes, and the inspector's scales, role table, names and findings | Task 2.7 ruling, Task 2.10b review M-2 | Revisit with M6 polish |
 
 ## 10. Done when
 
 - Every case in sections 6 and 7 has a test, and every `failure` case fails in the way its row says.
-- `pnpm lint && pnpm typecheck && pnpm vitest run --coverage && pnpm build && pnpm test:e2e` passes with the folder floors
-  met: lines, statements and functions 95, branches 90, on `src/engine/**`, `src/spec/**` and `src/theme/**`.
+- `pnpm gate:full` (R2-31: `pnpm lint && pnpm typecheck && pnpm vitest run --coverage && pnpm test:e2e`, whose web server
+  runs `pnpm build`) passes with the folder floors met: lines, statements and functions 95, branches 90, on
+  `src/engine/**`, `src/spec/**` and `src/theme/**`. `pnpm gate` passes too, and its time is recorded.
 - Every M1 case and golden still passes (I-M2-08).
 - `docs/specs/00-design.md` carries an in-place note, starting "Refined in M2", at each row of the table in section 1.
 - The README states M2 as done with measured claims only: counts of cases, the measured coverage and the measured findings.
