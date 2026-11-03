@@ -1,0 +1,55 @@
+/* The kit's confirm dialog (spec section 7.7, F-TPL-30): a scrim over its template and a popover
+ * surface on it, both positioned inside the template (absolute), so the frame's scale holds them.
+ * The scrim darkens in both modes: it mixes the text color in light and the page in dark, the two
+ * roles the layer names. */
+
+.kit-confirm-layer {
+  --kit-confirm-scrim: var(--foreground);
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--space-4);
+  overscroll-behavior: contain;
+  background-color: color-mix(in oklab, var(--kit-confirm-scrim) 45%, transparent);
+  animation: kit-confirm-scrim var(--duration-base) var(--ease-decelerate);
+}
+[data-canvas][data-mode="dark"] .kit-confirm-layer {
+  --kit-confirm-scrim: var(--background);
+}
+.kit-confirm {
+  display: grid;
+  width: min(100%, 26rem);
+  gap: var(--space-3);
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-4);
+  animation: kit-confirm-in var(--duration-base) var(--ease-decelerate);
+}
+.kit-confirm-title {
+  color: var(--popover-foreground);
+}
+.kit-confirm .kit-actions {
+  padding-top: var(--space-2);
+}
+/* Faded in once: a later motion toggle never plays the entrance again (as the sheet). */
+.kit-confirm-layer[data-settled],
+.kit-confirm-layer[data-settled] .kit-confirm {
+  animation: none;
+}
+
+@keyframes kit-confirm-scrim {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes kit-confirm-in {
+  from {
+    opacity: 0;
+    transform: translateY(var(--space-2)) scale(0.98);
+  }
+}

@@ -7,6 +7,8 @@ import {
   type DirectionParams,
   MOTION_FEELS,
   type MotionFeel,
+  NAME_MAX,
+  SEED_MAX,
   SPEC_VERSION,
 } from "../spec/schema";
 import { pickChartColors } from "./color/chart";
@@ -28,6 +30,7 @@ import {
 import { resolveRoles } from "./color/roles";
 import { STEPS } from "./color/scale";
 import type { Mode, Oklch } from "./color/types";
+import { PAIRING_IDS, pairingById } from "./fonts/pairings";
 import { seededRandom } from "./random";
 import { round6 } from "./round";
 import { shadows } from "./tokens/depth";
@@ -39,9 +42,6 @@ import { TYPE_CONTEXTS, type TypeContext, typeScale } from "./tokens/type";
 /** The engine that wrote a spec; `meta.engineVersion` records it. */
 export const ENGINE_VERSION = "dyelot.engine/1";
 
-// Bounds of R-20.
-const NAME_MAX = 80;
-const SEED_MAX = 128;
 const UNTITLED = "untitled";
 const SPACE_BASE = 4;
 const SHADOW_STEP = STEPS.indexOf(950);
@@ -61,7 +61,12 @@ type Parsed = {
   readonly depth: DepthStyle;
   readonly motion: MotionFeel;
   readonly name: string;
+  /** The three font ids: the pairing's, or M1's default when `pairing` is absent. */
+  readonly families: { readonly display: string; readonly body: string; readonly mono: string };
 };
+
+/** M1's families, written when `params.pairing` is absent (R2-05): the `host-grotesk` pairing. */
+const DEFAULT_FAMILIES = { display: "host-grotesk", body: "host-grotesk", mono: "fragment-mono" };
 
 function checkText(value: unknown, max: number, name: string): string {
   if (typeof value !== "string") {
@@ -118,6 +123,17 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   assertOneOf(radius, RADIUS_SET_NAMES, "generateSystem: params.radius");
   assertOneOf(depth, DEPTH_STYLES, "generateSystem: params.depth");
   assertOneOf(motion, MOTION_FEELS, "generateSystem: params.motion");
+  const pairing: unknown = params.pairing;
+  let families = DEFAULT_FAMILIES;
+  if (pairing !== undefined) {
+    assertOneOf(pairing, PAIRING_IDS, "generateSystem: params.pairing");
+    const chosen = pairingById(pairing);
+    // assertOneOf ran against PAIRING_IDS, so a miss means PAIRINGS and PAIRING_IDS disagree: fail loudly.
+    if (chosen === undefined) {
+      throw new Error(`generateSystem: pairing "${pairing}" is listed but has no entry`);
+    }
+    families = { display: chosen.display, body: chosen.body, mono: chosen.mono };
+  }
   const seeds: Seeds = {};
   for (const slot of LOCKABLE) {
     const color = params[slot];
@@ -132,6 +148,7 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
     depth,
     motion,
     name: name === undefined ? UNTITLED : checkText(name, NAME_MAX, "generateSystem: params.name"),
+    families,
   };
 }
 
@@ -165,8 +182,7 @@ export function generateSystem(params: DirectionParams, seed: string): DesignSpe
       },
     },
     type: {
-      // M1 values for the fields M2 owns (spec section 6.7).
-      families: { display: "host-grotesk", body: "host-grotesk", mono: "fragment-mono" },
+      families: parsed.families,
       context,
       ...(ratio === undefined ? {} : { ratio }),
       steps: typeScale(ratio === undefined ? { context } : { context, ratio }),
@@ -185,5 +201,5 @@ export function generateSystem(params: DirectionParams, seed: string): DesignSpe
   };
   // R-02: every stored number through round6, a hue through roundHue. The canonical text does
   // exactly that, so reading it back gives the stored spec, which the schema checks and types.
-  return DesignSpecSchema.parse(JSON.parse(canonicalJson(draft, "spec")));
+  return DesignSpecSchema.parse(JSON.parse(canonicalJson(draft, "spec", "generateSystem")));
 }

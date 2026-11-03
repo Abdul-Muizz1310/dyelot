@@ -338,13 +338,15 @@ describe("resolveRoles", () => {
     expect(() => resolveRoles(base, "light", null as unknown as Level, CHART)).toThrow(TypeError);
   });
 
-  it("C-ROLE-07 checks the palette record", () => {
+  it("C-ROLE-07 checks the palette record (R2-25: TypeError)", () => {
     const notARecord = null as unknown as Record<PaletteName, Palette>;
     expect(() => resolveRoles(notARecord, "light", "AA", CHART)).toThrow(TypeError);
     const { info: _info, ...partial } = base;
     expect(() =>
       resolveRoles(partial as Record<PaletteName, Palette>, "light", "AA", CHART),
-    ).toThrow(RangeError);
+    ).toThrow(TypeError);
+    const short = { ...base, info: { ...base.info, light: base.info.light.slice(1) } };
+    expect(() => resolveRoles(short, "light", "AA", CHART)).toThrow(TypeError);
   });
 
   it("C-ROLE-08 is deterministic and leaves the palettes alone", () => {

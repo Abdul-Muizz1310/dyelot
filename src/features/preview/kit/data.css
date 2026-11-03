@@ -1,0 +1,288 @@
+/* The kit's data parts (spec section 7.5): readings, badge, chip, avatar, skeleton, progress.
+ * Numbers keep tabular numerals and one line; a selected row or chip takes the accent pair. */
+
+/* ── Readings: a table from 480 px of frame, stacked records below it ── */
+/* One layout at a time: the other is `display: none`, so it leaves the accessibility tree. */
+.kit-records {
+  display: none;
+}
+@container frame (max-width: 479px) {
+  .kit-readings .kit-table {
+    display: none;
+  }
+  .kit-readings .kit-records {
+    display: grid;
+  }
+}
+
+.kit-table {
+  width: 100%;
+  border-collapse: collapse;
+  /* Fixed columns from the shared colgroup: the two tables line up. The table shows only from
+   * 480 px of frame, where the figure fits its column on one line. */
+  table-layout: fixed;
+}
+.kit-table .kit-col-state {
+  width: 18%;
+}
+.kit-table .kit-col-place {
+  width: 26%;
+}
+.kit-table .kit-col-observer {
+  width: 28%;
+}
+.kit-table th {
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--border);
+  color: var(--muted-foreground);
+  font-weight: 600;
+  text-align: start;
+}
+.kit-table td {
+  height: var(--control-height);
+  padding-inline: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+
+/* A place or an observer wraps between words, at spaces and hyphens, never inside one. */
+.kit-readings .kit-word {
+  overflow-wrap: break-word;
+}
+/* A figure never breaks: the number keeps one line and the other text wraps around it. */
+.kit-readings .kit-num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+.kit-table tr:is([data-state="hover"], :hover:not([data-state="empty"])) td {
+  background-color: var(--muted);
+}
+.kit-table tr[data-state="selected"] td {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+.kit-table tr[data-state="empty"] td {
+  height: calc(var(--control-height) * 2);
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+.kit-records {
+  margin: 0;
+  padding: 0;
+  border-top: 1px solid var(--border);
+  list-style: none;
+}
+.kit-record {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.kit-record-place {
+  font-weight: 600;
+}
+/* Each pair sits on one baseline: the label keeps the caption's own triple (F-TPL-38). */
+.kit-record-pairs {
+  display: grid;
+  align-items: baseline;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 2px var(--space-3);
+  margin: 0;
+}
+.kit-record-pairs dt {
+  color: var(--muted-foreground);
+}
+.kit-record-pairs dd {
+  margin: 0;
+}
+.kit-record-pairs .kit-num {
+  text-align: start;
+}
+/* The same forced and live states as a table row: muted on hover, the accent pair when selected. */
+.kit-record:is([data-state="hover"], :hover:not([data-state="empty"])) {
+  background-color: var(--muted);
+}
+.kit-record[data-state="selected"] {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+.kit-record[data-state="selected"] dt {
+  color: inherit;
+}
+.kit-record[data-state="empty"] {
+  padding-block: var(--space-6);
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+/* ── Badge, chip, avatar ──────────────────────────────────── */
+.kit-badge {
+  display: inline-flex;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
+  border-radius: var(--radius-full);
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+  font-weight: 600;
+}
+.kit-badge[data-tone="primary"] {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.kit-badge[data-tone="accent"] {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+.kit-badge[data-tone="success"] {
+  background-color: var(--success-subtle);
+  color: var(--success-subtle-foreground);
+}
+.kit-badge[data-tone="warning"] {
+  background-color: var(--warning-subtle);
+  color: var(--warning-subtle-foreground);
+}
+.kit-badge[data-tone="destructive"] {
+  background-color: var(--destructive-subtle);
+  color: var(--destructive-subtle-foreground);
+}
+.kit-badge[data-tone="info"] {
+  background-color: var(--info-subtle);
+  color: var(--info-subtle-foreground);
+}
+
+.kit-chip {
+  display: inline-flex;
+  max-width: 100%;
+  min-height: calc(var(--control-height) - 8px);
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-full);
+  background-color: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.kit-chip:is(:hover:not(:disabled), [data-state="hover"]) {
+  background-color: var(--muted);
+}
+.kit-chip[aria-pressed="true"] {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+.kit-chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.kit-avatar {
+  display: inline-grid;
+  width: 2.5rem;
+  height: 2.5rem;
+  flex: none;
+  place-items: center;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  font-weight: 600;
+}
+.kit-avatar[data-state="empty"] {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+}
+
+/* ── Skeleton and progress ───────────────────────────────── */
+.kit-shimmer {
+  background-color: var(--muted);
+  background-image: linear-gradient(
+    90deg,
+    transparent,
+    color-mix(in oklab, var(--background) 65%, transparent),
+    transparent
+  );
+  background-repeat: no-repeat;
+  background-size: 50% 100%;
+  animation: kit-shimmer calc(var(--duration-slowest) * 3) linear infinite;
+}
+@keyframes kit-shimmer {
+  from {
+    background-position: -100% 0;
+  }
+  to {
+    background-position: 200% 0;
+  }
+}
+.kit-skeleton {
+  display: grid;
+  width: min(100%, 12rem);
+  gap: var(--space-2);
+}
+.kit-skeleton-bar {
+  height: 0.75rem;
+  border-radius: var(--radius-sm);
+}
+.kit-skeleton-bar:last-child {
+  width: 60%;
+}
+
+.kit-progress {
+  position: relative;
+  width: min(100%, 12rem);
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background-color: var(--muted);
+}
+.kit-progress-fill {
+  display: block;
+  width: var(--kit-value);
+  height: 100%;
+  border-radius: inherit;
+  background-color: var(--primary);
+}
+/* Empty: nothing uploaded yet, so the track is an outline, not a filled bar at 0 %. */
+.kit-progress[data-state="empty"] {
+  border: 1px dashed var(--input);
+  background-color: transparent;
+}
+.kit-progress[data-state="success"] .kit-progress-fill {
+  background-color: var(--success);
+}
+/* Indeterminate: a striped bar that sweeps; under reduced motion it stands still across the track,
+ * so it never reads as a determinate 40 %. */
+.kit-progress[data-state="indeterminate"] .kit-progress-fill {
+  width: 40%;
+  background-image: repeating-linear-gradient(
+    -45deg,
+    transparent 0 4px,
+    color-mix(in oklab, var(--primary-foreground) 35%, transparent) 4px 8px
+  );
+  animation: kit-sweep calc(var(--duration-slowest) * 3) var(--ease-standard) infinite;
+}
+[data-canvas][data-reduced-motion="true"] .kit-progress[data-state="indeterminate"] .kit-progress-fill {
+  width: 100%;
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-canvas] .kit-progress[data-state="indeterminate"] .kit-progress-fill {
+    width: 100%;
+  }
+}
+@keyframes kit-sweep {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}

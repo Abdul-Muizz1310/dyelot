@@ -1,6 +1,6 @@
 import { deflateSync, Inflate, strFromU8, strToU8 } from "fflate";
 import { describeType } from "../engine/color/guards";
-import { canonicalize } from "./canonical";
+import { canonicalize, canonicalizeFor, checkCanonical, pathsOf } from "./canonical";
 import { fnv1a64 } from "./hash";
 import { type DesignSpec, DesignSpecSchema, SPEC_VERSION } from "./schema";
 
@@ -142,12 +142,6 @@ function versionOf(json: unknown): unknown {
   return Object.hasOwn(json, "version") ? (json as Record<string, unknown>).version : undefined;
 }
 
-/** The failing paths, dotted (`color.roles.light.ring`), in order and without repeats. */
-function pathsOf(issues: ReadonlyArray<{ readonly path: readonly PropertyKey[] }>): string[] {
-  const paths = issues.map((issue) => issue.path.map(String).join(".") || "(root)");
-  return [...new Set(paths)];
-}
-
 /**
  * A share link for a spec (spec R-22): base64url without padding of
  * `deflateRaw(utf8(canonicalize(spec)), level 9)` followed by the FNV-1a 64 of those deflate
@@ -155,12 +149,8 @@ function pathsOf(issues: ReadonlyArray<{ readonly path: readonly PropertyKey[] }
  * schema throws RangeError naming the paths, so every link this returns opens.
  */
 export function encodeSpec(spec: DesignSpec): string {
-  const text = canonicalize(spec);
-  const checked = DesignSpecSchema.safeParse(JSON.parse(text));
-  if (!checked.success) {
-    const paths = pathsOf(checked.error.issues).join(", ");
-    throw new RangeError(`encodeSpec: spec does not match ${SPEC_VERSION} at ${paths}`);
-  }
+  const text = canonicalizeFor(spec, "encodeSpec");
+  checkCanonical(text, "encodeSpec");
   const deflated = deflateSync(strToU8(text), { level: DEFLATE_LEVEL });
   const trailer = fnv1a64(deflated);
   const bytes = new Uint8Array(deflated.length + TRAILER_BYTES);

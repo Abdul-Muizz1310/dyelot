@@ -1,0 +1,139 @@
+/* The kit's tabs and menu (spec section 7.5).
+ * A selected tab draws its indicator in `--primary`; a hovered menu item takes the accent pair. */
+
+/* ── Tabs ─────────────────────────────────────────────────── */
+.kit-tabs {
+  position: relative;
+  display: flex;
+  max-width: 100%;
+  gap: var(--space-1);
+  border-bottom: 1px solid var(--border);
+}
+.kit-tab {
+  position: relative;
+  min-height: var(--control-height);
+  padding-inline: var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: none;
+  color: var(--muted-foreground);
+  font-weight: 500;
+  cursor: pointer;
+  transition: color var(--duration-fast) var(--ease-standard);
+}
+.kit-tab:is(:hover:not(:disabled), [data-state="hover"]) {
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+.kit-tab[aria-selected="true"] {
+  color: var(--foreground);
+}
+.kit-tabs:not([data-kit-demo]) .kit-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  right: var(--space-2);
+  bottom: -1px;
+  left: var(--space-2);
+  height: 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--primary);
+}
+.kit-tab:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.kit-tabs-indicator {
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  border-radius: var(--radius-full);
+  background-color: var(--primary);
+}
+.kit-tab-panel {
+  padding-block: var(--space-3);
+  color: var(--foreground);
+}
+
+/* ── Menu ─────────────────────────────────────────────────── */
+.kit-menu {
+  display: grid;
+  width: min(100%, 13rem);
+  padding: var(--space-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  box-shadow: var(--shadow-2);
+}
+.kit-menu-item {
+  display: flex;
+  min-height: calc(var(--control-height) - 8px);
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-2);
+  border-radius: max(0px, calc(var(--radius-lg) - var(--space-1)));
+  cursor: default;
+}
+.kit-menu-item:is(:hover:not([aria-disabled="true"]), [data-state="hover"]) {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+.kit-menu-item[aria-checked="true"] {
+  background-color: var(--muted);
+}
+.kit-menu-item[aria-disabled="true"] {
+  opacity: 0.45;
+}
+.kit-menu-item > [data-mark] {
+  margin-inline-start: auto;
+}
+
+/* ── Tab bar (section 7.7): a phone's root tabs at the bottom of its screen ── */
+.kit-tabbar {
+  display: flex;
+  border-top: 1px solid var(--border);
+  background-color: var(--background);
+}
+.kit-tabbar-tab {
+  display: grid;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: max(var(--control-height), 3.5rem);
+  align-content: center;
+  justify-items: center;
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-1);
+  border: 0;
+  background: none;
+  color: var(--muted-foreground);
+  font-weight: 500;
+  cursor: pointer;
+}
+.kit-tabbar-tab[aria-selected="true"] {
+  color: var(--foreground);
+  font-weight: 650;
+}
+/* The ring sits inside the tab, so the screen's rounded edge never clips it. */
+.kit-tabbar .kit-tabbar-tab:focus-visible {
+  outline-offset: -2px;
+}
+.kit-tabbar-pill {
+  display: grid;
+  width: 3.5rem;
+  height: 1.75rem;
+  place-items: center;
+  border-radius: var(--radius-full);
+  transition: background-color var(--duration-fast) var(--ease-standard);
+}
+.kit-tabbar-tab[aria-selected="true"] .kit-tabbar-pill {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+}
+.kit-tabbar-tab:not([aria-selected="true"]):hover .kit-tabbar-pill {
+  background-color: var(--muted);
+}
+.kit-tabbar-pill > svg {
+  width: 1.25rem;
+  height: 1.25rem;
+}

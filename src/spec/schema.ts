@@ -1,4 +1,4 @@
-import { GAMUTS, isHex } from "../engine/color/guards";
+import { CHROMA_CEILING, GAMUTS, isHex } from "../engine/color/guards";
 import { HARMONIES } from "../engine/color/harmony";
 import {
   CHROMA_LEVELS,
@@ -10,6 +10,7 @@ import {
 } from "../engine/color/palette";
 import { ROLE_NAMES } from "../engine/color/roles";
 import { STEPS, type Step } from "../engine/color/scale";
+import type { PairingId } from "../engine/fonts/pairings";
 import { RADIUS_SET_NAMES, type RadiusSet } from "../engine/tokens/shape";
 import { TYPE_CONTEXTS, type TypeContext, type TypeStepName } from "../engine/tokens/type";
 import { z } from "./zod";
@@ -17,8 +18,8 @@ import { z } from "./zod";
 /** The version this schema reads and writes. Any other version fails loudly. */
 export const SPEC_VERSION = "dyelot.spec/1";
 
-export const DEPTH_STYLES = ["flat", "soft", "layered"] as const;
-export const MOTION_FEELS = ["calm", "brisk", "playful"] as const;
+export const DEPTH_STYLES = Object.freeze(["flat", "soft", "layered"] as const);
+export const MOTION_FEELS = Object.freeze(["calm", "brisk", "playful"] as const);
 export type DepthStyle = (typeof DEPTH_STYLES)[number];
 export type MotionFeel = (typeof MOTION_FEELS)[number];
 
@@ -28,12 +29,15 @@ export type DirectionParams = ColorParams & {
   readonly radius: RadiusSet;
   readonly depth: DepthStyle;
   readonly motion: MotionFeel;
+  /** A font pairing of `PAIRINGS`; absent means M1's default pairing, so every M1 golden holds (R2-05). */
+  readonly pairing?: PairingId;
   readonly name?: string;
 };
 
 // Bounds of R-20.
-const NAME_MAX = 80;
-const SEED_MAX = 128;
+/** The longest `meta.name` and `meta.seed`: the generator checks its input against the same bounds. */
+export const NAME_MAX = 80;
+export const SEED_MAX = 128;
 const POLICY_MAX = 64;
 const RULES_MAX = 20;
 const RULE_MAX = 200;
@@ -46,7 +50,7 @@ const CLAMP = /^clamp\(-?\d+\.\d{4}rem, -?\d+\.\d{4}rem \+ -?\d+\.\d{4}vw, -?\d+
 /** The schema is where a parsed string becomes a `Hex` (spec R-05). */
 const HexSchema = z.string().refine(isHex, "must be a lowercase #rrggbb hex");
 const HueSchema = z.number().min(0).lt(360);
-const ChromaSchema = z.number().min(0).max(0.5);
+const ChromaSchema = z.number().min(0).max(CHROMA_CEILING);
 /** I-04 (`c ≤ 4e-6` exactly when `h` is null) is lint rule G3, not a schema rule. */
 const OklchSchema = z.strictObject({
   l: z.number().min(0).max(1),

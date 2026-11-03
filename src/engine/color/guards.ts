@@ -13,6 +13,12 @@ export const RGB_TOLERANCE = 1e-6;
  */
 export const STORED_GAMUT_TOLERANCE = 2e-4;
 
+/**
+ * The largest chroma any color here carries: the ceiling of a parsed color, a seed, a peak chroma
+ * and the stored `c` of the schema. One definition; every other module imports it.
+ */
+export const CHROMA_CEILING = 0.5;
+
 /** The type of `value` as an error message names it: `null` is not "object". */
 export function describeType(value: unknown): string {
   return value === null ? "null" : typeof value;
@@ -49,7 +55,7 @@ export function assertOklch(color: Oklch, name: string): void {
 }
 
 /** The two gamuts and the two modes, as lists for `assertOneOf`. */
-export const GAMUTS = ["srgb", "p3"] as const;
+export const GAMUTS = Object.freeze(["srgb", "p3"] as const);
 export const MODES = ["light", "dark"] as const;
 
 /** A gamut is the string "srgb" or "p3": another type is a TypeError, another string a RangeError. */

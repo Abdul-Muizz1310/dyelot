@@ -13,7 +13,7 @@ import { STEPS, type Step } from "./scale";
 import type { Hex, Mode, Rgb } from "./types";
 
 /** The 46 roles of a design system (spec R-14, section 6.5). */
-export const ROLE_NAMES = [
+export const ROLE_NAMES = Object.freeze([
   "background",
   "foreground",
   "card",
@@ -60,7 +60,7 @@ export const ROLE_NAMES = [
   "chart-3",
   "chart-4",
   "chart-5",
-] as const;
+] as const);
 
 export type RoleName = (typeof ROLE_NAMES)[number];
 
@@ -125,9 +125,15 @@ function stepsOf(
     throw new TypeError(`resolveRoles: p must be a palette record, got ${describeType(p)}`);
   }
   for (const name of PALETTE_NAMES) {
-    const scale = p[name]?.[mode];
+    const palette = p[name];
+    if (typeof palette !== "object" || palette === null) {
+      throw new TypeError(
+        `resolveRoles: p.${name} must be a palette, got ${describeType(palette)}`,
+      );
+    }
+    const scale = palette[mode];
     if (!Array.isArray(scale) || scale.length !== STEPS.length) {
-      throw new RangeError(`resolveRoles: p.${name}.${mode} must hold ${STEPS.length} steps`);
+      throw new TypeError(`resolveRoles: p.${name}.${mode} must hold ${STEPS.length} steps`);
     }
     for (let i = 0; i < scale.length; i++) {
       assertHex(scale[i]?.hex, `resolveRoles: p.${name}.${mode}[${i}].hex`);

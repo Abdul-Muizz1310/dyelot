@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { SITE } from "../../src/lib/site/config";
+import { ready } from "./studio-support";
 
 const REPOSITORY = "https://github.com/Abdul-Muizz1310/dyelot";
 
@@ -42,7 +43,7 @@ test("the home page shows the prompt, the one-liner and the work in progress", a
   const main = page.getByRole("main");
   await expect(main).toContainText("$ dyelot");
   await expect(main).toContainText("a palette becomes a design system your coding agent can build");
-  await expect(main).toContainText("in progress: the color engine");
+  await expect(main).toContainText("in progress: the export bundle");
 });
 
 // Breaks when the repository link is dropped, mistyped or points at another repository, or when
@@ -53,6 +54,45 @@ test("the home page links to the repository and shows the address it goes to", a
   await expect(link).toHaveCount(1);
   await expect(link).toBeVisible();
   await expect(link).toContainText(REPOSITORY.replace("https://", ""));
+});
+
+// F-HOME-01 (docs/specs/02-studio.md, section 7.9). Breaks when the studio link is dropped, renamed or
+// pointed elsewhere, when it leaves the status list beside the repository link, or when the page gains
+// a second top-level heading.
+test("F-HOME-01 the home page links to the studio, beside the repository link", async ({
+  page,
+}) => {
+  await page.goto("/");
+  await expect(page.locator("h1")).toHaveCount(1);
+  const main = page.getByRole("main");
+  const studio = main.getByRole("link", { name: "open the studio", exact: true });
+  await expect(studio).toHaveCount(1);
+  await expect(studio).toBeVisible();
+  await expect(studio).toHaveAttribute("href", "/studio");
+  await expect(studio).not.toHaveAttribute("target");
+  // One list holds both links, as siblings.
+  await expect(
+    main.locator(`div:has(> a[href="/studio"]):has(> a[href="${REPOSITORY}"])`),
+  ).toHaveCount(1);
+});
+
+// F-HOME-02. Breaks when the link goes anywhere but a working studio.
+test("F-HOME-02 following the studio link opens the studio", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("main").getByRole("link", { name: "open the studio", exact: true }).click();
+  await expect(page).toHaveURL("/studio");
+  await ready(page);
+});
+
+// F-HOME-03 (section 10). Breaks when the sitemap drops the studio, or lists it under another origin.
+test("F-HOME-03 the sitemap lists the studio beside the home page", async ({ request }) => {
+  const response = await request.get("/sitemap.xml");
+  expect(response.status()).toBe(200);
+  const locations = [...(await response.text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(
+    (match) => match[1],
+  );
+  expect(locations).toEqual(["https://dyelot.vercel.app/", "https://dyelot.vercel.app/studio"]);
+  expect(SITE.url).toBe("https://dyelot.vercel.app");
 });
 
 // Breaks on any WCAG A or AA violation axe can detect in the rendered page, contrast included.

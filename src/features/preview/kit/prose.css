@@ -1,0 +1,81 @@
+/* The kit's prose parts (spec section 7.6, F-TPL-20): links are `primary` text with an underline,
+ * with no visited style; a quiet link (navigation) takes the text color and underlines on hover.
+ * Inline code sits on the muted fill. No part sets a type step's size: text takes `.kit-t-<step>`. */
+
+.kit-link {
+  border-radius: var(--radius-sm);
+  color: var(--primary);
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  transition: text-decoration-thickness var(--duration-fast) var(--ease-standard);
+}
+.kit-link:hover {
+  text-decoration-thickness: 2px;
+}
+.kit-link:has(> svg) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.kit-link[data-tone="quiet"] {
+  display: inline-flex;
+  min-height: 1.5rem;
+  align-items: center;
+  color: var(--foreground);
+  text-decoration-line: none;
+}
+.kit-link[data-tone="quiet"]:hover {
+  text-decoration-line: underline;
+}
+
+/* A sidebar link: a row on the sidebar roles that takes the accent pair on hover and when current. */
+.kit-link[data-tone="sidebar"] {
+  display: flex;
+  min-height: var(--control-height);
+  align-items: center;
+  gap: var(--space-3);
+  padding-inline: var(--space-3);
+  border-radius: var(--radius-md);
+  color: var(--sidebar-foreground);
+  text-decoration-line: none;
+  transition-property: background-color, color;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-standard);
+}
+.kit-link[data-tone="sidebar"]:is(:hover, [aria-current="true"]) {
+  background-color: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+}
+
+/* A link on a touch surface (the mobile template's screens, section 7.7): `primary` text whose box
+ * is at least `--control-height` on each side, a phone's touch target (F-TPL-33). */
+.kit-link[data-tone="touch"] {
+  display: inline-flex;
+  min-width: var(--control-height);
+  min-height: var(--control-height);
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration-line: none;
+}
+.kit-link[data-tone="touch"]:hover {
+  text-decoration-line: underline;
+}
+
+/* A note number sits raised in the line without opening the line's leading. */
+.kit-note-ref {
+  line-height: 0;
+}
+.kit-note-ref > .kit-link {
+  padding-inline: 1px;
+}
+
+.kit-code {
+  padding-inline: var(--space-1);
+  border-radius: var(--radius-sm);
+  background-color: var(--muted);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+}

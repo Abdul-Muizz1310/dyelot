@@ -1,0 +1,101 @@
+/* ─────────────────────────────────────────────────────────────
+ * The canvas (spec section 7.4, R2-16 item 3, R2-30). Every
+ * color here is a custom property the theme bridge writes on
+ * [data-canvas]; the guard (section 6.10) holds this file to it.
+ *
+ * The frame keeps its layout width, so a template's container
+ * queries answer for the named frame. A frame wider than the
+ * canvas area scales down as a whole: `.canvas-fit` is the
+ * scaled box in the page's layout, `.canvas-scale` the transform.
+ * ───────────────────────────────────────────────────────────── */
+
+.canvas-stage {
+  width: 100%;
+}
+
+/* The fit box's edge is chrome: studio.css draws it. */
+.canvas-fit {
+  margin-inline: auto;
+  overflow: clip;
+  border-radius: 12px;
+}
+
+.canvas-scale {
+  transform-origin: 0 0;
+}
+
+/* Every [data-canvas]: the frame and the kitchen sink's panes. */
+[data-canvas] {
+  background-color: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
+  font-variant-numeric: tabular-nums;
+  text-underline-offset: 0.2em;
+  caret-color: var(--primary);
+  accent-color: var(--primary);
+  scrollbar-color: var(--border) var(--muted);
+  overflow-wrap: anywhere;
+}
+
+/* The frame answers container queries and the `cqi` of the fluid display size (R2-12). */
+[data-frame] {
+  container: frame / inline-size;
+}
+
+[data-canvas][data-mode="light"] {
+  color-scheme: light;
+}
+
+[data-canvas][data-mode="dark"] {
+  color-scheme: dark;
+}
+
+/* R2-30: the chrome's madder outline and selection never reach the canvas. */
+[data-canvas],
+[data-canvas] * {
+  outline-color: var(--ring);
+}
+
+[data-canvas] :focus-visible,
+[data-canvas] [data-state="focus-visible"] {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+[data-canvas]::selection,
+[data-canvas] ::selection {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+[data-canvas] ::placeholder {
+  color: var(--muted-foreground);
+  opacity: 1;
+}
+
+/* Reduced motion (R2-21, F-CANVAS-07, F-CANVAS-08, F-CANVAS-20): the canvas switch or the system
+ * setting stops every animation and every transition of the frame and everything inside it, so a part
+ * changes state at once. `transition: none`, not a 0.01 ms duration: a duration alone leaves
+ * `transition-property` at `all`, so every style a container query changes would take a frame to reach
+ * its new value after a frame switch, a flash of the old layout. Motion's springs stop through
+ * MotionConfig. */
+[data-canvas][data-reduced-motion="true"],
+[data-canvas][data-reduced-motion="true"] *,
+[data-canvas][data-reduced-motion="true"] *::before,
+[data-canvas][data-reduced-motion="true"] *::after {
+  animation-name: none !important;
+  transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-canvas],
+  [data-canvas] *,
+  [data-canvas] *::before,
+  [data-canvas] *::after {
+    animation-name: none !important;
+    transition: none !important;
+  }
+}

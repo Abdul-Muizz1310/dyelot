@@ -1,0 +1,137 @@
+/* The kit's text fields and select (spec section 7.5).
+ * A field paints with `input`, `background` and `foreground`; its messages use the subtle pairs. */
+
+/* ── Fields ───────────────────────────────────────────────── */
+.kit-field {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-1);
+}
+.kit-field-label {
+  color: var(--foreground);
+  font-weight: 500;
+}
+.kit-input,
+.kit-select,
+.kit-textarea {
+  width: 100%;
+  min-width: 0;
+  height: var(--control-height);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--input);
+  border-radius: var(--radius-sm);
+  background-color: var(--background);
+  color: var(--foreground);
+  transition-property: border-color, box-shadow;
+  transition-duration: var(--duration-fast);
+  transition-timing-function: var(--ease-standard);
+}
+.kit-textarea {
+  height: auto;
+  min-height: calc(var(--control-height) * 2);
+  padding-block: var(--space-2);
+  resize: vertical;
+}
+.kit-select-wrap {
+  position: relative;
+  display: block;
+  min-width: 0;
+}
+.kit-select {
+  appearance: none;
+  padding-inline-end: var(--space-8);
+  cursor: pointer;
+}
+.kit-select-wrap > svg {
+  position: absolute;
+  top: 50%;
+  right: var(--space-3);
+  translate: 0 -50%;
+  pointer-events: none;
+}
+:is(.kit-input, .kit-select, .kit-textarea):is(:hover:not(:disabled, :read-only), [data-state="hover"]) {
+  border-color: var(--foreground);
+}
+.kit-select:is(:hover:not(:disabled), [data-state="hover"]) {
+  border-color: var(--foreground);
+}
+:is(.kit-input, .kit-select, .kit-textarea):is([aria-invalid="true"], [data-state="invalid"]) {
+  border-color: var(--destructive);
+  box-shadow: inset 0 0 0 1px var(--destructive);
+}
+:is(.kit-input, .kit-textarea)[data-state="success"] {
+  border-color: var(--success);
+  box-shadow: inset 0 0 0 1px var(--success);
+}
+:is(.kit-input, .kit-select, .kit-textarea):disabled {
+  background-color: var(--muted);
+  color: var(--muted-foreground);
+  cursor: not-allowed;
+}
+:is(.kit-input, .kit-textarea):read-only:not(:disabled) {
+  border-style: dashed;
+  background-color: var(--muted);
+}
+.kit-message {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--muted-foreground);
+}
+.kit-message[data-tone="invalid"] {
+  color: var(--destructive-subtle-foreground);
+}
+.kit-message[data-tone="success"] {
+  color: var(--success-subtle-foreground);
+}
+
+/* A hint under a field: muted text on the page, which `aria-describedby` names. */
+.kit-hint {
+  color: var(--muted-foreground);
+  text-wrap: pretty;
+}
+
+/* ── Color and range: native controls tinted by the canvas's accent-color and color-scheme ── */
+.kit-color-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.kit-color {
+  width: 3rem;
+  height: var(--control-height);
+  flex: none;
+  padding: 3px;
+  border: 1px solid var(--input);
+  border-radius: var(--radius-sm);
+  background-color: var(--background);
+  cursor: pointer;
+}
+.kit-color::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+.kit-color::-webkit-color-swatch {
+  border: 0;
+  border-radius: max(0px, calc(var(--radius-sm) - 3px));
+}
+.kit-color::-moz-color-swatch {
+  border: 0;
+  border-radius: max(0px, calc(var(--radius-sm) - 3px));
+}
+.kit-slider-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-3);
+}
+.kit-slider-head > output {
+  color: var(--foreground);
+}
+.kit-range {
+  width: 100%;
+  height: 1.5rem;
+  margin: 0;
+  background-color: transparent;
+  cursor: pointer;
+}

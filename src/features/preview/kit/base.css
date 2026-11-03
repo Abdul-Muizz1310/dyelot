@@ -1,0 +1,138 @@
+/* ─────────────────────────────────────────────────────────────
+ * The preview kit (spec section 7.5, R2-20). Each part paints
+ * only with the spec's roles, set as custom properties on the
+ * nearest [data-canvas]; a text color always sits on the fill
+ * it is paired with, so contrast is the spec's own. A forced
+ * state is `data-state` and shares its rule with the live one.
+ * Radius and spacing vary by hierarchy: controls take md,
+ * fields sm, cards xl, sheets 2xl, chips and switches full.
+ * ───────────────────────────────────────────────────────────── */
+
+/* The density's control height, kept on every canvas so a touch surface can raise it from there
+ * (kit/phone.css, spec section 7.7). */
+[data-canvas] {
+  --kit-density-control: var(--control-height);
+}
+
+/* Type steps */
+.kit-t-caption {
+  font-size: var(--text-caption);
+  line-height: var(--leading-caption);
+  letter-spacing: var(--tracking-caption);
+}
+.kit-t-label {
+  font-size: var(--text-label);
+  line-height: var(--leading-label);
+  letter-spacing: var(--tracking-label);
+}
+.kit-t-body-sm {
+  font-size: var(--text-body-sm);
+  line-height: var(--leading-body-sm);
+  letter-spacing: var(--tracking-body-sm);
+}
+.kit-t-body {
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  letter-spacing: var(--tracking-body);
+}
+.kit-t-lead {
+  font-size: var(--text-lead);
+  line-height: var(--leading-lead);
+  letter-spacing: var(--tracking-lead);
+}
+.kit-t-h4 {
+  font-size: var(--text-h4);
+  line-height: var(--leading-h4);
+  letter-spacing: var(--tracking-h4);
+}
+.kit-t-h3 {
+  font-size: var(--text-h3);
+  line-height: var(--leading-h3);
+  letter-spacing: var(--tracking-h3);
+}
+.kit-t-h2 {
+  font-size: var(--text-h2);
+  line-height: var(--leading-h2);
+  letter-spacing: var(--tracking-h2);
+}
+.kit-t-h1 {
+  font-size: var(--text-h1);
+  line-height: var(--leading-h1);
+  letter-spacing: var(--tracking-h1);
+}
+.kit-t-display {
+  font-size: var(--text-display);
+  line-height: var(--leading-display);
+  letter-spacing: var(--tracking-display);
+}
+
+.kit-display {
+  font-family: var(--font-display);
+  font-weight: 650;
+}
+
+.kit-mono {
+  font-family: var(--font-mono);
+}
+
+/* Secondary text: the muted foreground, on the page or on the muted fill it is paired with. */
+.kit-muted {
+  color: var(--muted-foreground);
+}
+
+/* A figure never breaks (F-CANVAS-09): it keeps one line in tabular numerals. */
+.kit-num {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+
+/* Icons: one library, one stroke width (F-TPL-07). Zero specificity, so a part's own size wins
+ * whatever order the stylesheets load in. */
+:where([data-canvas] svg.lucide) {
+  flex: none;
+  width: 1.125em;
+  height: 1.125em;
+  stroke-width: var(--icon-stroke);
+}
+
+/* The spinner of a loading button or toast. */
+.kit-spin {
+  animation: kit-spin calc(var(--duration-slowest) * 2) linear infinite;
+}
+
+@keyframes kit-spin {
+  to {
+    transform: rotate(1turn);
+  }
+}
+
+/* Text that only assistive technology reads: the chart's data table. */
+.kit-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* Text that only assistive technology reads below 768 px of frame, and that shows from 768 px. The
+ * class serves rails and collapsed labels: the dashboard's rail drops its links' labels below 768 px,
+ * and they keep naming their links. A part that collapses at another width needs a class of its own. */
+@container frame (width < 768px) {
+  .kit-sr-only-below-768 {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    margin: -1px;
+    padding: 0;
+    border: 0;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

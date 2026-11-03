@@ -1,9 +1,9 @@
 import { linearToSrgb, type Mat3, multiply, srgbToLinear, type Vec3 } from "./convert";
-import { clamp01, clampedSrgb, describeType } from "./guards";
+import { assertOneOf, clamp01, clampedSrgb } from "./guards";
 import type { Rgb } from "./types";
 
 /** The color vision deficiencies that `simulate` reproduces: no L cones, no M cones, no S cones. */
-export const DEFICIENCIES = ["protan", "deutan", "tritan"] as const;
+export const DEFICIENCIES = Object.freeze(["protan", "deutan", "tritan"] as const);
 
 export type Deficiency = (typeof DEFICIENCIES)[number];
 
@@ -59,17 +59,6 @@ function encodeChannel(linear: number): number {
   return Math.min(1, linearToSrgb(clamp01(linear)));
 }
 
-function assertDeficiency(deficiency: Deficiency): void {
-  if (typeof deficiency !== "string") {
-    throw new TypeError(`simulate: deficiency must be a string, got ${describeType(deficiency)}`);
-  }
-  if (!DEFICIENCIES.includes(deficiency)) {
-    throw new RangeError(
-      `simulate: deficiency must be one of ${DEFICIENCIES.join(", ")}, got ${JSON.stringify(deficiency)}`,
-    );
-  }
-}
-
 /**
  * How a person with a color vision deficiency sees an sRGB color, at full severity: decode to
  * linear light, multiply by the matrix of the deficiency, clamp to 0 to 1 and encode again. Protan
@@ -79,7 +68,7 @@ function assertDeficiency(deficiency: Deficiency): void {
  */
 export function simulate(rgb: Rgb, deficiency: Deficiency): Rgb {
   const [r, g, b] = clampedSrgb(rgb, "simulate: rgb");
-  assertDeficiency(deficiency);
+  assertOneOf(deficiency, DEFICIENCIES, "simulate: deficiency");
   const linear: Vec3 = [srgbToLinear(r), srgbToLinear(g), srgbToLinear(b)];
   const [lr, lg, lb] = multiply(matrixFor(linear, deficiency), linear);
   return [encodeChannel(lr), encodeChannel(lg), encodeChannel(lb)];

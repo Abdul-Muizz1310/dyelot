@@ -1,0 +1,97 @@
+/* The kit's phone screen (spec section 7.7): a 360 px size container named `frame` on the mobile
+ * template's board, at least 45rem tall and as tall as the tallest screen of its row. Its edge is a
+ * drawn line over its corners (`::after`), so the container keeps its whole 360 px inside. */
+
+.kit-phone-slot {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  width: 360px;
+  gap: var(--space-3);
+}
+.kit-phone {
+  container: frame / inline-size;
+  position: relative;
+  display: flex;
+  flex: 1 0 auto;
+  flex-direction: column;
+  width: 360px;
+  min-height: 45rem;
+  overflow: hidden;
+  border-radius: var(--radius-2xl);
+  background-color: var(--background);
+  color: var(--foreground);
+  box-shadow: var(--shadow-3);
+}
+.kit-phone::after {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  border: 1px solid var(--border);
+  border-radius: inherit;
+  content: "";
+  pointer-events: none;
+}
+.kit-phone-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+/* The scrim over a screen that a sheet on another screen makes inert: the sheet's own mix, the text
+ * color in light and the page in dark, the two roles the layer names. It is always there and fades by
+ * a transition, so nothing runs when the template mounts and a motion toggle never replays it; it
+ * takes no pointer, so a press lands on the screen and the template keeps focus in the sheet. */
+.kit-phone-dim {
+  --kit-phone-scrim: var(--foreground);
+  position: absolute;
+  z-index: 2;
+  inset: 0;
+  background-color: color-mix(in oklab, var(--kit-phone-scrim) 40%, transparent);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity var(--duration-base) var(--ease-decelerate),
+    visibility 0s linear var(--duration-base);
+}
+[data-canvas][data-mode="dark"] .kit-phone-dim {
+  --kit-phone-scrim: var(--background);
+}
+.kit-phone-dim[data-dimmed] {
+  opacity: 1;
+  visibility: visible;
+  transition:
+    opacity var(--duration-base) var(--ease-decelerate),
+    visibility 0s;
+}
+.kit-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-3) var(--space-6) var(--space-1);
+  color: var(--foreground);
+}
+.kit-status-icons {
+  display: inline-flex;
+  gap: var(--space-1);
+}
+.kit-phone-caption {
+  color: var(--muted-foreground);
+  text-align: center;
+}
+
+/* ── A touch surface (`data-touch`, a phone screen): every kit control reaches 44 px ──────────── */
+/* `[data-canvas]` keeps the density's control height in `--kit-density-control` (kit/base.css); a
+ * touch surface raises `--control-height` to at least 44 px from it, so a button, a field, a tab or a
+ * row of a choice is a phone's touch target in every density (F-TPL-33). */
+[data-touch] {
+  --control-height: max(44px, var(--kit-density-control));
+}
+[data-touch] :is(.kit-check, .kit-switch) {
+  min-height: var(--control-height);
+}
+/* A list of choices on a touch surface: rows of the control height, one under the next. */
+[data-touch] .kit-choice-list {
+  gap: 0;
+}

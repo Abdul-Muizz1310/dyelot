@@ -1,15 +1,28 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { builtinModules } from "node:module";
+import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import config from "../../../vitest.config";
 
-// C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9. C-REPO-03
-// lives in environment.test.ts, one copy per folder.
+// C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9, with
+// C-REPO-02 and C-REPO-05 amended by R2-25 of docs/specs/02-studio.md, and C-ENTRY-16 to 18. C-REPO-03
+// lives in environment.test.ts, one copy per folder. These M1 guards, as R2-25 leaves them, are
+// C-REPO-M2-04 of the M2 spec, section 6.10; the M2 guards C-REPO-M2-01 to 05 follow them.
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const ENGINE_DIR = path.join(ROOT, "src/engine");
 const SPEC_DIR = path.join(ROOT, "src/spec");
+const THEME_DIR = path.join(ROOT, "src/theme");
 const CODE_FILE = /\.[cm]?[jt]sx?$/;
 
 /** Every code file under `directory`, or none when the folder does not exist yet. */
@@ -202,10 +215,42 @@ describe("C-REPO-01 the pure core uses no impure API", () => {
   });
 });
 
-describe("C-REPO-02 the engine does not import from the spec", () => {
-  it("lets only src/engine/generate.ts import from src/spec", () => {
+/**
+ * The specifiers of the value imports and re-exports in `source` (comments already stripped): a
+ * statement that starts `import type` or `export type` is a type import and does not count (R2-25).
+ */
+function valueSpecifiers(source: string): string[] {
+  const found: string[] = [];
+  for (const match of source.matchAll(
+    /\b(import|export)\s+(type\s+)?(?:[^;"']*?\bfrom\s*)?["']([^"']+)["']/g,
+  )) {
+    if (match[2] === undefined) found.push(match[3]);
+  }
+  return found;
+}
+
+/** The files of src/engine that may import a value from src/spec (R2-25). */
+const SPEC_VALUE_IMPORTERS = ["generate.ts", "presets.ts", "index.ts"].map((name) =>
+  path.join(ENGINE_DIR, name),
+);
+
+describe("C-REPO-02 the engine reaches the spec only where R2-25 allows", () => {
+  it("C-ENTRY-12 lets only generate.ts, presets.ts and index.ts import a value from src/spec", () => {
     const offenders = codeFiles(ENGINE_DIR)
-      .filter((file) => file !== path.join(ENGINE_DIR, "generate.ts"))
+      .filter((file) => !SPEC_VALUE_IMPORTERS.includes(file))
+      .filter((file) =>
+        valueSpecifiers(stripComments(readFileSync(file, "utf8"))).some((specifier) =>
+          importsFromSpec(file, specifier),
+        ),
+      )
+      .map((file) => path.relative(ROOT, file));
+    expect(offenders).toEqual([]);
+  });
+
+  it("C-ENTRY-18 lets the linter import nothing from src/spec, not even a type", () => {
+    const linter = codeFiles(path.join(ENGINE_DIR, "lint"));
+    expect(linter.length).toBeGreaterThan(0);
+    const offenders = linter
       .filter((file) =>
         specifiers(stripComments(readFileSync(file, "utf8"))).some((specifier) =>
           importsFromSpec(file, specifier),
@@ -213,6 +258,18 @@ describe("C-REPO-02 the engine does not import from the spec", () => {
       )
       .map((file) => path.relative(ROOT, file));
     expect(offenders).toEqual([]);
+  });
+
+  it("tells a type import from a value import", () => {
+    expect(valueSpecifiers('import type { A } from "../spec/schema";')).toEqual([]);
+    expect(valueSpecifiers('export type { A } from "../spec/schema";')).toEqual([]);
+    expect(valueSpecifiers('import { type A, b } from "../spec/schema";')).toEqual([
+      "../spec/schema",
+    ]);
+    expect(valueSpecifiers('import { b } from "../spec/schema";')).toEqual(["../spec/schema"]);
+    expect(valueSpecifiers('export { b } from "../spec/schema";')).toEqual(["../spec/schema"]);
+    expect(valueSpecifiers('export * from "./x";\nimport "./side";')).toEqual(["./x", "./side"]);
+    expect(valueSpecifiers("const a = 1;")).toEqual([]);
   });
 
   it("recognizes an import from src/spec however it is written", () => {
@@ -229,24 +286,117 @@ describe("C-REPO-02 the engine does not import from the spec", () => {
   });
 });
 
-describe("C-REPO-05 only toHex and the schema make a Hex", () => {
-  const CAST = /\bas\s+Hex\b/g;
+describe("C-REPO-05 only toHex and the Hex guards make a Hex", () => {
+  // A cast (`as Hex`, `<Hex>x`) or a predicate (`x is Hex`, `asserts x is Hex`).
+  const MAKES_HEX = /\bas\s+Hex\b|(?<![\w$>])<Hex>|\bis\s+Hex\b/g;
 
-  it("finds no cast to Hex in src/engine or src/spec outside toHex", () => {
-    const casts = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)].flatMap((file) =>
-      Array.from(stripComments(readFileSync(file, "utf8")).matchAll(CAST), () =>
-        path.relative(ROOT, file),
+  it("finds a Hex made only by toHex (a cast) and by isHex and assertHex (predicates)", () => {
+    const found = [
+      ...codeFiles(ENGINE_DIR),
+      ...codeFiles(SPEC_DIR),
+      ...codeFiles(THEME_DIR),
+    ].flatMap((file) =>
+      Array.from(
+        stripComments(readFileSync(file, "utf8")).matchAll(MAKES_HEX),
+        (match) => `${path.relative(ROOT, file)}: ${match[0].replace(/\s+/g, " ")}`,
       ),
     );
-    // toHex itself brands the string it builds, once.
-    expect(casts).toEqual(["src/engine/color/convert.ts"]);
+    // toHex brands the string it builds, once; the two predicates of guards.ts are the schema's way in.
+    expect(found).toEqual([
+      "src/engine/color/convert.ts: as Hex",
+      "src/engine/color/guards.ts: is Hex",
+      "src/engine/color/guards.ts: is Hex",
+    ]);
   });
 
-  it("is a grep that sees a cast however it is spaced, and not a longer name", () => {
-    expect("x as Hex;".match(CAST)).toHaveLength(1);
-    expect("x as\n  Hex)".match(CAST)).toHaveLength(1);
-    expect("x as HexColor".match(CAST)).toBeNull();
-    expect("type Hex = string".match(CAST)).toBeNull();
+  it("C-ENTRY-17 sees a cast, an angle cast or a predicate, however spaced, and not a longer name", () => {
+    expect("x as Hex;".match(MAKES_HEX)).toHaveLength(1);
+    expect("x as\n  Hex)".match(MAKES_HEX)).toHaveLength(1);
+    expect("const h = <Hex>x;".match(MAKES_HEX)).toHaveLength(1);
+    expect("function f(v: unknown): v is Hex {".match(MAKES_HEX)).toHaveLength(1);
+    expect("function f(v: unknown): asserts v is  Hex {".match(MAKES_HEX)).toHaveLength(1);
+    expect("const h = <Hex>(x);".match(MAKES_HEX)).toHaveLength(1);
+    for (const generic of [
+      "const a: Set<Hex> = new Set();",
+      "const b: ReadonlyArray<Hex> = [];",
+      "const [c] = useState<Hex>(x);",
+      "const d = new Map<string, Hex>();",
+      "type E = Promise<Hex>;",
+      "type F = Array<Array<Hex>>;",
+    ]) {
+      expect(generic.match(MAKES_HEX), generic).toBeNull();
+    }
+    expect("x as HexColor".match(MAKES_HEX)).toBeNull();
+    expect("v is HexColor".match(MAKES_HEX)).toBeNull();
+    expect("type Hex = string".match(MAKES_HEX)).toBeNull();
+  });
+});
+
+describe("C-ENTRY-16 each bound has one definition", () => {
+  const sources = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)].map(
+    (file) => [path.relative(ROOT, file), stripComments(readFileSync(file, "utf8"))] as const,
+  );
+  const definitions = (name: string): string[] =>
+    sources
+      .filter(([, code]) => new RegExp(`\\bconst\\s+${name}\\s*=`).test(code))
+      .map(([file]) => file);
+
+  it.each([
+    ["CHROMA_CEILING", "src/engine/color/guards.ts"],
+    ["NAME_MAX", "src/spec/schema.ts"],
+    ["SEED_MAX", "src/spec/schema.ts"],
+  ])("defines %s once, in %s", (name, home) => {
+    expect(definitions(name)).toEqual([home]);
+  });
+
+  it("writes the 0.5 chroma ceiling as a literal nowhere else", () => {
+    const literal = /\.max\(0\.5\)|CHROMA\w*\s*=\s*0\.5\b|\[0, 0\.5\]|to 0\.5\b/;
+    const offenders = sources
+      .filter(([file]) => file !== "src/engine/color/guards.ts")
+      .filter(([, code]) => literal.test(code))
+      .map(([file]) => file);
+    expect(offenders).toEqual([]);
+  });
+});
+
+describe("C-REPO-M2-02 the pure core imports nothing from the app layers (I-M2-07)", () => {
+  const LAYERS = ["features", "app", "components", "lib"].map((name) =>
+    path.join(ROOT, "src", name),
+  );
+  const pureFiles = ["engine", "spec", "theme"].flatMap((name) =>
+    codeFiles(path.join(ROOT, "src", name)),
+  );
+
+  /** Whether `specifier`, written in `file`, points into one of the app layers. */
+  function importsFromLayer(file: string, specifier: string): boolean {
+    if (/^@\/(features|app|components|lib)(\/|$)/.test(specifier)) return true;
+    if (!specifier.startsWith(".")) return false;
+    const resolved = path.resolve(path.dirname(file), specifier);
+    return LAYERS.some((layer) => resolved === layer || resolved.startsWith(layer + path.sep));
+  }
+
+  it("finds no import from src/features, src/app, src/components or src/lib", () => {
+    expect(pureFiles.length).toBeGreaterThan(0);
+    const offenders = pureFiles
+      .filter((file) =>
+        specifiers(stripComments(readFileSync(file, "utf8"))).some((s) =>
+          importsFromLayer(file, s),
+        ),
+      )
+      .map((file) => path.relative(ROOT, file));
+    expect(offenders).toEqual([]);
+  });
+
+  it("recognizes an import from an app layer however it is written", () => {
+    const file = path.join(ROOT, "src/engine/color/example.ts");
+    expect(importsFromLayer(file, "@/features/studio/store")).toBe(true);
+    expect(importsFromLayer(file, "@/lib")).toBe(true);
+    expect(importsFromLayer(file, "../../app/page")).toBe(true);
+    expect(importsFromLayer(file, "../../../src/components/x")).toBe(true);
+    expect(importsFromLayer(file, "../round")).toBe(false);
+    expect(importsFromLayer(file, "@/engine/round")).toBe(false);
+    expect(importsFromLayer(file, "@/library/x")).toBe(false);
+    expect(importsFromLayer(file, "fflate")).toBe(false);
   });
 });
 
@@ -278,4 +428,174 @@ describe("C-REPO-04 the coverage floors", () => {
       branches: 70,
     });
   });
+});
+
+const BINARY = /\.(woff2?|ttf|otf|png|ico|jpe?g|webp|avif|gif)$/i;
+const FONT_HOSTS = ["fonts.googleapis.com", "fonts.gstatic.com", "fontshare"];
+
+/** Every regular file under `directory` that is text: font and image binaries and `public/fonts` are skipped. */
+function textFiles(directory: string): string[] {
+  try {
+    return readdirSync(directory, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile() && !BINARY.test(entry.name))
+      .map((entry) => path.join(entry.parentPath, entry.name))
+      .filter((file) => !file.split(path.sep).join("/").includes("public/fonts/"));
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+    throw error;
+  }
+}
+
+/** The text files under `roots` that name a Google Fonts or Fontshare host. */
+function hostViolations(roots: readonly string[]): { file: string; host: string }[] {
+  const hits: { file: string; host: string }[] = [];
+  for (const file of roots.flatMap(textFiles)) {
+    const source = readFileSync(file, "utf8").toLowerCase();
+    for (const host of FONT_HOSTS) if (source.includes(host)) hits.push({ file, host });
+  }
+  return hits;
+}
+
+describe("the font guards", () => {
+  it("C-REPO-M2-01 keeps every Google, gstatic and Fontshare host out of src, scripts and public", () => {
+    const roots = ["src", "scripts", "public"].map((folder) => path.join(ROOT, folder));
+    expect(hostViolations(roots)).toEqual([]);
+  });
+
+  it("C-REPO-M2-01 reads CSS, SVG, JSON and other text files, not only code", () => {
+    const files = ["src", "scripts", "public"].flatMap((folder) =>
+      textFiles(path.join(ROOT, folder)).map((file) => path.relative(ROOT, file)),
+    );
+    expect(files).toContain("src/app/globals.css");
+    expect(files.some((file) => file.endsWith(".svg") || file.endsWith(".json"))).toBe(true);
+    expect(files.some((file) => file.startsWith("public/fonts/"))).toBe(false);
+    expect(files.some((file) => /\.(woff2?|ttf|otf|png|ico|jpe?g|webp|avif|gif)$/.test(file))).toBe(
+      false,
+    );
+  });
+
+  it("C-REPO-M2-01 flags a host in a CSS import, an SVG and a manifest, and skips a binary", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "dyelot-guard-"));
+    try {
+      mkdirSync(path.join(dir, "public/fonts/x"), { recursive: true });
+      writeFileSync(path.join(dir, "a.css"), '@import url("https://fonts.googleapis.com/css2");');
+      writeFileSync(path.join(dir, "b.svg"), "<svg><!-- https://fonts.gstatic.com/s/x --></svg>");
+      writeFileSync(path.join(dir, "c.webmanifest"), '{"x":"https://www.fontshare.com"}');
+      writeFileSync(path.join(dir, "d.png"), "fonts.googleapis.com");
+      writeFileSync(path.join(dir, "public/fonts/x/e.txt"), "fonts.googleapis.com");
+      writeFileSync(path.join(dir, "ok.ts"), "export const x = 1;\n");
+      const found = hostViolations([dir]).map((hit) => path.relative(dir, hit.file));
+      expect(found.sort()).toEqual(["a.css", "b.svg", "c.webmanifest"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("the font binaries", () => {
+  it("C-REPO-M2-05 tracks no font binary outside src/lib/site/fonts", () => {
+    const tracked = spawnSync("git", ["ls-files", "*.woff2", "*.woff", "*.ttf", "*.otf"], {
+      cwd: ROOT,
+      encoding: "utf8",
+    });
+    expect(tracked.error).toBeUndefined();
+    expect(tracked.status).toBe(0);
+    const stray = tracked.stdout
+      .split("\n")
+      .filter(Boolean)
+      .filter((file) => !file.startsWith("src/lib/site/fonts/"));
+    expect(stray).toEqual([]);
+  });
+});
+
+describe("the font coverage and project config", () => {
+  it("measures the font loader and holds it to the pure-core floors", () => {
+    expect(config.test?.coverage?.include).toContain("src/features/fonts/load.ts");
+    expect(config.test?.coverage?.thresholds).toMatchObject({
+      "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
+    });
+  });
+
+  it("runs the script tests in the node project", () => {
+    const projects = config.test?.projects as { test?: { name?: string; include?: string[] } }[];
+    const core = projects.find((project) => project.test?.name === "core");
+    expect(core?.test?.include).toContain("tests/unit/scripts/**/*.test.{ts,tsx}");
+  });
+});
+
+describe("C-REPO-M2-04 the M1 repository guards stay in force", () => {
+  it("C-REPO-M2-04 keeps each C-REPO case of the M1 spec named in a title of its guard files", () => {
+    const m1 = readFileSync(path.join(ROOT, "docs/specs/01-color-engine.md"), "utf8");
+    const cases = [...new Set(m1.match(/^\| C-REPO-\d+ \|/gm) ?? [])].map((row) =>
+      row.slice(2, -2),
+    );
+    // This file holds C-REPO-01, 02, 04 and 05; each pure folder's environment test holds C-REPO-03.
+    const files = [
+      "tests/unit/engine/repo-guards.test.ts",
+      "tests/unit/engine/environment.test.ts",
+      "tests/unit/spec/environment.test.ts",
+    ];
+    const titles = files.flatMap((file) =>
+      [
+        ...readFileSync(path.join(ROOT, file), "utf8").matchAll(
+          /\b(?:describe|it)\(\s*"([^"\n]*)"/g,
+        ),
+      ].map((match) => match[1] ?? ""),
+    );
+    expect(cases).toHaveLength(5);
+    const unnamed = cases.filter(
+      (id) => !titles.some((title) => new RegExp(`${id}(?![0-9])`).test(title)),
+    );
+    expect(unnamed).toEqual([]);
+  });
+});
+
+describe("C-REPO-M2-03 the new pure folders and helpers keep the pure-core floors (R2-22)", () => {
+  const FLOORS = { lines: 95, statements: 95, functions: 95, branches: 90 };
+  const thresholds = () => config.test?.coverage?.thresholds as Record<string, unknown> | undefined;
+  const include = () => config.test?.coverage?.include ?? [];
+
+  it("runs tests/unit/theme in the node project", () => {
+    const projects = config.test?.projects as { test?: { name?: string; include?: string[] } }[];
+    const core = projects.find((project) => project.test?.name === "core");
+    expect(core?.test?.include).toContain("tests/unit/theme/**/*.test.{ts,tsx}");
+  });
+
+  it("measures src/theme and src/engine (with src/engine/fonts) at 95 and 90", () => {
+    expect(include()).toEqual(expect.arrayContaining(["src/theme/**", "src/engine/**"]));
+    expect(thresholds()?.["src/theme/**"]).toEqual(FLOORS);
+    expect(thresholds()?.["src/engine/**"]).toEqual(FLOORS);
+  });
+
+  it.each([
+    "protocol",
+    "url",
+    "drafts",
+    "params",
+    "lot",
+    "inspect",
+    "fixes",
+    "client",
+    "guards",
+    "view",
+    "shortcuts",
+    "inputs",
+  ])("measures src/features/studio/%s.ts by name and holds it to 95 and 90", (name) => {
+    const file = `src/features/studio/${name}.ts`;
+    // A floor on a file that does not exist measures nothing: the helper must be there (Task 2.10b).
+    expect(existsSync(path.join(ROOT, file)), `${file} exists`).toBe(true);
+    expect(include()).toContain(file);
+    expect(thresholds()?.[file]).toEqual(FLOORS);
+  });
+
+  // The preview's pure helpers (Task 2.7) take the same floors: new pure files keep the M1 floors.
+  it.each(["frame", "swatches", "copy", "vars", "kit/states", "tide", "bars", "format"])(
+    "measures src/features/preview/%s.ts by name and holds it to 95 and 90",
+    (name) => {
+      const file = `src/features/preview/${name}.ts`;
+      expect(existsSync(path.join(ROOT, file)), `${file} exists`).toBe(true);
+      expect(include()).toContain(file);
+      expect(thresholds()?.[file]).toEqual(FLOORS);
+    },
+  );
 });

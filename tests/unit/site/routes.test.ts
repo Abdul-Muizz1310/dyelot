@@ -58,7 +58,7 @@ describe("robots and sitemap (T-FE-25)", () => {
 
   it("lists the sitemap routes, as absolute URLs, once each", () => {
     const urls = sitemap().map((entry) => entry.url);
-    expect(urls).toEqual(["https://dyelot.vercel.app/"]);
+    expect(urls).toEqual(["https://dyelot.vercel.app/", "https://dyelot.vercel.app/studio"]);
     expect(new Set(urls).size).toBe(urls.length);
   });
 });

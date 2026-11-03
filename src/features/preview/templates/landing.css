@@ -1,0 +1,449 @@
+/* ─────────────────────────────────────────────────────────────
+ * The landing page (spec section 7.6). The layout answers the
+ * `frame` container only: one column below 640 px of frame,
+ * two from 640 px, the asymmetric hero from 1000 px. Radius
+ * and spacing step with hierarchy: controls md, panels lg,
+ * product cards xl, the color blocks 2xl.
+ * ───────────────────────────────────────────────────────────── */
+
+/* The page, its gutter and the section heads come from the kit (kit/page.css). */
+
+/* ── Navigation ───────────────────────────────────────────── */
+.lp-nav {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-6);
+  padding-block: var(--space-3);
+  border-bottom: 1px solid var(--border);
+}
+.lp-nav-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.lp-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--foreground);
+}
+.lp-brand > svg {
+  width: 1.25em;
+  height: 1.25em;
+}
+.lp-nav-links {
+  display: flex;
+  flex-wrap: wrap;
+  order: 3;
+  flex-basis: 100%;
+  gap: var(--space-1) var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-nav-action {
+  order: 2;
+  margin-inline-start: auto;
+}
+@container frame (min-width: 640px) {
+  .lp-nav-links {
+    order: 0;
+    flex-basis: auto;
+    margin-inline-start: auto;
+  }
+  .lp-nav-action {
+    order: 0;
+    margin-inline-start: 0;
+  }
+}
+
+/* ── Hero: the headline left, the product moment right on a primary block ── */
+.lp-hero {
+  padding-block: var(--space-12) var(--space-16);
+}
+.lp-hero-grid {
+  display: grid;
+  gap: var(--space-12);
+}
+.lp-hero-copy {
+  display: grid;
+  align-content: start;
+  gap: var(--space-6);
+}
+.lp-title {
+  color: var(--foreground);
+  text-wrap: balance;
+}
+/* Below 480 px of frame the headline sets the h2 triple and the price the h4 triple: the part
+ * overrides its step's three variables, so its .kit-t-<step> class still sets one whole triple
+ * (section 7.6). A poster display step cannot set a word at phone widths. */
+@container frame (width < 480px) {
+  .lp-title {
+    --text-display: var(--text-h2);
+    --leading-display: var(--leading-h2);
+    --tracking-display: var(--tracking-h2);
+  }
+  .lp-price-figure {
+    --text-h3: var(--text-h4);
+    --leading-h3: var(--leading-h4);
+    --tracking-h3: var(--tracking-h4);
+  }
+}
+.lp-lead {
+  max-width: 34rem;
+  color: var(--muted-foreground);
+  text-wrap: pretty;
+}
+.lp-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+.lp-hero-moment {
+  position: relative;
+  isolation: isolate;
+  padding: 0 var(--space-6) var(--space-6) 0;
+}
+/* The color block runs from behind the card to the frame's right edge. */
+.lp-slab {
+  position: absolute;
+  z-index: -1;
+  inset: var(--space-12) calc(-1 * var(--kit-gutter)) 0 var(--space-12);
+  border-radius: var(--radius-2xl) 0 0 var(--radius-2xl);
+  background-color: var(--primary);
+}
+@container frame (min-width: 640px) {
+  .lp-hero-moment {
+    width: min(100%, 30rem);
+    margin-inline-start: auto;
+  }
+}
+@container frame (min-width: 1000px) {
+  .lp-hero {
+    padding-block: var(--space-20) var(--space-12);
+  }
+  .lp-hero-grid {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    align-items: start;
+    gap: var(--space-16);
+  }
+  .lp-hero-copy {
+    padding-top: var(--space-6);
+  }
+  .lp-hero-moment {
+    width: auto;
+    margin-top: var(--space-16);
+  }
+}
+
+/* ── Product cards ────────────────────────────────────────── */
+.lp-today,
+.lp-moorings {
+  display: grid;
+  min-width: 0;
+  gap: var(--space-4);
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  background-color: var(--card);
+  color: var(--card-foreground);
+}
+.lp-today {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-3);
+}
+.lp-moorings {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-1);
+}
+.lp-card-title {
+  display: grid;
+  gap: 2px;
+}
+.lp-card-title > span:first-child {
+  font-weight: 650;
+}
+.lp-today-head {
+  display: flex;
+  align-items: start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.lp-curve {
+  height: 7.5rem;
+  margin-top: var(--space-2);
+}
+.lp-hours {
+  display: flex;
+  justify-content: space-between;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-events {
+  display: grid;
+  margin: 0;
+}
+.lp-event {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  padding-block: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+.lp-event-values {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0;
+}
+
+.lp-table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.lp-table th {
+  padding: 0 var(--space-2) var(--space-2);
+  font-weight: 500;
+  text-align: start;
+}
+.lp-table td {
+  padding: var(--space-3) var(--space-2);
+  border-top: 1px solid var(--border);
+  vertical-align: middle;
+}
+.lp-table .lp-figure-col {
+  text-align: end;
+}
+.lp-place {
+  overflow-wrap: break-word;
+}
+.lp-table tr[data-next] td {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+.lp-table tr[data-next] td:first-child {
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+}
+.lp-table tr[data-next] td:last-child {
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+}
+.lp-height {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+/* ── Features: the moment and the list side by side ───────── */
+.lp-features {
+  display: grid;
+  gap: var(--space-8);
+  padding-block: var(--space-16);
+}
+.lp-features-row {
+  display: grid;
+  gap: var(--space-8);
+}
+.lp-feature-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+  list-style: none;
+}
+.lp-feature-list > li {
+  display: grid;
+  gap: var(--space-1);
+  padding-block: var(--space-4);
+  border-top: 1px solid var(--border);
+}
+.lp-feature-list h3 {
+  font-weight: 650;
+}
+.lp-feature-list p {
+  max-width: 34rem;
+  color: var(--muted-foreground);
+}
+@container frame (min-width: 640px) {
+  .lp-features-row {
+    grid-template-columns: minmax(0, 6fr) minmax(0, 5fr);
+    align-items: start;
+  }
+}
+@container frame (min-width: 1000px) {
+  .lp-features {
+    gap: var(--space-12);
+    padding-block: var(--space-24);
+  }
+  .lp-features-row {
+    grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+    gap: var(--space-16);
+  }
+}
+
+/* ── Quote ────────────────────────────────────────────────── */
+.lp-quote {
+  display: grid;
+  gap: var(--space-4);
+  margin: 0;
+  padding-block: var(--space-16);
+  border-top: 1px solid var(--border);
+}
+.lp-quote-mark {
+  color: var(--primary);
+}
+.lp-quote-text {
+  max-width: 36rem;
+  margin: 0;
+  color: var(--foreground);
+  font-family: var(--font-display);
+  font-weight: 500;
+  text-wrap: pretty;
+}
+.lp-quote-by {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+}
+.lp-quote-who {
+  display: grid;
+  min-width: 0;
+}
+.lp-quote-name {
+  font-weight: 600;
+}
+@container frame (min-width: 1000px) {
+  .lp-quote {
+    grid-template-columns: minmax(0, 2fr) minmax(0, 7fr) minmax(0, 3fr);
+    column-gap: var(--space-8);
+    padding-block: var(--space-24);
+  }
+  .lp-quote-mark {
+    justify-self: end;
+  }
+  .lp-quote-text,
+  .lp-quote-by {
+    grid-column: 2;
+  }
+}
+
+/* ── Pricing teaser ───────────────────────────────────────── */
+.lp-pricing {
+  padding-block: var(--space-8) var(--space-16);
+}
+.lp-band {
+  display: grid;
+  gap: var(--space-8);
+  padding: var(--space-6) var(--space-4);
+  border-radius: var(--radius-2xl);
+  background-color: var(--muted);
+  color: var(--foreground);
+}
+.lp-band .lp-pricing-copy {
+  max-width: 30rem;
+}
+.lp-plan {
+  display: grid;
+  min-width: 0;
+  justify-items: start;
+  gap: var(--space-4);
+  padding: var(--space-6) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background-color: var(--background);
+  color: var(--foreground);
+  box-shadow: var(--shadow-2);
+}
+.lp-plan-name {
+  font-weight: 600;
+}
+.lp-price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+}
+.lp-price-figure {
+  font-weight: 650;
+}
+.lp-price > span:last-child {
+  color: var(--muted-foreground);
+}
+.lp-includes {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lp-includes > li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.lp-includes svg {
+  color: var(--primary);
+}
+@container frame (min-width: 640px) {
+  .lp-band {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: center;
+    padding: var(--space-8);
+  }
+  .lp-plan {
+    padding: var(--space-8);
+  }
+}
+@container frame (min-width: 1000px) {
+  .lp-band {
+    grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+    gap: var(--space-16);
+    padding: var(--space-8) var(--space-16);
+  }
+}
+
+/* ── FAQ ──────────────────────────────────────────────────── */
+.lp-faq {
+  display: grid;
+  gap: var(--space-8);
+  padding-block: var(--space-16);
+}
+@container frame (min-width: 1000px) {
+  .lp-faq {
+    grid-template-columns: minmax(0, 4fr) minmax(0, 7fr);
+    align-items: start;
+    gap: var(--space-16);
+    padding-block: var(--space-20);
+  }
+}
+
+/* ── Footer ───────────────────────────────────────────────── */
+.lp-footer {
+  display: grid;
+  gap: var(--space-4);
+  padding-block: var(--space-12);
+  border-top: 1px solid var(--border);
+}
+.lp-footer-note {
+  max-width: 34rem;
+  color: var(--muted-foreground);
+}
+.lp-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-6);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+@container frame (min-width: 1000px) {
+  .lp-footer {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--space-8);
+  }
+}

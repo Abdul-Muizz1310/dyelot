@@ -6,7 +6,9 @@ import { LOCKABLE, PALETTE_NAMES, type PaletteName, seedHex } from "../color/pal
 import type { RoleName } from "../color/roles";
 import { DARK_CHROMA_FACTOR, type ScaleStep, STEPS, stepChroma } from "../color/scale";
 import type { Gamut, Mode, Oklch } from "../color/types";
-import type { Finding, LintedPalette, LintedSpec, RuleId, Severity } from "./types";
+import { FONT_CATALOG, genericness } from "../fonts/catalog";
+import { TAILWIND_HEX_SET } from "./tailwind";
+import type { Finding, LintedPalette, LintedSpec, LintOptions, RuleId, Severity } from "./types";
 
 // The rule table of spec section 6.8: thresholds, severities and sources.
 const TEXT = 4.5;
@@ -43,6 +45,10 @@ const SOURCES: Readonly<Record<RuleId, string>> = {
   D3: "Material guidance on dark-mode accents",
   D4: "Material 3 tonal elevation",
   P1: "Palmer and Schloss, via Material Color Utilities",
+  T1: "research D2, D4: overused display face",
+  T2: "research D4: purple on white",
+  T3: "research D4: Tailwind defaults used verbatim",
+  T4: "research D1 rule 20: body size floor",
 };
 
 /** A text pair: foreground over fill (spec section 6.5). */
@@ -94,9 +100,15 @@ const BRAND: readonly PaletteName[] = ["primary", "secondary", "accent"];
 const STATUS_PALETTES: readonly PaletteName[] = ["success", "warning", "danger", "info"];
 const D3_STEPS = [500, 600, 700] as const;
 const MODES: readonly Mode[] = ["light", "dark"];
+// The taste rules of spec section 5.4.
+const GENERIC_DISPLAY = 0.8;
+const PURPLE_HUES = [265, 300] as const;
+const WHITE_PAGE = "#ffffff";
+const TAILWIND_STEPS = [300, 400, 500, 600, 700, 800] as const;
+const BODY_FLOOR_PX = 16;
 
 /** One rule's findings in one mode. */
-type Rule = (spec: LintedSpec, mode: Mode) => Finding[];
+type Rule = (spec: LintedSpec, mode: Mode, options: LintOptions) => Finding[];
 
 function finding(
   id: RuleId,
@@ -354,6 +366,48 @@ const P1: Rule = (spec, mode) =>
     }),
   );
 
+/** T1: a display family whose genericness is 0.8 or more; a family outside the catalog is skipped. */
+const T1: Rule = (spec, _mode, options) => {
+  if (spec.type === undefined) return [];
+  const catalog = options.catalog ?? FONT_CATALOG;
+  const display = spec.type.families.display;
+  if (!catalog.some((font) => font.id === display)) return [];
+  const measured = genericness(display, catalog);
+  return measured >= GENERIC_DISPLAY
+    ? [finding("T1", "warn", "light", "display", measured, GENERIC_DISPLAY)]
+    : [];
+};
+
+/** T2: a primary hue in [265, 300] on a white page with no locked primary. */
+const T2: Rule = (spec) => {
+  const { hue } = spec.color.palettes.primary;
+  const [from, to] = PURPLE_HUES;
+  const purple = hue >= from && hue <= to;
+  if (!purple || spec.color.roles.light.background !== WHITE_PAGE) return [];
+  if (spec.color.params.primary !== undefined) return [];
+  const nearer = hue - from <= to - hue ? from : to;
+  return [finding("T2", "warn", "light", "primary", hue, nearer)];
+};
+
+/** T3: a step 300 to 800 that equals a Tailwind v4 default hex (R2-09). */
+const T3: Rule = (spec, mode) =>
+  PALETTE_NAMES.flatMap((name) =>
+    spec.color.palettes[name][mode].flatMap(({ step, hex }) =>
+      (TAILWIND_STEPS as readonly number[]).includes(step) && TAILWIND_HEX_SET.has(hex)
+        ? [finding("T3", "warn", mode, `${name}-${step}`, 0, 0)]
+        : [],
+    ),
+  );
+
+/** T4: a body size under 16 px outside the dense context. */
+const T4: Rule = (spec) => {
+  if (spec.type === undefined || spec.type.context === "dense") return [];
+  const body = spec.type.steps.find((step) => step.name === "body");
+  return body !== undefined && body.sizePx < BODY_FLOOR_PX
+    ? [finding("T4", "warn", "light", "body", body.sizePx, BODY_FLOOR_PX)]
+    : [];
+};
+
 /** Rules that run in both modes, then the dark-mode rules, which run once. */
 const BOTH_MODES: readonly Rule[] = [
   wcagRule("C1", "error", C1_PAIRS, TEXT),
@@ -372,13 +426,17 @@ const BOTH_MODES: readonly Rule[] = [
   G1,
   G3,
   P1,
+  T3,
 ];
 const DARK_ONLY: readonly Rule[] = [D1, D2, D3, D4];
+/** Taste rules with no mode: they report `light`. */
+const LIGHT_ONLY: readonly Rule[] = [T1, T2, T4];
 
 /** Every finding of every rule, unsorted. */
-export function runRules(spec: LintedSpec): Finding[] {
+export function runRules(spec: LintedSpec, options: LintOptions = {}): Finding[] {
   return [
-    ...MODES.flatMap((mode) => BOTH_MODES.flatMap((rule) => rule(spec, mode))),
-    ...DARK_ONLY.flatMap((rule) => rule(spec, "dark")),
+    ...MODES.flatMap((mode) => BOTH_MODES.flatMap((rule) => rule(spec, mode, options))),
+    ...DARK_ONLY.flatMap((rule) => rule(spec, "dark", options)),
+    ...LIGHT_ONLY.flatMap((rule) => rule(spec, "light", options)),
   ];
 }
