@@ -36,6 +36,7 @@ import {
   mountMotion,
   openSheet,
   overflow,
+  restoreCanvas,
   screenOf,
   setFrame,
   showTemplate,
@@ -232,6 +233,11 @@ test.describe("7.4 The canvas on the kitchen sink", () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     page = await context.newPage();
     await openSink(page);
+  });
+
+  // Each flow ends where the next one starts, so a `-g` filter can run any of them (section 7).
+  test.afterEach(async () => {
+    await restoreCanvas(page, "kitchen-sink");
   });
 
   test.afterAll(async () => {

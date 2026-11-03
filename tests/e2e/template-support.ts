@@ -55,6 +55,25 @@ export async function setFrame(page: Page, frame: 360 | 768 | 1280): Promise<voi
   await expect(canvasFrame(page)).toHaveAttribute("data-frame", String(frame));
 }
 
+/** The window each serial group of flows opens its shared page at. */
+const GROUP_WINDOW = { width: 1280, height: 800 } as const;
+
+/**
+ * Puts a serial group's shared page back where its flows start (section 7, Task 2.11): the 1280 × 800
+ * window, `template` on the canvas and the 1280 frame. Each serial group calls it in `afterEach`, so a
+ * `-g` filter can run any of its flows in any combination. A flow that leaves the mobile template showing
+ * leaves the Frame group disabled, and a later `setFrame` would wait out its test.
+ */
+export async function restoreCanvas(
+  page: Page,
+  template: Exclude<TemplateId, "mobile">,
+): Promise<void> {
+  await page.setViewportSize(GROUP_WINDOW);
+  const select = toolbar(page).getByRole("combobox", { name: "Template", exact: true });
+  if ((await select.inputValue()) !== template) await showTemplate(page, template);
+  await setFrame(page, 1280);
+}
+
 /**
  * F-TPL-13: every element in `scope` that has three or more children of equal size (layout widths
  * and heights within 1 px) that each hold an icon (an `svg`). Equal icon cards as page structure are

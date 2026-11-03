@@ -40,6 +40,7 @@ import {
   paintedContrast,
   pictographs,
   resolveColors,
+  restoreCanvas,
   roleColor,
   SCREENS,
   screenOf,
@@ -241,6 +242,11 @@ test.describe("7.5 The kitchen sink", () => {
     await openStudio(page);
     await templateSelect(page).selectOption("kitchen-sink");
     await expect(canvasPane(page, "dark")).toBeAttached();
+  });
+
+  // Each flow ends where the next one starts, so a `-g` filter can run any of them (section 7).
+  test.afterEach(async () => {
+    await restoreCanvas(page, "kitchen-sink");
   });
 
   test.afterAll(async () => {
@@ -727,6 +733,11 @@ test.describe("7.6 The landing and editorial templates", () => {
     await stubSeeds(page);
     await openStudio(page);
     await page.evaluate(() => document.fonts.ready);
+  });
+
+  // Each flow ends where the next one starts, so a `-g` filter can run any of them (section 7).
+  test.afterEach(async () => {
+    await restoreCanvas(page, "landing");
   });
 
   test.afterAll(async () => {
@@ -1281,8 +1292,8 @@ test.describe("7.6 The landing and editorial templates", () => {
   test("F-TPL-12 axe finds no violation in either template, in light and dark, at 360 and 1280", async () => {
     // Eight full axe runs, 9 to 16 s alone (Task 2.10b, C5).
     test.setTimeout(60_000);
-    // The Frame group is disabled while the mobile template shows, as F-TPL-39 leaves it, so start on a
-    // page template whatever ran before: `setFrame` would otherwise wait out the test (C5).
+    // The Frame group is disabled while the mobile template shows, so start on a page template whatever
+    // ran before (the group's afterEach restores one too): `setFrame` would otherwise wait out the test (C5).
     await showTemplate(page, SECTION_76[0]);
     const dark = page.getByRole("switch", { name: "Dark mode", exact: true });
     for (const mode of MODES) {
@@ -1772,6 +1783,11 @@ test.describe("7.7 The dashboard and settings templates", () => {
     await stubSeeds(page);
     await openStudio(page);
     await page.evaluate(() => document.fonts.ready);
+  });
+
+  // Each flow ends where the next one starts, so a `-g` filter can run any of them (section 7).
+  test.afterEach(async () => {
+    await restoreCanvas(page, "landing");
   });
 
   test.afterAll(async () => {
@@ -2479,6 +2495,11 @@ test.describe("7.7 The mobile template", () => {
     await stubSeeds(page);
     await openStudio(page);
     await page.evaluate(() => document.fonts.ready);
+  });
+
+  // Each flow ends where the next one starts, so a `-g` filter can run any of them (section 7).
+  test.afterEach(async () => {
+    await restoreCanvas(page, "landing");
   });
 
   test.afterAll(async () => {
