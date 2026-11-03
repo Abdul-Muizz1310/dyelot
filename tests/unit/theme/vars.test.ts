@@ -237,7 +237,7 @@ describe("C-THEME-09 to C-THEME-10 space and radius", () => {
 });
 
 describe("C-THEME-11 to C-THEME-13 shadows", () => {
-  it("soft writes the stored layers as key then ambient", () => {
+  it("C-THEME-11 and C-THEME-13 soft writes the stored layers, key then ambient, colored by formatOklch with the alpha inside", () => {
     const s = SOFT();
     const vars = themeVars(s, "light");
     const [key, ambient] = s.depth.shadows[2] as [
@@ -254,12 +254,12 @@ describe("C-THEME-11 to C-THEME-13 shadows", () => {
     for (const level of [1, 2, 3, 4, 5]) expect(vars[`--shadow-${level}`]).toMatch(SHADOW);
   });
 
-  it("flat writes none for the five shadows", () => {
+  it("C-THEME-12 flat writes none for the five shadows", () => {
     const vars = themeVars(PLAYFUL_FLAT(), "light");
     for (const level of [1, 2, 3, 4, 5]) expect(vars[`--shadow-${level}`]).toBe("none");
   });
 
-  it("layered scales offset, blur and alpha by 1.5", () => {
+  it("C-THEME-12 layered scales offset, blur and alpha by 1.5", () => {
     const vars = themeVars(CALM_LAYERED(), "light");
     expect(vars["--shadow-2"]).toMatch(
       /^0 6px 12px 0 oklch\(.+ \/ 0\.15\), 0 3px 6px 0 oklch\(.+ \/ 0\.09\)$/,
@@ -267,7 +267,7 @@ describe("C-THEME-11 to C-THEME-13 shadows", () => {
     expect(vars["--shadow-5"]).toMatch(/^0 15px 30px 0 /);
   });
 
-  it("layered caps alpha at 1", () => {
+  it("C-THEME-12 layered caps alpha at 1", () => {
     const s = clone(CALM_LAYERED());
     const layer = s.depth.shadows[1][0];
     layer.alpha = 0.9;
@@ -279,7 +279,7 @@ describe("C-THEME-14 to C-THEME-17 motion and icons", () => {
   const ms = (vars: Readonly<Record<string, string>>) =>
     DURATIONS.map((name) => vars[`--duration-${name}`]);
 
-  it("keeps the stored durations for brisk and playful", () => {
+  it("C-THEME-14 keeps the stored durations for brisk and playful", () => {
     for (const s of [SOFT(), PLAYFUL_FLAT()]) {
       expect(ms(themeVars(s, "light"))).toEqual(
         DURATIONS.map((name) => `${s.motion.durations[name]}ms`),
@@ -287,13 +287,13 @@ describe("C-THEME-14 to C-THEME-17 motion and icons", () => {
     }
   });
 
-  it("scales calm by 1.25, rounds ties up and caps at 500", () => {
+  it("C-THEME-14 scales calm by 1.25, rounds ties up and caps at 500", () => {
     expect(ms(themeVars(CALM_LAYERED(), "light"))).toEqual(
       [63, 125, 188, 250, 375, 500, 500].map((n) => `${n}ms`),
     );
   });
 
-  it("writes the four easings", () => {
+  it("C-THEME-15 writes the four easings", () => {
     const vars = themeVars(SOFT(), "light");
     expect(vars["--ease-standard"]).toBe("cubic-bezier(0.2, 0, 0, 1)");
     expect(vars["--ease-decelerate"]).toBe("cubic-bezier(0, 0, 0, 1)");
@@ -305,7 +305,7 @@ describe("C-THEME-14 to C-THEME-17 motion and icons", () => {
     [CALM_LAYERED, "0.4", "0", { visualDuration: 0.4, bounce: 0 }],
     [SOFT, "0.25", "0.1", { visualDuration: 0.25, bounce: 0.1 }],
     [PLAYFUL_FLAT, "0.5", "0.35", { visualDuration: 0.5, bounce: 0.35 }],
-  ] as const)("follows the feel's spring", (make, duration, bounce, spring) => {
+  ] as const)("C-THEME-16 follows the feel's spring", (make, duration, bounce, spring) => {
     const s = make();
     const vars = themeVars(s, "light");
     expect(vars["--spring-duration"]).toBe(duration);
@@ -313,7 +313,7 @@ describe("C-THEME-14 to C-THEME-17 motion and icons", () => {
     expect(feelSpring(s.motion)).toEqual(spring);
   });
 
-  it("writes the icon stroke", () => {
+  it("C-THEME-17 writes the icon stroke", () => {
     const s = SOFT();
     expect(themeVars(s, "light")["--icon-stroke"]).toBe(String(s.components.icons.strokePx));
   });
@@ -391,17 +391,17 @@ describe("C-THEME-23 no value can leave its declaration", () => {
 });
 
 describe("C-THEME-24 to C-THEME-26 and C-THEME-29 failures", () => {
-  it("rejects a mode other than light and dark", () => {
+  it("C-THEME-24 rejects a mode other than light and dark", () => {
     expect(() => themeVars(SOFT(), "sepia" as never)).toThrow(RangeError);
     expect(() => themeVars(SOFT(), "sepia" as never)).toThrow(/themeVars/);
   });
 
-  it("rejects a non-string mode", () => {
+  it("C-THEME-24 rejects a non-string mode", () => {
     expect(() => themeVars(SOFT(), 1 as never)).toThrow(TypeError);
     expect(() => themeVars(SOFT(), 1 as never)).toThrow(/themeVars/);
   });
 
-  it("rejects an unknown or non-string vision", () => {
+  it("C-THEME-24 rejects an unknown or non-string vision", () => {
     expect(() => themeVars(SOFT(), "light", { vision: "x" as never })).toThrow(RangeError);
     expect(() => themeVars(SOFT(), "light", { vision: "x" as never })).toThrow(/themeVars/);
     expect(() => themeVars(SOFT(), "light", { vision: 3 as never })).toThrow(TypeError);
@@ -413,14 +413,14 @@ describe("C-THEME-24 to C-THEME-26 and C-THEME-29 failures", () => {
   });
 
   it.each([null, "spec", 4, undefined, [], {}, { color: {} }, { color: { roles: null } }])(
-    "rejects a spec that is not an object with color.roles: %j",
+    "C-THEME-25 rejects a spec that is not an object with color.roles: %j",
     (bad) => {
       expect(() => themeVars(bad as never, "light")).toThrow(TypeError);
       expect(() => themeVars(bad as never, "light")).toThrow(/themeVars/);
     },
   );
 
-  it.each(["red", "#FFF", "#fff;x", "#ABCDEF"])("rejects the role value %j", (bad) => {
+  it.each(["red", "#FFF", "#fff;x", "#ABCDEF"])("C-THEME-26 rejects the role value %j", (bad) => {
     const s = clone(SOFT());
     (s.color.roles.light as Record<string, unknown>).primary = bad;
     expect(() => themeVars(s, "light")).toThrow(RangeError);
@@ -464,7 +464,7 @@ describe("C-THEME-24 to C-THEME-26 and C-THEME-29 failures", () => {
     expect(() => themeVars(s, "light")).toThrow(/--text-display/);
   });
 
-  it("rejects units px with RangeError and a non-string units with TypeError", () => {
+  it("C-THEME-29 rejects units px with RangeError and a non-string units with TypeError", () => {
     expect(() => themeVars(SOFT(), "light", { units: "px" as never })).toThrow(RangeError);
     expect(() => themeVars(SOFT(), "light", { units: "px" as never })).toThrow(/themeVars/);
     expect(() => themeVars(SOFT(), "light", { units: 1 as never })).toThrow(TypeError);

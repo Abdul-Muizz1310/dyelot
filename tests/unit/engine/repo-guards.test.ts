@@ -235,7 +235,7 @@ const SPEC_VALUE_IMPORTERS = ["generate.ts", "presets.ts", "index.ts"].map((name
 );
 
 describe("C-REPO-02 the engine reaches the spec only where R2-25 allows", () => {
-  it("lets only generate.ts, presets.ts and index.ts import a value from src/spec", () => {
+  it("C-ENTRY-12 lets only generate.ts, presets.ts and index.ts import a value from src/spec", () => {
     const offenders = codeFiles(ENGINE_DIR)
       .filter((file) => !SPEC_VALUE_IMPORTERS.includes(file))
       .filter((file) =>
@@ -520,6 +520,33 @@ describe("the font coverage and project config", () => {
     const projects = config.test?.projects as { test?: { name?: string; include?: string[] } }[];
     const core = projects.find((project) => project.test?.name === "core");
     expect(core?.test?.include).toContain("tests/unit/scripts/**/*.test.{ts,tsx}");
+  });
+});
+
+describe("C-REPO-M2-04 the M1 repository guards stay in force", () => {
+  it("C-REPO-M2-04 keeps each C-REPO case of the M1 spec named in a title of its guard files", () => {
+    const m1 = readFileSync(path.join(ROOT, "docs/specs/01-color-engine.md"), "utf8");
+    const cases = [...new Set(m1.match(/^\| C-REPO-\d+ \|/gm) ?? [])].map((row) =>
+      row.slice(2, -2),
+    );
+    // This file holds C-REPO-01, 02, 04 and 05; each pure folder's environment test holds C-REPO-03.
+    const files = [
+      "tests/unit/engine/repo-guards.test.ts",
+      "tests/unit/engine/environment.test.ts",
+      "tests/unit/spec/environment.test.ts",
+    ];
+    const titles = files.flatMap((file) =>
+      [
+        ...readFileSync(path.join(ROOT, file), "utf8").matchAll(
+          /\b(?:describe|it)\(\s*"([^"\n]*)"/g,
+        ),
+      ].map((match) => match[1] ?? ""),
+    );
+    expect(cases).toHaveLength(5);
+    const unnamed = cases.filter(
+      (id) => !titles.some((title) => new RegExp(`${id}(?![0-9])`).test(title)),
+    );
+    expect(unnamed).toEqual([]);
   });
 });
 

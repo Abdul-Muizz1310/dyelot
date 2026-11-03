@@ -1,3 +1,5 @@
+import { readdirSync, readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { PALETTE_NAMES } from "@/engine/color/palette";
 import { parseColor } from "@/engine/color/parse";
@@ -14,8 +16,8 @@ import { deriveTailwind } from "./tailwind-source";
 
 // Cases are the C-TASTE-nn rows of docs/specs/02-studio.md, section 6.4 (Task 2.4). Fixtures start
 // from SPEC, the base spec `generateSystem(DEFAULT_PARAMS, "seed-1")`. C-TASTE-22 (every M1 lint
-// case passes unmodified except C-LINT-43 and C-LINT-47) has no test of its own: the M1 lint files
-// beside this one carry it, and they run as M1 wrote them.
+// case passes unmodified except C-LINT-43 and C-LINT-47) is carried by the M1 lint files beside this
+// one, which run as M1 wrote them; its test below checks that they still name every M1 lint case.
 
 const only = (spec: DesignSpec, id: string, options?: Parameters<typeof lintSpec>[1]): Finding[] =>
   lintSpec(spec, options).filter((f) => f.id === id);
@@ -262,5 +264,29 @@ describe("the taste rules as a group", () => {
     const spec = withBody(15);
     expect(only(spec, "T4")).toHaveLength(1);
     expect(lintSpec(defaultSpec()).map((f) => f.id)).toContain("T2");
+  });
+});
+
+describe("C-TASTE-22 the M1 lint cases run beside the taste rules", () => {
+  it("C-TASTE-22 keeps each of the 58 C-LINT cases of the M1 spec named in the M1 lint suites", () => {
+    const root = path.resolve(import.meta.dirname, "../../../..");
+    const m1 = readFileSync(path.join(root, "docs/specs/01-color-engine.md"), "utf8");
+    const cases = [...new Set(m1.match(/^\| C-LINT-\d+ \|/gm) ?? [])].map((row) =>
+      row.slice(2, -2),
+    );
+    // The M1 suites are every lint test file but the taste rules' own: this file and the T3 sweeps.
+    const suites = readdirSync(import.meta.dirname)
+      .filter((name) => name.endsWith(".test.ts") && name !== "taste.test.ts")
+      .filter((name) => !name.startsWith("t3-"))
+      .map((name) => readFileSync(path.join(import.meta.dirname, name), "utf8"));
+    // A case counts when a string of a suite names it, as a test's title does; comments do not count.
+    const strings = suites.flatMap(
+      (source) => source.match(/"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g) ?? [],
+    );
+    expect(cases).toHaveLength(58);
+    const unnamed = cases.filter(
+      (id) => !strings.some((text) => new RegExp(`${id}(?![0-9])`).test(text)),
+    );
+    expect(unnamed).toEqual([]);
   });
 });

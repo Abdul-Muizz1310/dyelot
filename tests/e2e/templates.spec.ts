@@ -744,20 +744,23 @@ test.describe("7.6 The landing and editorial templates", () => {
     await page.context().close();
   });
 
-  for (const [id, caseId] of [
-    ["landing", "F-TPL-09"],
-    ["editorial", "F-TPL-10"],
-  ] as const) {
-    test(`${caseId} the ${id} template renders in the 360, 768 and 1280 frames without overflow`, async () => {
-      const root = await showTemplate(page, id);
-      for (const frame of [360, 768, 1280] as const) {
-        await setFrame(page, frame);
-        const report = await overflow(root);
-        expect(report.scroll, `${frame}`).toBeLessThanOrEqual(report.client);
-        expect(report.past, `${frame}`).toEqual([]);
-      }
-    });
+  /** F-TPL-09 and F-TPL-10: `id` renders in the 360, 768 and 1280 frames without overflow. */
+  async function fitsEachFrame(id: (typeof SECTION_76)[number]): Promise<void> {
+    const root = await showTemplate(page, id);
+    for (const frame of [360, 768, 1280] as const) {
+      await setFrame(page, frame);
+      const report = await overflow(root);
+      expect(report.scroll, `${frame}`).toBeLessThanOrEqual(report.client);
+      expect(report.past, `${frame}`).toEqual([]);
+    }
   }
+
+  // Each case id stands in its own title, literally (final review, M-3).
+  test("F-TPL-09 the landing template renders in the 360, 768 and 1280 frames without overflow", () =>
+    fitsEachFrame("landing"));
+
+  test("F-TPL-10 the editorial template renders in the 360, 768 and 1280 frames without overflow", () =>
+    fitsEachFrame("editorial"));
 
   test("F-TPL-11 the editorial body keeps a 60 to 75 character measure", async () => {
     const root = await showTemplate(page, "editorial");
