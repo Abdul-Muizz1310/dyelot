@@ -26,6 +26,7 @@ import {
 import {
   antiSlop,
   brokenWords,
+  canvasAtRest,
   controlLabels,
   eachTab,
   equalIconSiblings,
@@ -1453,6 +1454,61 @@ async function fontsReady(page: Page): Promise<void> {
     .toBe(true);
 }
 
+/** The two copies of the Copy group, in the order the sweeps check them. */
+const COPIES = ["Real copy", "Edge-case copy"] as const;
+
+/**
+ * F-TPL-40 on one view of a page template: nothing overflows the frame, every figure on screen keeps
+ * one line, and no word of 20 characters or fewer breaks. Each view also measures what it claims: the
+ * copy it names, the edge word under edge copy and a page of words, so an empty or stale root cannot
+ * pass. Returns the failures, each named `name`.
+ */
+async function pageViewFailures(
+  root: Locator,
+  name: string,
+  copy: (typeof COPIES)[number],
+): Promise<string[]> {
+  const failures: string[] = [];
+  const [report, words, figures] = await Promise.all([
+    overflow(root),
+    brokenWords(root),
+    figureLines(root),
+  ]);
+  const shown = await root.evaluate((element) => ({
+    copy: element.closest("[data-canvas]")?.getAttribute("data-copy"),
+    text: element.textContent ?? "",
+  }));
+  if (shown.copy !== (copy === "Real copy" ? "real" : "edge")) {
+    failures.push(`${name}: the frame shows ${shown.copy} copy`);
+  }
+  if (copy === "Edge-case copy" && !shown.text.includes(COPY.edge.word)) {
+    failures.push(`${name}: no edge word`);
+  }
+  if (words.checked < 50) failures.push(`${name}: only ${words.checked} words measured`);
+  if (report.scroll > report.client || report.past.length > 0) {
+    failures.push(`${name}: ${report.scroll - report.client} px over ${report.past.join(" ")}`);
+  }
+  if (words.broken.length > 0) failures.push(`${name}: ${words.broken.join(", ")}`);
+  const split = figures.filter((line) => !line.endsWith(" 1"));
+  if (split.length > 0) failures.push(`${name}: figures ${split.join(", ")}`);
+  return failures;
+}
+
+/** The canvas toolbar's "Reduce motion" switch, which places every entrance and transition at once. */
+const reduceMotion = (page: Page) =>
+  page
+    .getByRole("region", { name: "Canvas toolbar" })
+    .getByRole("switch", { name: "Reduce motion", exact: true });
+
+/**
+ * The presets of F-TPL-40's motion spot check: the two with playful motion and the largest type, the
+ * poster context (maximalism) and the marketing context (retro-futurism).
+ */
+const MOTION_SPOT = [
+  "maximalism",
+  "retro-futurism",
+] as const satisfies readonly (typeof PRESET_IDS)[number][];
+
 test("F-TPL-40 every preset fits the page templates at 360 and 768 and the mobile screens, with real and with edge copy", async ({
   page,
 }) => {
@@ -1460,6 +1516,10 @@ test("F-TPL-40 every preset fits the page templates at 360 and 768 and the mobil
   await page.setViewportSize({ width: 1280, height: 800 });
   await stubSeeds(page);
   await openStudio(page);
+  // The sweep runs under the canvas's Reduce motion switch: entrances and transitions land at once,
+  // and the layout is the one motion comes to rest on (F-CANVAS-20), so no view waits on motion.
+  await reduceMotion(page).click();
+  await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
   const preset = page
     .getByRole("complementary", { name: "Inputs" })
     .getByRole("combobox", { name: "Preset", exact: true });
@@ -1475,38 +1535,13 @@ test("F-TPL-40 every preset fits the page templates at 360 and 768 and the mobil
     await fontsReady(page);
     for (const template of PAGES) {
       const root = await showTemplate(page, template);
-      for (const copy of ["Real copy", "Edge-case copy"] as const) {
+      for (const copy of COPIES) {
         await copies.getByRole("radio", { name: copy, exact: true }).check();
         for (const frame of [360, 768] as const) {
           await setFrame(page, frame);
           const name = `${id} ${template} ${frame} ${copy}`;
-          const [report, words, figures] = await Promise.all([
-            overflow(root),
-            brokenWords(root),
-            figureLines(root),
-          ]);
           measured++;
-          // Each view measures what it claims: the copy it names, the edge word under edge copy and
-          // a page of words, so an empty or stale root cannot pass.
-          const shown = await root.evaluate((element) => ({
-            copy: element.closest("[data-canvas]")?.getAttribute("data-copy"),
-            text: element.textContent ?? "",
-          }));
-          if (shown.copy !== (copy === "Real copy" ? "real" : "edge")) {
-            failures.push(`${name}: the frame shows ${shown.copy} copy`);
-          }
-          if (copy === "Edge-case copy" && !shown.text.includes(COPY.edge.word)) {
-            failures.push(`${name}: no edge word`);
-          }
-          if (words.checked < 50) failures.push(`${name}: only ${words.checked} words measured`);
-          if (report.scroll > report.client || report.past.length > 0) {
-            failures.push(
-              `${name}: ${report.scroll - report.client} px over ${report.past.join(" ")}`,
-            );
-          }
-          if (words.broken.length > 0) failures.push(`${name}: ${words.broken.join(", ")}`);
-          const split = figures.filter((line) => !line.endsWith(" 1"));
-          if (split.length > 0) failures.push(`${name}: figures ${split.join(", ")}`);
+          failures.push(...(await pageViewFailures(root, name, copy)));
           if (template === "settings") failures.push(...(await barRoom(root, name)));
         }
       }
@@ -1518,7 +1553,7 @@ test("F-TPL-40 every preset fits the page templates at 360 and 768 and the mobil
     }
     // The mobile template at its own three 360 px screens, with the sheet closed and then open.
     const mobile = await showTemplate(page, "mobile");
-    for (const copy of ["Real copy", "Edge-case copy"] as const) {
+    for (const copy of COPIES) {
       await copies.getByRole("radio", { name: copy, exact: true }).check();
       const name = `${id} mobile ${copy}`;
       measured++;
@@ -1579,6 +1614,49 @@ test("F-TPL-40 every preset fits the page templates at 360 and 768 and the mobil
   }
   console.log(`F-TPL-40: ${measured} views in ${((Date.now() - started) / 1000).toFixed(1)} s`);
   expect(measured).toBe(PRESET_IDS.length * (PAGES.length * 4 + 2));
+  await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
+  expect(failures).toEqual([]);
+});
+
+test("F-TPL-40 with motion on, two playful presets fit the landing and editorial at 360 and 768 at rest", async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  await page.setViewportSize({ width: 1280, height: 800 });
+  await stubSeeds(page);
+  await openStudio(page);
+  await expect(reduceMotion(page)).toHaveAttribute("aria-checked", "false");
+  await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
+  const preset = page
+    .getByRole("complementary", { name: "Inputs" })
+    .getByRole("combobox", { name: "Preset", exact: true });
+  const copies = page
+    .getByRole("region", { name: "Canvas toolbar" })
+    .getByRole("group", { name: "Copy", exact: true });
+  const failures: string[] = [];
+  let measured = 0;
+  for (const id of MOTION_SPOT) {
+    await preset.selectOption(id);
+    await settled(page);
+    await fontsReady(page);
+    for (const template of SECTION_76) {
+      const root = await showTemplate(page, template);
+      for (const copy of COPIES) {
+        await copies.getByRole("radio", { name: copy, exact: true }).check();
+        for (const frame of [360, 768] as const) {
+          await setFrame(page, frame);
+          // Motion is on: the frame switch may start transitions, so measure the layout they end on.
+          await canvasAtRest(page);
+          measured++;
+          failures.push(
+            ...(await pageViewFailures(root, `${id} ${template} ${frame} ${copy}`, copy)),
+          );
+        }
+      }
+    }
+  }
+  expect(measured).toBe(MOTION_SPOT.length * SECTION_76.length * COPIES.length * 2);
+  await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
   expect(failures).toEqual([]);
 });
 
