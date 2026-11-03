@@ -13,7 +13,9 @@ import { copyOf, loose } from "./support";
 import { deriveTailwind } from "./tailwind-source";
 
 // Cases are the C-TASTE-nn rows of docs/specs/02-studio.md, section 6.4 (Task 2.4). Fixtures start
-// from SPEC, the base spec `generateSystem(DEFAULT_PARAMS, "seed-1")`.
+// from SPEC, the base spec `generateSystem(DEFAULT_PARAMS, "seed-1")`. C-TASTE-22 (every M1 lint
+// case passes unmodified except C-LINT-43 and C-LINT-47) has no test of its own: the M1 lint files
+// beside this one carry it, and they run as M1 wrote them.
 
 const only = (spec: DesignSpec, id: string, options?: Parameters<typeof lintSpec>[1]): Finding[] =>
   lintSpec(spec, options).filter((f) => f.id === id);

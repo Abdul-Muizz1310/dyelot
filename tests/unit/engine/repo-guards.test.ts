@@ -16,7 +16,8 @@ import config from "../../../vitest.config";
 
 // C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9, with
 // C-REPO-02 and C-REPO-05 amended by R2-25 of docs/specs/02-studio.md, and C-ENTRY-16 to 18. C-REPO-03
-// lives in environment.test.ts, one copy per folder.
+// lives in environment.test.ts, one copy per folder. These M1 guards, as R2-25 leaves them, are
+// C-REPO-M2-04 of the M2 spec, section 6.10; the M2 guards C-REPO-M2-01 to 05 follow them.
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
 const ENGINE_DIR = path.join(ROOT, "src/engine");
