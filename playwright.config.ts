@@ -22,6 +22,8 @@ export default defineConfig({
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 240_000,
+    // The build's output, its route table included, goes into the run's log (spec R2-31, item 5).
+    stdout: "pipe",
     env: {
       NEXT_PUBLIC_SITE_URL: baseURL,
     },
