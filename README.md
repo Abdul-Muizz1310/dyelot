@@ -184,11 +184,11 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | 1,893 Vitest tests in 100 files, in `tests/unit/`, with 1 skipped: an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`. The pure core runs in plain Node, the rest in jsdom with Testing Library |
+| Unit | 1,895 Vitest tests in 100 files, in `tests/unit/`, with 1 skipped: an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`. The pure core runs in plain Node, the rest in jsdom with Testing Library |
 | Slow set | 22 of those files, listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. `pnpm gate` leaves them to `pnpm gate:full` and CI |
 | Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md) and [`02-studio.md`](docs/specs/02-studio.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, and 467 of 467 at the M2 close (322 unit cases and 145 flows) |
 | Property tests | fast-check over arbitrary color strings, every parameter, random seeds, share-link tampering and the studio store's actions |
-| End to end | 209 Playwright flows on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route and checks on the security headers |
+| End to end | 211 Playwright flows on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route and checks on the security headers |
 | Measured findings | The fix scan generates 576 designs (288 in sRGB and 288 in Display P3) and finds no C1, C5, N1 or F1 finding at AA. The preset sweep fits all 14 presets into the landing, editorial, dashboard and settings templates at 360 and 768 px and into the three mobile screens: 252 views, none with an overflow or a broken word |
 | Coverage scope | `src/engine/`, `src/spec/`, `src/theme/`, `src/lib/site/`, the canvas font loader and the 20 pure helper files of the studio and the preview. The end-to-end tier covers the components and routes |
 | Coverage floors | 80% lines and statements, 75% functions and 70% branches over that scope. `src/engine/`, `src/spec/`, `src/theme/`, the font loader and each pure helper hold 95% lines, statements and functions and 90% branches |
