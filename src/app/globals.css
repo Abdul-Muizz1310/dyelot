@@ -138,13 +138,6 @@ body::before {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
-  /* The canvas scaffold never transitions (spec section 7.4). The rule above leaves
-   * `transition-property` at `all`, so the frame's width, its height and its scale would each take a
-   * 0.01 ms transition: when a page template replaces the mobile template, whose board takes another
-   * width, the frame would hold the board's width for a frame, and the new template's container-query
-   * styles would transition from it. */
-  .canvas-fit,
-  .canvas-scale {
-    transition-property: none;
-  }
+  /* The rule above leaves `transition-property` at `all`. The studio's layout boxes, which must never
+   * transition, opt out in src/features/studio/studio.css. */
 }

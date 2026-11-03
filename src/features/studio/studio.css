@@ -197,3 +197,19 @@ body:has(.studio-surround)::before {
     transition: none !important;
   }
 }
+
+/* Under reduced motion the studio's layout boxes never transition (F-TPL-32, F-STUDIO-25). The global
+ * rule of globals.css gives every element a 0.01 ms transition of every property, so:
+ * - the canvas region's padding, which changes when the mobile template's board starts or ends, would
+ *   hold its old value for a frame, and the fit would show the old padding's scale;
+ * - the canvas scaffold's width, height and scale would lag a frame when a page template replaces the
+ *   mobile board, and the new template's container-query styles would transition from it (section 7.4);
+ * - a panel that becomes a drawer or a column at a breakpoint would slide for 0.01 ms. */
+@media (prefers-reduced-motion: reduce) {
+  .studio-canvas,
+  .canvas-fit,
+  .canvas-scale,
+  .studio-panel {
+    transition-property: none;
+  }
+}

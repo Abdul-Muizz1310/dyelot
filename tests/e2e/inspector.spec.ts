@@ -1407,18 +1407,23 @@ test.describe("7.7 The mobile fit with the inspector (F-TPL-32)", () => {
       expect((await fitNow(page)).fit, `${viewport.width} closed`).toBeGreaterThanOrEqual(0.95);
       await showTemplate(page, "landing");
     }
-    for (const viewport of [PHONE, { width: 764, height: 900 }]) {
-      await page.setViewportSize(viewport);
-      await showTemplate(page, "landing");
-      await page.waitForTimeout(300);
-      for (const to of ["mobile", "landing"] as const) {
-        const { first: firstFrame, rest } = await switchFit(page, to);
-        const name = `${viewport.width}×${viewport.height} to ${to}`;
-        expect(firstFrame.width, `${name}: width`).toBe(rest.width);
-        expect(
-          Math.abs(firstFrame.fit - rest.fit),
-          `${name}: fit ${firstFrame.fit} then ${rest.fit}`,
-        ).toBeLessThan(0.001);
+    // Without the system's reduced-motion setting, then with it: under it the global 0.01 ms rule must
+    // not hold the canvas region's old padding for a frame (final review, M-1).
+    for (const reducedMotion of ["no-preference", "reduce"] as const) {
+      await page.emulateMedia({ reducedMotion });
+      for (const viewport of [PHONE, { width: 764, height: 900 }]) {
+        await page.setViewportSize(viewport);
+        await showTemplate(page, "landing");
+        await page.waitForTimeout(300);
+        for (const to of ["mobile", "landing"] as const) {
+          const { first: firstFrame, rest } = await switchFit(page, to);
+          const name = `${reducedMotion} ${viewport.width}×${viewport.height} to ${to}`;
+          expect(firstFrame.width, `${name}: width`).toBe(rest.width);
+          expect(
+            Math.abs(firstFrame.fit - rest.fit),
+            `${name}: fit ${firstFrame.fit} then ${rest.fit}`,
+          ).toBeLessThan(0.001);
+        }
       }
     }
   });

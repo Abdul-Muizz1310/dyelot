@@ -651,6 +651,33 @@ test.describe("7.1 Layout and the shell", () => {
   });
 });
 
+/**
+ * Waits for the panels to settle into drawer (or column) state, on the first animation frame that
+ * shows it, and reads their motion then: the animations and transitions they hold, and their
+ * visibility (F-STUDIO-25).
+ */
+function panelMotion(page: Page, drawer: boolean) {
+  return page.evaluate(
+    (wanted) =>
+      new Promise<{ running: number; visibility: string[] }>((resolve) => {
+        const asides = [...document.querySelectorAll("aside")];
+        const check = () => {
+          const inputs = document.querySelector('aside[aria-label="Inputs"]');
+          if (inputs === null || inputs.hasAttribute("data-drawer") !== wanted) {
+            requestAnimationFrame(check);
+            return;
+          }
+          resolve({
+            running: asides.reduce((sum, aside) => sum + aside.getAnimations().length, 0),
+            visibility: asides.map((aside) => getComputedStyle(aside).visibility),
+          });
+        };
+        check();
+      }),
+    drawer,
+  );
+}
+
 test.describe("7.1 Focus and drafts after the review", () => {
   test("F-STUDIO-23 after Start fresh or Dismiss focus moves to the canvas region", async ({
     page,
@@ -801,27 +828,7 @@ test.describe("7.1 Focus and drafts after the review", () => {
   test("F-STUDIO-25 crossing a breakpoint moves no panel, and a drawer still slides open", async ({
     page,
   }) => {
-    /** Waits for the panels to settle into `drawer` (or column) state and reads their motion. */
-    const motion = (drawer: boolean) =>
-      page.evaluate(
-        (wanted) =>
-          new Promise<{ running: number; visibility: string[] }>((resolve) => {
-            const asides = [...document.querySelectorAll("aside")];
-            const check = () => {
-              const inputs = document.querySelector('aside[aria-label="Inputs"]');
-              if (inputs === null || inputs.hasAttribute("data-drawer") !== wanted) {
-                requestAnimationFrame(check);
-                return;
-              }
-              resolve({
-                running: asides.reduce((sum, aside) => sum + aside.getAnimations().length, 0),
-                visibility: asides.map((aside) => getComputedStyle(aside).visibility),
-              });
-            };
-            check();
-          }),
-        drawer,
-      );
+    const motion = (drawer: boolean) => panelMotion(page, drawer);
     await openStudio(page);
     await page.setViewportSize(PHONE);
     expect(await motion(true)).toEqual({ running: 0, visibility: ["hidden", "hidden"] });
@@ -834,6 +841,25 @@ test.describe("7.1 Focus and drafts after the review", () => {
       await inputsAside(page).evaluate((el) => getComputedStyle(el).transitionDuration),
     ).toMatch(/0\.22s/);
     await expect(inputsAside(page)).toBeVisible();
+  });
+
+  test("F-STUDIO-25 under the system's reduced motion, crossing a breakpoint starts no transition on a panel", async ({
+    page,
+  }) => {
+    // The global 0.01 ms rule must not give a panel a transition when it turns into a drawer or back
+    // into a column (final review, M-1).
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await openStudio(page);
+    // 360 px to 1280 px and back, twice: both panels cross 1024 and 1280 px each way.
+    for (const [viewport, drawer] of [
+      [PHONE, true],
+      [{ width: 1280, height: 800 }, false],
+      [PHONE, true],
+      [{ width: 1280, height: 800 }, false],
+    ] as const) {
+      await page.setViewportSize(viewport);
+      expect((await panelMotion(page, drawer)).running, `${viewport.width} px`).toBe(0);
+    }
   });
 });
 
