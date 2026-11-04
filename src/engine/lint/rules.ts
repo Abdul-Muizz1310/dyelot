@@ -7,13 +7,11 @@ import type { RoleName } from "../color/roles";
 import { DARK_CHROMA_FACTOR, type ScaleStep, STEPS, stepChroma } from "../color/scale";
 import type { Gamut, Mode, Oklch } from "../color/types";
 import { FONT_CATALOG, genericness } from "../fonts/catalog";
+import { CONTRAST_CHECKS, type ContrastRule } from "./contrast-checks";
 import { TAILWIND_HEX_SET } from "./tailwind";
 import type { Finding, LintedPalette, LintedSpec, LintOptions, RuleId, Severity } from "./types";
 
 // The rule table of spec section 6.8: thresholds, severities and sources.
-const TEXT = 4.5;
-const LARGE_TEXT = 3;
-const NON_TEXT = 3;
 const BODY_LC = 75;
 const SEPARATION = 0.08;
 const SEPARATION_ERROR = 0.05;
@@ -54,37 +52,10 @@ const SOURCES: Readonly<Record<RuleId, string>> = {
 /** A text pair: foreground over fill (spec section 6.5). */
 type Pair = readonly [foreground: RoleName, fill: RoleName];
 
-const C1_PAIRS: readonly Pair[] = [
-  ["foreground", "background"],
-  ["card-foreground", "card"],
-  ["popover-foreground", "popover"],
-  ["sidebar-foreground", "sidebar"],
-  ["muted-foreground", "muted"],
-  ["muted-foreground", "background"],
-  ["secondary-foreground", "secondary"],
-  ["accent-foreground", "accent"],
-  ["sidebar-accent-foreground", "sidebar-accent"],
-  ["success-subtle-foreground", "success-subtle"],
-  ["warning-subtle-foreground", "warning-subtle"],
-  ["info-subtle-foreground", "info-subtle"],
-  ["destructive-subtle-foreground", "destructive-subtle"],
-];
-const C4_PAIRS: readonly Pair[] = C1_PAIRS.slice(0, 4);
-const C5_PAIRS: readonly Pair[] = [
-  ["primary-foreground", "primary"],
-  ["sidebar-primary-foreground", "sidebar-primary"],
-  ["destructive-foreground", "destructive"],
-  ["success-foreground", "success"],
-  ["warning-foreground", "warning"],
-  ["info-foreground", "info"],
-];
-const LARGE_TEXT_ROLES: readonly RoleName[] = [
-  "primary",
-  "destructive",
-  "success",
-  "warning",
-  "info",
-];
+/** C4 reads the first four pairs of C1: the page and surface text. */
+const C4_PAIRS: readonly Pair[] = CONTRAST_CHECKS.filter((check) => check.rule === "C1")
+  .slice(0, 4)
+  .map((check): Pair => [check.foreground, check.background]);
 const CHARTS: readonly RoleName[] = ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5"];
 const STATUS: readonly RoleName[] = ["success", "warning", "destructive", "info"];
 const ACCENTED: readonly PaletteName[] = [
@@ -131,19 +102,17 @@ const ratio = (spec: LintedSpec, mode: Mode, [a, b]: Pair) =>
 const lightness = (spec: LintedSpec, mode: Mode, role: RoleName) =>
   rgbToOklch(rgbOf(spec, mode, role), "srgb").l;
 
-/** A WCAG rule over pairs: one finding per pair below `threshold`. */
-function wcagRule(id: RuleId, severity: Severity, pairs: readonly Pair[], threshold: number): Rule {
+/** A WCAG rule: one finding per check of `CONTRAST_CHECKS` for `rule` that falls below its threshold. */
+function wcagRule(rule: ContrastRule, severity: Severity): Rule {
+  const checks = CONTRAST_CHECKS.filter((check) => check.rule === rule);
   return (spec, mode) =>
-    pairs.flatMap((pair) => {
-      const measured = ratio(spec, mode, pair);
+    checks.flatMap(({ foreground, background, threshold }) => {
+      const measured = ratio(spec, mode, [foreground, background]);
       return measured < threshold
-        ? [finding(id, severity, mode, `${pair[0]}/${pair[1]}`, measured, threshold)]
+        ? [finding(rule, severity, mode, `${foreground}/${background}`, measured, threshold)]
         : [];
     });
 }
-
-const against = (roles: readonly RoleName[], fills: readonly RoleName[]): Pair[] =>
-  roles.flatMap((role) => fills.map((fill): Pair => [role, fill]));
 
 const C4: Rule = (spec, mode) =>
   C4_PAIRS.flatMap(([text, fill]) => {
@@ -410,14 +379,14 @@ const T4: Rule = (spec) => {
 
 /** Rules that run in both modes, then the dark-mode rules, which run once. */
 const BOTH_MODES: readonly Rule[] = [
-  wcagRule("C1", "error", C1_PAIRS, TEXT),
-  wcagRule("C2", "error", against(LARGE_TEXT_ROLES, ["background"]), LARGE_TEXT),
+  wcagRule("C1", "error"),
+  wcagRule("C2", "error"),
   C4,
-  wcagRule("C5", "error", C5_PAIRS, TEXT),
-  wcagRule("N1", "error", against(["input"], ["background", "card"]), NON_TEXT),
-  wcagRule("N2", "error", against(CHARTS, ["background", "card"]), NON_TEXT),
-  wcagRule("N3", "info", [["border", "background"]], NON_TEXT),
-  wcagRule("F1", "error", against(["ring"], ["background", "card", "muted"]), NON_TEXT),
+  wcagRule("C5", "error"),
+  wcagRule("N1", "error"),
+  wcagRule("N2", "error"),
+  wcagRule("N3", "info"),
+  wcagRule("F1", "error"),
   S1,
   S2,
   K1,

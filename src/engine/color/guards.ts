@@ -19,9 +19,10 @@ export const STORED_GAMUT_TOLERANCE = 2e-4;
  */
 export const CHROMA_CEILING = 0.5;
 
-/** The type of `value` as an error message names it: `null` is not "object". */
+/** The type of `value` as an error message names it: `null` and an array are not "object". */
 export function describeType(value: unknown): string {
-  return value === null ? "null" : typeof value;
+  if (value === null) return "null";
+  return Array.isArray(value) ? "array" : typeof value;
 }
 
 /** A number that is not finite is outside every domain here (spec I-03). */

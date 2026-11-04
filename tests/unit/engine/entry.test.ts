@@ -37,6 +37,7 @@ import { choosePairing, PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
 import { ENGINE_VERSION, generateSystem } from "@/engine/generate";
 import { lintSpec } from "@/engine/lint";
 import { RULE_IDS } from "@/engine/lint/types";
+import { CONTRAST_CHECKS, measureSpec, summarize } from "@/engine/measure";
 import { freshParams, paramsOfSpec, resolveParams } from "@/engine/params";
 import { applyPreset, PRESET_IDS, PRESETS } from "@/engine/presets";
 import { shadows } from "@/engine/tokens/depth";
@@ -62,6 +63,7 @@ const ROOT = path.resolve(import.meta.dirname, "../../..");
 
 /** The runtime keys of src/engine/index.ts, section 6.1 (R2-02): the whole set, once every task has landed. */
 const ENGINE_KEYS = [
+  "CONTRAST_CHECKS",
   "ColorParseError",
   "DEFICIENCIES",
   "DEPTH_STYLES",
@@ -100,6 +102,7 @@ const ENGINE_KEYS = [
   "hexToRgb",
   "indexNames",
   "lintSpec",
+  "measureSpec",
   "meets",
   "motionTokens",
   "nearestName",
@@ -115,6 +118,7 @@ const ENGINE_KEYS = [
   "shadows",
   "simulate",
   "spaceScale",
+  "summarize",
   "toHex",
   "typeScale",
   "wcagRatio",
@@ -153,6 +157,7 @@ describe("the engine entry", () => {
   it("C-ENTRY-01 exports, for every key, the very object its home module exports", () => {
     const exported: Record<string, unknown> = { ...engine };
     const homes: Record<string, unknown> = {
+      CONTRAST_CHECKS,
       ColorParseError,
       DEFICIENCIES,
       DEPTH_STYLES,
@@ -191,6 +196,7 @@ describe("the engine entry", () => {
       hexToRgb,
       indexNames,
       lintSpec,
+      measureSpec,
       meets,
       motionTokens,
       nearestName,
@@ -206,6 +212,7 @@ describe("the engine entry", () => {
       shadows,
       simulate,
       spaceScale,
+      summarize,
       toHex,
       typeScale,
       wcagRatio,

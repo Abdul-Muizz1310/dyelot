@@ -54,6 +54,8 @@ export { ENGINE_VERSION, generateSystem } from "./generate";
 export { lintSpec } from "./lint";
 export type { Finding, LintedSpec, LintOptions, RuleId, Severity } from "./lint/types";
 export { RULE_IDS } from "./lint/types";
+export type { ContrastCheck, ContrastKind, Measurements, Summary } from "./measure";
+export { CONTRAST_CHECKS, measureSpec, summarize } from "./measure";
 export { freshParams, paramsOfSpec, resolveParams } from "./params";
 export {
   applyPreset,

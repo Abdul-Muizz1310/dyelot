@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   applyPreset,
+  CONTRAST_CHECKS,
   CONTRAST_LEVELS,
   type ContrastLevel,
   type DirectionParams,
@@ -194,55 +195,22 @@ export function gridDesigns(grid: Grid): readonly GridDesign[] {
   return BUILDERS[grid]();
 }
 
-type Pair = readonly [RoleName, RoleName];
-const against = (roles: readonly RoleName[], fills: readonly RoleName[]): Pair[] =>
-  roles.flatMap((role) => fills.map((fill): Pair => [role, fill]));
-
 const CHARTS: readonly RoleName[] = ["chart-1", "chart-2", "chart-3", "chart-4", "chart-5"];
 const STATUS: readonly RoleName[] = ["success", "warning", "destructive", "info"];
 
-/** The pairs and thresholds of the six WCAG error rules (rules.ts, spec section 6.8). */
-const WCAG: readonly { id: ErrorRule; threshold: number; pairs: readonly Pair[] }[] = [
-  {
-    id: "C1",
-    threshold: 4.5,
-    pairs: [
-      ["foreground", "background"],
-      ["card-foreground", "card"],
-      ["popover-foreground", "popover"],
-      ["sidebar-foreground", "sidebar"],
-      ["muted-foreground", "muted"],
-      ["muted-foreground", "background"],
-      ["secondary-foreground", "secondary"],
-      ["accent-foreground", "accent"],
-      ["sidebar-accent-foreground", "sidebar-accent"],
-      ["success-subtle-foreground", "success-subtle"],
-      ["warning-subtle-foreground", "warning-subtle"],
-      ["info-subtle-foreground", "info-subtle"],
-      ["destructive-subtle-foreground", "destructive-subtle"],
-    ],
-  },
-  {
-    id: "C2",
-    threshold: 3,
-    pairs: against(["primary", "destructive", "success", "warning", "info"], ["background"]),
-  },
-  {
-    id: "C5",
-    threshold: 4.5,
-    pairs: [
-      ["primary-foreground", "primary"],
-      ["sidebar-primary-foreground", "sidebar-primary"],
-      ["destructive-foreground", "destructive"],
-      ["success-foreground", "success"],
-      ["warning-foreground", "warning"],
-      ["info-foreground", "info"],
-    ],
-  },
-  { id: "N1", threshold: 3, pairs: against(["input"], ["background", "card"]) },
-  { id: "N2", threshold: 3, pairs: against(CHARTS, ["background", "card"]) },
-  { id: "F1", threshold: 3, pairs: against(["ring"], ["background", "card", "muted"]) },
-];
+/** The six WCAG error rules, read from the shared table (N3, the border pair, is advisory). */
+const WCAG: readonly {
+  id: ErrorRule;
+  threshold: number;
+  pairs: readonly (readonly [RoleName, RoleName])[];
+}[] = (["C1", "C2", "C5", "N1", "N2", "F1"] as const).map((id) => {
+  const checks = CONTRAST_CHECKS.filter((check) => check.rule === id);
+  return {
+    id,
+    threshold: checks[0]?.threshold ?? 0,
+    pairs: checks.map((check) => [check.foreground, check.background] as const),
+  };
+});
 
 const SEPARATION_ERROR = 0.05;
 const MODES = ["light", "dark"] as const;
