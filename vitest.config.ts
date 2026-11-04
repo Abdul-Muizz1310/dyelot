@@ -179,6 +179,9 @@ export default defineConfig({
         "src/engine/**",
         "src/spec/**",
         "src/theme/**",
+        // The export and import layers of M3 (pure, held to a floor of their own).
+        "src/export/**",
+        "src/import/**",
         "src/lib/site/**",
         "src/features/fonts/load.ts",
         // The studio's pure helpers (spec R2-22). The store, the worker shell and the UI are
@@ -195,6 +198,8 @@ export default defineConfig({
         "src/engine/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/spec/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/theme/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
+        "src/export/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
+        "src/import/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
         "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
         ...Object.fromEntries(
           [...STUDIO_HELPERS, ...PREVIEW_HELPERS].map((file) => [file, PURE_FLOORS]),
