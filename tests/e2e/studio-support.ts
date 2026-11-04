@@ -77,6 +77,20 @@ export function roleVars(vars: Record<string, string>): Record<string, string> {
   return Object.fromEntries(ROLE_NAMES.map((role) => [`--${role}`, vars[`--${role}`] ?? ""]));
 }
 
+/** The design of the first load when `stubSeeds` draws the seeds. */
+export const first = (): DesignSpec => designFor(FRESH, seedOf(1));
+
+export const button = (page: Page, name: string): Locator =>
+  page.getByRole("button", { name, exact: true });
+export const modeSwitch = (page: Page): Locator =>
+  page.getByRole("switch", { name: "Dark mode", exact: true });
+/** A radio of the canvas toolbar (section 7.4); the inputs panel repeats some groups (Density). */
+export const toolbarRadio = (page: Page, groupName: string, name: string): Locator =>
+  page
+    .getByRole("region", { name: "Canvas toolbar" })
+    .getByRole("group", { name: groupName, exact: true })
+    .getByRole("radio", { name, exact: true });
+
 export const canvasRegion = (page: Page): Locator => page.getByRole("main", { name: "Canvas" });
 export const inputsPanel = (page: Page): Locator =>
   page.getByRole("complementary", { name: "Inputs" });

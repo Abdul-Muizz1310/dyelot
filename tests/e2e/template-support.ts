@@ -222,6 +222,22 @@ export function typeTriples(
 }
 
 /** A color in sRGB with alpha: channels 0 to 255, alpha 0 to 1. */
+/** The canvas toolbar's "Template" select. */
+export const templateSelect = (page: Page): Locator =>
+  page
+    .getByRole("region", { name: "Canvas toolbar" })
+    .getByRole("combobox", { name: "Template", exact: true });
+
+/** A template other than `id`, shown first so that `id` mounts afresh. */
+export const elsewhere = (id: TemplateId): TemplateId =>
+  id === "landing" ? "editorial" : "landing";
+
+/** The canvas toolbar's "Reduce motion" switch, which places every entrance and transition at once. */
+export const reduceMotion = (page: Page): Locator =>
+  page
+    .getByRole("region", { name: "Canvas toolbar" })
+    .getByRole("switch", { name: "Reduce motion", exact: true });
+
 export type Rgba = readonly [number, number, number, number];
 
 /** The page's color resolver, which `installColorResolver` puts on `window`. */

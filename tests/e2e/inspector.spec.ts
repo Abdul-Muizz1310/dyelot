@@ -24,15 +24,17 @@ import {
 import type { TemplateId } from "@/features/studio/view";
 import { type DesignSpec, encodeSpec, normalizeSpec } from "@/spec";
 import {
+  button,
   canvasFrame,
   canvasRegion,
   designFor,
   FRESH,
+  first,
   inspectorAside,
   lotId,
+  modeSwitch,
   openStudio,
   seedCalls,
-  seedOf,
   settled,
   stubSeeds,
 } from "./studio-support";
@@ -69,9 +71,6 @@ const TEMPLATES: readonly TemplateId[] = [
 /** A name the bestof list holds: it marks the list's chunk by its content. */
 const LIST_MARK = "20000 Leagues Under the Sea";
 
-/** The design of the first load when `stubSeeds` draws the seeds. */
-const first = () => designFor(FRESH, seedOf(1));
-
 const inspector = (page: Page) => page.locator("aside#studio-inspector");
 const region = (page: Page, name: string) =>
   inspector(page).getByRole("region", { name, exact: true });
@@ -79,8 +78,6 @@ const scrollArea = (page: Page) => inspector(page).locator("[data-scroll-area]")
 const findingItem = (page: Page, key: string) => inspector(page).locator(`[data-finding="${key}"]`);
 const showMeButton = (page: Page, key: string) =>
   findingItem(page, key).getByRole("button", { name: "Show me", exact: true });
-const button = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
-const modeSwitch = (page: Page) => page.getByRole("switch", { name: "Dark mode", exact: true });
 
 /** A deep copy of `value` with `next` at `path`. */
 function withValue<T>(value: T, path: readonly (string | number)[], next: unknown): T {

@@ -14,14 +14,13 @@ import {
   canvasPane,
   canvasRegion,
   canvasVars,
-  designFor,
-  FRESH,
+  first,
   lotId,
   openStudio,
   rgbToHex,
-  seedOf,
   settled,
   stubSeeds,
+  toolbarRadio,
 } from "./studio-support";
 import {
   antiSlop,
@@ -29,6 +28,7 @@ import {
   canvasAtRest,
   controlLabels,
   eachTab,
+  elsewhere,
   equalIconSiblings,
   figureLines,
   HERO_FIGURE,
@@ -39,6 +39,7 @@ import {
   overflow,
   paintedContrast,
   pictographs,
+  reduceMotion,
   resolveColors,
   restoreCanvas,
   roleColor,
@@ -51,6 +52,7 @@ import {
   TABS,
   TYPE_STEPS,
   templateRoot,
+  templateSelect,
   typeStepOf,
   typeTriples,
   unnamedPaint,
@@ -68,14 +70,7 @@ const RADII = ["sm", "md", "lg", "xl", "2xl", "full"];
 const DURATIONS = ["instant", "fast", "quick", "base", "slow", "slower", "slowest"];
 const EASINGS = ["standard", "decelerate", "accelerate", "emphasized"];
 
-/** The design of the first load when `stubSeeds` draws the seeds. */
-const first = () => designFor(FRESH, seedOf(1));
 const vars = (mode: "light" | "dark") => themeVars(first(), mode, { units: "cqi" });
-
-const templateSelect = (page: Page) =>
-  page
-    .getByRole("region", { name: "Canvas toolbar" })
-    .getByRole("combobox", { name: "Template", exact: true });
 
 /** `#rrggbb` as the browser computes it: `rgb(r, g, b)`. */
 function rgbOf(hex: string): string {
@@ -718,9 +713,6 @@ const EVERY_TEMPLATE = [
   "mobile",
   "kitchen-sink",
 ] as const satisfies readonly TemplateId[];
-
-/** A template other than `id`, shown first so that `id` mounts afresh. */
-const elsewhere = (id: TemplateId): TemplateId => (id === "landing" ? "editorial" : "landing");
 
 test.describe("7.6 The landing and editorial templates", () => {
   test.describe.configure({ mode: "serial" });
@@ -1508,12 +1500,6 @@ async function pageViewFailures(
   return failures;
 }
 
-/** The canvas toolbar's "Reduce motion" switch, which places every entrance and transition at once. */
-const reduceMotion = (page: Page) =>
-  page
-    .getByRole("region", { name: "Canvas toolbar" })
-    .getByRole("switch", { name: "Reduce motion", exact: true });
-
 /**
  * The presets of F-TPL-40's motion spot check: the two with playful motion and the largest type, the
  * poster context (maximalism) and the marketing context (retro-futurism).
@@ -1673,13 +1659,6 @@ test("F-TPL-40 with motion on, two playful presets fit the landing and editorial
   await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "false");
   expect(failures).toEqual([]);
 });
-
-/** The toolbar's radio `name` in its group `group` (the panel has a Density group too). */
-const toolbarRadio = (page: Page, group: string, name: string) =>
-  page
-    .getByRole("region", { name: "Canvas toolbar" })
-    .getByRole("group", { name: group, exact: true })
-    .getByRole("radio", { name, exact: true });
 
 /** The settings template's scroll area, its save bar and the canvas region, as boxes on screen. */
 function saveBar(page: Page) {
