@@ -12,8 +12,8 @@ import {
 } from "./studio-support";
 
 // The About flows of docs/specs/03-export.md, section 10.12 (Task 3.13): F-ABT-01 to F-ABT-04, on the
-// fields of R3-33 and section 9.1. The "Import…" button of F-ABT-01 belongs to Task 3.16, which adds its
-// assertion; the export dialog's lot line of F-ABT-02 is asserted here (Task 3.14).
+// fields of R3-33 and section 9.1, with the "Import…" button of F-ABT-01 (Task 3.16); the export
+// dialog's lot line of F-ABT-02 is asserted here (Task 3.14).
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -61,6 +61,7 @@ test.describe("9.1 About", () => {
     await expect(nameField(page)).toHaveAccessibleDescription("Up to 80 characters");
     await expect(oneLineField(page)).toHaveAccessibleDescription("Up to 140 characters");
     await expect(about.getByRole("textbox")).toHaveCount(2);
+    await expect(about.getByRole("button", { name: "Import…", exact: true })).toHaveCount(1);
   });
 
   test("F-ABT-02 typing Saltmarsh at a steady pace is one history entry, and one Undo undoes it", async ({

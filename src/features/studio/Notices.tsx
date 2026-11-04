@@ -49,6 +49,7 @@ export function Notices({ store, onAction }: { store: StudioStore; onAction(): v
     case "custom-fonts":
     case "draft-restored":
     case "copy-blocked":
+    case "imported":
       return (
         <Banner role="status" notice={notice}>
           {dismiss}

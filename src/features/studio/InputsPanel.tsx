@@ -1,6 +1,6 @@
 "use client";
 
-import { type ReactNode, useId, useState } from "react";
+import { type ReactNode, type RefObject, useId, useState } from "react";
 import {
   CHROMA_LEVELS,
   CONTRAST_LEVELS,
@@ -20,7 +20,7 @@ import {
   TYPE_CONTEXTS,
 } from "@/engine";
 import { AboutFields } from "./AboutFields";
-import { PRESSED, PRIMARY_BUTTON } from "./chrome";
+import { BUTTON, PRESSED, PRIMARY_BUTTON } from "./chrome";
 import { Choice, LABEL, Picker, same } from "./controls";
 import { isOneOf } from "./guards";
 import { autoPairingLabel, GAMUT_LABELS, SEED_FIELD_MESSAGE, seedRowHex } from "./inputs";
@@ -37,7 +37,16 @@ const AUTO = "auto";
 /** The preset select's value while no preset is selected (R2-28). */
 const CUSTOM = "custom";
 
-export function InputsPanel({ store }: { store: StudioStore }) {
+export function InputsPanel({
+  store,
+  onImport,
+  importButton,
+}: {
+  store: StudioStore;
+  /** Opens the import dialog (R3-33); `opener` is where focus returns. */
+  onImport?(opener: HTMLElement): void;
+  importButton?: RefObject<HTMLButtonElement | null>;
+}) {
   const params = useStudio(store, (studio) => studio.params);
   const seed = useStudio(store, (studio) => studio.seed);
   const preset = useStudio(store, (studio) => studio.preset);
@@ -54,6 +63,14 @@ export function InputsPanel({ store }: { store: StudioStore }) {
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pt-4 pb-6">
         <Section title="About">
           <AboutFields store={store} />
+          <button
+            type="button"
+            ref={importButton}
+            onClick={(event) => onImport?.(event.currentTarget)}
+            className={`${BUTTON} w-fit`}
+          >
+            Import…
+          </button>
         </Section>
 
         <Section title="Seeds">

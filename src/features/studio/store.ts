@@ -12,8 +12,10 @@ import {
   PRESETS,
   type PresetId,
   parseColor,
+  presetOf,
   applyPreset as presetParams,
 } from "@/engine";
+import type { ImportResult } from "@/import";
 import { type DesignSpec, normalizeSpec, specId } from "@/spec";
 import type { StudioClient } from "./client";
 import {
@@ -73,6 +75,11 @@ export type StudioActions = {
   toggleLock(slot: Lockable): void;
   /** Regenerates the held design from its own params and seed as a new commit (R3-33). */
   rebuild(): void;
+  /**
+   * Loads an import's spec as a link load does (R3-33): a loaded snapshot, the old one on `history`,
+   * no request, and the `imported` notice, which belongs to that snapshot.
+   */
+  importDesign(result: Extract<ImportResult, { ok: true }>): void;
   setSeedColor(
     slot: Lockable,
     text: string,
@@ -113,7 +120,11 @@ const COALESCE_MS = 1_000;
 const PERSIST_DELAY_MS = 300;
 
 /** Notices that a successful commit answers: the failure is over, the fonts are reset. */
-const CLEARED_BY_COMMIT: ReadonlySet<Notice["kind"]> = new Set(["generation", "custom-fonts"]);
+const CLEARED_BY_COMMIT: ReadonlySet<Notice["kind"]> = new Set([
+  "generation",
+  "custom-fonts",
+  "imported",
+]);
 
 /** The parameters and the preset a request asks for, and the seed it uses. */
 type Intent = {
@@ -256,6 +267,9 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
   // The outcome of rebuilding a held blocked design, by spec id (R3-42): computed when the design is
   // committed or loaded, before subscribers hear of it, and never again for the same design.
   const outcomes = new Map<string, RebuildOutcome>();
+  // The `imported` notice of each imported snapshot, by its spec: undo drops the notice with the
+  // snapshot, and undo or redo back to the import brings it back (R3-33).
+  const importNotices = new WeakMap<DesignSpec, Notice>();
   function outcomeOf(snapshot: Snapshot): RebuildOutcome | null {
     // A generated design needs no outcome: a failing one is a fault whatever a rebuild would give.
     if (snapshot.provenance !== "loaded") return null;
@@ -287,6 +301,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     regenerate,
     toggleLock,
     rebuild,
+    importDesign,
     setSeedColor,
     undo,
     redo,
@@ -463,6 +478,46 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     issue({ params, seed, preset });
   }
 
+  function importDesign(result: Extract<ImportResult, { ok: true }>): void {
+    assertRecord(result, "importDesign: result");
+    if (result.ok !== true) {
+      throw new TypeError("importDesign: result must be a successful import, got a failed one");
+    }
+    assertRecord(result.spec, "importDesign: result.spec");
+    assertRecord(result.report, "importDesign: result.report");
+    let spec: DesignSpec;
+    try {
+      spec = normalizeSpec(result.spec);
+    } catch (error) {
+      if (error instanceof RangeError) throw new RangeError(`importDesign: ${error.message}`);
+      if (error instanceof TypeError) throw new TypeError(`importDesign: ${error.message}`);
+      throw error;
+    }
+    const { report } = result;
+    const count = (mode: "light" | "dark") =>
+      report.mapped.filter((entry) => entry.mode === mode).length;
+    const notice: Notice = {
+      kind: "imported",
+      format: report.format,
+      exact: report.exact,
+      light: count("light"),
+      dark: count("dark"),
+      adjusted: report.adjusted.length,
+      ...(report.inferred.customFonts ? { customFonts: true as const } : {}),
+    };
+    importNotices.set(spec, notice);
+    const snapshot: Snapshot = {
+      params: paramsOfSpec(spec).params,
+      seed: spec.meta.seed,
+      spec,
+      preset: presetOf(spec),
+      provenance: "loaded",
+    };
+    const { history } = state();
+    show(snapshot, [...history, committed].slice(-HISTORY_LIMIT), []);
+    patch(withStatus({ notice }));
+  }
+
   function setSeedColor(
     slot: Lockable,
     text: string,
@@ -493,7 +548,11 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     supersedeAll();
     committed = snapshot;
     const { status } = state();
-    const notice = status.notice?.kind === "generation" ? null : status.notice;
+    const kept =
+      status.notice?.kind === "generation" || status.notice?.kind === "imported"
+        ? null
+        : status.notice;
+    const notice = importNotices.get(snapshot.spec) ?? kept;
     patch({
       ...snapshot,
       outcome: outcomeOf(snapshot),

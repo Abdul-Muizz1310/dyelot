@@ -114,6 +114,9 @@ const PREVIEW_HELPERS = [
 /** The export dialog's pure helpers (Task 3.14), held to `PURE_FLOORS` the same way. */
 const EXPORT_HELPERS = ["files"].map((name) => `src/features/export/${name}.ts`);
 
+/** The import dialog's pure helpers (Task 3.16), held to `PURE_FLOORS` the same way. */
+const IMPORT_HELPERS = ["form"].map((name) => `src/features/import/${name}.ts`);
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -199,6 +202,7 @@ export default defineConfig({
         ...STUDIO_HELPERS,
         ...PREVIEW_HELPERS,
         ...EXPORT_HELPERS,
+        ...IMPORT_HELPERS,
       ],
       thresholds: {
         lines: 80,
@@ -214,10 +218,9 @@ export default defineConfig({
         "src/import/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
         "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
         ...Object.fromEntries(
-          [...STUDIO_HELPERS, ...PREVIEW_HELPERS, ...EXPORT_HELPERS].map((file) => [
-            file,
-            PURE_FLOORS,
-          ]),
+          [...STUDIO_HELPERS, ...PREVIEW_HELPERS, ...EXPORT_HELPERS, ...IMPORT_HELPERS].map(
+            (file) => [file, PURE_FLOORS],
+          ),
         ),
       },
     },

@@ -914,6 +914,7 @@ test.describe("7.2 The inputs panel", () => {
   const CONTROLS = [
     "text:Name",
     "text:One line",
+    "button:Import…",
     ...SEEDS.flatMap((slot) => [
       `text:${slot}`,
       `color:Pick ${slot.toLowerCase()}`,
@@ -942,7 +943,10 @@ test.describe("7.2 The inputs panel", () => {
     expect(await panelControls(page)).toEqual(CONTROLS);
     const panel = inputsPanel(page);
     await expect(panel.locator("textarea, input[type='file']")).toHaveCount(0);
-    await expect(panel).not.toContainText(/brief|image|import/i);
+    // No brief or image control; the About section's "Import…" is the panel's one import control (R3-33).
+    await expect(panel).not.toContainText(/brief|image/i);
+    await expect(panel.getByText(/import/i)).toHaveCount(1);
+    await expect(panel.getByRole("button", { name: "Import…", exact: true })).toHaveCount(1);
   });
 
   test("F-INPUT-02 every control has an accessible name equal to its label", async ({ page }) => {
@@ -952,6 +956,7 @@ test.describe("7.2 The inputs panel", () => {
       await expect(panel.getByRole("textbox", { name, exact: true })).toHaveCount(1);
       await expect(panel.locator("label", { hasText: new RegExp(`^${name}$`) })).toBeVisible();
     }
+    await expect(panel.getByRole("button", { name: "Import…", exact: true })).toHaveText("Import…");
     for (const slot of SEEDS) {
       await expect(panel.getByRole("textbox", { name: slot, exact: true })).toHaveCount(1);
       await expect(panel.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true })).toHaveCount(1);
@@ -1555,6 +1560,7 @@ test.describe("7.3 Keyboard", () => {
     return [
       field(page, "Name"),
       field(page, "One line"),
+      button(page, "Import…"),
       ...(["Primary", "Secondary", "Accent"] as const).flatMap((slot) => [
         field(page, slot),
         page.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true }),

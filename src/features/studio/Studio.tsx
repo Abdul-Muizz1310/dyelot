@@ -5,6 +5,7 @@ import "./highlight.css";
 import Link from "next/link";
 import { type RefObject, useEffect, useRef, useState } from "react";
 import { ExportDialog } from "@/features/export/ExportDialog";
+import { ImportDialog } from "@/features/import/ImportDialog";
 import { createFitStore, FitContext } from "@/features/preview/useFrameFit";
 import { CanvasArea } from "./CanvasArea";
 import { createStudioClient } from "./client";
@@ -66,7 +67,10 @@ function StudioShell({ store }: { store: StudioStore }) {
   const copyButton = useRef<HTMLButtonElement>(null);
   const exportButton = useRef<HTMLButtonElement>(null);
   const exportOpener = useRef<HTMLElement | null>(null);
+  const importButton = useRef<HTMLButtonElement>(null);
+  const importOpener = useRef<HTMLElement | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   // The canvas area measures the frame's fit and the toolbar's frame switcher shows it (M-8).
   const [fitStore] = useState(createFitStore);
@@ -99,6 +103,35 @@ function StudioShell({ store }: { store: StudioStore }) {
     exportOpener.current = returnTo;
     setExportOpen(true);
   }
+
+  /** Opens the import dialog on the same rules as the export one (R3-34, section 9.3). */
+  function openImport(opener: HTMLElement | null): void {
+    if (importOpen || exportOpen) return;
+    let returnTo = opener;
+    if (open !== null) {
+      returnTo = document.querySelector<HTMLElement>(`[aria-controls="studio-${open}"]`);
+      closeDrawer();
+    }
+    importOpener.current = returnTo;
+    setImportOpen(true);
+  }
+
+  // A successful import sends focus to the canvas region, not back to "Import…" (section 9.3).
+  const focusAfterImport = useRef(false);
+  const wasImportOpen = useRef(false);
+  useEffect(() => {
+    if (wasImportOpen.current && !importOpen) {
+      if (focusAfterImport.current) {
+        canvas.current?.focus();
+      } else {
+        const opener = importOpener.current;
+        const target = opener?.isConnected === true && opener !== document.body ? opener : null;
+        (target ?? importButton.current)?.focus();
+      }
+      focusAfterImport.current = false;
+    }
+    wasImportOpen.current = importOpen;
+  }, [importOpen]);
 
   // Closing gives focus back to the element that opened the dialog, once the page is no longer inert.
   const wasExportOpen = useRef(false);
@@ -133,7 +166,7 @@ function StudioShell({ store }: { store: StudioStore }) {
 
   useStudioKeys(store, {
     drawerOpen: open !== null,
-    dialogOpen: exportOpen,
+    dialogOpen: exportOpen || importOpen,
     closeDrawer,
     copyLink: () => void copyLink(),
     openExport: () =>
@@ -144,11 +177,11 @@ function StudioShell({ store }: { store: StudioStore }) {
   const focusCanvas = () => canvas.current?.focus();
 
   /** The rest of the page while a drawer or the export dialog is open: inert (R2-16 item 2, R3-34). */
-  const blocked = open !== null || exportOpen;
+  const blocked = open !== null || exportOpen || importOpen;
   /** A panel's state, inert too while the dialog is open. */
   const panel = (name: "inputs" | "inspector") => {
     const state = panelState(name);
-    return { ...state, inert: state.inert || exportOpen };
+    return { ...state, inert: state.inert || exportOpen || importOpen };
   };
 
   return (
@@ -200,7 +233,11 @@ function StudioShell({ store }: { store: StudioStore }) {
             canClose={isDrawer.inputs}
             onClose={closeDrawer}
           />
-          <InputsPanel store={store} />
+          <InputsPanel
+            store={store}
+            importButton={importButton}
+            onImport={(opener) => openImport(opener)}
+          />
         </aside>
         <Toolbar
           store={store}
@@ -243,6 +280,15 @@ function StudioShell({ store }: { store: StudioStore }) {
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           onShowFindings={showFindings}
+        />
+        <ImportDialog
+          store={store}
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          onImported={() => {
+            focusAfterImport.current = true;
+            setImportOpen(false);
+          }}
         />
         <Toast state={toast} onClose={() => setToast(null)} fallbackFocus={copyButton} />
         <DraftsAnnouncer store={store} />
