@@ -11,7 +11,9 @@ no longer has, and it is lost. This file rebuilds it from the M3 plan (`docs/pla
 meta-repo). The plan kept every ruling id (R3-01 to R3-42), every case id, every interface, the counts it measured and
 the owner's four decisions (D1 to D4). Where the plan states a rule, this file copies it. Where the plan gives only an id
 or a name, this file writes the rule anew. Each ruling in section 3 ends with **(plan)** when the plan states its
-content, or **(rebuilt)** when this file supplies it, so the owner can review the rebuilt parts first.
+content, or **(rebuilt)** when this file supplies it, so the owner can review the rebuilt parts first. A fresh reviewer read the rebuilt spec against the plan and the code on
+2026-11-05 (fix round 1); its findings are fixed in place, and the table at the end of section 1 lists every place where this
+spec departs from the plan.
 
 Section 2 copies the plan's decisions word for word. Section 3 lists the rulings that close gaps in them. Tasks 3.2 to 3.16
 implement against the cases in section 10. The external formats were checked again on 2026-11-05 against the pinned
@@ -76,6 +78,21 @@ deferred item to a milestone.
 | §13 Export cases | Section 10. Goldens for the 14 presets and one import (R3-27); the validators run on vendored schemas with no network (R3-28) | Tests must not depend on the network |
 | §16 Risks: DESIGN.md is alpha | The pinned linter runs in a unit test on every golden (R3-21) | The extension sections are checked, not assumed |
 
+### Where this spec departs from the plan
+
+| Plan | This spec | Why |
+|---|---|---|
+| `themeCss(spec, ORIGIN)`, `dtcgFiles(spec, name)`, `motionFiles(spec, name, lot)`, `skillFile(spec, slug)` | Each also takes `origin` (section 5.3) | Each prints the edit link, which needs the origin (fix round 1) |
+| `toonFile(spec, lot)` | `toonFile(spec)` | The view holds no header, so the lot has no use (R3-19) |
+| `cssFontStack(id)` | `cssFontStack(id, slot)` | A family outside the catalog needs its slot's fallback (6.1) |
+| `chosenFormat(picked, fileName, text)` | `chosenFormat(picked, detected)` | App code reaches `detectImport` only through `import()` (R3-38) |
+| `blockReason(state, lot)` | `blockReason(state, errors)` | The state's sentence counts errors and never names the lot (R3-42) |
+| `STUB_FILES` with placeholder hashes | Stub texts hashed for real, and `app/theme.css` is `themeCss(SPEC, ORIGIN)` | The checker's hash check must hold on the `APP` fixture (section 4) |
+| Task 3.5 runs C-IMP-01 to 12 | The `importDesignMd` halves of C-IMP-01 to 05 and 12 join in Task 3.12 | `importDesignMd` exists from Task 3.12 |
+| The bundle is built once per open (R3-34 as the plan read it) | It is rebuilt when the committed spec changes while the dialog is open | Review Focus 1 (R3-34) |
+| Task 3.0 leaves C-REPO-M2-07 passing | C-REPO-M2-07 changes: `SCAN_TESTS` gains the ten grid files (section 12) | The guard pins the scan set exactly |
+| Task 3.2 touches no shared test support | `tests/unit/spec/support.ts` draws plain-text names (section 12) | R3-02 rejects a name with a leading or trailing space |
+
 ## 2. Decisions M3 implements
 
 These are the plan's decisions, copied word for word. Where a ruling in section 3 changes one, the ruling wins and names
@@ -138,14 +155,14 @@ each against the same bounds (a `RangeError` naming the field, a `TypeError` for
 spec generated without them equals its M2 self byte for byte (I-M3-06). In M3 the About fields set `name` and `oneLiner`
 (R3-33); `direction` and `rules` arrive by import (R3-30) and, in M4, by the AI layer. **(plan; bounds rebuilt)**
 
-**R3-02 · Plain text.** `isPlainText(value)` is true when `value` is a string of at least one character that equals
-`value.normalize("NFC")`, holds no character of `\p{Cc}`, U+2028, U+2029, U+061C, U+200E, U+200F, U+202A to U+202E or U+2066
-to U+2069, and neither starts nor ends with white space (`/\s/`). `toPlainText(raw, max)` follows this order: (1) NFC;
-(2) drop every bidirectional control of that list; (3) replace each run of white space, `\p{Cc}`, U+2028 and U+2029 with
-one space; (4) trim; (5) when longer than `max`, cut to `max` code units, or `max − 1` when the cut would split a surrogate
-pair; (6) trim again. It returns `null` when the result is empty, and otherwise `{ text, truncated }`, where `truncated` says
-step 5 cut. `raw` must be a string (`TypeError`) and `max` an integer of at least 1 (`RangeError`); every message names
-`toPlainText`. The schema requires `isPlainText` of `meta.name`, `meta.oneLiner`, every `direction` text, every `rules`
+**R3-02 · Plain text.** `isPlainText(value)` is true when `value` is a well-formed string (no lone surrogate) of at least one character that
+equals `value.normalize("NFC")`, holds no character of `\p{Cc}`, U+2028, U+2029, U+061C, U+200E, U+200F, U+202A to U+202E or U+2066
+to U+2069, and neither starts nor ends with white space (`/\s/`). `toPlainText(raw, max)` follows this order: (1) drop every bidirectional control of that list and every lone surrogate;
+(2) replace each run of white space, `\p{Cc}`, U+2028 and U+2029 with one space; (3) NFC; (4) trim; (5) when longer than
+`max`, keep the longest prefix of whole code points whose NFC form has at most `max` code units, then NFC it and trim again.
+Dropping the controls before NFC matters: `"e"` + U+200E + U+0301 would otherwise come out as a decomposed `"é"`. It returns `null` when the result is empty, and otherwise `{ text, truncated }`, where `truncated` says
+step 5 cut. `raw` must be a string (`TypeError`) and `max` an integer of at least 1 (`RangeError`); every message names `toPlainText`.
+`isPlainText` of a non-string is a `TypeError` naming `isPlainText`, not `false`: a caller that hands it a number has a bug. The schema requires `isPlainText` of `meta.name`, `meta.oneLiner`, every `direction` text, every `rules`
 entry and the four policies (`components.cards`, `.emphasis`, `.inputs`, `.icons.library`). The bounds of R-20 stay, and a
 `rules` entry gains a lower bound of 1. **(plan)**
 
@@ -173,8 +190,8 @@ weight. A spec that is not an object, or lacks `type.families`, is a `TypeError`
 **R3-06 · Weights on the canvas.** `themeVars` gains `--weight-heading`, `--weight-label` and `--weight-body`, in that order,
 right after `--font-mono`, each the integer of `typeWeights(spec)` written as text: 207 properties. `options.vision` leaves
 them unchanged. On the canvas, a `font-weight` of 600 or more on an element set in the display face becomes
-`min(<n>, var(--weight-heading))`. One set in the mono face that F-WGT-01 finds at fault drops to 500, because two mono
-faces of the catalog hold only 400. Body faces need no cap: C-WGT-06 asserts that every pairing's body family renders 600.
+`min(<n>, var(--weight-heading))`. One set in the mono face that F-WGT-01 finds at fault drops to 500, because Fragment Mono, the mono face of 11 of the 20
+pairings, holds only 400. Body faces need no cap: C-WGT-06 asserts that every pairing's body family renders 600.
 The plan counted six rules to change. That count came from a measurement the lost spec recorded; Task 3.4 lists the rules
 it changes in its report, and F-WGT-01 is the check. **(plan; the rule list rebuilt)**
 
@@ -217,7 +234,8 @@ byte length and hash are those of its UTF-8 encoding. **(plan; path rule rebuilt
 **R3-10 · Numbers and user text.** Every number a writer prints goes through one of four helpers. `fmt4(x)` rounds half away
 from zero to 4 decimals, drops trailing zeros and a trailing point, never uses exponent notation and writes −0 as `0`.
 `trunc4(x)` cuts toward zero at 4 decimals and formats like `fmt4`, so a ratio of 4.49999 prints `4.4999` and never reads as
-passing. `round1(x)` rounds half away from zero to 1 decimal and returns a number. `round6` is the engine's. Each throws a
+passing. It cuts the decimal digits of the shortest string that reads back as `x` (`String(x)`, written out in full when it
+uses an exponent), never `Math.trunc(x × 10000) / 10000`, which turns 1.13 into `1.1299`. `round1(x)` rounds half away from zero to 1 decimal and returns a number. `round6` is the engine's. Each throws a
 `RangeError` for a number that is not finite and a `TypeError` for a non-number. Every piece of user text goes through one of
 four helpers. `slug(text)` lowercases, folds U+00C0 to U+017F to ASCII by a fixed table (never `normalize`), turns each run of
 characters outside `[a-z0-9]` into `-`, trims `-`, cuts to 48 characters, trims `-` again, and gives `"design"` for an
@@ -251,13 +269,15 @@ trailing slash; otherwise it is a `RangeError` (a non-string is a `TypeError`). 
 13. `receipt.json`, always last
 
 That is 18 files plus one per font item: 18 to 21. The decision's "21 files" and "three font items" are the count for a
-design with three distinct families that next/font can load. The edit link is `<origin>/studio#s=<encodeSpec(spec)>`. Per D4,
+design with three distinct families that next/font can load. The edit link is `editLink(spec, origin)`: `<origin>/studio#s=<encodeSpec(spec)>`, with the origin checked as above. Per D4,
 `DESIGN.md`, `prompt.md`, the skill and the header comment of `theme.css` carry the words "Made with dyelot" and the edit
 link, and the receipt records the link. `zipName(bundle)` is `<slug>-<the first 8 digits of the spec id>.zip`. **(plan; the
 order rebuilt from the plan's file list)**
 
-**R3-13 · `theme.css` reuses the bridge.** `themeCss(spec)` writes the values of `themeVars(spec, "light")` and the color
-values of `themeVars(spec, "dark")`, never values of its own, in the layout of section 6.2. Shadow layers stay as the bridge
+**R3-13 · `theme.css` reuses the bridge.** `themeCss(spec, origin)` writes the values of `themeVars(spec, "light")` and the color values of `themeVars(spec, "dark")`
+in the layout of section 6.2: every name the bridge also writes carries the bridge's value. Its own values are only the
+mappings of R3-14 (`--spacing`, the `--font-weight-*` names, white and black) and the font stacks of `cssFontStack`, which add
+Fontsource's variable family names (6.1). Shadow layers stay as the bridge
 writes them, `oklch(L C H / a)`, so a tinted shadow keeps its tint. Mode-independent values go into `@theme`; the 46 roles,
 the 88 steps and the durations go into `:root`, and the roles and steps again into `.dark`. **(plan)**
 
@@ -374,11 +394,14 @@ by default, with the current folder as the root. It runs four checks in this ord
    (`--color-<role>`, `--color-<palette>-<step>`) must still point at the same variable (`theme-name-changed`).
 2. **The pairs.** Each of the 78 required checks is measured again with WCAG 2.2 on the theme's values; a pair below its
    threshold is `contrast-fails`.
-3. **Shadows.** A role or `--radius` defined again after the theme, in the global stylesheet or in another stylesheet that
-   it imports later, is `shadowed`, naming both places.
+3. **Shadows.** A role, `--radius`, or a `--color-<role>` or `--color-<palette>-<step>` name defined again after the theme,
+   in the global stylesheet or in another stylesheet that it imports later, with a value other than the theme's (white space
+   aside), is `shadowed`, naming both places.
 4. **The scan.** Every file with an extension of `.ts .tsx .js .jsx .mjs .cjs .css .scss .html .vue .svelte .astro .mdx`
    under the root is scanned, except folders named `node_modules` at any depth, `.git`, `.next`, `dist`, `build`, `out` and
-   `coverage`, the bundle's own files and any file over 1 MiB. A finding is a raw hex (`#` and 3, 4, 6 or 8 hex digits, not
+   `coverage`, the bundle's own files (`receipt.json` and every path its `files` list names) and any file over 1 MiB. A line
+   that declares one of the 46 roles, `--radius` or a `--color-*` name is not scanned, in any file: checks 1b and 3 judge
+   those, so the theme file of the registry route and shadcn's own blocks are never counted twice. A finding is a raw hex (`#` and 3, 4, 6 or 8 hex digits, not
    followed by a word character), a color function with a literal first argument (`rgb`, `rgba`, `hsl`, `hsla`, `hwb`, `lab`,
    `lch`, `oklab`, `oklch`, `color`, not `var(`), a Tailwind default palette class (a utility prefix such as `bg-`, `text-`,
    `border-`, `ring-`, `fill-`, `stroke-`, `from-`, `via-`, `to-`, `outline-`, `decoration-`, `divide-`, `shadow-`,
@@ -393,8 +416,8 @@ exit 0, `FAIL (<n> findings)` on exit 1 (`FAIL (1 finding)` for one) and `ERROR:
 check order (1, 1b, 2, 3, 4), the scan's by path in code-unit order, then line, then column. The exit-2 messages are "No
 theme found: none of app/globals.css, src/app/globals.css and styles/globals.css exists.", "No theme found: <path> imports
 no theme.css and does not define every role.", "Unknown option <flag>.", "No folder at <path>.", "No receipt at
-<path>.", "The receipt at <path> is not valid JSON.", "The receipt's format is <x>, not dyelot.check/1." and "--receipt
-needs a path.". With `--json` it prints one JSON object and
+<path>.", "The receipt at <path> is not valid JSON.", "The receipt's format is <x>, not dyelot.check/1." "--receipt needs a path.", "--root needs a path." and "The receipt at <path> lacks <key>." (for a receipt of the right
+format without `roles`, `contrast`, `radius` or `files`). With `--json` it prints one JSON object and
 nothing else: `{ format: "dyelot.check-report/1", result: "PASS" | "FAIL" | "ERROR", error?, design, findings, ignored, checked }`,
 where `error` holds the message on exit 2 and `findings` and `ignored` are then empty.
 **(plan; the patterns and finding names rebuilt)**
@@ -438,7 +461,8 @@ own draft-07 meta-schema under that `https` id. **(plan)**
    more and `editorial` otherwise; any other size, or none, is `product`.
 5. **Fonts.** Family names map to ids by R2-03's rule. Three ids that form a pairing set `pairing`. Otherwise the ids that
    match `FAMILY_ID` replace the generated families after generation, which the studio shows as custom fonts (R2-14 item 4).
-6. **Generation.** `generateSystem` runs on `freshParams()` with those values at contrast level `AA`, and the seed
+6. **Generation.** `generateSystem` runs on `resolveParams` of `freshParams()` with those values at contrast level `AA`
+   (so an import with no pairing gets the seed's automatic pairing, as a fresh design does), and the seed
    `"import-"` plus the first 16 digits of `sha256(normalized text)`, so the same text always makes the same design.
 7. **Overlay.** Each imported role replaces the generated one in its mode. A color inside sRGB becomes its hex; one outside is
    gamut-mapped to sRGB first (reported `gamut`); one with alpha below 1 is flattened over that mode's background, the
@@ -460,7 +484,8 @@ time. Colors map to roles by this alias table, then by name: every dyelot role n
 is the first of `typography.body`, `typography.body-md` and the first key starting `body`; the display size the first of
 `display`, `display-lg` and the first key starting `display` or `headline`. Families come from those tokens'
 `fontFamily`, and the mono family from the first token whose name holds `mono` or `code`. The name is the front matter's
-`name`, else the first `#` heading, else "Imported design". The first paragraph of `## Overview` becomes `direction.thesis`.
+`name`, else the first `#` heading, else "Imported design". The front matter's `description`, through `toPlainText(…, 140)`, becomes `meta.oneLiner`. The first paragraph of
+`## Overview` becomes `direction.thesis`.
 Bullet lines under `## Do's and Don'ts` that start "Do " or "Don't " become `rules.do` and `rules.dont`: each list keeps
 its first 20 entries, each through `toPlainText(…, 200)`, and a cut or dropped entry lists its field in `truncated`. **(plan; the table
 rebuilt)**
@@ -488,18 +513,20 @@ path too, with the note "The edit link could not be read.". **(plan)**
 **R3-33 · The store's additions.** The inputs panel gains an About section first, with two text fields, "Name" and
 "One line". Each keeps its own raw text while the visitor types, and sends `setParams({ name })` or `setParams({ oneLiner })`
 with `toPlainText(raw, max)?.text`, or `undefined` for an empty result, under the coalesce keys `"about-name"` and
-`"about-one-liner"`. A field takes the store's value only when that value differs from `toPlainText(raw)`, so typing a
-trailing space never jumps the cursor. `importDesign(result)` loads `result.spec` as a link load does: the new snapshot is
+`"about-one-liner"`. A field takes the store's value only when `params.name` (or `params.oneLiner`) differs from `toPlainText(raw, max)?.text`,
+so typing a trailing space never jumps the cursor, and clearing the field shows its placeholder rather than "untitled". `importDesign(result)` loads `result.spec` as a link load does: the new snapshot is
 `{ params, seed, spec, preset: presetOf(spec), provenance: "loaded" }` with the params of `paramsOfSpec`, and the old one
 goes onto `history`. The notice `{ kind: "imported", format, exact, light, dark, adjusted }` (the counts of roles the file
-set in each mode, and of colors adjusted) belongs to that snapshot: undo clears it, redo restores it. `rebuild()` regenerates the held design from its own params and seed as a new commit, with
+set in each mode, and of colors adjusted) belongs to that snapshot: undo clears it, redo restores it. It replaces M2's `custom-fonts` notice for that snapshot;
+when the import's fonts are outside the catalog, its text says so (9.3). `rebuild()` regenerates the held design from its own params and seed as a new commit, with
 provenance `"generated"`. **(plan)**
 
 **R3-34 · The export dialog.** "Export" sits in the toolbar right after "Copy link", with
 `aria-keyshortcuts="Control+E Meta+E"`. It opens a modal dialog labelled by its heading "Export": the rest of the page is
 inert, focus moves to the heading, Escape and "Close" shut it and return focus to the element that opened it, and it fades in and out over 150 ms of opacity, with no transition at all under reduced motion. On open it loads `@/export` through `import()`. Its states are `loading`
 ("Building the bundle…"), `failed` ("The export code did not load." and "Try again"), `waiting` ("Waiting for the design to finish generating…") and `ready`. A ready dialog shows the lot line, the summary lines (section 9.2), the file list in bundle order
-with each file's size and a "Copy" button, a preview of the selected file, and "Download <zip name>". The download builds
+with each file's size and a "Copy" button, a preview of the selected file, and "Download <zip name>". The import dialog loads `@/import` the same way, with its own `failed` state: "The import code
+did not load." and "Try again". The download builds
 the zip, makes a `Blob` URL, clicks a temporary link with `download` set, and revokes the URL on the next task. The plan said
 the bundle is built once per open; Review Focus 1 needs more, so the bundle is rebuilt whenever the committed spec changes
 while the dialog is open. **(plan; the amendment recorded here, as Task 3.14 asked)**
@@ -507,8 +534,8 @@ while the dialog is open. **(plan; the amendment recorded here, as Task 3.14 ask
 **R3-35 · `Mod+E` and swallowing.** `shortcutFor` takes `dialogOpen` in its context. With no dialog open, Ctrl+E or Meta+E
 (the key `e` or the code `KeyE`, without Alt or Shift, outside a text field) gives `{ kind: "open-export" }`, and a repeat of
 it gives `{ kind: "swallow" }`. While a dialog is open, Mod+S and Mod+E give `{ kind: "swallow" }` anywhere, so the save
-dialog and the address bar stay shut, and every other key gives `null`: the dialog handles its own keys and Escape. The page calls `preventDefault` for `swallow` and does nothing else. `dialogOpen` is optional, and absent reads as `false`,
-so every M2 case keeps its answer. **(plan)**
+dialog and the address bar stay shut, and every other key gives `null`: the dialog handles its own keys and Escape. The page calls `preventDefault` for `swallow` and does nothing else. `dialogOpen` is optional, and absent reads as `false`, so every M2 case keeps its answer. As in M2, the canvas region keeps
+its keys, so Mod+E there does nothing. **(plan)**
 
 **R3-36 · The inspector's receipt.** The inspector gains a section "Receipt" after "Findings". It shows the same summary lines
 as the export dialog, and, when export is off, one more line with the state's sentence of R3-42. **(plan)**
@@ -582,7 +609,8 @@ a generator reply to its own request (a change of parameters, a preset, regenera
   never ships a failing design. Sentence: "This design fails <n> required checks although the studio generated it. That is a
   fault in dyelot: change any parameter to generate it again."
 
-`<n>` counts the findings of severity `error`, and reads "1 required check" when it is one. `rebuildOutcome(snapshot,
+A required check is a lint rule of severity `error` (D1); `<n>` counts those findings, and reads "1 required check" when it
+is one. The 78 required contrast checks of the summary are a subset of them. `rebuildOutcome(snapshot,
 generate)` calls `generate(snapshot.params, snapshot.seed)` and lints the result: `"passes"` with no error, `"fails"` with
 one, `"throws"` when `generate` throws. The store computes it once per held blocked design, when it commits or loads that design and before it notifies
 subscribers, and keeps it in an internal memo by spec id. `exportState(summary, provenance, outcome)` returns `"passing"`,
@@ -626,7 +654,8 @@ drawer below 1280 px. **(plan; the sentences rebuilt)**
 - **I-M3-06 · M1 and M2 hold.** Every M1 and M2 case passes, except the cases section 12 changes, and every M1 and M2 golden
   (spec ids, share links, lint findings) holds: the new fields are optional and absent unless set.
 - **I-M3-07 · Colors come from the spec.** Every color an export file writes is a value the spec stores (a role hex, a step's
-  hex or OKLCH, a shadow layer's OKLCH and alpha), formatted by the rules of section 6. No writer invents a color.
+  hex or OKLCH, a shadow layer's OKLCH and alpha), formatted by the rules of section 6. No writer invents a color, except the white and black that `theme.css` keeps for
+  Tailwind (R3-14) and the transparent layer of zeros DTCG writes for a flat shadow (R3-17).
 - **I-M3-08 · User text is plain and escaped.** User text reaches a file only as plain text (R3-02) and only through `slug`,
   `mdText`, `yamlString`, `cssComment` or `JSON.stringify`.
 - **I-M3-09 · The lazy layers stay lazy.** The first load of `/studio` fetches no chunk of `src/export` or `src/import`; the
@@ -647,11 +676,11 @@ drawer below 1280 px. **(plan; the sentences rebuilt)**
   `https://ui.shadcn.com/docs/theming` on the day of Task 3.5 with a leading comment naming the URL and the date, and
   `design-md-readme.md`, the README example of `google-labs-code/design.md` with its Apache-2.0 notice in a leading HTML
   comment (Task 3.12).
-- `APP(files)` writes `themeCss(SPEC)` as `app/theme.css`, `app/globals.css` holding `@import "./theme.css";`, and
+- `APP(files)` writes `themeCss(SPEC, ORIGIN)` as `app/theme.css`, `app/globals.css` holding `@import "./theme.css";`, and
   `receiptJson(SPEC, STUB_FILES, ORIGIN)` as `receipt.json` into a fresh temporary folder, then the given files.
   `SHADCN_APP(files)` writes shadcn's scaffold instead: the full `globals.css` of `shadcn-neutral.css`, a `components.json`
   and `components/ui/button.tsx` as shadcn's `new-york` style writes them, plus the unzipped `BUNDLE`, then the given files.
-- `STUB_FILES` holds the 20 paths of a 21-file bundle other than `receipt.json`, each with the text `"stub <path>\n"`, except `app/theme.css`, whose text is `themeCss(SPEC)` so the checker's hash
+- `STUB_FILES` holds the 20 paths of a 21-file bundle other than `receipt.json`, each with the text `"stub <path>\n"`, except `app/theme.css`, whose text is `themeCss(SPEC, ORIGIN)` so the checker's hash
   check holds (Task 3.8). The receipt can then be tested before the bundle exists.
 - `LONG_NAME` is an 80-character name with no space: `"Saltmarsh"` repeated eight times and `"Tidewater"` cut to 8.
 - `ONE_FAIL` is `SPEC` with its light `secondary-foreground` set to `#858585`: one C1 error, and regenerating it from its
@@ -760,7 +789,27 @@ function sha256(input: string | Uint8Array): string; // lowercase hex; a string 
 const RECEIPT_FORMAT = "dyelot.check/1";
 ```
 
-The writers behind the entry, each pure and each tested on its own: `fmt4`, `trunc4`, `round1` (`format.ts`); `slug`,
+The writers behind the entry, each pure and each tested on its own. Their signatures:
+
+```ts
+function editLink(spec: DesignSpec, origin: string): string; // text.ts, checks the origin (R3-12)
+function themeModel(spec: DesignSpec): ThemeModel;
+function themeCss(spec: DesignSpec, origin: string): string;
+function registryItems(spec: DesignSpec, slug: string): readonly BundleFile[];
+function dtcgFiles(spec: DesignSpec, name: string, origin: string): readonly BundleFile[];
+function figmaFiles(spec: DesignSpec, name: string): readonly BundleFile[];
+function toonFile(spec: DesignSpec): BundleFile;
+function motionFiles(spec: DesignSpec, name: string, lot: string, origin: string): readonly BundleFile[];
+function receiptJson(spec: DesignSpec, others: readonly BundleFile[], origin: string): string;
+function designMdTokens(spec: DesignSpec): Record<string, unknown>;
+function designMd(spec: DesignSpec, origin: string): string;
+function agentsSnippet(spec: DesignSpec): string;
+function promptMd(spec: DesignSpec, origin: string): string;
+function skillFile(spec: DesignSpec, slug: string, origin: string): BundleFile;
+function cssFontStack(id: string, slot: "display" | "body" | "mono"): string;
+```
+
+By file: `fmt4`, `trunc4`, `round1` (`format.ts`); `slug`,
 `mdText`, `yamlString`, `cssComment` (`text.ts`); `describeDesign`, `USE_FOR` (`prose.ts`); `NEXT_FONT_MISSING`,
 `familyName`, `cssFontStack`, `fontPackage` (`fonts.ts`); `themeModel` (`model.ts`); `themeCss` (`theme-css.ts`);
 `registryItems` (`registry.ts`); `dtcgFiles` (`dtcg.ts`); `figmaFiles` (`figma.ts`); `toonFile` (`toon.ts`); `motionFiles`
@@ -843,9 +892,9 @@ In the layouts below, `<…>` is a value the writer fills, and every user text g
 - `roles`: 46 entries `{ name, light, dark }` in `ROLE_NAMES` order; `steps`: 88 entries `{ name: "<palette>-<step>", light,
   dark }` in palette then step order; both hold hexes.
 - `families`: `display`, `body` and `mono`, each `{ id, family, stack, package, nextImport }`. `familyName(id)` is the
-  catalog's family name, or the id with each `-` read as a space for a family outside it. `cssFontStack(id)` is
-  `"<Family> Variable", "<Family>", <fallback>` for a variable family (Fontsource's naming) and `"<Family>", <fallback>` for a
-  static one. `fontPackage(id)` is `@fontsource-variable/<id>` or `@fontsource/<id>`, or `null` outside the catalog.
+  catalog's family name, or the id with each `-` read as a space for a family outside it. `cssFontStack(id, slot)` is `"<Family> Variable", "<Family>", <fallback>` for a variable family (Fontsource's naming) and
+  `"<Family>", <fallback>` for a static one; for a family outside the catalog it is `"<familyName(id)>",` followed by the
+  bridge's fallback for the slot (sans for display and body, mono for mono). `fontPackage(id)` is `@fontsource-variable/<id>` or `@fontsource/<id>`, or `null` outside the catalog.
   `nextImport` is the family name with spaces as underscores, or `null` for `NEXT_FONT_MISSING` or a family outside the
   catalog.
 - `typeSteps`: 10 entries `{ name, size, lineHeight, tracking, weight }`: the bridge's `--text-*`, `--leading-*` and
@@ -1090,7 +1139,8 @@ sections in this order, with these exact headings:
 8. `## Components`: the four policies and the icon library with its stroke width.
 9. `## Do's and Don'ts`: the spec's `rules`, the preset's guards (R3-22), then the fixed lines "Do pair every fill with its
    foreground role.", "Don't write a raw hex, rgb(), hsl() or oklch() value in a component.", "Don't use Tailwind's default
-   palette classes such as bg-blue-500.", "Don't set body text under 16 px.".
+   palette classes such as bg-blue-500.", "Don't set body text under <body> px.", where `<body>` is the body step's size (16
+   in the product context, 14 in a dense one, so a dense design never contradicts its own tokens).
 10. `## Dark mode`, `## Motion` (durations, easings, springs with their settle times, the reduced-motion rule) and
     `## Accessibility` (the contrast level and the four summary lines of section 9.2).
 11. `## Install` and `## Self-check before you finish`, word for word as in 6.9.1, `theme.css` embedded verbatim in a
@@ -1114,12 +1164,13 @@ Either way, copy `scripts/dyelot-check.mjs` and `receipt.json` into the app's ro
 Run `node scripts/dyelot-check.mjs` from the app's root before you finish any UI change. It checks the theme against `receipt.json`, measures the 78 required contrast pairs again, and scans the source for raw colors and Tailwind palette classes. Fix every finding until it prints `PASS`. A raw color you must keep needs a comment on its line: `dyelot-check-ignore: <reason>`. Never edit `receipt.json` or `app/theme.css` by hand to make the check pass; change the design in the studio and export it again: <link>
 ```
 
-When every family is outside next/font, Route 2's second sentence is left out; when a family is outside the catalog, its
+When no family has a font item, Route 2's command stops after the theme file: the words "`, then npx shadcn@latest add
+./registry/font-<id>.json` for each font file" are left out; when a family is outside the catalog, its
 package is left out of Route 1's install line.
 
 ### 6.10 `AGENTS.md.snippet` (Task 3.9)
 
-Eleven lines, outside Next.js's managed markers:
+Eleven lines, outside Next.js's managed markers, with `<body>` the body step's size as in 6.9:
 
 ```markdown
 <!-- dyelot:start <lot> -->
@@ -1129,7 +1180,7 @@ Eleven lines, outside Next.js's managed markers:
 - Never write a raw hex, rgb(), hsl() or oklch() color in a component.
 - Use the role utilities (bg-background, text-foreground, bg-primary, text-primary-foreground, border-border), never Tailwind's default palette classes such as bg-blue-500.
 - Pair every fill with its foreground role, such as bg-primary with text-primary-foreground.
-- Set body text with the type steps (text-body and up), never under 16 px.
+- Set body text with the type steps (text-body and up), never under <body> px.
 - Animate with the tokens in motion/, and honor prefers-reduced-motion.
 - Before you finish, run `node scripts/dyelot-check.mjs` and fix every finding until it prints PASS.
 <!-- dyelot:end -->
@@ -1195,7 +1246,8 @@ files; the receipt lists each with its UTF-8 byte length and SHA-256 (I-M3-03).
   the advisory score. `separation` holds the 16 entries with `minDeltaE` through `trunc4`; `pass` is `minDeltaE >= 0.08`.
 - `gamut.outside` lists only the steps over the tolerance, as `{ palette, step, mode, excess }` with `excess` through `fmt4`.
 - `roles` holds the 46 hexes of each mode in `ROLE_NAMES` order; `radius` is the value `theme.css` writes for `--radius`.
-- `findings` holds `lintSpec(spec)` in the linter's order, every number through `fmt4`.
+- `findings` holds `lintSpec(spec)` in the linter's order; the `measured` value of a WCAG rule (C1, C2, C5, N1, N2, N3, F1)
+  goes through `trunc4`, like the ratios, and every other number through `fmt4`.
 - `files` holds the other files in bundle order: 17 to 20 entries.
 
 ### 7.2 The checker's report (Task 3.10)
@@ -1279,8 +1331,8 @@ and moves focus to the canvas region.
 
 The `imported` notice reads "Imported the DESIGN.md exactly, from its edit link." for an exact import, and otherwise
 "Imported a <DESIGN.md | shadcn theme>: <a> of 46 light roles and <b> of 46 dark roles came from the file." followed, when
-any color was adjusted, by "<n> colors were adjusted to fit sRGB or drop alpha." and always by "Undo returns to the design
-before.".
+any color was adjusted, by "<n> colors were adjusted to fit sRGB or drop alpha." then, when the import's fonts are outside the catalog, by "Its fonts are not in dyelot's catalog, so the canvas shows a
+fallback.", and always by "Undo returns to the design before.".
 
 ### 9.4 The inspector's Receipt section (Task 3.15)
 
@@ -1302,8 +1354,8 @@ Tests: `tests/unit/spec/schema-m3.test.ts`, `tests/unit/spec/text.test.ts`, `tes
 | Id | Kind | Case | Origin |
 |---|---|---|---|
 | C-SPEC3-01 | pass | `isPlainText` is true for `"Saltmarsh"`, `"a b"`, `"Crème brûlée"` (NFC), `"日本語"`, `"😀"` and a string of 280 `x` | plan, ruling R3-02 |
-| C-SPEC3-02 | pass | `isPlainText` is false for `""`, `" a"`, `"a "`, `"a\tb"`, `"a\u0000b"`, `"a\u007fb"`, `"a\u0085b"`, `"a\u2028b"`, `"a\u2029b"`, `"a\u061cb"`, `"a\u200eb"`, `"a\u200fb"`, each of U+202A to U+202E and U+2066 to U+2069 inside `"a…b"`, and the decomposed `"e\u0301"` | plan, ruling R3-02 |
-| C-SPEC3-03 | pass | `toPlainText` follows R3-02's order: `"  a\t\tb  "` gives `{ text: "a b", truncated: false }`; `"e\u0301"` gives `"é"`; `"a\u202eb"` gives `"ab"`; `"a\u2028\u2029b"` gives `"a b"`; `"a\u0000\u0001b"` gives `"a b"`; `"\u0000"`, `"   "` and `""` give `null` | plan, ruling R3-02 |
+| C-SPEC3-02 | pass | `isPlainText` is false for `""`, `" a"`, `"a "`, `"a\tb"`, `"a\u0000b"`, `"a\u007fb"`, `"a\u0085b"`, `"a\u2028b"`, `"a\u2029b"`, `"a\u061cb"`, `"a\u200eb"`, `"a\u200fb"`, each of U+202A to U+202E and U+2066 to U+2069 inside `"a…b"`, and the decomposed `"e\u0301"`, and the lone surrogate `"a\ud800b"` | plan, ruling R3-02 |
+| C-SPEC3-03 | pass | `toPlainText` follows R3-02's order: `"  a\t\tb  "` gives `{ text: "a b", truncated: false }`; `"e\u0301"` gives `"é"`; `"a\u202eb"` gives `"ab"`; `"a\u2028\u2029b"` gives `"a b"`; `"a\u0000\u0001b"` gives `"a b"`; `"\u0000"`, `"   "` and `""` give `null`; `"e\u200e\u0301"` gives the composed `"\u00e9"` (the control goes before NFC); `"a\ud800b"` gives `"ab"` | plan, ruling R3-02 |
 | C-SPEC3-04 | pass | Cutting: `toPlainText("abcdef", 3)` is `{ text: "abc", truncated: true }`; `toPlainText("ab cd", 3)` is `{ text: "ab", truncated: true }` (the cut is trimmed again); `toPlainText("ab😀", 3)` is `{ text: "ab", truncated: true }` (the cut would split the pair); `toPlainText("abc", 3)` is `{ text: "abc", truncated: false }` | plan, ruling R3-02 |
 | C-SPEC3-05 | pass | Property, 1,000 runs, `seed: 3002`, over `fc.fullUnicodeString` up to 400 code units and `max` in 1 to 300: the result is `null` or its `text` passes `isPlainText` and has a length of at most `max`; `toPlainText(text, max)` of a non-null result returns the same text with `truncated: false` | ruling R3-02 |
 | C-SPEC3-06 | failure | `toPlainText(5, 3)` and `toPlainText("a", "3")` throw `TypeError`; `toPlainText("a", 0)`, `toPlainText("a", 1.5)` and `toPlainText("a", NaN)` throw `RangeError`; `isPlainText(5)` throws `TypeError`. Each message names its function | plan, ruling R3-02, R-05 |
@@ -1382,6 +1434,8 @@ Tests: `tests/unit/export/text.test.ts`, `tests/unit/export/format.test.ts`.
 | C-TEXT-04 | pass | `yamlString('He said "hi" \ ok')` is `"He said \"hi\" \\ ok"` wrapped in double quotes; property, 1,000 runs, `seed: 3006`, over plain texts that include `#`, `:`, `- `, `yes`, `null`, `@`, `%`, `{` and `&`: `parse` of `yaml` 2.9.1 (core schema) reads `yamlString(text)` back as the string `text` | plan, ruling R3-10 |
 | C-TEXT-05 | pass | `cssComment("a */ b")` is `"/* a * / b */"`; property, 1,000 runs, `seed: 3006`: the first `*/` in `cssComment(text)` is its last two characters | plan, ruling R3-10 |
 | C-TEXT-06 | failure | `slug`, `mdText`, `yamlString` and `cssComment` throw `TypeError` for a non-string; `mdText`, `yamlString` and `cssComment` throw `RangeError` for a string that `isPlainText` rejects (`""`, `"a\nb"`). Each message names its helper | added, R-05, I-M3-08 |
+| C-TEXT-07 | pass | `familyName("source-serif-4")` is `"Source Serif 4"` and `familyName("inter")` is `"inter"`; `cssFontStack("host-grotesk", "body")` starts `"Host Grotesk Variable", "Host Grotesk",`; `cssFontStack("gloock", "display")` starts `"Gloock",`; outside the catalog `cssFontStack("inter", "body")` is `"inter",` and the bridge's sans fallback, and `cssFontStack("jetbrains-mono", "mono")` ends with the mono fallback; `fontPackage("fragment-mono")` is `@fontsource/fragment-mono` and `fontPackage("inter")` is `null`; `describeDesign(SPEC)` is one plain-text sentence ending in a period that names no hex | added, section 6.1, R3-22 |
+| C-TEXT-08 | failure | `familyName`, `cssFontStack` and `fontPackage` throw `TypeError` for a non-string id and `RangeError` for an id that does not match `FAMILY_ID` (`"Bad Id"`); `cssFontStack` throws `RangeError` for a slot other than `display`, `body` and `mono`; `describeDesign(null)` throws `TypeError`; each message names its function | added, R-05 |
 | C-FMT-01 | pass | `fmt4`: `0.1` gives `"0.1"`; `1 / 3` gives `"0.3333"`; `2 / 3` gives `"0.6667"`; `0.00005` gives `"0.0001"`; `-0.00005` gives `"-0.0001"`; `1e-7` and `-1e-7` give `"0"`; `-0` gives `"0"`; `1e21` gives `"1000000000000000000000"`. `trunc4`: `4.49999` gives `"4.4999"`; `2.99999999` gives `"2.9999"`; `-1.23456` gives `"-1.2345"`; `21` gives `"21"`. `round1`: `2.25` gives `2.3`; `-2.25` gives `-2.3`; `12.04` gives `12` | plan, ruling R3-10 |
 | C-FMT-02 | pass | Property, 10,000 runs, `seed: 3006`, over values within 0.001 of each threshold 0.05, 0.08, 0.1, 3, 4.5 and 7 and over [0, 25]: when `Number(trunc4(x)) >= t` then `x >= t`; `Number(trunc4(x)) <= x` for `x >= 0`; `Number(fmt4(x))` lies within 0.00005 of `x`; neither output holds `e` | plan, ruling R3-10 |
 | C-FMT-03 | failure | `fmt4`, `trunc4` and `round1` throw `RangeError` for `NaN`, `Infinity` and `-Infinity` and `TypeError` for `"1"` and `null`; each message names its helper | plan, R-05 |
@@ -1394,7 +1448,7 @@ Tests: `tests/unit/export/theme-css.test.ts`, `tests/unit/export/theme-compile.t
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-CSS-01 | pass | `themeCss(SPEC)` is, in order: three header comment lines, `@custom-variant dark (&:is(.dark *));`, then `@theme`, `:root`, `.dark` and `@theme inline`, each once, blocks separated by one empty line; declarations indented two spaces; LF only; no line ends in a space; one trailing newline; no comment other than the header | plan, ruling R3-13 |
+| C-CSS-01 | pass | `themeCss(SPEC, ORIGIN)` is, in order: three header comment lines, `@custom-variant dark (&:is(.dark *));`, then `@theme`, `:root`, `.dark` and `@theme inline`, each once, blocks separated by one empty line; declarations indented two spaces; LF only; no line ends in a space; one trailing newline; no comment other than the header | plan, ruling R3-13 |
 | C-CSS-02 | pass | The header lines are `cssComment` of "dyelot design system: <name> (LOT <lot>)", "Made with dyelot. Edit this design: <link>" and the fixed third line, where `<link>` is `<ORIGIN>/studio#s=<encodeSpec(SPEC)>`; a name holding `*/` is written with `* /` and the comment stays closed | plan, ruling R3-12, R3-13 |
 | C-CSS-03 | pass | `@theme` holds 86 declarations in section 6.2's order: the reset and `--color-white: #ffffff`, `--color-black: #000000`; five families; three `--font-weight-*`; for each of the 10 steps `--text-<step>` and its three companions; 10 `--leading-*`; 10 `--tracking-*`; `--spacing: 4px`; five radii; five shadows; four easings | plan, ruling R3-14 |
 | C-CSS-04 | pass | `:root` holds 145 declarations: `--radius` (the `lg` radius in px), the 46 roles and 88 steps of `themeVars(SPEC, "light")` in its order, the seven durations, `--spring-duration`, `--spring-bounce` and `--icon-stroke`, each equal to the bridge's value | plan, ruling R3-13 |
@@ -1408,6 +1462,8 @@ Tests: `tests/unit/export/theme-css.test.ts`, `tests/unit/export/theme-compile.t
 | C-CSS-12 | pass | The same compile with `bg-blue-500`, `text-red-600`, `bg-slate-50` and `border-zinc-200` yields no rule for any of them, and the output declares no `--color-blue-500` | plan, ruling R3-14 |
 | C-CSS-13 | pass | Every golden compiles as in C-CSS-11 with no warning or error; `IMPORTED`'s theme writes its overlaid roles | plan |
 | C-CSS-14 | failure | `themeCss(null)` throws `TypeError` naming `themeCss`; a spec whose role value is `"#FFF"` throws the bridge's `RangeError` naming `themeVars` and the role | added, R-05 |
+| C-CSS-15 | pass | `themeModel(SPEC)` lists 46 roles and 88 steps with both modes' hexes, the three families with `id`, `family`, `stack`, `package` and `nextImport` (`host-grotesk` with `@fontsource-variable/host-grotesk` and `Host_Grotesk`), 10 type steps whose `weight` follows 6.1's roles, the weights of `typeWeights`, the radii with `radius` equal to `lg`, five shadows, seven durations, four easings, the spring and the icon stroke, each equal to the bridge's value | added, section 6.1 |
+| C-CSS-16 | failure | `themeModel(null)` throws `TypeError` naming `themeModel`; `themeCss(SPEC, "http://dyelot.vercel.app")` and `themeCss(SPEC, "https://dyelot.vercel.app/")` throw `RangeError` naming `editLink`; `editLink(SPEC, 42)` throws `TypeError` | added, R-05, R3-12 |
 | C-REG-01 | pass | `registry/<slug>.json` of SPEC has the keys `$schema`, `name`, `type`, `title`, `description`, `cssVars`, in that order, with `$schema` `"https://ui.shadcn.com/schema/registry-item.json"`, `name` the slug, `type` `"registry:theme"`, `title` the name, and `description` the one-liner (else `describeDesign(spec)`) followed by " Made with dyelot." | plan, ruling R3-16 |
 | C-REG-02 | pass | `cssVars.light` has 135 keys (`radius`, the 46 roles, the 88 steps) and `cssVars.dark` 134, each value the theme model's hex; keys carry no `--` | plan, ruling R3-16 |
 | C-REG-03 | pass | `cssVars.theme` holds `radius-sm` to `radius-2xl` in px and no value that is a color (no hex, no color function) | plan, ruling R3-16 |
@@ -1419,6 +1475,7 @@ Tests: `tests/unit/export/theme-css.test.ts`, `tests/unit/export/theme-compile.t
 | C-REG-09 | pass | Every catalog family not in `NEXT_FONT_MISSING` is a key of `node_modules/next/dist/compiled/@next/font/dist/google/font-data.json` under its family name, and each family in `NEXT_FONT_MISSING` is absent | plan, ruling R3-16 |
 | C-REG-10 | pass | Every `import` of every golden's font items, read with `_` as a space, is a key of that `font-data.json`, and a static family's listed weights are among that entry's `weights` | plan, ruling R3-16 |
 | C-REG-11 | pass | Every registry item of every golden validates with `registryValidator()`: one Ajv 8.20.0 instance with `ajv-formats`, which first adds `{ ...draft7, $id: "https://json-schema.org/draft-07/schema#" }` from `ajv/dist/refs/json-schema-draft-07.json`, then the vendored item schema under the key `shadcn-registry-item`. Mutated copies fail: `type: "registry:fonts"`, `font.weight: [400]`, a font item without `font`, a theme item with `font`. `tests/fixtures/schemas/sources.json` names the URL, fetch date and SHA-256 of `registry-item.json`, and the file's SHA-256 matches | plan, ruling R3-28 |
+| C-REG-12 | failure | `registryItems(null, "x")` throws `TypeError` naming `registryItems`; a slug that is empty, over 48 characters or not of the form `^[a-z0-9]+(-[a-z0-9]+)*$` throws `RangeError` naming it | added, R-05 |
 
 ### 10.5 DTCG, Figma and TOON (Task 3.7)
 
@@ -1427,7 +1484,7 @@ Tests: `tests/unit/export/dtcg.test.ts`, `tests/unit/export/figma.test.ts`, `tes
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-DTCG-01 | pass | `dtcgFiles(SPEC, name)` returns `tokens/base.tokens.json`, `tokens/light.tokens.json`, `tokens/dark.tokens.json` and `tokens/design.resolver.json`, in that order; each text is `JSON.stringify(value, null, 2)` plus one newline | plan, ruling R3-11, R3-12 |
+| C-DTCG-01 | pass | `dtcgFiles(SPEC, name, ORIGIN)` returns `tokens/base.tokens.json`, `tokens/light.tokens.json`, `tokens/dark.tokens.json` and `tokens/design.resolver.json`, in that order; each text is `JSON.stringify(value, null, 2)` plus one newline | plan, ruling R3-11, R3-12 |
 | C-DTCG-02 | pass | `base.tokens.json` holds the groups `font` (3), `font-weight` (3), `type` (10), `space` (12), `radius` (6), `shadow` (5), `duration` (7), `easing` (4) and `spring` (3 groups of 2), 56 tokens in all, in that order, with the root `$description` "<name>. Made with dyelot: <link>" | plan, ruling R3-17 |
 | C-DTCG-03 | pass | In all four token files of every golden, every token carries its own `$type`, no group carries one, and every name matches `^[^${}.][^{}.]*$` | plan, ruling R3-17 |
 | C-DTCG-04 | pass | `light.tokens.json` and `dark.tokens.json` each hold `color.role` (46) and `color.scale.<palette>.<step>` (88): 134 `color` tokens `{ colorSpace: "oklch", components: [l, c, h], hex }`. A step's components are its stored OKLCH through `round6` and `roundHue`; a role's come from `rgbToOklch(hexToRgb(hex), "srgb")` with the same rounding; a null hue is written `"none"` (SPEC's white `background`) | plan, ruling R3-15, R3-17 |
@@ -1439,13 +1496,14 @@ Tests: `tests/unit/export/dtcg.test.ts`, `tests/unit/export/figma.test.ts`, `tes
 | C-DTCG-10 | pass | For every golden, `base`, `light` and `dark` validate with `formatValidator()` and the resolver with `resolverValidator()`, two separate Ajv instances with `ajv-formats` and no `loadSchema`; `sources.json` names the URL, date and SHA-256 of `format.json` and `resolver.json`, and both files' SHA-256 match | plan, ruling R3-28 |
 | C-DTCG-11 | pass | `design.resolver.json` deep-equals section 6.4's object with the golden's name and link; every `$ref` to a file names a token file of the bundle | plan, ruling R3-17 |
 | C-DTCG-12 | pass | Integer-like keys come first in ascending order (`space` `0` to `32`, steps `50` to `950`, `shadow` `1` to `5`); the other keys keep the order of section 6.4; two calls give equal text | plan, ruling R3-11, I-M3-01 |
-| C-DTCG-13 | failure | `dtcgFiles(null, "x")` throws `TypeError`; a non-string name throws `TypeError`; a name that `isPlainText` rejects throws `RangeError`; each message names `dtcgFiles` | added, R-05 |
+| C-DTCG-13 | failure | `dtcgFiles(null, "x", ORIGIN)` throws `TypeError`; a non-string name throws `TypeError`; a name that `isPlainText` rejects throws `RangeError`; each message names `dtcgFiles` | added, R-05 |
 | C-DTCG-14 | pass | Property, 1,000 runs, `seed: 3007`, over random presets, seeds, contrast levels, gamuts and scale modes: every DTCG file validates; every `hex` matches `^#[0-9a-f]{6}$`; every OKLCH has `l` in [0, 1], `c >= 0` and `h` in [0, 360) or `"none"`; no value is `NaN` or infinite | plan, ruling R3-17 |
 | C-FIG-01 | pass | `figmaFiles(SPEC, name)` returns `tokens/figma/light.tokens.json` and `tokens/figma/dark.tokens.json`, each with 188 tokens: 134 colors, 3 font families, 10 sizes, 10 line heights, 12 space, 6 radii, 7 durations and 6 spring numbers; the two files have equal names and types | plan, ruling R3-18 |
 | C-FIG-02 | pass | Every token's `$type` is one of `color`, `dimension`, `duration`, `number` and `fontFamily`; there is no `typography`, `shadow`, `fontWeight` or `cubicBezier`; every dimension is in `px`; every duration is in `s` with the value `round6(ms / 1000)`; every font family is a single string, the family name | plan, ruling R3-18 |
 | C-FIG-03 | pass | Each color is `{ colorSpace: "srgb", components: [r, g, b], hex }` with `round6` components of the hex's channels over 255 and `hex` the stored hex; only color values differ between the two files | plan, ruling R3-18 |
 | C-FIG-04 | pass | Both files of every golden validate with `formatValidator()` | plan, ruling R3-18, R3-28 |
 | C-FIG-05 | failure | Mutated copies of the `default` golden's Figma files fail `formatValidator()`: a dimension in `em`, a duration in `m`, a color `$value` of `"#ff0000"` | plan, ruling R3-18 |
+| C-FIG-06 | failure | `figmaFiles(null, "x")` throws `TypeError` naming `figmaFiles`; a name that `isPlainText` rejects throws `RangeError` naming it | added, R-05 |
 | C-TOON-01 | pass | `toonFile(SPEC)` has the path `design.toon` and the text `encode({ scales, roles })` of `@toon-format/toon` 4.4.0 with default options, byte for byte, with no trailing newline | plan, ruling R3-19 |
 | C-TOON-02 | pass | The text's first line is `scales[16]{palette,mode,s50,s100,s200,s300,s400,s500,s600,s700,s800,s900,s950}:`, and its 16 rows run palette by palette in `PALETTE_NAMES` order, light then dark, holding the stored hexes | plan, ruling R3-19 |
 | C-TOON-03 | pass | The roles table's header is `roles[46]{role,light,dark}:`, and its rows follow `ROLE_NAMES` order with each mode's hex | plan, ruling R3-19 |
@@ -1460,17 +1518,17 @@ half and C-RCPT-10 live in `tests/unit/export/bundle.test.ts` (Task 3.11).
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-MOT-01 | pass | `motionFiles(SPEC, "untitled", lotTag(specId(SPEC)))` returns exactly three files, `motion/motion.css`, `motion/motion.ts` and `motion/gsap.ts` in that order; each text is LF only, ends in exactly one newline and has no line ending in a space or a tab (R3-09) | plan, ruling R3-09 |
+| C-MOT-01 | pass | `motionFiles(SPEC, "untitled", lotTag(specId(SPEC)), ORIGIN)` returns exactly three files, `motion/motion.css`, `motion/motion.ts` and `motion/gsap.ts` in that order; each text is LF only, ends in exactly one newline and has no line ending in a space or a tab (R3-09) | plan, ruling R3-09 |
 | C-MOT-02 | pass | `motion.css` starts with the three header comments of 6.2, then `:root` holds, in this order, the 7 `--duration-<name>` equal to `themeVars(SPEC, "light")`'s, the 4 `--ease-<name>` equal to the bridge's, `--spring-snappy`, `--spring-smooth` and `--spring-bouncy` each `linear(` plus `springCurve(spring).samples` joined by `, ` plus `)` (26, 44 and 65 values, the first `0`, the last `1`), and `--spring-snappy-settle: 411ms`, `--spring-smooth-settle: 706ms`, `--spring-bouncy-settle: 1056ms`. The `@media (prefers-reduced-motion: reduce)` block sets each spring to `linear(0, 1)` and each settle time to `var(--duration-fast)` | plan, ruling R3-20 |
 | C-MOT-03 | pass | `motion.ts` holds no `import` and no `require`. Transpiled with TypeScript's `transpileModule` (module `ESNext`) and evaluated, it exports `durations` equal to `{ instant: 50, fast: 100, quick: 150, base: 200, slow: 300, slower: 400, slowest: 500 }` for SPEC (`brisk`), `easings` equal to SPEC's four tuples, `springs.snappy` deep-equal to `{ type: "spring", visualDuration: 0.25, bounce: 0.1 }` (and `smooth`, `bouncy` from SPEC), and `springSettleMs` equal to `{ snappy: 411, smooth: 706, bouncy: 1056 }` | plan |
 | C-MOT-04 | pass | `gsap.ts` holds no `import` and no `require`, and names `CustomEase.create` only in a comment. Transpiled and evaluated, it exports `durations` in seconds (`0.05`, `0.1`, `0.15`, `0.2`, `0.3`, `0.4`, `0.5` for SPEC) and `eases` with `standard` `"0.2,0,0,1"`, `decelerate` `"0,0,0,1"`, `accelerate` `"0.3,0,1,1"` and `emphasized` `"0.05,0.7,0.1,1"`. For the `editorial` golden (`calm`) all three files carry the scaled durations 63, 125, 188, 250, 375, 500 and 500 ms (`0.063` to `0.5` s in `gsap.ts`) | plan, ruling R3-13 |
 | C-MOT-05 | failure | `motionFiles` with a spec that is not an object throws `TypeError` naming `motionFiles`; with a `lot` that does not match `^[0-9a-f]{4}·[0-9a-f]{4}$` it throws `RangeError` naming `motionFiles`; with a non-string name it throws `TypeError` | added |
 | C-RCPT-01 | pass | `receiptJson(SPEC, STUB_FILES, ORIGIN)` is `JSON.stringify(receipt, null, 2)` plus `"\n"`; its top-level keys are exactly `format`, `generator`, `design`, `summary`, `contrast`, `separation`, `gamut`, `roles`, `radius`, `findings`, `files`, in that order; `format` equals `RECEIPT_FORMAT`, `"dyelot.check/1"`. Two calls return equal text, and the text is equal under `TZ=UTC` and `TZ=Asia/Kolkata`; it holds no ISO date or time | plan, ruling R3-23, I-M3-01 |
 | C-RCPT-02 | pass | `generator` is `{ name: "dyelot", site: ORIGIN, engineVersion: "dyelot.engine/1" }`. `design` has the keys of 7.1 in order: `name` `"untitled"`, `specId` `specId(SPEC)`, `lot` `lotTag(specId(SPEC))`, `link` `ORIGIN + "/studio#s=" + encodeSpec(SPEC)`, `createdWith` `"controls"`, `preset` `presetOf(SPEC)`, `gamut` and `contrastLevel` from `SPEC.color.params`, and no `oneLiner` key. For SPEC generated with `oneLiner: "Tide tables for small harbors"`, `design.oneLiner` equals it and follows `name` | plan, ruling R3-01 |
-| C-RCPT-03 | pass | `summary` deep-equals `summarize(measureSpec(SPEC), lintSpec(SPEC), SPEC.color.params.gamut)` with the keys of `Summary` in order. `contrast` holds 80 entries in `measureSpec`'s order, each with the keys of 7.1 in order: `check`, `rule`, `kind`, `threshold` and `required` from its `CONTRAST_CHECKS` entry, `fg` and `bg` the hexes of its roles in its mode, `ratio` equal to `Number(trunc4(full))`, `lc` equal to `round1` of `perceptualLc`. `findings` equals `lintSpec(SPEC)` in the linter's order with the keys `id`, `severity`, `mode`, `subject`, `measured`, `threshold`, `source`, every number through `fmt4` | plan, ruling R3-08, R3-23 |
+| C-RCPT-03 | pass | `summary` deep-equals `summarize(measureSpec(SPEC), lintSpec(SPEC), SPEC.color.params.gamut)` with the keys of `Summary` in order. `contrast` holds 80 entries in `measureSpec`'s order, each with the keys of 7.1 in order: `check`, `rule`, `kind`, `threshold` and `required` from its `CONTRAST_CHECKS` entry, `fg` and `bg` the hexes of its roles in its mode, `ratio` equal to `Number(trunc4(full))`, `lc` equal to `round1` of `perceptualLc`. `findings` equals `lintSpec(SPEC)` in the linter's order with the keys `id`, `severity`, `mode`, `subject`, `measured`, `threshold`, `source`; a WCAG rule's `measured` goes through `trunc4` (an overlaid C1 finding at 4.49996 writes `4.4999`) and every other number through `fmt4` | plan, ruling R3-08, R3-23 |
 | C-RCPT-04 | pass | Property, 500 runs, `seed: 3008`, over random light and dark overlays of the 46 roles on SPEC: in every receipt, each `contrast` entry has `pass === (full ratio >= threshold)` and `ratio <= full ratio`; an entry whose written `ratio` is `4.5` never has a full ratio below 4.5; an entry with a full ratio in `[4.4999, 4.5)` writes `4.4999` and `pass: false` | ruling R3-23, R3-10 |
 | C-RCPT-05 | pass | `separation` holds 16 entries in `measureSpec`'s order, each `{ set, mode, view, minDeltaE, threshold: 0.08, pass }` with `minDeltaE` through `trunc4` and `pass` from the full float. `gamut` is `{ gamut: "srgb", values: 176, outside: [] }` for SPEC; with SPEC's light `primary` step 500 overlaid to `{ l: 0.7, c: 0.37, h: 145 }`, `outside` lists exactly `{ palette: "primary", step: 500, mode: "light", excess }` with `excess` through `fmt4` and above `STORED_GAMUT_TOLERANCE` | plan, ruling R3-08 |
-| C-RCPT-06 | pass | `roles.light` and `roles.dark` each hold the 46 roles in `ROLE_NAMES` order with SPEC's hexes; `radius` equals the value `themeCss(SPEC)` writes for `--radius` | plan, ruling R3-14 |
+| C-RCPT-06 | pass | `roles.light` and `roles.dark` each hold the 46 roles in `ROLE_NAMES` order with SPEC's hexes; `radius` equals the value `themeCss(SPEC, ORIGIN)` writes for `--radius` | plan, ruling R3-14 |
 | C-RCPT-07 | pass | With SPEC's light `secondary-foreground` overlaid to `#858585`, the receipt has `summary.contrast.requiredPass` 77, `summary.lint.error` 1 and `summary.pass` false; the light entry `C1:secondary-foreground/secondary` has `pass: false`; `findings` holds that C1 error | plan |
 | C-RCPT-08 | pass | Stub half: `files` lists the 20 `STUB_FILES` in their order, each `{ path, bytes, sha256 }` with `bytes` the UTF-8 length and `sha256` equal to `sha256(text)`, and never lists `receipt.json`. Bundle half (Task 3.11): `BUNDLE`'s receipt lists every other file of `BUNDLE` in bundle order, and each `bytes` and `sha256` matches that file's text (I-M3-03) | plan, I-M3-03 |
 | C-RCPT-09 | failure | `receiptJson` with a spec that is not an object throws `TypeError`; with `others` that is not an array throws `TypeError`; with an origin of `"http://dyelot.vercel.app"` or `"https://dyelot.vercel.app/"` throws `RangeError`; with `others` holding `receipt.json` or the same path twice throws `RangeError`. Every message names `receiptJson` | added |
@@ -1496,10 +1554,10 @@ value `main` returns; "last line" means the last line of everything `io.out` rec
 | C-CHK-09 | failure | A tampered theme: `app/theme.css`'s light `--primary` set to `#ff0000`: the findings include `theme-changed` and `role-mismatch` naming `primary`, `light`, the receipt's hex and `#ff0000`, plus `contrast-fails` for every required pair with `primary` that falls below its threshold on `#ff0000`; exit 1; the last line is `FAIL (<n> findings)` with `n` the number of findings | plan, ruling R3-25 |
 | C-CHK-10 | failure | `role-missing`: through the registry route of C-CHK-05, `--ring` deleted from `.dark`: one `role-missing` naming `ring` and `dark`; exit 1 | ruling R3-25 |
 | C-CHK-11 | failure | `radius-mismatch`: through the registry route, `--radius` changed to `0px`: one `radius-mismatch` naming the receipt's value and `0px`; exit 1 | ruling R3-25 |
-| C-CHK-12 | failure | `theme-name-changed`: an `APP` whose `app/theme.css` maps `--color-primary: var(--accent)` in `@theme inline`: the findings include `theme-name-changed` naming `--color-primary`; the same for `--color-ring: var(--primary)` in a later `@theme inline` block of `app/globals.css` | ruling R3-25 |
+| C-CHK-12 | failure | `theme-name-changed`: an `APP` whose `app/theme.css` maps `--color-primary: var(--accent)` in `@theme inline`: the findings include `theme-name-changed` naming `--color-primary`; and a later `@theme inline` block of `app/globals.css` that maps `--color-ring: var(--primary)` gives a `shadowed` finding naming `--color-ring` (check 3), not `theme-name-changed` | ruling R3-25 |
 | C-CHK-13 | failure | `contrast-fails`: through the registry route, light `--muted-foreground` set to `#9a9a9a` while the receipt holds SPEC's: the findings include `role-mismatch` and `contrast-fails` for `C1:muted-foreground/muted` and `C1:muted-foreground/background` in light mode, each message holding the measured ratio through `trunc4` and the threshold `4.5` | plan, ruling R3-25 |
 | C-CHK-14 | failure | `shadowed`: an `APP` whose `app/globals.css` adds `:root { --primary: #000000; }` after its import: one `shadowed` finding naming `primary`, `app/theme.css` with its line and `app/globals.css` with its line; the same when the later definition sits in `app/extra.css`, imported after `theme.css` | plan, ruling R3-25 |
-| C-CHK-15 | failure | Install route 1: `SHADCN_APP` with `@import "./theme.css";` added right after `@import "tailwindcss";`: exit 1, with a `shadowed` finding for each role shadcn's `:root` and `.dark` define (31 in each) and for `--radius`, and a `theme-name-changed` for each `@theme inline` name shadcn maps to another value; no finding names `components/ui/button.tsx`. With shadcn's `@custom-variant dark`, `:root`, `.dark` and `@theme inline` blocks then deleted, exit 0 and `PASS` | plan, decision 6.9.1 |
+| C-CHK-15 | failure | Install route 1: `SHADCN_APP` with `@import "./theme.css";` added right after `@import "tailwindcss";`: exit 1, with one `shadowed` finding for each role that shadcn's `:root` or `.dark` defines with a value other than the theme's, and one for `--radius`; shadcn's `@theme inline` names map `--color-<role>: var(--<role>)` as the theme does, so they give no finding; no finding names `components/ui/button.tsx`, and the role lines of `globals.css` give no `raw-color`. With shadcn's `@custom-variant dark`, `:root`, `.dark` and `@theme inline` blocks then deleted, exit 0 and `PASS` | plan, decision 6.9.1, ruling R3-25 |
 | C-CHK-16 | failure | `raw-color` hex: `src/a.tsx` holding `color: "#ff0000"`, `"#f00"`, `"#f00a"` and `"#ff0000aa"` on four lines: four `raw-color` findings with path `src/a.tsx`, 1-based line and column, and the matched text. `"#abcde"`, `href="#top"` and `"#fffg"` give no finding | ruling R3-25 |
 | C-CHK-17 | failure | `raw-color` functions: `rgb(255 0 0)`, `rgba(0,0,0,.5)`, `hsl(0 100% 50%)`, `hwb(0 0% 0%)`, `lab(50 20 30)`, `lch(50 30 20)`, `oklab(0.5 0.1 0)`, `oklch(0.7 0.1 20)` and `color(display-p3 1 0 0)` in a `.css` file each give one `raw-color`; `rgb(var(--x))` and `oklch(var(--l) 0.1 20)` give none | ruling R3-25 |
 | C-CHK-18 | failure | `palette-class`: `className="bg-blue-500 text-slate-50 hover:border-rose-950 bg-blue-500/50"` gives four `palette-class` findings; `bg-primary`, `text-primary-600`, `border-border`, `bg-white`, `text-black`, `bg-white/80` and `blue-500` with no utility prefix give none | plan, ruling R3-25, R3-14 |
@@ -1511,9 +1569,9 @@ value `main` returns; "last line" means the last line of everything `io.out` rec
 | C-CHK-24 | pass | Spawned: `node scripts/dyelot-check.mjs --json` in an `APP` folder with the checker copied in exits 0 and writes one JSON object to stdout. The source's imports are exactly a subset of `node:fs`, `node:path`, `node:url`, `node:crypto` and `node:process`, with no other `import`, `require` or `import()`; it names none of `toSorted`, `toReversed`, `toSpliced`, `Object.groupBy`, `Promise.withResolvers`, `Array.fromAsync`, `import.meta.dirname`, `import.meta.filename`, `globSync`, `styleText` and `loadEnvFile`, which Node 18 lacks | plan, ruling R3-39 |
 | C-CHK-25 | pass | Task 3.11. `BUNDLE`'s `scripts/dyelot-check.mjs` equals `CHECKER_SOURCE` and the file `src/export/checker/dyelot-check.mjs` byte for byte. `BUNDLE`'s zip, unzipped into a fresh folder with `app/globals.css` holding `@import "./theme.css";`, passes a spawned `node scripts/dyelot-check.mjs`: exit 0, last line `PASS` | plan |
 | C-CHK-26 | pass | Spawned: importing the checker (`node --input-type=module -e "await import('<path>')"`) prints nothing and exits 0, because the entry guard holds; running it through a symbolic link to the file runs it as the entry | plan, ruling R3-39 |
-| C-CHK-27 | failure | Exit 2 with a last line starting `ERROR: `: an unknown flag `--fix`; `--root` naming no folder; no `receipt.json` at the root; a receipt that is not JSON; a receipt whose `format` is `"dyelot.check/2"`; `--receipt` with no value | ruling R3-25 |
+| C-CHK-27 | failure | Exit 2 with a last line starting `ERROR: `: an unknown flag `--fix`; `--root` naming no folder; no `receipt.json` at the root; a receipt that is not JSON; a receipt whose `format` is `"dyelot.check/2"`; `--receipt` with no value; `--root` with no value; a receipt of the right format without `roles`. Each message equals R3-25's text | ruling R3-25 |
 | C-CHK-28 | pass | `--json`: stdout holds exactly one JSON object, written with two-space indent and a newline, with the keys `format` (`"dyelot.check-report/1"`), `result`, `design` (`specId`, `lot`), `findings`, `ignored` and `checked` (`theme`, `roles` 92, `pairs` 78, `files`). For C-CHK-09's folder, `result` is `"FAIL"`, exit 1 and `findings` holds the same codes as the human report; for C-CHK-06's, `result` is `"ERROR"` and exit 2; for `APP()`, `result` is `"PASS"` and exit 0 | ruling R3-25 |
-| C-CHK-29 | pass | The scan skips folders named `node_modules` at any depth, `.git`, `.next`, `dist`, `build`, `out` and `coverage`, the bundle's own files (`app/theme.css`, `tokens/**`, `motion/**`, `registry/**`, `design.toon`, `prompt.md`, `receipt.json`, `scripts/dyelot-check.mjs`) and any file over 1 MiB: with `#ff0000` in each, exit 0; `checked.files` counts only the files scanned | ruling R3-25 |
+| C-CHK-29 | pass | The scan skips folders named `node_modules` at any depth, `.git`, `.next`, `dist`, `build`, `out` and `coverage`, any file over 1 MiB, and the bundle's own files: with `#ff0000` added to a `.ts` file in each skipped folder, to a 1.1 MiB `.ts` file, and to `motion/motion.css` and `scripts/dyelot-check.mjs` (paths the receipt lists, whose hashes the checker does not compare), exit 0; `checked.files` counts only the files scanned. A line declaring `--primary`, `--radius` or `--color-primary` with a hex, in any scanned `.css` file, gives no `raw-color` | ruling R3-25 |
 | C-CHK-30 | pass | Report lines: a scan finding prints `<path>:<line>:<column>  <code>  <message>` with the path relative to the root and written with `/`; a finding with no place prints `<code>  <message>`; each exempt line prints `ignored  <path>:<line>  <reason>`; the counts line precedes the last line | ruling R3-25, section 7.2 |
 | C-CHK-RF5 | pass | A generated folder of 5,000 small `.tsx` files plus `packages/a/node_modules/x/index.js` holding `#ff0000`: in process, `main` returns 0 in under 10 s, and `io.readFile` is never called with a path holding `/node_modules/` | RF5 |
 
@@ -1535,20 +1593,22 @@ from `@google/design.md/linter`.
 | C-DMD-08 | pass | Overview holds `describeDesign(spec)` and the line `Made with dyelot. Edit this design: <link>` with the link as a raw autolink equal to the bundle's `link`. For the `glass` golden it also holds `Style: Glass. <summary>` and `Traits the tokens cannot hold yet: Backdrop blur of 12 to 24 px, A 10 to 25% white fill, A reduced-transparency fallback.`; for the `default` golden, which has no unexpressed traits, no "Traits" line | plan, decision D2, D4 |
 | C-DMD-09 | pass | Colors holds the table `\| Role \| Light \| Dark \| Use for \|` with 46 rows in `ROLE_NAMES` order, each with the role's two hexes and `USE_FOR[role]`; every `USE_FOR` entry is plain text of at most 90 characters | plan, ruling R3-22 |
 | C-DMD-10 | pass | Typography names the three families with their `fontPackage` and holds the step table with 10 rows; Layout names the 4 px base, the 8 px rhythm and the 12 units; Elevation & Depth names the depth style and the five shadows; Shapes holds the five radii and the sentence on the nesting rule | plan, section 6.9 |
-| C-DMD-11 | pass | Do's and Don'ts lists the spec's `rules.do` and `rules.dont`, then the matched preset's guards with R3-22's five rewordings applied (the `neo-brutalism` golden holds "Hard offset shadows belong to this style; do not mix them with soft shadows." and not "Hard shadows exist only here"), then the four fixed lines of 6.9 word for word | plan, ruling R3-22 |
-| C-DMD-12 | pass | Install and Self-check equal 6.9.1 with its placeholders filled: for SPEC the install line names `@fontsource-variable/host-grotesk` and `@fontsource/fragment-mono`, Route 2 names `registry/untitled.json` and one `font-<id>` file per item, and the ` ```css ` fence at the end of Install holds `themeCss(SPEC)` verbatim. For a spec whose three families are `redaction`, Route 2's second sentence is left out; for a family outside the catalog, its package is left out of the install line | plan, section 6.9.1 |
+| C-DMD-11 | pass | Do's and Don'ts lists the spec's `rules.do` and `rules.dont`, then the matched preset's guards with R3-22's five rewordings applied (the `neo-brutalism` golden holds "Hard offset shadows belong to this style; do not mix them with soft shadows." and not "Hard shadows exist only here"), then the four fixed lines of 6.9 word for word, the last reading "Don't set body text under 16 px." for SPEC and "Don't set body text under 14 px." for the dense `dark-dev-tool` golden | plan, ruling R3-22 |
+| C-DMD-12 | pass | Install and Self-check equal 6.9.1 with its placeholders filled: for SPEC the install line names `@fontsource-variable/host-grotesk` and `@fontsource/fragment-mono`, Route 2 names `registry/untitled.json` and one `font-<id>` file per item, and the ` ```css ` fence at the end of Install holds `themeCss(SPEC, ORIGIN)` verbatim. For a spec whose three families are `redaction`, Route 2's command stops after the theme file (the words "`, then npx shadcn@latest add ./registry/font-<id>.json` for each font file" are left out); for a family outside the catalog, its package is left out of the install line | plan, section 6.9.1 |
 | C-DMD-13 | pass | User text: for a name `My *bold* [link](x) <b>#1`, the first heading is `# ` plus `mdText(name)`, the front matter's `name` is `yamlString(name)`, and outside the front matter and fences no unescaped `*`, `[`, `]` or `<` from the name appears | ruling R3-10, I-M3-08 |
 | C-DMD-14 | pass | For each of the 14 preset goldens, `lint(designMd(spec, ORIGIN))` has `summary.errors` 0 and `summary.warnings` 0, and no finding of severity `error` or `warning` without a `rule` | plan, ruling R3-21 |
 | C-DMD-15 | pass | For `IMPORTED`, `lint` has `summary.errors` 0, and every warning has the rule `contrast-ratio` | plan, ruling R3-21 |
 | C-DMD-16 | pass | Copy check over the 14 preset goldens: no exported string of DESIGN.md, the prompt or the skill holds a British spelling of a fixed list (`colour`, `grey`, `behaviour`, `centre`, `licence`, `organise`, `favour`) or a word the writing convention bans, and none holds one of R3-22's five original guards | plan, ruling R3-22 |
 | C-DMD-17 | failure | `designMd` with a spec that is not an object throws `TypeError` naming `designMd`; with an origin of `"http://dyelot.vercel.app"` or `"https://dyelot.vercel.app/x"` it throws `RangeError` naming `designMd` | added |
 | C-DMD-18 | pass | For every golden, the front matter holds no anchor, alias or `<<` key and no repeated key; every color is a quoted lowercase `#rrggbb`; every size, line height, letter spacing, radius and spacing value is a quoted dimension ending `px` or `em`; every `fontWeight` is a bare integer; two calls return equal text | ruling R3-21, I-M3-01 |
-| C-AGT-01 | pass | `agentsSnippet(SPEC)` is exactly the 11 lines of 6.10 with `<lot>` and `<name>` filled, and ends in one newline | plan, section 6.10 |
+| C-DMD-19 | failure | `designMdTokens(null)` and `designMd(null, ORIGIN)` throw `TypeError` naming their function | added, R-05 |
+| C-AGT-01 | pass | `agentsSnippet(SPEC)` is exactly the 11 lines of 6.10 with `<lot>`, `<name>` and `<body>` (16) filled, and ends in one newline | plan, section 6.10 |
 | C-AGT-02 | pass | The snippet starts `<!-- dyelot:start <lot> -->`, ends `<!-- dyelot:end -->`, holds no `nextjs-agent-rules` marker, and names `DESIGN.md`, `app/theme.css` and `node scripts/dyelot-check.mjs` | plan |
 | C-AGT-03 | failure | `agentsSnippet` with a spec that is not an object throws `TypeError` naming `agentsSnippet`. A name holding `-->` is written through `mdText`, so the snippet still has exactly two HTML comments | added, I-M3-08 |
-| C-PRM-01 | pass | `promptMd(SPEC, ORIGIN)` holds, in order: a title line naming the design, the instruction paragraph, the brief (one-liner when present, `describeDesign`, the thesis when present, the role table, the type step table), the eight rules of the AGENTS snippet as a list, a ` ```css ` fence holding `themeCss(SPEC)` verbatim, and `Made with dyelot. Edit this design: <link>` | plan, section 6.11 |
-| C-PRM-02 | pass | Property, 200 runs, `seed: 3009`, over plain-text names, one-liners and theses that include `*`, `_`, `[`, backticks, `#` and runs of three backticks: the prompt holds each as `mdText(text)`, holds exactly one opening and one closing code fence, and the css fence's content equals `themeCss(spec)` | plan, ruling R3-10 |
-| C-SKL-01 | pass | `skillFile(SPEC, "untitled")` has the path `skills/untitled-design/SKILL.md`; its front matter's `name` is `untitled-design`, matching `^[a-z0-9-]{1,64}$`, and its `description` is the sentence of 6.12 with the name filled, at most 1,024 characters, written through `yamlString` | plan, section 6.12 |
+| C-PRM-01 | pass | `promptMd(SPEC, ORIGIN)` holds, in order: a title line naming the design, the instruction paragraph, the brief (one-liner when present, `describeDesign`, the thesis when present, the role table, the type step table), the eight rules of the AGENTS snippet as a list, a ` ```css ` fence holding `themeCss(SPEC, ORIGIN)` verbatim, and `Made with dyelot. Edit this design: <link>` | plan, section 6.11 |
+| C-PRM-02 | pass | Property, 200 runs, `seed: 3009`, over plain-text names, one-liners and theses that include `*`, `_`, `[`, backticks, `#` and runs of three backticks: the prompt holds each as `mdText(text)`, holds exactly one opening and one closing code fence, and the css fence's content equals `themeCss(spec, ORIGIN)` | plan, ruling R3-10 |
+| C-PRM-03 | failure | `promptMd(null, ORIGIN)` throws `TypeError` naming `promptMd`; an origin of `"http://dyelot.vercel.app"` throws `RangeError` naming `editLink` | added, R-05 |
+| C-SKL-01 | pass | `skillFile(SPEC, "untitled", ORIGIN)` has the path `skills/untitled-design/SKILL.md`; its front matter's `name` is `untitled-design`, matching `^[a-z0-9-]{1,64}$`, and its `description` is the sentence of 6.12 with the name filled, at most 1,024 characters, written through `yamlString` | plan, section 6.12 |
 | C-SKL-02 | pass | The body names `DESIGN.md`, holds the two workflows "Restyle a component" and "Audit the app", names `node scripts/dyelot-check.mjs` and `PASS`, and ends with the edit link | plan |
 | C-SKL-03 | failure | `skillFile` with a slug that is empty, over 48 characters, or not of the form `^[a-z0-9]+(-[a-z0-9]+)*$` throws `RangeError` naming `skillFile`; a non-string slug throws `TypeError`. With `LONG_NAME` the description stays at most 1,024 characters | added |
 
@@ -1573,6 +1633,7 @@ Tests: `tests/unit/export/bundle.test.ts`, `tests/unit/export/zip.test.ts`, `tes
 | C-ZIP-04 | pass | Two calls of `zipBundle(BUNDLE)` return equal bytes, and the `default` golden's zip SHA-256 equals the manifest's | plan |
 | C-ZIP-05 | pass | `zipName` follows the slug: a name `Café Crème` gives `cafe-creme-<8 digits>.zip`; a name of only punctuation gives `design-<8 digits>.zip` | ruling R3-10, R3-12 |
 | C-ZIP-06 | failure | `zipBundle` with a value that is not a bundle throws `TypeError` naming `zipBundle`; with files holding the same path twice, or a path of `../x`, `/x` or `A.txt`, it throws `RangeError` naming `zipBundle` | added |
+| C-ZIP-07 | failure | `zipName(null)` and `zipName({})` throw `TypeError` naming `zipName` | added, R-05 |
 | C-GUARD3-01 | pass | No file under `src/features`, `src/app`, `src/components` or `src/lib` holds a static `import` or `export … from` of `@/export`, `@/import`, a path under them, or a relative path into `src/export` or `src/import`; `import type` and `import("@/export")` are allowed. A probe file with a static import makes the guard report it | plan, ruling R3-38 |
 | C-GUARD3-02 | pass | I-M3-02: no file under `src/export` or `src/import` names `Date`, `Math.random`, `getRandomValues`, `performance`, `Intl`, `toLocale`, `localeCompare`, `document`, `window`, `localStorage`, `sessionStorage`, `fetch` or `XMLHttpRequest`, and only `src/export/checker/dyelot-check.mjs` imports a `node:` module. A probe proves each pattern is seen | plan, I-M3-02, ruling R3-39 |
 | C-GUARD3-03 | pass | `src/export/index.ts` and `src/import/index.ts` hold only `export … from` lines, and every `import()` in app code names exactly `@/export` or `@/import`, never a path under them | plan, ruling R3-38 |
@@ -1583,7 +1644,7 @@ Tests: `tests/unit/export/bundle.test.ts`, `tests/unit/export/zip.test.ts`, `tes
 
 Tests: `tests/unit/import/common.test.ts`, `tests/unit/import/css.test.ts`, `tests/unit/import/fuzz-css.test.ts` (Task 3.5);
 `tests/unit/import/design-md.test.ts`, `tests/unit/import/fuzz-md.test.ts`, `tests/unit/import/entry.test.ts` (Task 3.12), in
-the `core` project. C-IMP-03's DESIGN.md half and C-IMP-12's DESIGN.md rows belong to Task 3.12.
+the `core` project. The `importDesignMd` halves of C-IMP-01, 02, 04 and 05, C-IMP-03's DESIGN.md half and C-IMP-12's DESIGN.md rows belong to Task 3.12, when `importDesignMd` exists.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -1599,6 +1660,7 @@ the `core` project. C-IMP-03's DESIGN.md half and C-IMP-12's DESIGN.md rows belo
 | C-IMP-10 | pass | A result has `meta.createdWith` `"import"`, contrast level `AA` and `presetOf(spec)` `null`; `report.generated.light` is 46 minus the light roles mapped; `mapped`, `adjusted` and `ignored` follow input order; with 60 ignored names, `ignored` holds the first 50 and `ignoredMore` is 10 | plan, ruling R3-07, R3-29 |
 | C-IMP-11 | pass | `importShadcnCss` of `shadcn-neutral.css` returns `ok: true` even though the result has `summary.lint.error` above 0; the measured count is recorded in section 15 | plan, ruling R3-29 |
 | C-IMP-12 | pass | `detectImport`: `"x.md"` with CSS text gives `design-md`; `"theme.css"` with markdown gives `shadcn-css`; `"x.markdown"` gives `design-md`. Without a file name: a first non-empty line `---` or a line starting `## Colors` gives `design-md`; `:root {`, `.dark{` or a declaration of `--primary:` gives `shadcn-css`; `"hello"` gives `null` | plan, section 8 |
+| C-IMP-13 | failure | `buildImport(null)` throws `TypeError` naming `buildImport`; a draft whose `primary` has `l` 1.5 or a `roles.light` that is not an object throws `RangeError` or `TypeError` naming it. `buildImport` is internal, so a bad draft is a bug in an importer, never a visitor's input | added, R-05 |
 | C-CSSI-01 | pass | `shadcn-neutral.css`: `ok: true`; each of shadcn's 31 role variables in `:root` and in `.dark` is mapped, its hex the sRGB conversion of the fixture's value (±1 per channel); `destructive-foreground` gets `onFill` with reason `foreground` in both modes; the radius `0.625rem` (10 px) gives `soft`; the name is `Imported theme` | plan, ruling R3-31 |
 | C-CSSI-02 | pass | `shadcn-v3-hsl.css`: its blocks inside `@layer base` count; each bare triple such as `0 0% 100%` is read as `hsl(0 0% 100%)`; `destructive-foreground` is mapped; the sidebar roles, which the file lacks, keep the generated values; `--radius: 0.5rem` (8 px, equal distance to `sharp`'s 4 and `soft`'s 12) gives `soft` | plan, ruling R3-31 |
 | C-CSSI-03 | pass | Selectors: declarations under `:root, .light`, `html`, `[data-theme="light"]` and `:root:not(.dark)` are light; under `.dark`, `:root.dark`, `html.dark`, `[data-theme="dark"]` and `:root` inside `@media (prefers-color-scheme: dark)` dark; `--primary` under `.card` is ignored | plan, ruling R3-31 |
@@ -1644,6 +1706,7 @@ regenerating it from its parameters gives `SPEC` again.
 | C-STOR3-08 | pass | Provenance: a commit from `setParams`, `applyPreset`, `regenerate`, `toggleLock`, a fix and `rebuild` is `"generated"`; `loadFromHash`, a restored draft and `importDesign` are `"loaded"`; after a load and two changes, `undo()` twice returns provenance `"generated"` then `"loaded"` and `redo()` restores each in turn | plan, ruling R3-42 |
 | C-STOR3-09 | pass | `rebuild()` on the loaded `ONE_FAIL` issues one request with `ONE_FAIL`'s params and seed; its reply commits `SPEC` (`specId` equal) with provenance `"generated"` as a new `history` entry; `undo()` returns to `ONE_FAIL` with provenance `"loaded"` | plan, ruling R3-33, R3-42 |
 | C-STOR3-10 | pass | The outcome is computed once per held blocked design: holding `ONE_FAIL` calls `client.generateNow` exactly once with its params and seed, also after three `setView` calls and a `dismissNotice`; holding `SPEC` (no error) calls it never; loading a second blocked design calls it once more | plan, ruling R3-42 |
+| C-STOR3-11 | pass | Importing a CSS whose `--font-sans` is `"Inter", sans-serif` holds a spec with the custom families and sets the notice `{ kind: "imported", … }`, never `custom-fonts`; its text (9.3) holds "Its fonts are not in dyelot's catalog, so the canvas shows a fallback." | ruling R3-33 |
 | C-REB-01 | pass | `rebuildOutcome(snapshot of ONE_FAIL, generateSystem)` is `"passes"`, since `generateSystem(params, seed)` gives `SPEC` and `lintSpec(SPEC)` has no `error` | plan, ruling R3-42 |
 | C-REB-02 | pass | With `generate` a stub returning `ONE_FAIL` the outcome is `"fails"`; with a stub that throws `RangeError("forced")` it is `"throws"`, and `rebuildOutcome` itself does not throw | plan, ruling R3-42 |
 | C-REB-03 | failure | A snapshot that is not an object, or lacks `params` or `seed`, throws `TypeError` naming `rebuildOutcome`; a `generate` that is not a function throws `TypeError` naming `rebuildOutcome` | added |
@@ -1653,9 +1716,10 @@ regenerating it from its parameters gives `SPEC` again.
 | C-EXPUI-01 | pass | `formatBytes`: 0 is "0 B", 1023 is "1023 B", 1024 is "1 KB", 1536 is "1.5 KB", 18234 is "17.8 KB", 2000000 is "1953.1 KB" | plan |
 | C-EXPUI-02 | pass | `summaryLines(summarize(measureSpec(SPEC), lintSpec(SPEC), "srgb"))` is four strings: "78 of 78 required contrast checks pass", "<16 − below> of 16 color-vision checks keep status and chart colors apart", "176 of 176 colors inside sRGB", and the lint line built from `lintSpec(SPEC)`'s counts. The lint line reads "No lint errors, 0 warnings, 2 notes" for counts 0, 0, 2; "1 lint error, 1 warning, 1 note" for 1, 1, 1; "3 lint errors, 2 warnings, 0 notes" for 3, 2, 0. A `p3` summary reads "… colors inside Display P3" | plan |
 | C-EXPUI-03 | failure | `formatBytes(-1)`, `formatBytes(1.5)` and `formatBytes(NaN)` throw `RangeError` naming `formatBytes`, and `formatBytes("1")` a `TypeError`; `summaryLines(null)` throws `TypeError` naming `summaryLines`, and a summary with a negative or fractional count, or `below` above `checks`, a `RangeError` | added |
-| C-EXPUI-04 | pass | `chosenFormat`: a picked format wins over any detection; with none picked, the format section 8's `detectImport` detects for the text and file name ("theme.css" with Markdown text is `"shadcn-css"`); `null` when neither gives one. `fileAccepted`: "a.md", "a.MARKDOWN", "a.css" and "a.txt" of 262,144 bytes are `{ ok: true }`; "a.json" is `{ ok: false, message: "Choose a .md or a .css file." }`; "a.css" of 262,145 bytes is `{ ok: false }` with the `too-large` message of section 8; a negative or fractional size throws `RangeError`, a non-string name `TypeError`, each naming the function | plan, ruling R3-33 |
+| C-EXPUI-04 | pass | `chosenFormat(picked, detected)`: a picked format wins over any detection (`chosenFormat("design-md", "shadcn-css")` is `"design-md"`); with none picked, the detected one (`chosenFormat(null, "shadcn-css")` is `"shadcn-css"`); `null` when neither gives one. `fileAccepted`: "a.md", "a.MARKDOWN", "a.css" and "a.txt" of 262,144 bytes are `{ ok: true }`; "a.json" is `{ ok: false, message: "Choose a .md or a .css file." }`; "a.css" of 262,145 bytes is `{ ok: false }` with the `too-large` message of section 8; a negative or fractional size throws `RangeError`, a non-string name `TypeError`, each naming the function | plan, ruling R3-33, R3-38 |
 | C-EXPUI-05 | pass | `exportState(summary, provenance, outcome)`: `"passing"` when `summary.lint.error` is 0, whatever else; `"fault"` with errors and `"generated"`; `"fixable"` with errors, `"loaded"` and `"passes"`; `"stuck"` with errors, `"loaded"` and `"fails"` or `"throws"`. A failing loaded summary with no outcome throws `TypeError` naming `exportState`, and an unknown provenance or outcome a `RangeError` | plan, ruling R3-42 |
 | C-EXPUI-06 | pass | `blockReason(state, errors)` gives R3-42's sentence for `"fixable"`, `"stuck"` and `"fault"` with "1 required check" for 1 and "<n> required checks" otherwise; `"passing"` and an `errors` of 0 or below, or fractional, throw `RangeError` naming `blockReason` | plan, ruling R3-42 |
+| C-EXPUI-07 | failure | `chosenFormat("pdf", null)` and `chosenFormat(null, "x")` throw `RangeError` naming `chosenFormat`; `chosenFormat(5, null)` throws `TypeError` | added, R-05 |
 | C-KEYS3-01 | pass | With no dialog open, Ctrl+E and Meta+E outside a text field give `{ kind: "open-export" }`, matched on the key `e` or the code `KeyE` (a Cyrillic layout types `у`); a repeat gives `{ kind: "swallow" }`; with Alt or Shift held, or inside a text field, they give `null` | ruling R3-35 |
 | C-KEYS3-02 | pass | With `dialogOpen: true`, Ctrl+S, Meta+S, Ctrl+E and Meta+E give `{ kind: "swallow" }` outside and inside a text field, on a first press and on a repeat | ruling R3-35 |
 | C-KEYS3-03 | pass | With `dialogOpen: true`, Space, ← and → on the page, L on a seed control, Alt+T and Escape give `null`; with `dialogOpen` absent or `false`, every M2 C-KEYS case gives its M2 answer | ruling R3-35, I-M3-06 |
@@ -1672,9 +1736,7 @@ test: `LINK(spec)` is `/studio#s=` plus `encodeSpec(spec)`. `SPEC_LINK` is `LINK
 `default` golden, `ONE_FAIL_LINK` is `LINK(ONE_FAIL)` (fixable, one error) and `IMPORTED_LINK` is `LINK(IMPORTED)` (fixable,
 with IMPORTED's error count, recorded in section 15). The tests import `@/spec`, `@/engine`, `@/export` and `@/import` in
 Node to compute what the page must show. A flow that reads the canvas first waits for `canvasAtRest`, as in M2. The echo
-stub is F-STUDIO-19's technique: an init script wraps `window.Worker` so that, once the test sets `window.__dyelotEcho` to a
-spec, the next request is answered with `{ id, ok: true, spec }` of that spec and every other request goes to the real
-worker.
+stub is F-STUDIO-19's technique: an init script wraps `window.Worker` so that, once the test sets `window.__dyelotEcho` to a spec, the next request is answered with `{ id, ok: true, spec }` of that spec and every other request goes to the real worker. Setting `window.__dyelotHold = true` holds the next reply, from the stub or the real worker, until the test calls `window.__dyelotRelease()`.
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -1688,7 +1750,7 @@ worker.
 | F-EXP-08 | pass | Escape closes the dialog and focus returns to "Export"; "Close" does the same; a dialog opened by Ctrl+E from "Regenerate" returns focus to "Regenerate" | plan, ruling R3-34 |
 | F-EXP-09 | failure | On `IMPORTED_LINK`, "Export" opens the blocked dialog: the lot line and the four summary lines; the fixable sentence with IMPORTED's error count; one failing-check row per finding of severity `error`, in `lintSpec` order; the file paths without sizes; no "Preview of …" element. "Download" and every "Copy" have `aria-disabled="true"`; clicking them and pressing Enter on them starts no download within 2 seconds, leaves a sentinel clipboard text unchanged, and puts no file text in the page | plan, ruling R3-42, D1 |
 | F-EXP-10 | pass | After the download the status region reads "Downloaded <zip name>.". An init script that wraps `URL.createObjectURL`, `HTMLAnchorElement.prototype.click` and `URL.revokeObjectURL` records create, click and revoke in that order for one URL, with the revoke in a later task than the click | plan, ruling R3-34 |
-| F-EXP-11 | pass | With the echo stub holding its next reply, a change of contrast level then Ctrl+E opens the dialog in its waiting state (no file list, no "Download"); releasing the reply shows the ready dialog for the new design, whose lot line names the new spec id | plan, ruling R3-34 |
+| F-EXP-11 | pass | With `__dyelotHold` set, a change of contrast level then Ctrl+E opens the dialog in its waiting state ("Waiting for the design to finish generating…", no file list, no "Download"); `__dyelotRelease()` then shows the ready dialog for the new design, whose lot line names the new spec id | plan, ruling R3-34 |
 | F-EXP-12 | failure | After the first load, every new request for a JavaScript chunk is aborted; "Export" shows "The export code did not load." and "Try again". With the abort removed, "Try again" shows the ready dialog. The studio behind it keeps working in both states | plan, ruling R3-34, I-M2-03 |
 | F-EXP-13 | pass | At 360 × 740 the ready dialog fits the window: the page and the dialog scroll no wider than they are, every path and the lot line wrap inside the dialog, and each button has a hit area of at least 24 × 24 px and is reachable by Tab | plan |
 | F-EXP-14 | pass | With `reducedMotion: "reduce"`, the dialog has no running animation or transition (`getAnimations({ subtree: true })` is empty) in the first frame after it opens, and it closes the same way | plan, ruling R3-34 |
@@ -1696,7 +1758,7 @@ worker.
 | F-EXP-16 | pass | In the blocked dialog of `ONE_FAIL_LINK`, "Fix in the inspector" closes the dialog and moves focus to the Findings heading in the inspector column; at 360 × 740 it opens the inspector drawer with focus on that heading | plan, ruling R3-42 |
 | F-EXP-17 | pass | On `ONE_FAIL_LINK`, "Rebuild from the parameters" in the Findings section commits a design whose spec id equals `specId(SPEC)`; "Export" then opens the ready dialog with "Download" enabled; Undo returns to `ONE_FAIL` and the blocked dialog | plan, ruling R3-42 |
 | F-EXP-18 | pass | On `ONE_FAIL_LINK`, the blocked dialog reads "This design fails 1 required check. It came from a link or a file, and rebuilding it from its parameters makes every check pass."; M2's fix for its C1 finding, "Raise contrast to AA+", regenerates the design at `AA+` and the dialog opened after it is ready | plan, ruling R3-42 |
-| F-EXP-19 | pass | "Export" follows "Copy link" in the DOM and in Tab order at 1280 × 800 and at 360 × 740, with the "View" group closed and open | plan, ruling R3-34 |
+| F-EXP-19 | pass | "Export" follows "Copy link" in the DOM and in Tab order at 1280 × 800, and at 360 × 740 with the "View" group closed and open | plan, ruling R3-34 |
 | F-EXP-20 | failure | Fault: on `ONE_FAIL_LINK` the test sets the echo stub to `ONE_FAIL` and presses "Rebuild from the parameters"; the committed design is `ONE_FAIL` with provenance `"generated"`, and both the dialog and the Receipt section read "This design fails 1 required check although the studio generated it. That is a fault in dyelot: change any parameter to generate it again."; the dialog offers "Show the findings" and no download | plan, ruling R3-42 |
 | F-EXP-RF1 | pass | The design changes while the dialog is open: open `SPEC_LINK`, set `location.hash` to `GOLDEN_LINK`'s hash, open "Export", then `history.back()`; the dialog's lot line names `SPEC`'s lot, and the downloaded `receipt.json` has `design.specId` equal to `specId(SPEC)` | RF1, ruling R3-34 |
 | F-EXP-RF2 | pass | On `GOLDEN_LINK`, two downloads in a row, and a download right after "Copy DESIGN.md", each unzip to the manifest's files, byte for byte; each `Blob` URL is revoked only after its own click | RF2 |
@@ -1712,6 +1774,7 @@ worker.
 | F-IMP-09 | failure | A DESIGN.md whose front matter has a tab-indented line on line 4 shows "The YAML on line 4 could not be read. Check its indentation and quotes, then import again."; one with an anchor on line 6 shows "The YAML uses an anchor or an alias on line 6. Write the values out in full, then import again." | plan, ruling R3-30 |
 | F-IMP-10 | failure | The text "hello" with no format checked and no file shows "Choose DESIGN.md or shadcn theme CSS."; checking "shadcn theme CSS" then "Import" shows the `no-roles` message | plan |
 | F-IMP-11 | pass | Importing `shadcn-neutral.css` holds a loaded design that fails: the Receipt section shows the fixable sentence, the Findings section shows "Rebuild from the parameters", and "Export" opens the blocked dialog. "Cancel" and Escape in a reopened import dialog close it and return focus to "Import…" | plan, ruling R3-42 |
+| F-IMP-12 | failure | After the first load, every new request for a JavaScript chunk is aborted; "Import…" opens the dialog with "The import code did not load." and "Try again"; with the abort removed, "Try again" shows the form. The studio behind it keeps working | ruling R3-34, I-M2-03 |
 | F-IMP-RF4 | pass | A 256 KiB DESIGN.md (front matter under the 64 KiB YAML limit of R3-30, the rest prose) and a 256 KiB shadcn CSS (valid declarations padded with comments), each pasted and imported, show the `imported` notice within 2 seconds of the click on "Import", and a `PerformanceObserver` of type `longtask` records no task over 1 second | RF4 |
 | F-ABT-01 | pass | The inputs panel opens with the section "About" before "Seeds": a text field named "Name" with the placeholder "untitled" and the hint "Up to 80 characters", a text field named "One line" with the hint "Up to 140 characters", and a button "Import…" | plan, ruling R3-33 |
 | F-ABT-02 | pass | Typing "Saltmarsh" into "Name" at a steady pace commits one history entry: after the hash updates, its spec has `meta.name` "Saltmarsh", the export dialog's lot line ends "· Saltmarsh", and one Undo restores `meta.name` "untitled" | plan, ruling R3-33 |
@@ -1763,6 +1826,9 @@ of section 10.12, not by the floors.
 | F-INSP-09 (M2) | A fix regenerates the design and clears its finding | The same; the regenerated design has provenance `"generated"`, and the Receipt section's lines follow it | R3-36, R3-42 |
 | F-INSP-10 (M2) | At `AAA`, "Contrast is already AAA." and no fix button | The same; the tampered-link fixture is a loaded design whose rebuild passes, so the Findings section also shows "Rebuild from the parameters" | R3-42 |
 | F-INSP-14 (M2) | Every inspector control is reachable by keyboard | The same, and Tab reaches "Rebuild from the parameters" and the Receipt section after the findings | R3-36, R3-42 |
+
+| C-GEN-04, C-GEN-05, C-GEN-13, C-CANON-04, C-CANON-07, C-NORM-04, C-URL-01 (M1 and M2) | `anyDirection` and `edgeDirection` in `tests/unit/spec/support.ts` draw `name` with `fc.string({ minLength: 1, maxLength: 80 })` | They draw names that pass `isPlainText`: the same strings mapped through `toPlainText(…, 80)`, keeping the non-null ones; the cases' assertions are unchanged | R3-02 rejects a name with a leading or trailing space (Task 3.2) |
+| C-REPO-M2-07 (M2) | `SCAN_TESTS` equals exactly the two fix-scan files of C-INSPECT-16 | The two fix-scan files plus `measure-grid-1` to `measure-grid-10`, each with its measured time | R3-41 (Task 3.0) |
 
 Every other M1 and M2 case stands as written (I-M3-06).
 
