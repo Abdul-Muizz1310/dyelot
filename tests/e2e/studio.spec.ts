@@ -323,7 +323,7 @@ test.describe("7.1 Layout and the shell", () => {
     await expect(alert.getByRole("button", { name: "Start fresh", exact: true })).toBeVisible();
     await expect(alert.getByRole("button", { name: "Dismiss", exact: true })).toBeVisible();
     // Never blank: the canvas holds a whole design.
-    expect(Object.keys(await canvasVars(page))).toHaveLength(206);
+    expect(Object.keys(await canvasVars(page))).toHaveLength(209);
     const frame = await canvasFrame(page).boundingBox();
     expect(frame?.height ?? 0).toBeGreaterThan(100);
   });

@@ -15,6 +15,7 @@ import {
   STEPS,
   simulate,
   toHex,
+  typeWeights,
 } from "@/engine";
 import type { DesignSpec } from "@/spec";
 
@@ -247,7 +248,7 @@ function checkInputs(
 }
 
 /**
- * The CSS custom properties of a spec for one mode: 204 names in the order of section 5.6, frozen.
+ * The CSS custom properties of a spec for one mode: 207 names in the order of section 5.6 and R3-06, frozen.
  * Colors are the stored hexes, or their color-vision simulation when `options.vision` is set.
  * `options.units` `cqi` writes the fluid display size against the canvas frame (R2-12). Depth
  * style and motion feel are applied here (R2-08). Every value is validated before it is emitted,
@@ -328,6 +329,11 @@ export function themeVars(
   out["--font-display"] = familyStack(families.display, "type.families.display", "sans");
   out["--font-body"] = familyStack(families.body, "type.families.body", "sans");
   out["--font-mono"] = familyStack(families.mono, "type.families.mono", "mono");
+
+  const weights = typeWeights(spec);
+  out["--weight-heading"] = String(weights.heading);
+  out["--weight-label"] = String(weights.label);
+  out["--weight-body"] = String(weights.body);
 
   SPACE_UNITS.forEach((unit, index) => {
     out[`--space-${unit}`] = `${num(spec.space.scale[index], `space unit ${unit}`)}px`;

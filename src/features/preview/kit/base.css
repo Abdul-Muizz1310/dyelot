@@ -68,7 +68,7 @@
 
 .kit-display {
   font-family: var(--font-display);
-  font-weight: 650;
+  font-weight: min(650, var(--weight-heading));
 }
 
 .kit-mono {

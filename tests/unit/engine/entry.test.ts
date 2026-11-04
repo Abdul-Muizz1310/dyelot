@@ -24,7 +24,7 @@ import {
   SCALE_MODES,
 } from "@/engine/color/palette";
 import { parseColor } from "@/engine/color/parse";
-import { ROLE_NAMES, resolveRoles } from "@/engine/color/roles";
+import { onFill, ROLE_NAMES, resolveRoles } from "@/engine/color/roles";
 import { STEPS, UnsatisfiableTargetError } from "@/engine/color/scale";
 import {
   FONT_CATALOG,
@@ -39,12 +39,15 @@ import { lintSpec } from "@/engine/lint";
 import { RULE_IDS } from "@/engine/lint/types";
 import { CONTRAST_CHECKS, measureSpec, summarize } from "@/engine/measure";
 import { freshParams, paramsOfSpec, resolveParams } from "@/engine/params";
-import { applyPreset, PRESET_IDS, PRESETS } from "@/engine/presets";
+import { applyPreset, PRESET_IDS, PRESETS, presetOf } from "@/engine/presets";
+import { round6, roundHue } from "@/engine/round";
 import { shadows } from "@/engine/tokens/depth";
 import { motionTokens } from "@/engine/tokens/motion";
 import { nestedRadius, RADIUS_SET_NAMES, radiusScale } from "@/engine/tokens/shape";
 import { spaceScale } from "@/engine/tokens/space";
+import { springCurve } from "@/engine/tokens/spring";
 import { TYPE_CONTEXTS, typeScale } from "@/engine/tokens/type";
+import { typeWeights } from "@/engine/tokens/weights";
 import type { DesignSpec } from "@/spec";
 import * as spec from "@/spec";
 import { canonicalize } from "@/spec/canonical";
@@ -109,18 +112,24 @@ const ENGINE_KEYS = [
   "nestedRadius",
   "normalizeSeed",
   "oklchToRgb",
+  "onFill",
   "paramsOfSpec",
   "parseColor",
   "perceptualLc",
+  "presetOf",
   "radiusScale",
   "resolveParams",
   "rgbToOklch",
+  "round6",
+  "roundHue",
   "shadows",
   "simulate",
   "spaceScale",
+  "springCurve",
   "summarize",
   "toHex",
   "typeScale",
+  "typeWeights",
   "wcagRatio",
 ];
 
@@ -203,18 +212,24 @@ describe("the engine entry", () => {
       nestedRadius,
       normalizeSeed,
       oklchToRgb,
+      onFill,
       paramsOfSpec,
       parseColor,
       perceptualLc,
+      presetOf,
       radiusScale,
       resolveParams,
       rgbToOklch,
+      round6,
+      roundHue,
       shadows,
       simulate,
       spaceScale,
+      springCurve,
       summarize,
       toHex,
       typeScale,
+      typeWeights,
       wcagRatio,
     };
     // Every present key has a home entry here, and the pending keys have none until their task lands.

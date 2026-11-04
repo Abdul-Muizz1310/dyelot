@@ -44,7 +44,7 @@
 
 .sink-section > h3 {
   font-family: var(--font-display);
-  font-weight: 650;
+  font-weight: min(650, var(--weight-heading));
 }
 
 .sink-note {
@@ -77,7 +77,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   font-family: var(--font-display);
-  font-weight: 650;
+  font-weight: min(650, var(--weight-heading));
 }
 
 /* Type steps */
@@ -231,7 +231,7 @@
 
 .sink-component > h4 {
   font-family: var(--font-display);
-  font-weight: 650;
+  font-weight: min(650, var(--weight-heading));
 }
 
 .sink-variant {

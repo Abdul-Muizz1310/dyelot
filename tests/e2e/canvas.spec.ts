@@ -2,11 +2,20 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { fontStack, hexToRgb, PAIRINGS, simulate, toHex } from "@/engine";
+import {
+  applyPreset,
+  FONT_CATALOG,
+  fontStack,
+  hexToRgb,
+  PAIRINGS,
+  simulate,
+  toHex,
+  typeWeights,
+} from "@/engine";
 import { COPY, SAMPLE_PLACES } from "@/features/preview/copy";
 import { frameFit } from "@/features/preview/frame";
 import { writeHash } from "@/features/studio/url";
-import type { TemplateId } from "@/features/studio/view";
+import { TEMPLATE_IDS, type TemplateId } from "@/features/studio/view";
 import { normalizeSpec } from "@/spec";
 import { themeVars } from "@/theme/vars";
 import {
@@ -247,7 +256,7 @@ test.describe("7.4 The canvas on the kitchen sink", () => {
   test("F-CANVAS-01 the frame and each pane carry exactly their variables", async () => {
     const spec = first();
     expect(await canvasVars(page)).toEqual(expectedVars(spec, "light"));
-    expect(Object.keys(await canvasVars(page))).toHaveLength(206);
+    expect(Object.keys(await canvasVars(page))).toHaveLength(209);
     for (const mode of MODES) {
       expect(await canvasVars(page, canvasPane(page, mode)), mode).toEqual(
         expectedVars(spec, mode),
@@ -1396,5 +1405,61 @@ test("F-CANVAS-09 edge-case copy fills the page templates' slots, and nothing br
     const root = await showTemplate(page, id);
     expect(await root.locator("[data-list-item]").count(), id).toBeGreaterThan(1);
     await expect(root.locator("[data-copy-label]").first(), id).not.toHaveText(edge.label);
+  }
+});
+
+/** The designs F-WGT-01 walks: three presets, a static display pairing and the default pairing. */
+const WEIGHT_DESIGNS = [
+  ["maximalism", applyPreset(FRESH, "maximalism")],
+  ["organic", applyPreset(FRESH, "organic")],
+  ["dithering-pixel", applyPreset(FRESH, "dithering-pixel")],
+  ["redaction-redhat", { ...FRESH, pairing: "redaction-redhat" }],
+  ["host-grotesk", { ...FRESH, pairing: "host-grotesk" }],
+] as const;
+
+test.describe("F-WGT-01 weights on the canvas (R3-06)", () => {
+  for (const [name, params] of WEIGHT_DESIGNS) {
+    test(`F-WGT-01 no element asks ${name}'s faces for a weight they lack`, async ({ page }) => {
+      const spec = designFor(params, seedOf(1));
+      await openStudio(page, writeHash(spec));
+      await page.evaluate(() => document.fonts.ready);
+      const weights = typeWeights(spec);
+      expect(await canvasVars(page)).toMatchObject({
+        "--weight-heading": String(weights.heading),
+        "--weight-label": String(weights.label),
+        "--weight-body": String(weights.body),
+      });
+      const heaviest = Object.fromEntries(
+        FONT_CATALOG.map((font) => [font.family, Math.max(...font.weights)]),
+      );
+      const failures: string[] = [];
+      let checked = 0;
+      for (const id of TEMPLATE_IDS) {
+        const root = await showTemplate(page, id);
+        const found = await root.evaluate((element, limits) => {
+          const out: string[] = [];
+          let count = 0;
+          for (const node of [element, ...element.querySelectorAll("*")]) {
+            const style = getComputedStyle(node);
+            const family = (style.fontFamily.split(",")[0] ?? "")
+              .trim()
+              .replaceAll(/^["']|["']$/g, "");
+            const limit = limits[family];
+            if (limit === undefined) continue;
+            count += 1;
+            const weight = Number.parseInt(style.fontWeight, 10);
+            if (weight >= 600 && limit < 600) {
+              const label = `${node.tagName.toLowerCase()}.${[...node.classList].join(".")}`;
+              out.push(`${label} is ${weight} in ${family} (heaviest ${limit})`);
+            }
+          }
+          return { count, out: [...new Set(out)] };
+        }, heaviest);
+        checked += found.count;
+        failures.push(...found.out.map((line) => `${id}: ${line}`));
+      }
+      expect(checked).toBeGreaterThan(1000);
+      expect(failures).toEqual([]);
+    });
   }
 });
