@@ -57,6 +57,17 @@ export const SLOW_TESTS: readonly string[] = [...SLOW_CORE_TESTS, ...SLOW_WEB_TE
 export const SCAN_TESTS: readonly string[] = [
   "tests/unit/features/studio/fix-scan-srgb.test.ts", // 29.7 s
   "tests/unit/features/studio/fix-scan-p3.test.ts", // 30.2 s
+  // R3-41 (Task 3.0): the 3,808 designs of the five grids, measured against the required checks.
+  "tests/unit/engine/measure-grid-1.test.ts", // 38.5 s
+  "tests/unit/engine/measure-grid-2.test.ts", // 40.2 s
+  "tests/unit/engine/measure-grid-3.test.ts", // 46.6 s
+  "tests/unit/engine/measure-grid-4.test.ts", // 47.7 s
+  "tests/unit/engine/measure-grid-5.test.ts", // 46.0 s
+  "tests/unit/engine/measure-grid-6.test.ts", // 52.9 s
+  "tests/unit/engine/measure-grid-7.test.ts", // 48.3 s
+  "tests/unit/engine/measure-grid-8.test.ts", // 39.1 s
+  "tests/unit/engine/measure-grid-9.test.ts", // 54.5 s
+  "tests/unit/engine/measure-grid-10.test.ts", // 21.1 s
 ];
 
 /** The floor of the pure core, held by every pure helper too (spec R2-22). */
@@ -113,7 +124,7 @@ export default defineConfig({
           name: "core",
           environment: "node",
           include: PURE_CORE_TESTS,
-          exclude: [...configDefaults.exclude, ...SLOW_CORE_TESTS],
+          exclude: [...configDefaults.exclude, ...SLOW_CORE_TESTS, ...SCAN_TESTS],
         },
       },
       {

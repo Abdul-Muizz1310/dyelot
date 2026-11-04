@@ -81,10 +81,13 @@ describe("R2-31 the two gates", () => {
   it("C-REPO-M2-07 lists only existing test files in the slow set, each once", () => {
     const slow = [...SLOW_TESTS, ...SCAN_TESTS];
     expect(SLOW_TESTS.length).toBeGreaterThan(0);
-    expect([...SCAN_TESTS].sort()).toEqual([
-      "tests/unit/features/studio/fix-scan-p3.test.ts",
-      "tests/unit/features/studio/fix-scan-srgb.test.ts",
-    ]);
+    expect([...SCAN_TESTS].sort()).toEqual(
+      [
+        "tests/unit/features/studio/fix-scan-p3.test.ts",
+        "tests/unit/features/studio/fix-scan-srgb.test.ts",
+        ...Array.from({ length: 10 }, (_, i) => `tests/unit/engine/measure-grid-${i + 1}.test.ts`),
+      ].sort(),
+    );
     const repeated = slow.filter((file, at) => slow.indexOf(file) !== at);
     expect(repeated, "entries listed twice").toEqual([]);
     const missing = slow.filter(
