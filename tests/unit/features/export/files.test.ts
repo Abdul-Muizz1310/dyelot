@@ -87,4 +87,17 @@ describe("summaryLines", () => {
       for (const line of expected) expect(designMd, id).toContain(`- ${line}`);
     }
   });
+
+  it("prints zero counts in DESIGN.md's lint line exactly as the dialog does", () => {
+    for (const [error, warn, info] of [
+      [0, 0, 2],
+      [0, 3, 0],
+      [0, 0, 0],
+      [1, 0, 0],
+      [2, 1, 1],
+    ] as const) {
+      const summary = withLint(error, warn, info);
+      expect(designMdLines(summary)).toEqual(summaryLines(summary));
+    }
+  });
 });

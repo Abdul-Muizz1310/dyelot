@@ -71,10 +71,10 @@ export function fontPackages(spec: DesignSpec): string[] {
 export function summaryLines(summary: Summary): string[] {
   const { contrast, separation, gamut, lint } = summary;
   const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
-  let findings =
+  // Zero counts print too: section 9.2 and the dialog's summary lines read the same words.
+  const errors =
     lint.error === 0 ? "No lint errors" : plural(lint.error, "lint error", "lint errors");
-  if (lint.warn > 0) findings += `, ${plural(lint.warn, "warning", "warnings")}`;
-  if (lint.info > 0) findings += `, ${plural(lint.info, "note", "notes")}`;
+  const findings = `${errors}, ${plural(lint.warn, "warning", "warnings")}, ${plural(lint.info, "note", "notes")}`;
   return [
     `${contrast.requiredPass} of ${contrast.required} required contrast checks pass`,
     `${separation.checks - separation.below} of ${separation.checks} color-vision checks keep status and chart colors apart`,
