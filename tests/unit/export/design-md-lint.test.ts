@@ -53,7 +53,8 @@ const GUARDS = [
 
 describe("the exported copy", () => {
   it("C-DMD-16: no British spelling, banned word or original guard in DESIGN.md, the prompt or the skill", () => {
-    for (const { id, spec } of GOLDENS) {
+    // The row says the 14 preset goldens; `imported-shadcn` is the 15th.
+    for (const { id, spec } of GOLDENS.filter((g) => g.id !== "imported-shadcn")) {
       const texts = [
         designMd(spec, ORIGIN),
         promptMd(spec, ORIGIN),

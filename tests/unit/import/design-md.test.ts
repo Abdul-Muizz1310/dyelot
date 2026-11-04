@@ -423,8 +423,9 @@ describe("C-DMI-09 a group twice and too much YAML", () => {
 
 describe("C-DMI-10 exact re-import", () => {
   it("returns the golden spec for each of the 14 presets", () => {
-    expect(GOLDENS).toHaveLength(14);
-    for (const { id, spec } of GOLDENS) {
+    const presets = GOLDENS.filter((g) => g.id !== "imported-shadcn");
+    expect(presets).toHaveLength(14);
+    for (const { id, spec } of presets) {
       const result = okOf(importDesignMd(designMd(spec, ORIGIN)));
       expect(result.report.exact, id).toBe(true);
       expect(result.report.format).toBe("design-md");
