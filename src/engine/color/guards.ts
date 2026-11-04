@@ -57,7 +57,7 @@ export function assertOklch(color: Oklch, name: string): void {
 
 /** The two gamuts and the two modes, as lists for `assertOneOf`. */
 export const GAMUTS = Object.freeze(["srgb", "p3"] as const);
-export const MODES = ["light", "dark"] as const;
+export const MODES = Object.freeze(["light", "dark"] as const);
 
 /** A gamut is the string "srgb" or "p3": another type is a TypeError, another string a RangeError. */
 export function assertGamut(gamut: Gamut, name: string): void {

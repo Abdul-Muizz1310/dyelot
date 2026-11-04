@@ -15,7 +15,7 @@ export { DEFICIENCIES, type Deficiency, simulate } from "./color/cvd";
 export { deltaEOK } from "./color/deltae";
 export { ColorParseError } from "./color/errors";
 export { gamutMap } from "./color/gamut";
-export { GAMUTS } from "./color/guards";
+export { GAMUTS, MODES } from "./color/guards";
 export { HARMONIES, type Harmony } from "./color/harmony";
 export { indexNames, type NameEntry, type NameIndex, nearestName } from "./color/names";
 export {

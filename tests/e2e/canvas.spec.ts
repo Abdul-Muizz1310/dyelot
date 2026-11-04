@@ -7,6 +7,7 @@ import {
   FONT_CATALOG,
   fontStack,
   hexToRgb,
+  MODES,
   PAIRINGS,
   simulate,
   toHex,
@@ -15,7 +16,7 @@ import {
 import { COPY, SAMPLE_PLACES } from "@/features/preview/copy";
 import { frameFit } from "@/features/preview/frame";
 import { writeHash } from "@/features/studio/url";
-import { TEMPLATE_IDS, type TemplateId } from "@/features/studio/view";
+import { TEMPLATE_IDS } from "@/features/studio/view";
 import { normalizeSpec } from "@/spec";
 import { themeVars } from "@/theme/vars";
 import {
@@ -26,18 +27,22 @@ import {
   designFor,
   expectedVars,
   FRESH,
+  first,
   focusBody,
   lotId,
   lotOf,
+  modeSwitch,
   openStudio,
   seedCalls,
   seedOf,
   settled,
   stubSeeds,
+  toolbarRadio,
 } from "./studio-support";
 import {
   brokenWords,
   eachTab,
+  elsewhere,
   figureLines,
   frameSwitch,
   installColorResolver,
@@ -45,11 +50,13 @@ import {
   mountMotion,
   openSheet,
   overflow,
+  reduceMotion,
   restoreCanvas,
   screenOf,
   setFrame,
   showTemplate,
   templateRoot,
+  templateSelect,
 } from "./template-support";
 
 // The canvas flows of docs/specs/02-studio.md, section 7.4 (Task 2.7): F-CANVAS-01 to 10 and 12 to
@@ -61,27 +68,12 @@ import {
 test.use({ viewport: { width: 1280, height: 800 } });
 
 const PHONE = { width: 360, height: 740 };
-const MODES = ["light", "dark"] as const;
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
-/** The design of the first load when `stubSeeds` draws the seeds. */
-const first = () => designFor(FRESH, seedOf(1));
-
 const toolbar = (page: Page) => page.getByRole("region", { name: "Canvas toolbar" });
-const toolbarRadio = (page: Page, group: string, name: string) =>
-  toolbar(page)
-    .getByRole("group", { name: group, exact: true })
-    .getByRole("radio", { name, exact: true });
-const templateSelect = (page: Page) =>
-  toolbar(page).getByRole("combobox", { name: "Template", exact: true });
-const reduceMotion = (page: Page) =>
-  page.getByRole("switch", { name: "Reduce motion", exact: true });
-const modeSwitch = (page: Page) => page.getByRole("switch", { name: "Dark mode", exact: true });
 
 /** The page templates of sections 7.6 and 7.7 (Tasks 2.8 and 2.9): they follow the frame switcher. */
 const PAGES = ["landing", "editorial", "dashboard", "settings"] as const;
-/** A template other than `id`, shown first so that `id` mounts afresh. */
-const elsewhere = (id: TemplateId): TemplateId => (id === "landing" ? "editorial" : "landing");
 
 /** Opens the studio on the first stubbed design and shows the kitchen sink. */
 async function openSink(page: Page): Promise<void> {
@@ -872,7 +864,7 @@ function toolbarRows(page: Page) {
 }
 
 /** The toolbar's visible targets narrower than 24 px or shorter than 28 px. */
-function smallTargets(page: Page) {
+function smallToolbarTargets(page: Page) {
   return toolbar(page).evaluate((bar) =>
     [...bar.querySelectorAll("button, select, input, summary")]
       .map((target) => ({ target, box: target.getBoundingClientRect() }))
@@ -898,11 +890,11 @@ test("F-CANVAS-17 at 1280 × 800 the toolbar takes at most 3 rows and 150 px, an
 
 test("F-CANVAS-18 every toolbar target is at least 28 px tall and 24 px wide", async ({ page }) => {
   await openStudio(page);
-  expect(await smallTargets(page), "1280 × 800").toEqual([]);
+  expect(await smallToolbarTargets(page), "1280 × 800").toEqual([]);
   await page.setViewportSize(PHONE);
   await page.getByRole("button", { name: "View", exact: true }).click();
   await expect(modeSwitch(page)).toBeVisible();
-  expect(await smallTargets(page), "360 × 740, View open").toEqual([]);
+  expect(await smallToolbarTargets(page), "360 × 740, View open").toEqual([]);
 });
 
 test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", async ({ page }) => {

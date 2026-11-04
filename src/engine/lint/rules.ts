@@ -1,7 +1,7 @@
 import { perceptualLc, wcagRatio } from "../color/contrast";
 import { ACHROMATIC_CHROMA, hexToRgb, oklchToRgb, rgbToOklch } from "../color/convert";
 import { minPairwiseDeltaE, VIEWS } from "../color/deltae";
-import { STORED_GAMUT_TOLERANCE } from "../color/guards";
+import { MODES, STORED_GAMUT_TOLERANCE } from "../color/guards";
 import { LOCKABLE, PALETTE_NAMES, type PaletteName, seedHex } from "../color/palette";
 import type { RoleName } from "../color/roles";
 import { DARK_CHROMA_FACTOR, type ScaleStep, STEPS, stepChroma } from "../color/scale";
@@ -70,7 +70,6 @@ const ACCENTED: readonly PaletteName[] = [
 const BRAND: readonly PaletteName[] = ["primary", "secondary", "accent"];
 const STATUS_PALETTES: readonly PaletteName[] = ["success", "warning", "danger", "info"];
 const D3_STEPS = [500, 600, 700] as const;
-const MODES: readonly Mode[] = ["light", "dark"];
 // The taste rules of spec section 5.4.
 const GENERIC_DISPLAY = 0.8;
 const PURPLE_HUES = [265, 300] as const;
