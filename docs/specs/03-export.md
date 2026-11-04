@@ -249,7 +249,8 @@ trailing slash; otherwise it is a `RangeError` (a non-string is a `TypeError`). 
 12. `scripts/dyelot-check.mjs`
 13. `receipt.json`, always last
 
-That is 18 files plus one per font item: 18 to 21. The edit link is `<origin>/studio#s=<encodeSpec(spec)>`. Per D4,
+That is 18 files plus one per font item: 18 to 21. The decision's "21 files" and "three font items" are the count for a
+design with three distinct families that next/font can load. The edit link is `<origin>/studio#s=<encodeSpec(spec)>`. Per D4,
 `DESIGN.md`, `prompt.md`, the skill and the header comment of `theme.css` carry the words "Made with dyelot" and the edit
 link, and the receipt records the link. `zipName(bundle)` is `<slug>-<the first 8 digits of the spec id>.zip`. **(plan; the
 order rebuilt from the plan's file list)**
@@ -364,11 +365,11 @@ by default, with the current folder as the root. It runs four checks in this ord
 1. **The theme.** It looks for a global stylesheet, the first of `app/globals.css`, `src/app/globals.css` and
    `styles/globals.css` that exists. When that file imports a file named `theme.css` (`@import "./theme.css"` or any relative
    path ending in `theme.css`), the theme is the imported file; otherwise, when the global stylesheet itself defines every
-   role, it is the theme; otherwise the run stops with exit 2. When the theme is the bundle's `app/theme.css`, its SHA-256
-   must equal the receipt's entry (`theme-changed`). **1b.** In the theme's `:root` and `.dark` blocks each of the 46 roles
+   role, it is the theme; otherwise the run stops with exit 2. When the theme is a file named `theme.css`, wherever it sits, its
+   SHA-256 must equal the receipt's entry for `app/theme.css` (`theme-changed`). **1b.** In the theme's `:root` and `.dark` blocks each of the 46 roles
    must equal the receipt's hex for that mode, case aside (`role-mismatch`, `role-missing`); `--radius` must equal the
-   receipt's (`radius-mismatch`); and every `@theme` name the bundle's `theme.css` maps (`--color-<role>`, `--radius-*`,
-   `--font-*`) must point at the same variable (`theme-name-changed`).
+   receipt's (`radius-mismatch`); and, when the theme is the bundle's `theme.css`, every name its `@theme inline` block maps
+   (`--color-<role>`, `--color-<palette>-<step>`) must still point at the same variable (`theme-name-changed`).
 2. **The pairs.** Each of the 78 required checks is measured again with WCAG 2.2 on the theme's values; a pair below its
    threshold is `contrast-fails`.
 3. **Shadows.** A role or `--radius` defined again after the theme, in the global stylesheet or in another stylesheet that
@@ -479,8 +480,8 @@ with `toPlainText(raw, max)?.text`, or `undefined` for an empty result, under th
 `"about-one-liner"`. A field takes the store's value only when that value differs from `toPlainText(raw)`, so typing a
 trailing space never jumps the cursor. `importDesign(result)` loads `result.spec` as a link load does: the new snapshot is
 `{ params, seed, spec, preset: presetOf(spec), provenance: "loaded" }` with the params of `paramsOfSpec`, and the old one
-goes onto `history`. The notice `{ kind: "imported", format, exact, adjusted, ignored }` belongs to that snapshot: undo
-clears it, redo restores it. `rebuild()` regenerates the held design from its own params and seed as a new commit, with
+goes onto `history`. The notice `{ kind: "imported", format, exact, light, dark, adjusted }` (the counts of roles the file
+set in each mode, and of colors adjusted) belongs to that snapshot: undo clears it, redo restores it. `rebuild()` regenerates the held design from its own params and seed as a new commit, with
 provenance `"generated"`. **(plan)**
 
 **R3-34 · The export dialog.** "Export" sits in the toolbar right after "Copy link", with
@@ -549,7 +550,14 @@ primaries (156), plus those 12 sets with a `#1a1c1e` primary and a `#b8422e` acc
 rule of severity `error`, the record keeps how many checks ran, the worst margin (the measured value minus the threshold, in
 the direction that passes), the design that had it and that design's primary hue, plus the four primary hues of `s0` to
 `s3`. **If any design throws or raises an error, M3 stops for the owner's decision; no later task starts until the owner
-decides.** Task 3.1 copies the record into section 13. **(plan)**
+decides.** Task 3.1 fills the table below from Task 3.0's report. **(plan)**
+
+| Rule (severity `error`) | Checks run | Worst margin | Design | Its primary hue |
+|---|---|---|---|---|
+| C1, C2, C5, N1, N2, F1 (each its own row) | Task 3.1 | Task 3.1 | Task 3.1 | Task 3.1 |
+| S1 (below 0.05), K1, G1, G3 (each its own row) | Task 3.1 | Task 3.1 | Task 3.1 | Task 3.1 |
+
+The primary hues of `s0` to `s3`: recorded by Task 3.1.
 
 **R3-42 · Provenance and the three blocked states.** A snapshot records `provenance`: `"generated"` when the store made it from
 a generator reply to its own request (a change of parameters, a preset, regenerate, a lock, a fix, `rebuild`), and
@@ -984,7 +992,8 @@ Everything but the colors is equal in the two files.
 ### 6.8 The bundle and the zip (Task 3.11)
 
 `buildBundle` writes the files of R3-12 in its order, each with its writer, the receipt last over the others. `zipBundle`
-follows R3-26. The bundle of `SPEC` with the font items for its three families has 21 files.
+follows R3-26. `SPEC`, whose display and body share Host Grotesk, has two font items and 20 files. The `default` golden, set
+in Young Serif, Onest and Fragment Mono, has three and 21.
 
 ### 6.9 `DESIGN.md` (Task 3.9)
 
