@@ -37,6 +37,7 @@ import { choosePairing, PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
 import { ENGINE_VERSION, generateSystem } from "@/engine/generate";
 import { lintSpec } from "@/engine/lint";
 import { RULE_IDS } from "@/engine/lint/types";
+import { freshParams, paramsOfSpec, resolveParams } from "@/engine/params";
 import { applyPreset, PRESET_IDS, PRESETS } from "@/engine/presets";
 import { shadows } from "@/engine/tokens/depth";
 import { motionTokens } from "@/engine/tokens/motion";
@@ -47,7 +48,9 @@ import type { DesignSpec } from "@/spec";
 import * as spec from "@/spec";
 import { canonicalize } from "@/spec/canonical";
 import { specId } from "@/spec/hash";
+import { lotTag } from "@/spec/lot";
 import { DEPTH_STYLES, MOTION_FEELS } from "@/spec/schema";
+import { isPlainText, toPlainText } from "@/spec/text";
 import { decodeSpec, encodeSpec } from "@/spec/url-codec";
 import { DEFAULT_PARAMS, defaultSpec } from "../spec/support";
 
@@ -90,6 +93,7 @@ const ENGINE_KEYS = [
   "fontFiles",
   "fontStack",
   "formatOklch",
+  "freshParams",
   "gamutMap",
   "generateSystem",
   "genericness",
@@ -102,9 +106,11 @@ const ENGINE_KEYS = [
   "nestedRadius",
   "normalizeSeed",
   "oklchToRgb",
+  "paramsOfSpec",
   "parseColor",
   "perceptualLc",
   "radiusScale",
+  "resolveParams",
   "rgbToOklch",
   "shadows",
   "simulate",
@@ -127,14 +133,17 @@ const SPEC_KEYS = [
   "canonicalize",
   "decodeSpec",
   "encodeSpec",
+  "isPlainText",
+  "lotTag",
   "normalizeSpec",
   "specId",
+  "toPlainText",
 ];
 
 const sorted = (keys: readonly string[]): string[] => [...keys].sort();
 
 describe("the engine entry", () => {
-  it("C-ENTRY-01 exports the section 6.1 set and nothing else, bar the keys a later task adds", () => {
+  it("C-ENTRY-01 and C-ENTRY3-01 export the section 6.1 set and nothing else, bar the keys a later task adds", () => {
     expect(sorted(Object.keys(engine))).toEqual(
       sorted(ENGINE_KEYS.filter((key) => !PENDING_KEYS.includes(key))),
     );
@@ -175,6 +184,7 @@ describe("the engine entry", () => {
       fontFiles,
       fontStack,
       formatOklch,
+      freshParams,
       gamutMap,
       generateSystem,
       genericness,
@@ -187,9 +197,11 @@ describe("the engine entry", () => {
       nestedRadius,
       normalizeSeed,
       oklchToRgb,
+      paramsOfSpec,
       parseColor,
       perceptualLc,
       radiusScale,
+      resolveParams,
       rgbToOklch,
       shadows,
       simulate,
@@ -221,7 +233,7 @@ describe("the engine entry", () => {
 });
 
 describe("the spec entry", () => {
-  it("C-ENTRY-03 exports the section 6.1 set and nothing else", () => {
+  it("C-ENTRY-03 and C-ENTRY3-01 export the section 6.1 set and nothing else", () => {
     expect(sorted(Object.keys(spec))).toEqual(sorted(SPEC_KEYS));
   });
 
@@ -234,6 +246,9 @@ describe("the spec entry", () => {
     expect(spec.specId).toBe(specId);
     expect(spec.encodeSpec).toBe(encodeSpec);
     expect(spec.decodeSpec).toBe(decodeSpec);
+    expect(spec.lotTag).toBe(lotTag);
+    expect(spec.isPlainText).toBe(isPlainText);
+    expect(spec.toPlainText).toBe(toPlainText);
   });
 });
 

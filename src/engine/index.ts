@@ -54,6 +54,7 @@ export { ENGINE_VERSION, generateSystem } from "./generate";
 export { lintSpec } from "./lint";
 export type { Finding, LintedSpec, LintOptions, RuleId, Severity } from "./lint/types";
 export { RULE_IDS } from "./lint/types";
+export { freshParams, paramsOfSpec, resolveParams } from "./params";
 export {
   applyPreset,
   type Density,

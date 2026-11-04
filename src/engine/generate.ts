@@ -4,13 +4,16 @@ import {
   type DepthStyle,
   type DesignSpec,
   DesignSpecSchema,
+  type Direction,
   type DirectionParams,
   MOTION_FEELS,
   type MotionFeel,
   NAME_MAX,
+  ONE_LINER_MAX,
   SEED_MAX,
   SPEC_VERSION,
 } from "../spec/schema";
+import { isPlainText } from "../spec/text";
 import { pickChartColors } from "./color/chart";
 import { assertFinite, assertOneOf, describeType, GAMUTS } from "./color/guards";
 import { HARMONIES } from "./color/harmony";
@@ -61,6 +64,9 @@ type Parsed = {
   readonly depth: DepthStyle;
   readonly motion: MotionFeel;
   readonly name: string;
+  readonly oneLiner: string | undefined;
+  readonly direction: Direction | undefined;
+  readonly rules: { readonly do: readonly string[]; readonly dont: readonly string[] } | undefined;
   /** The three font ids: the pairing's, or M1's default when `pairing` is absent. */
   readonly families: { readonly display: string; readonly body: string; readonly mono: string };
 };
@@ -76,6 +82,87 @@ function checkText(value: unknown, max: number, name: string): string {
     throw new RangeError(`${name} must be 1 to ${max} characters, got ${value.length}`);
   }
   return value;
+}
+
+/** Plain text (R3-02) of 1 to `max` characters: a TypeError for a non-string, else a RangeError. */
+function checkPlain(value: unknown, max: number, name: string): string {
+  const text = checkText(value, max, name);
+  if (!isPlainText(text)) {
+    throw new RangeError(`${name} must be plain text, got ${JSON.stringify(value)}`);
+  }
+  return text;
+}
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function checkObject(value: unknown, name: string): Record<string, unknown> {
+  if (!isObject(value)) {
+    throw new TypeError(`${name} must be an object, got ${describeType(value)}`);
+  }
+  return value;
+}
+
+/** A list of plain texts: 1 to `LIST_MAX` entries (or 0 to `LIST_MAX` when `min` is 0). */
+function checkList(value: unknown, bounds: ListBounds, name: string): string[] {
+  if (!Array.isArray(value)) {
+    throw new TypeError(`${name} must be an array, got ${describeType(value)}`);
+  }
+  if (value.length < bounds.min || value.length > bounds.maxLength) {
+    throw new RangeError(
+      `${name} must have ${bounds.min} to ${bounds.maxLength} entries, got ${value.length}`,
+    );
+  }
+  return value.map((entry, index) => checkPlain(entry, bounds.maxChars, `${name}[${index}]`));
+}
+
+type ListBounds = { min: number; maxLength: number; maxChars: number };
+
+const DIRECTION_LISTS = {
+  adjectives: { min: 1, maxLength: 5, maxChars: 24 },
+  like: { min: 1, maxLength: 5, maxChars: 80 },
+  unlike: { min: 1, maxLength: 5, maxChars: 80 },
+} as const;
+const THESIS_MAX = 280;
+const RULES_LISTS: ListBounds = { min: 0, maxLength: 20, maxChars: 200 };
+
+/** `params.direction`: a strict object with at least one of its four keys (R3-01). */
+function checkDirection(value: unknown): Direction | undefined {
+  if (value === undefined) return undefined;
+  const name = "generateSystem: params.direction";
+  const source = checkObject(value, name);
+  const keys = Object.keys(source);
+  const known = ["thesis", ...Object.keys(DIRECTION_LISTS)];
+  const unknownKey = keys.find((key) => !known.includes(key));
+  if (unknownKey !== undefined) throw new RangeError(`${name} has an unknown key "${unknownKey}"`);
+  if (keys.length === 0) throw new RangeError(`${name} must have at least one key`);
+  const { thesis, adjectives, like, unlike } = source;
+  return {
+    ...(Object.hasOwn(source, "thesis")
+      ? { thesis: checkPlain(thesis, THESIS_MAX, `${name}.thesis`) }
+      : {}),
+    ...(Object.hasOwn(source, "adjectives")
+      ? { adjectives: checkList(adjectives, DIRECTION_LISTS.adjectives, `${name}.adjectives`) }
+      : {}),
+    ...(Object.hasOwn(source, "like")
+      ? { like: checkList(like, DIRECTION_LISTS.like, `${name}.like`) }
+      : {}),
+    ...(Object.hasOwn(source, "unlike")
+      ? { unlike: checkList(unlike, DIRECTION_LISTS.unlike, `${name}.unlike`) }
+      : {}),
+  };
+}
+
+/** `params.rules`: the two lists, each 0 to 20 entries of 1 to 200 plain characters. */
+function checkRules(value: unknown): Parsed["rules"] {
+  if (value === undefined) return undefined;
+  const name = "generateSystem: params.rules";
+  const source = checkObject(value, name);
+  return {
+    do: checkList(source.do, RULES_LISTS, `${name}.do`),
+    dont: checkList(source.dont, RULES_LISTS, `${name}.dont`),
+  };
 }
 
 /**
@@ -119,7 +206,7 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   // Not yet checked: each field is unknown until assertOneOf and checkRatio parse it.
   const { context, ratio } = type as { readonly context?: unknown; readonly ratio?: unknown };
   assertOneOf(context, TYPE_CONTEXTS, "generateSystem: params.type.context");
-  const { radius, depth, motion, name } = params;
+  const { radius, depth, motion, name, oneLiner } = params;
   assertOneOf(radius, RADIUS_SET_NAMES, "generateSystem: params.radius");
   assertOneOf(depth, DEPTH_STYLES, "generateSystem: params.depth");
   assertOneOf(motion, MOTION_FEELS, "generateSystem: params.motion");
@@ -147,7 +234,13 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
     radius,
     depth,
     motion,
-    name: name === undefined ? UNTITLED : checkText(name, NAME_MAX, "generateSystem: params.name"),
+    name: name === undefined ? UNTITLED : checkPlain(name, NAME_MAX, "generateSystem: params.name"),
+    oneLiner:
+      oneLiner === undefined
+        ? undefined
+        : checkPlain(oneLiner, ONE_LINER_MAX, "generateSystem: params.oneLiner"),
+    direction: checkDirection(params.direction),
+    rules: checkRules(params.rules),
     families,
   };
 }
@@ -172,7 +265,14 @@ export function generateSystem(params: DirectionParams, seed: string): DesignSpe
   const palettes = buildPalettes(parsed.color, seededRandom(seed));
   const draft = {
     version: SPEC_VERSION,
-    meta: { name: parsed.name, seed, engineVersion: ENGINE_VERSION, createdWith: "controls" },
+    meta: {
+      name: parsed.name,
+      ...(parsed.oneLiner === undefined ? {} : { oneLiner: parsed.oneLiner }),
+      seed,
+      engineVersion: ENGINE_VERSION,
+      createdWith: "controls",
+    },
+    ...(parsed.direction === undefined ? {} : { direction: parsed.direction }),
     color: {
       params: parsed.color,
       palettes,
@@ -197,7 +297,7 @@ export function generateSystem(params: DirectionParams, seed: string): DesignSpe
       inputs: "outlined",
       icons: { library: "lucide", strokePx: 2 },
     },
-    rules: { do: [], dont: [] },
+    rules: parsed.rules ?? { do: [], dont: [] },
   };
   // R-02: every stored number through round6, a hue through roundHue. The canonical text does
   // exactly that, so reading it back gives the stored spec, which the schema checks and types.

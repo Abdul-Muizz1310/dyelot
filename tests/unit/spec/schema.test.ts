@@ -205,14 +205,38 @@ describe("DesignSpecSchema", () => {
       [["components", "emphasis"], "", "p".repeat(65)],
       [["components", "inputs"], "", "p".repeat(65)],
       [["components", "icons", "library"], "", "p".repeat(65)],
+      [["meta", "oneLiner"], "", "o".repeat(141)],
+      [["direction"], {}, { thesis: "t".repeat(281) }],
+      [["direction"], { adjectives: [] }, { adjectives: ["a".repeat(25)] }],
+      [["direction"], { adjectives: Array(6).fill("a") }, { like: Array(6).fill("a") }],
+      [["direction"], { unlike: Array(6).fill("a") }, { like: ["l".repeat(81)] }],
+      [["direction"], { unlike: ["u".repeat(81)] }, { thesis: "t".repeat(281) }],
+      [["rules", "do"], [""], ["r".repeat(201)]],
     ];
     for (const [path, low, high] of cases) {
-      expectRejected(withValue(spec, path, low), path);
+      expectRejected(withValue(spec, path, low));
       expectRejected(withValue(spec, path, high));
+    }
+    // R3-02: a text field or a policy that is not plain text fails; the bounds above stay.
+    const notPlain = [" lead", "a\u0007b", "a\u202eb", "e\u0301"];
+    const fields: ReadonlyArray<Path> = [
+      ["meta", "name"],
+      ["meta", "oneLiner"],
+      ["components", "cards"],
+      ["components", "emphasis"],
+      ["components", "inputs"],
+      ["components", "icons", "library"],
+    ];
+    for (const text of notPlain) {
+      for (const path of fields) expectRejected(withValue(spec, path, text), path);
+      expectRejected(withValue(spec, ["rules", "do"], [text]));
+      expectRejected(withValue(spec, ["direction"], { thesis: text }));
     }
     const edges: ReadonlyArray<readonly [Path, unknown]> = [
       [["meta", "name"], "n".repeat(80)],
       [["meta", "name"], "n"],
+      [["meta", "oneLiner"], "o".repeat(140)],
+      [["direction"], { thesis: "t".repeat(280) }],
       [["meta", "seed"], "s".repeat(128)],
       [["rules", "do"], Array(20).fill("r".repeat(200))],
       [["rules", "dont"], ["Keep one filled button per region."]],
