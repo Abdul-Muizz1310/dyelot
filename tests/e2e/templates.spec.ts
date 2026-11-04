@@ -680,6 +680,8 @@ test.describe("7.5 The kitchen sink", () => {
   });
 
   test("axe finds no violation on /studio with the kitchen sink, in light and in dark", async () => {
+    // Each axe run takes about 14 s on the kitchen sink, so the two runs sit at the 30 s default.
+    test.setTimeout(90_000);
     for (const mode of MODES) {
       if (mode === "dark")
         await page.getByRole("switch", { name: "Dark mode", exact: true }).click();

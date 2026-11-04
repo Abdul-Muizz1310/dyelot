@@ -19,6 +19,7 @@ import {
   SCALE_MODES,
   TYPE_CONTEXTS,
 } from "@/engine";
+import { AboutFields } from "./AboutFields";
 import { PRESSED, PRIMARY_BUTTON } from "./chrome";
 import { Choice, LABEL, Picker, same } from "./controls";
 import { isOneOf } from "./guards";
@@ -51,6 +52,10 @@ export function InputsPanel({ store }: { store: StudioStore }) {
   return (
     <>
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto px-4 pt-4 pb-6">
+        <Section title="About">
+          <AboutFields store={store} />
+        </Section>
+
         <Section title="Seeds">
           {(["primary", "secondary", "accent"] as const).map((slot) => (
             <SeedRow key={slot} slot={slot} store={store} />

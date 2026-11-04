@@ -911,6 +911,8 @@ function panelControls(page: Page): Promise<string[]> {
 test.describe("7.2 The inputs panel", () => {
   const SEEDS = ["Primary", "Secondary", "Accent"] as const;
   const CONTROLS = [
+    "text:Name",
+    "text:One line",
     ...SEEDS.flatMap((slot) => [
       `text:${slot}`,
       `color:Pick ${slot.toLowerCase()}`,
@@ -945,6 +947,10 @@ test.describe("7.2 The inputs panel", () => {
   test("F-INPUT-02 every control has an accessible name equal to its label", async ({ page }) => {
     await openStudio(page);
     const panel = inputsPanel(page);
+    for (const name of ["Name", "One line"]) {
+      await expect(panel.getByRole("textbox", { name, exact: true })).toHaveCount(1);
+      await expect(panel.locator("label", { hasText: new RegExp(`^${name}$`) })).toBeVisible();
+    }
     for (const slot of SEEDS) {
       await expect(panel.getByRole("textbox", { name: slot, exact: true })).toHaveCount(1);
       await expect(panel.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true })).toHaveCount(1);
@@ -1546,6 +1552,8 @@ test.describe("7.3 Keyboard", () => {
   /** The Tab stops of the inputs panel, in the order of section 7.2. */
   function panelStops(page: Page) {
     return [
+      field(page, "Name"),
+      field(page, "One line"),
       ...(["Primary", "Secondary", "Accent"] as const).flatMap((slot) => [
         field(page, slot),
         page.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true }),
