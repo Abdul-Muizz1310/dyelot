@@ -82,6 +82,7 @@
     "@fontsource/redaction": "^5.3.0",
     "@fontsource/tiny5": "^5.3.0",
     "@fontsource/young-serif": "^5.3.0",
+    "@google/design.md": "0.4.0",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/postcss": "4.3.3",
     "@testing-library/jest-dom": "^7.0.1",

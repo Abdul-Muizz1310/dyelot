@@ -40,6 +40,7 @@ const SLOW_CORE_TESTS = [
   "tests/unit/engine/lint/t3-defaults-1.test.ts", // 12.1 s: C-TASTE-13
   "tests/unit/engine/presets-lint-5.test.ts", // 11.7 s
   "tests/unit/engine/presets-match-change.test.ts", // 40.6 s: C-PMATCH-03
+  "tests/unit/export/prompt.test.ts", // 22 s: C-PRM-02 (200 runs of generateSystem and themeCss)
 ];
 
 /** The slow set's files that run in jsdom, beside the studio's other tests. */
