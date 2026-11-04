@@ -10,6 +10,8 @@ const PURE_CORE_TESTS = [
   "tests/unit/theme/**/*.test.{ts,tsx}",
   // The export layer (M3) is pure too: its sha256 is checked against node:crypto in Node.
   "tests/unit/export/**/*.test.{ts,tsx}",
+  // The import layer (M3) is pure too.
+  "tests/unit/import/**/*.test.{ts,tsx}",
   // The build scripts and the gate guard run under Node and spawn it; they have no DOM.
   "tests/unit/scripts/**/*.test.{ts,tsx}",
 ];
@@ -199,6 +201,7 @@ export default defineConfig({
         "src/spec/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/theme/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/export/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
+        // The import layer (M3): 90 lines, statements and functions, 85 branches.
         "src/import/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
         "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
         ...Object.fromEntries(

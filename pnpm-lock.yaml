@@ -8,6 +8,15 @@ importers:
 
   .:
     dependencies:
+      '@csstools/css-color-parser':
+        specifier: 4.2.7
+        version: 4.2.7(@csstools/css-parser-algorithms@4.0.2(@csstools/css-tokenizer@4.0.2))(@csstools/css-tokenizer@4.0.2)
+      '@csstools/css-parser-algorithms':
+        specifier: 4.0.2
+        version: 4.0.2(@csstools/css-tokenizer@4.0.2)
+      '@csstools/css-tokenizer':
+        specifier: 4.0.2
+        version: 4.0.2
       color-name-list:
         specifier: ^14.85.1
         version: 14.85.1
