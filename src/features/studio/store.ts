@@ -47,11 +47,6 @@ import { DEFAULT_VIEW, mergeView, type View } from "./view";
 // (Review Focus 4). A change commits when its reply applies: the previous snapshot goes onto
 // `history`, and the link in the hash and the draft follow 300 ms later.
 
-export type { Snapshot, StorageLike } from "./drafts";
-export type { DeepPartial, ParamsPatch } from "./params";
-export type { Notice } from "./url";
-export type { Highlight, TemplateId, View } from "./view";
-
 export type Status = {
   readonly phase: "idle" | "generating" | "failed";
   readonly notice: Notice | null;

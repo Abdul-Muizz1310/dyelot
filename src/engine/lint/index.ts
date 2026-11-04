@@ -6,8 +6,6 @@ import { runRules } from "./rules";
 import type { Finding, LintedSpec, LintOptions } from "./types";
 
 export { gamutExcess } from "./rules";
-export type { Finding, LintedSpec, LintOptions, RuleId, Severity } from "./types";
-export { RULE_IDS } from "./types";
 
 const SEVERITY_RANK = { error: 0, warn: 1, info: 2 } as const;
 const MODE_RANK = { light: 0, dark: 1 } as const;

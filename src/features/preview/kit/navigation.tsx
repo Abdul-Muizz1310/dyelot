@@ -163,7 +163,7 @@ export function MenuSpecimen({ state }: { state: KitState }) {
 }
 
 /** A tab of the tab bar: its key, its label and its icon. */
-export type TabBarItem<T extends string> = {
+type TabBarItem<T extends string> = {
   readonly key: T;
   readonly label: string;
   readonly icon: ReactNode;

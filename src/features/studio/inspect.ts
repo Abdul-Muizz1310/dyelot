@@ -38,9 +38,9 @@ import { type Highlight, MODES, VISIONS } from "./view";
 // render what these return.
 
 /** A text pair's WCAG level. */
-export type PassLevel = "AAA" | "AA" | "AA large" | "fail";
+type PassLevel = "AAA" | "AA" | "AA large" | "fail";
 /** A non-text pair's WCAG 1.4.11 level. */
-export type UiLevel = "pass 3:1" | "fail";
+type UiLevel = "pass 3:1" | "fail";
 /** One mode of a role pair: its hexes, the WCAG ratio and level, and the signed advisory score. */
 export type ModeCell = {
   readonly foreground: Hex;
@@ -60,7 +60,7 @@ export type RoleRow = {
   readonly dark: ModeCell;
 };
 /** A color the Names section names. */
-export type NameTarget = { readonly label: string; readonly hex: Hex; readonly color: Oklch };
+type NameTarget = { readonly label: string; readonly hex: Hex; readonly color: Oklch };
 /** What a fix button asked for: the finding it fixes and the level it raised the design to. */
 export type FixRequest = { readonly key: string; readonly level: ContrastLevel };
 

@@ -31,7 +31,7 @@ import { assertOneOf, assertRecord, describeType, isOneOf, isRecord } from "./gu
 export { freshParams, paramsOfSpec, resolveParams } from "@/engine";
 
 /** Every field optional, at every level (spec section 5.7). */
-export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 /** A change of parameters: `type` merges by key, and a key set to undefined is removed (`pairing: undefined` means auto). */
 export type ParamsPatch = DeepPartial<Omit<DirectionParams, "direction" | "rules">> & {
