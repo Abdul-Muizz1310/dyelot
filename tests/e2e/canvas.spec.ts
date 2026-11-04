@@ -7,12 +7,12 @@ import {
   FONT_CATALOG,
   fontStack,
   hexToRgb,
-  MODES,
   PAIRINGS,
   simulate,
   toHex,
   typeWeights,
 } from "@/engine";
+import { MODES } from "@/engine/color/guards";
 import { COPY, SAMPLE_PLACES } from "@/features/preview/copy";
 import { frameFit } from "@/features/preview/frame";
 import { writeHash } from "@/features/studio/url";

@@ -8,7 +8,6 @@ import {
   formatOklch,
   type Hex,
   hexToRgb,
-  MODES,
   MOTION_FEELS,
   type Mode,
   PALETTE_NAMES,
@@ -25,6 +24,7 @@ import type { DesignSpec } from "@/spec";
 
 export type ThemeVars = Readonly<Record<string, string>>;
 
+const MODES: readonly Mode[] = ["light", "dark"];
 const UNITS: readonly string[] = ["vw", "cqi"];
 const STEP_NAMES = [
   "caption",

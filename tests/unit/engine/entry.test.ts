@@ -11,7 +11,7 @@ import { DEFICIENCIES, simulate } from "@/engine/color/cvd";
 import { deltaEOK } from "@/engine/color/deltae";
 import { ColorParseError } from "@/engine/color/errors";
 import { gamutMap } from "@/engine/color/gamut";
-import { GAMUTS, MODES } from "@/engine/color/guards";
+import { GAMUTS } from "@/engine/color/guards";
 import { HARMONIES } from "@/engine/color/harmony";
 import { indexNames, nearestName } from "@/engine/color/names";
 import {
@@ -76,7 +76,6 @@ const ENGINE_KEYS = [
   "HARMONIES",
   "HIGH_GENERICNESS_FAMILIES",
   "LOCKABLE",
-  "MODES",
   "MOTION_FEELS",
   "NEUTRAL_TINTS",
   "PAIRINGS",
@@ -177,7 +176,6 @@ describe("the engine entry", () => {
       HARMONIES,
       HIGH_GENERICNESS_FAMILIES,
       LOCKABLE,
-      MODES,
       MOTION_FEELS,
       NEUTRAL_TINTS,
       PAIRINGS,
@@ -285,7 +283,6 @@ describe("frozen tables", () => {
     "RULE_IDS",
     "HARMONIES",
     "GAMUTS",
-    "MODES",
     "CHROMA_LEVELS",
     "NEUTRAL_TINTS",
     "SCALE_MODES",

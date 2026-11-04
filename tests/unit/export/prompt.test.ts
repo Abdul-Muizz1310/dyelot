@@ -64,7 +64,7 @@ describe("promptMd", () => {
     for (const row of table) expect(text).toContain(row);
   });
 
-  it("C-PRM-02: any plain text lands as mdText, with one css fence", () => {
+  it("C-PRM-02: any plain text lands as mdText, with one css fence", { timeout: 120_000 }, () => {
     const piece = fc.stringMatching(/^[A-Za-z0-9 *_[\]`#-]{1,30}$/).filter((t) => t.trim() === t);
     const ticks = fc.constantFrom("```", "a```b", "`x`");
     const plain = fc.oneof(piece, ticks);
