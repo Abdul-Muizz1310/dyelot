@@ -1,73 +1,27 @@
 import { createHash } from "node:crypto";
-import fc from "fast-check";
 import { describe, expect, it } from "vitest";
-import {
-  generateSystem,
-  type Hex,
-  hexToRgb,
-  PALETTE_NAMES,
-  ROLE_NAMES,
-  rgbToOklch,
-  round6,
-  roundHue,
-  STEPS,
-} from "@/engine";
+import { PALETTE_NAMES, ROLE_NAMES, round6, roundHue, STEPS } from "@/engine";
 import { dtcgFiles } from "@/export/dtcg";
 import { themeModel } from "@/export/model";
 import { editLink } from "@/export/text";
-import type { DesignSpec } from "@/spec";
-import { anyDirection, anySeedText, PROPERTY_TIMEOUT } from "../spec/support";
 import { GOLDENS, ORIGIN, SPEC } from "./golden-support";
 import { formatValidator, readSchemaFile, resolverValidator } from "./schema-support";
 
 // C-DTCG-01 to 14 of docs/specs/03-export.md, section 10.5 (R3-11, R3-15, R3-17, R3-28, 6.4).
 
-type Json = Record<string, unknown>;
-const NAME = "Test Design";
-const PATHS = [
-  "tokens/base.tokens.json",
-  "tokens/light.tokens.json",
-  "tokens/dark.tokens.json",
-  "tokens/design.resolver.json",
-];
-const NAME_PATTERN = /^[^${}.][^{}.]*$/;
-const INTEGERS = ["0", "1", "2", "3", "4", "6", "8", "12", "16", "20", "24", "32"];
-
-function filesOf(spec: DesignSpec = SPEC) {
-  return dtcgFiles(spec, NAME, ORIGIN);
-}
-function parsed(spec: DesignSpec = SPEC): Record<string, Json> {
-  return Object.fromEntries(filesOf(spec).map((f) => [f.path, JSON.parse(f.text) as Json]));
-}
-function group(root: Json, ...keys: string[]): Json {
-  let node: unknown = root;
-  for (const key of keys) node = (node as Json)[key];
-  return node as Json;
-}
-function goldenSpec(id: string): DesignSpec {
-  const found = GOLDENS.find((g) => g.id === id);
-  if (found === undefined) throw new Error(`no golden ${id}`);
-  return found.spec;
-}
-
-type Token = { path: string[]; node: Json };
-/** Every token (an object with `$value`) and every group of a token file. */
-function walk(node: Json, trail: string[] = [], tokens: Token[] = [], groups: Json[] = []) {
-  for (const [key, child] of Object.entries(node)) {
-    if (key.startsWith("$") || typeof child !== "object" || child === null) continue;
-    if ("$value" in child) tokens.push({ path: [...trail, key], node: child as Json });
-    else {
-      groups.push(child as Json);
-      walk(child as Json, [...trail, key], tokens, groups);
-    }
-  }
-  return { tokens, groups };
-}
-
-function oklchOf(hex: string) {
-  const { l, c, h } = rgbToOklch(hexToRgb(hex as Hex), "srgb");
-  return [round6(l), round6(c), h === null ? "none" : roundHue(h)];
-}
+import {
+  filesOf,
+  goldenSpec,
+  group,
+  INTEGERS,
+  type Json,
+  NAME,
+  NAME_PATTERN,
+  oklchOf,
+  PATHS,
+  parsed,
+  walk,
+} from "./dtcg-support";
 
 describe("C-DTCG-01 the four files", () => {
   it("come in order, each as JSON plus one newline", () => {
@@ -446,43 +400,4 @@ describe("C-DTCG-13 inputs", () => {
     expect(() => dtcgFiles(SPEC, "a\u0000b", ORIGIN)).toThrow(RangeError);
     expect(() => dtcgFiles(SPEC, "a\u0000b", ORIGIN)).toThrow(/dtcgFiles/);
   });
-});
-
-describe("C-DTCG-14 property", () => {
-  it(
-    "every file validates and every value is finite and in range",
-    () => {
-      const format = formatValidator();
-      const resolver = resolverValidator();
-      fc.assert(
-        fc.property(anyDirection, anySeedText, (params, seed) => {
-          const spec = generateSystem(params, seed);
-          const files = parsed(spec);
-          for (const path of PATHS.slice(0, 3)) expect(format(files[path])).toBe(true);
-          expect(resolver(files["tokens/design.resolver.json"])).toBe(true);
-          // A name may hold "NaN" as text, so the check skips descriptions; NaN would read as null.
-          const values = JSON.stringify(files, (key, v) =>
-            key === "$description" || key === "description" ? "" : v,
-          );
-          expect(values).not.toMatch(/NaN|Infinity|null/);
-          for (const path of PATHS.slice(1, 3)) {
-            for (const token of walk(files[path] as Json).tokens) {
-              const value = token.node.$value as { components: (number | string)[]; hex: string };
-              expect(value.hex).toMatch(/^#[0-9a-f]{6}$/);
-              const [l, c, h] = value.components as [number, number, number | string];
-              expect(l).toBeGreaterThanOrEqual(0);
-              expect(l).toBeLessThanOrEqual(1);
-              expect(c).toBeGreaterThanOrEqual(0);
-              if (h !== "none") {
-                expect(h).toBeGreaterThanOrEqual(0);
-                expect(h).toBeLessThan(360);
-              }
-            }
-          }
-        }),
-        { numRuns: 1000, seed: 3007 },
-      );
-    },
-    PROPERTY_TIMEOUT,
-  );
 });
