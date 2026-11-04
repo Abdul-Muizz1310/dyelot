@@ -3,8 +3,9 @@ import { createRequire } from "node:module";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { beforeAll, describe, expect, it } from "vitest";
+import { ROLE_NAMES } from "@/engine";
 import { themeCss } from "@/export/theme-css";
-import { GOLDENS, ORIGIN, SPEC } from "./golden-support";
+import { GOLDENS, IMPORTED, ORIGIN, SPEC } from "./golden-support";
 
 // C-CSS-11 to 13 of docs/specs/03-export.md, section 10.4: theme.css through Tailwind 4.3.3's own
 // `compile`, with a `loadStylesheet` over `node_modules/tailwindcss` and no network.
@@ -130,5 +131,12 @@ describe("C-CSS-13 every golden compiles", () => {
     },
   );
 
-  it.todo("IMPORTED's theme writes its overlaid roles (Task 3.7 adds imported-shadcn to GOLDENS)");
+  it("IMPORTED's theme writes its overlaid roles", () => {
+    expect(GOLDENS.map((g) => g.id)).toContain("imported-shadcn");
+    const css = themeCss(IMPORTED, ORIGIN);
+    for (const role of ROLE_NAMES) {
+      expect(css, role).toContain(`  --${role}: ${IMPORTED.color.roles.light[role]};`);
+      expect(css, role).toContain(`  --${role}: ${IMPORTED.color.roles.dark[role]};`);
+    }
+  });
 });

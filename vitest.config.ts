@@ -36,6 +36,7 @@ const SLOW_CORE_TESTS = [
   "tests/unit/engine/lint/t3-defaults-2.test.ts", // 13.9 s: C-TASTE-13
   "tests/unit/engine/generate-idempotence.test.ts", // 13.7 s: C-GEN-13
   "tests/unit/engine/lint/t3-defaults-3.test.ts", // 12.1 s: C-TASTE-13
+  "tests/unit/export/dtcg.test.ts", // 132 s: C-DTCG-14, 1,000 generateSystem runs
   "tests/unit/engine/color/chart.test.ts", // 12.1 s: C-CHART-03
   "tests/unit/engine/lint/t3-defaults-1.test.ts", // 12.1 s: C-TASTE-13
   "tests/unit/engine/presets-lint-5.test.ts", // 11.7 s

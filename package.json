@@ -28,6 +28,7 @@
     "@csstools/css-color-parser": "4.2.7",
     "@csstools/css-parser-algorithms": "4.0.2",
     "@csstools/css-tokenizer": "4.0.2",
+    "@toon-format/toon": "4.4.0",
     "color-name-list": "^14.85.1",
     "fflate": "^0.8.3",
     "lucide-react": "1.59.0",

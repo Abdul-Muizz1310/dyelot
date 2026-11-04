@@ -26,3 +26,25 @@ export function registryValidator(): (value: unknown) => boolean {
   if (validate === undefined) throw new Error("registryValidator: the item schema did not compile");
   return (value) => validate(value) === true;
 }
+
+/** One Ajv instance (default class, `ajv-formats`, no `loadSchema`) over one vendored DTCG file. */
+function dtcgValidator(file: string, who: string): (value: unknown) => boolean {
+  const ajv = new Ajv({ allErrors: true, strict: false });
+  addFormats(ajv);
+  const validate = ajv.compile(JSON.parse(readSchemaFile(file)));
+  if (typeof validate !== "function") throw new Error(`${who}: the schema did not compile`);
+  return (value) => validate(value) === true;
+}
+
+/**
+ * A validator for the DTCG 2025.10 format schema. `resolver.json` embeds a copy of `format.json`
+ * with the same `$id`, so each file gets its own instance (R3-28).
+ */
+export function formatValidator(): (value: unknown) => boolean {
+  return dtcgValidator("format.json", "formatValidator");
+}
+
+/** A validator for the DTCG 2025.10 resolver schema, on its own Ajv instance. */
+export function resolverValidator(): (value: unknown) => boolean {
+  return dtcgValidator("resolver.json", "resolverValidator");
+}
