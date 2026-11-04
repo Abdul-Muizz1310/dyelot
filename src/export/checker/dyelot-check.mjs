@@ -47,7 +47,8 @@ const PALETTES =
   "red orange amber yellow lime green emerald teal cyan sky blue indigo violet purple fuchsia pink rose slate gray zinc neutral stone mauve olive mist taupe";
 const STEPS = "50|100|200|300|400|500|600|700|800|900|950";
 const PREFIXES =
-  "bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|divide|shadow|accent|caret|placeholder";
+  "bg|text|border|ring|fill|stroke|from|via|to|outline|decoration|divide|shadow|accent|caret|placeholder|inset-ring|inset-shadow|drop-shadow";
+const SIDES = "(?:-(?:x|y|t|b|l|r|s|e|offset))?";
 const HEX = "(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})(?![\\w])";
 const FUNCTIONS = "(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch)";
 const SPACES = "(?:display-p3|srgb|srgb-linear|a98-rgb|prophoto-rgb|rec2020|xyz|xyz-d50|xyz-d65)";
@@ -58,7 +59,7 @@ const ARBITRARY = new RegExp(`-\\[(?:#${HEX}|(?:${FUNCTIONS}|color)\\()[^\\]]*\\
 const RAW_HEX = new RegExp(`(?<![&\\w])#${HEX}`, "g");
 const RAW_CALL = new RegExp(COLOR_CALL, "g");
 const PALETTE_CLASS = new RegExp(
-  `(?<![\\w-])(?:${PREFIXES})-(?:${PALETTES.split(" ").join("|")})-(?:${STEPS})(?![\\w-])`,
+  `(?<![\\w-])(?:${PREFIXES})${SIDES}-(?:${PALETTES.split(" ").join("|")})-(?:${STEPS})(?![\\w-])`,
   "g",
 );
 
@@ -441,12 +442,26 @@ function readReceipt(text, receiptPath) {
   /** @param {unknown} value */
   const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
   const roles = parsed.roles;
-  if (!isObject(roles) || !isObject(roles.light) || !isObject(roles.dark)) {
+  /** @param {unknown} mode */
+  const hexes = (mode) =>
+    isObject(mode) &&
+    Object.values(/** @type {object} */ (mode)).every((v) => /^#[0-9a-f]{6}$/i.test(String(v)));
+  if (!isObject(roles) || !hexes(roles.light) || !hexes(roles.dark)) {
     return fail(`The receipt at ${receiptPath} lacks roles.`);
   }
   for (const key of ["contrast", "radius", "files"]) {
     const ok = key === "radius" ? typeof parsed.radius === "string" : Array.isArray(parsed[key]);
     if (!ok) return fail(`The receipt at ${receiptPath} lacks ${key}.`);
+  }
+  if (!parsed.contrast.every(isObject)) {
+    return fail(`The receipt at ${receiptPath} lacks a valid contrast list.`);
+  }
+  if (
+    !parsed.files.every(
+      (/** @type {any} */ file) => isObject(file) && typeof file.path === "string",
+    )
+  ) {
+    return fail(`The receipt at ${receiptPath} lacks a valid files list.`);
   }
   return parsed;
 }
@@ -695,8 +710,12 @@ export function main(argv, io) {
       ignored = [];
       return emit(2, error.message);
     }
-    io.err(`dyelot-check failed: ${error instanceof Error ? error.stack : String(error)}\n`);
-    return 2;
+    findings = [];
+    ignored = [];
+    return emit(
+      2,
+      `dyelot-check failed: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
 }
 

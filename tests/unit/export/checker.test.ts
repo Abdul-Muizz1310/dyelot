@@ -412,6 +412,45 @@ describe("the scan", () => {
     expect(found.map((f) => f.path).sort()).toEqual(listed.map((e) => `src/a.${e}`).sort());
   });
 
+  it("C-CHK-32: directional and compound utilities are palette classes", () => {
+    const classes = [
+      "border-t-gray-200",
+      "border-x-red-500",
+      "ring-offset-gray-100",
+      "inset-ring-red-500",
+      "inset-shadow-blue-500",
+      "drop-shadow-gray-900",
+    ];
+    const r = scan({
+      "src/a.tsx": `<p className="${classes.join(" ")}" />\n<p className="bg-white text-black border-t-white" />\n`,
+    });
+    expect(scanOf(r).map((f) => [f.code, f.line, f.text])).toEqual(
+      classes.map((c) => ["palette-class", 1, c]),
+    );
+  });
+
+  it("C-CHK-33: a malformed receipt is exit 2 with a message, never a stack", () => {
+    const real = JSON.parse(receiptJson(SPEC, STUB_FILES, ORIGIN));
+    const cases: [string, Record<string, unknown>, string][] = [
+      ["files", { files: [null] }, "files"],
+      ["contrast", { contrast: [null] }, "contrast"],
+      ["roles", { roles: { light: { primary: "red" }, dark: { primary: "#000000" } } }, "roles"],
+    ];
+    for (const [name, patch, key] of cases) {
+      const dir = APP({ "receipt.json": JSON.stringify({ ...real, ...patch }) });
+      const file = path.join(dir, "receipt.json");
+      const r = run(["--root", dir]);
+      expect(r.code, name).toBe(2);
+      expect(r.err, name).toBe("");
+      expect(last(r), name).toMatch(new RegExp(`^ERROR: The receipt at ${file} .*${key}`));
+      const j = run(["--root", dir, "--json"]);
+      expect(j.code).toBe(2);
+      expect(j.json.result).toBe("ERROR");
+      expect(j.json.error).toContain(file);
+      expect(j.err).toBe("");
+    }
+  });
+
   it("C-CHK-22: the marker exempts its own line, with a reason", () => {
     const r = scan({
       "src/a.tsx": [
