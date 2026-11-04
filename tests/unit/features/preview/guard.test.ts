@@ -169,7 +169,7 @@ describe("C-GUARD-02 findViolations passes the spec's variables and the color ke
       ...Object.keys(densityVars("dense")),
     ];
     expect([...bridgeVariables()].sort()).toEqual(written.sort());
-    expect(written).toHaveLength(206);
+    expect(written).toHaveLength(209);
   });
 });
 

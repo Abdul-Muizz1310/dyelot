@@ -6,7 +6,7 @@
 .kit-records {
   display: none;
 }
-@container frame (max-width: 479px) {
+@container frame (width < 480px) {
   .kit-readings .kit-table {
     display: none;
   }

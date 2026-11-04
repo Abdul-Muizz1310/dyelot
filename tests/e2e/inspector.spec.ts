@@ -908,6 +908,82 @@ test.describe("7.8 Show me", () => {
     expect(report.shown).toBe(0);
   });
 
+  test("F-CANVAS-11 the outline of a part at a clip edge shows whole", async ({ page }) => {
+    await stubSeeds(page);
+    await openStudio(page);
+    await canvasAtRest(page);
+    // The attribute is what the inspector sets; the check is the geometry of the clip boxes.
+    await canvasRegion(page).evaluate((region) => {
+      region.setAttribute(
+        "data-show-me",
+        "background foreground border sidebar sidebar-foreground sidebar-border",
+      );
+    });
+    // The settings page keeps `overflow: hidden`: `overflow: clip` there leaves axe's contrast checks
+    // undecided (F-TPL-27), so its top and save bars are not in this list.
+    const parts = [
+      ["mobile", ".kit-status"],
+      ["mobile", ".kit-tabbar"],
+      ["dashboard", "[data-sidebar]"],
+    ] as const;
+    for (const [template, selector] of parts) {
+      const root = await showTemplate(page, template);
+      const report = await root
+        .locator(selector)
+        .first()
+        .evaluate((part) => {
+          const frame = part.closest<HTMLElement>("[data-canvas][data-frame]");
+          if (frame === null) throw new Error("no frame");
+          const fit = frame.getBoundingClientRect().width / frame.offsetWidth;
+          const style = getComputedStyle(part);
+          const reach =
+            (Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth)) * fit;
+          const box = part.getBoundingClientRect();
+          const outline = {
+            l: box.left - reach,
+            t: box.top - reach,
+            r: box.right + reach,
+            b: box.bottom + reach,
+          };
+          const misses: string[] = [];
+          for (let node = part.parentElement; node !== null; node = node.parentElement) {
+            const clip = getComputedStyle(node);
+            if (clip.overflowX !== "clip" && clip.overflowX !== "hidden") continue;
+            const margin =
+              clip.overflowX === "clip"
+                ? Number.parseFloat(/[\d.]+px/.exec(clip.overflowClipMargin)?.[0] ?? "0") * fit
+                : 0;
+            const edge = node.getBoundingClientRect();
+            const inner = {
+              l: edge.left + node.clientLeft * fit - margin,
+              t: edge.top + node.clientTop * fit - margin,
+              r:
+                edge.right - (node.offsetWidth - node.clientWidth - node.clientLeft) * fit + margin,
+              b:
+                edge.bottom -
+                (node.offsetHeight - node.clientHeight - node.clientTop) * fit +
+                margin,
+            };
+            const slack = 0.5;
+            if (
+              outline.l < inner.l - slack ||
+              outline.t < inner.t - slack ||
+              outline.r > inner.r + slack ||
+              outline.b > inner.b + slack
+            ) {
+              misses.push(`${node.tagName.toLowerCase()}.${[...node.classList].join(".")}`);
+            }
+          }
+          return { dashed: style.outlineStyle === "dashed", reach, misses };
+        });
+      expect(report.dashed, `${template} ${selector} is outlined`).toBe(true);
+      expect(report.reach, `${template} ${selector} outline reach`).toBeGreaterThan(0);
+      expect(report.misses, `${template} ${selector} outline lies inside its clip boxes`).toEqual(
+        [],
+      );
+    }
+  });
+
   test("F-INSP-07 a step finding outlines its scale cells and scrolls them into view", async ({
     page,
   }) => {
