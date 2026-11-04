@@ -599,3 +599,246 @@ describe("C-REPO-M2-03 the new pure folders and helpers keep the pure-core floor
     },
   );
 });
+
+// C-GUARD3-01 to 04 of docs/specs/03-export.md, section 10.9 (R3-38, I-M3-02, R3-39): the export and
+// import cores load only through a dynamic import, and stay pure.
+
+const EXPORT_DIR = path.join(ROOT, "src/export");
+const IMPORT_DIR = path.join(ROOT, "src/import");
+const APP_DIRS = ["src/features", "src/app", "src/components", "src/lib"].map((folder) =>
+  path.join(ROOT, folder),
+);
+
+/** Whether `specifier`, written in `file`, points at `@/export`, `@/import` or a path under them. */
+function reachesCores(file: string, specifier: string): boolean {
+  if (/^@\/(?:export|import)(?:\/|$)/.test(specifier)) return true;
+  if (!specifier.startsWith(".")) return false;
+  const resolved = path.resolve(path.dirname(file), specifier);
+  return [EXPORT_DIR, IMPORT_DIR].some(
+    (dir) => resolved === dir || resolved.startsWith(dir + path.sep),
+  );
+}
+
+/** The specifiers of static `import` and `export … from` statements, `import type` aside. */
+function staticCoreImports(file: string, source: string): string[] {
+  const code = stripComments(source);
+  const found: string[] = [];
+  for (const match of code.matchAll(/\b(?:import|export)\b([^;"'`]*?)\bfrom\s*["']([^"']+)["']/g)) {
+    if (/^\s*type\b/.test(match[1] as string)) continue;
+    found.push(match[2] as string);
+  }
+  for (const match of code.matchAll(/\bimport\s*["']([^"']+)["']/g)) found.push(match[1] as string);
+  return found.filter((specifier) => reachesCores(file, specifier));
+}
+
+/** The specifiers of `import("…")` calls that reach the cores. */
+function dynamicCoreImports(file: string, source: string): string[] {
+  return [...stripComments(source).matchAll(/\bimport\s*\(\s*["']([^"']+)["']\s*\)/g)]
+    .map((match) => match[1] as string)
+    .filter((specifier) => reachesCores(file, specifier));
+}
+
+const APP_FILES = APP_DIRS.flatMap(codeFiles);
+const PROBE_FILE = path.join(ROOT, "src/features/probe.ts");
+
+describe("C-GUARD3-01 app code reaches the export and import cores only through import()", () => {
+  it("scans real app files", () => {
+    expect(APP_FILES.length).toBeGreaterThan(0);
+  });
+
+  it("finds no static import or export-from of the cores in src/features, app, components or lib", () => {
+    const bad = APP_FILES.flatMap((file) =>
+      staticCoreImports(file, readFileSync(file, "utf8")).map(
+        (specifier) => `${path.relative(ROOT, file)}: ${specifier}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it.each([
+    ['import { zipBundle } from "@/export/zip";', ["@/export/zip"]],
+    ['import { buildBundle } from "@/export";', ["@/export"]],
+    ['export { importDesignMd } from "@/import";', ["@/import"]],
+    ['import { x } from "../export/zip";', ["../export/zip"]],
+    ['import { x } from "../import/css";', ["../import/css"]],
+    ['import "@/export";', ["@/export"]],
+    ['import {\n  a,\n  b,\n} from "@/export/bundle";', ["@/export/bundle"]],
+  ])("reports the probe %j", (source, expected) => {
+    expect(staticCoreImports(PROBE_FILE, source)).toEqual(expected);
+  });
+
+  it.each([
+    'import type { Bundle } from "@/export";',
+    'export type { Bundle } from "@/export";',
+    'const load = () => import("@/export");',
+    'import { x } from "@/engine";',
+    'import { x } from "./export-button";',
+    '// import { x } from "@/export";',
+  ])("allows the probe %j", (source) => {
+    expect(staticCoreImports(PROBE_FILE, source)).toEqual([]);
+  });
+});
+
+/** The names of the I-M3-02 APIs in comment-free code. */
+const IMPURE: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
+  ["Date", /\bDate\b/],
+  ["Math.random", /Math\.random/],
+  ["getRandomValues", /getRandomValues/],
+  ["performance", /\bperformance\b/],
+  ["Intl", /\bIntl\b/],
+  ["toLocale", /toLocale/],
+  ["localeCompare", /localeCompare/],
+  ["document", /\bdocument\b/],
+  ["window", /\bwindow\b/],
+  ["localStorage", /\blocalStorage\b/],
+  ["sessionStorage", /\bsessionStorage\b/],
+  ["fetch", /\bfetch\b/],
+  ["XMLHttpRequest", /\bXMLHttpRequest\b/],
+];
+
+function coreViolations(source: string): string[] {
+  const code = stripComments(source);
+  const found = IMPURE.filter(([, pattern]) => pattern.test(code)).map(([name]) => name);
+  if (/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']node:/.test(code)) {
+    found.push("node: import");
+  }
+  return found;
+}
+
+describe("C-GUARD3-02 src/export and src/import stay pure", () => {
+  const files = [...codeFiles(EXPORT_DIR), ...codeFiles(IMPORT_DIR)];
+  const CHECKER = path.join(EXPORT_DIR, "checker/dyelot-check.mjs");
+
+  it("scans real files, the checker among them", () => {
+    expect(files.length).toBeGreaterThan(20);
+    expect(files).toContain(CHECKER);
+  });
+
+  it("finds no impure API in any file bar the checker", () => {
+    const bad = files
+      .filter((file) => file !== CHECKER)
+      .flatMap((file) =>
+        coreViolations(readFileSync(file, "utf8")).map(
+          (name) => `${path.relative(ROOT, file)}: ${name}`,
+        ),
+      );
+    expect(bad).toEqual([]);
+  });
+
+  it("lets only the checker import a node: module", () => {
+    const importers = files.filter((file) =>
+      coreViolations(readFileSync(file, "utf8")).includes("node: import"),
+    );
+    expect(importers).toEqual([CHECKER]);
+  });
+
+  it.each([
+    ["Date", "const d = new Date();"],
+    ["Math.random", "const r = Math.random();"],
+    ["getRandomValues", "crypto.getRandomValues(a);"],
+    ["performance", "const t = performance.now();"],
+    ["Intl", "new Intl.NumberFormat();"],
+    ["toLocale", "n.toLocaleString();"],
+    ["localeCompare", "a.localeCompare(b);"],
+    ["document", "document.title;"],
+    ["window", "window.open();"],
+    ["localStorage", "localStorage.getItem('k');"],
+    ["sessionStorage", "sessionStorage.clear();"],
+    ["fetch", "await fetch(url);"],
+    ["XMLHttpRequest", "new XMLHttpRequest();"],
+    ["node: import", 'import { x } from "node:fs";'],
+    ["node: import", 'const m = await import("node:path");'],
+  ])("sees %s in a probe", (name, source) => {
+    expect(coreViolations(source)).toContain(name);
+  });
+
+  it("ignores a comment that names an API", () => {
+    expect(coreViolations("// Date, fetch and Intl\n/* window */ const x = 1;")).toEqual([]);
+  });
+});
+
+/** Whether every statement of an index file is an `export … from` line. */
+function onlyExportsFrom(source: string): boolean {
+  const statements = stripComments(source)
+    .split(";")
+    .map((statement) => statement.trim())
+    .filter(Boolean);
+  return (
+    statements.length > 0 &&
+    statements.every((statement) =>
+      /^export\s+(?:type\s+)?(?:\{[^}]*\}|\*(?:\s+as\s+\w+)?)\s+from\s+"[^"]+"$/.test(statement),
+    )
+  );
+}
+
+describe("C-GUARD3-03 the two entries hold only export-from lines and app import() names them exactly", () => {
+  it.each(["src/export/index.ts", "src/import/index.ts"])(
+    "keeps %s to export-from lines",
+    (file) => {
+      expect(onlyExportsFrom(readFileSync(path.join(ROOT, file), "utf8"))).toBe(true);
+    },
+  );
+
+  it.each([
+    ['export { a } from "./a";\nexport type { B } from "./b";', true],
+    ['import { a } from "./a";\nexport { a };', false],
+    ["export const x = 1;", false],
+    ['export { a } from "./a";\nconst y = 2;', false],
+    ["", false],
+  ])("judges the probe %j as %s", (source, expected) => {
+    expect(onlyExportsFrom(source)).toBe(expected);
+  });
+
+  it("names exactly @/export or @/import in every app import() of a core", () => {
+    const bad = APP_FILES.flatMap((file) =>
+      dynamicCoreImports(file, readFileSync(file, "utf8"))
+        .filter((specifier) => specifier !== "@/export" && specifier !== "@/import")
+        .map((specifier) => `${path.relative(ROOT, file)}: ${specifier}`),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it("reports a probe import of a path under a core", () => {
+    expect(dynamicCoreImports(PROBE_FILE, 'import("@/export/zip")')).toEqual(["@/export/zip"]);
+    expect(dynamicCoreImports(PROBE_FILE, 'import("../export/zip")')).toEqual(["../export/zip"]);
+    expect(dynamicCoreImports(PROBE_FILE, 'import("@/export")')).toEqual(["@/export"]);
+  });
+});
+
+describe("C-GUARD3-04 Biome rejects a static import of a path under the cores", () => {
+  const BIOME = path.join(ROOT, "node_modules/.bin/biome");
+
+  function lint(source: string): { status: number | null; output: string } {
+    const probe = path.join(ROOT, "src/features/guard3-04-probe.ts");
+    writeFileSync(probe, source);
+    try {
+      const r = spawnSync(BIOME, ["lint", probe], { cwd: ROOT, encoding: "utf8" });
+      return { status: r.status, output: `${r.stdout}${r.stderr}` };
+    } finally {
+      rmSync(probe, { force: true });
+    }
+  }
+
+  it("reports noRestrictedImports for a probe in src/features importing @/export/zip", () => {
+    const result = lint('import { zipBundle } from "@/export/zip";\nexport const z = zipBundle;\n');
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain("noRestrictedImports");
+  });
+
+  it("reports the import cores and a relative path into either core", () => {
+    for (const source of [
+      'import { importShadcnCss } from "@/import/css";\nexport const z = importShadcnCss;\n',
+      'import { zipBundle } from "../export/zip";\nexport const z = zipBundle;\n',
+      'import { x } from "../import/css";\nexport const z = x;\n',
+    ]) {
+      const result = lint(source);
+      expect(result.status, source).not.toBe(0);
+      expect(result.output, source).toContain("noRestrictedImports");
+    }
+  });
+
+  it("accepts a dynamic import of the entry", () => {
+    const result = lint('export const load = () => import("@/export");\n');
+    expect(result.status).toBe(0);
+  });
+});

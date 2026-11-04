@@ -44,6 +44,10 @@
                   {
                     "group": ["@/engine/**", "@/spec/**", "**/engine/**", "**/spec/**"],
                     "message": "Import the engine from @/engine and the spec from @/spec, never from a file inside them."
+                  },
+                  {
+                    "group": ["@/export/**", "@/import/**", "../**/export/**", "../**/import/**"],
+                    "message": "Load the export and import cores only through import(\"@/export\") or import(\"@/import\"), never from a file inside them."
                   }
                 ]
               }
