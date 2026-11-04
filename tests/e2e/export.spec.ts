@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
-import { formatBytes, summaryLines } from "@/features/export/files";
+import { blockReason, formatBytes, summaryLines } from "@/features/export/files";
 import { specId } from "@/spec";
 import {
   bundleOf,
@@ -8,17 +8,22 @@ import {
   copyButton,
   download,
   downloadButton,
+  echoNext,
   entriesOf,
   exportButton,
   exportDialog,
   exportStatus,
+  failingRows,
   fileRows,
   GOLDEN,
   GOLDEN_LINK,
+  IMPORTED,
   IMPORTED_LINK,
   LONG_NAME,
   lotLine,
   MANIFEST,
+  ONE_FAIL,
+  ONE_FAIL_LINK,
   openReady,
   previewOf,
   previewToggle,
@@ -50,13 +55,16 @@ import {
 } from "./studio-support";
 
 // The export flows of docs/specs/03-export.md, section 10.12 (Task 3.14): F-EXP-01 to 08, 10 to 15,
-// 19, the Review Focus cases F-EXP-RF1 to RF3 and the export parts of F-A11Y3-01 to 04. The blocked
-// states (F-EXP-09, 16 to 18, 20) belong to Task 3.15.
+// 19, the Review Focus cases F-EXP-RF1 to RF3 and the export parts of F-A11Y3-01 to 04, and the
+// blocked states of Task 3.15 (F-EXP-09, 16 to 18, 20).
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
 const PHONE = { width: 360, height: 740 };
 const THEME = "app/theme.css";
+
+const findingsHeading = (page: Page) =>
+  page.locator("aside#studio-inspector").getByRole("heading", { name: "Findings", exact: true });
 
 const toolbar = (page: Page) => page.getByRole("region", { name: "Canvas toolbar" });
 
@@ -391,21 +399,138 @@ test.describe("the export dialog", () => {
     );
   });
 
-  test("I-M3-04 a design that fails a required check shows no file and offers no download or copy", async ({
+  test("F-EXP-09 a design that fails a required check opens the blocked dialog: no file text, no download, no copy", async ({
     page,
+    context,
   }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await recordObjectUrls(page);
     await openStudio(page, IMPORTED_LINK);
+    await page.evaluate(() => navigator.clipboard.writeText("sentinel"));
     await exportButton(page).click();
+    const dialog = exportDialog(page);
     await expect(lotLine(page)).toBeVisible();
     await expect(summaryItems(page)).toHaveCount(4);
-    await expect(fileRows(page)).toHaveCount(0);
-    await expect(downloadButton(page)).toHaveCount(0);
-    await expect(exportDialog(page).getByRole("button", { name: /^Copy / })).toHaveCount(0);
-    await expect(exportDialog(page).getByLabel(/^Preview of /)).toHaveCount(0);
-    await expect(exportDialog(page)).not.toContainText("DESIGN.md");
-    // Task 3.15 gives this state its sentence and its failing checks.
-    await closeButton(page).click();
+    const errors = failingRows(IMPORTED);
+    expect(errors.length).toBeGreaterThan(0);
+    await expect(
+      dialog.getByText(blockReason("fixable", errors.length), { exact: true }),
+    ).toBeVisible();
+    const rows = dialog
+      .getByRole("list", { name: "Failing checks", exact: true })
+      .getByRole("listitem");
+    await expect(rows).toHaveText(errors);
+    const paths = bundleOf(IMPORTED).files.map((file) => file.path);
+    await expect(fileRows(page)).toHaveCount(paths.length);
+    for (const [index, filePath] of paths.entries()) {
+      const text = (await fileRows(page).nth(index).textContent()) ?? "";
+      expect(text.startsWith(filePath), filePath).toBe(true);
+      expect(text, filePath).not.toMatch(/\d (B|KB)/);
+    }
+    await expect(dialog.getByLabel(/^Preview of /)).toHaveCount(0);
+    const blocked = dialog.getByRole("button", { name: /^(Download |Copy )/ });
+    const count = await blocked.count();
+    expect(count).toBe(paths.length + 1);
+    for (let index = 0; index < count; index++) {
+      const each = blocked.nth(index);
+      await expect(each).toHaveAttribute("aria-disabled", "true");
+      // Playwright waits for a button that is not aria-disabled; this one must stay put when clicked.
+      await each.click({ force: true });
+      await each.focus();
+      await page.keyboard.press("Enter");
+    }
+    await page.waitForTimeout(2000);
+    expect(await urlLog(page)).toEqual([]);
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("sentinel");
+    expect(await page.evaluate(() => document.body.textContent)).not.toContain("--primary:");
+    await expect(dialog.locator("pre")).toHaveCount(0);
+  });
+
+  test("F-EXP-16 Fix in the inspector closes the dialog and focuses the Findings heading, in the drawer at 360 px", async ({
+    page,
+  }) => {
+    await openStudio(page, ONE_FAIL_LINK);
+    await exportButton(page).click();
+    await exportDialog(page)
+      .getByRole("button", { name: "Fix in the inspector", exact: true })
+      .click();
     await expect(exportDialog(page)).toHaveCount(0);
+    await expect(findingsHeading(page)).toBeFocused();
+    await page.setViewportSize(PHONE);
+    await page.goto("about:blank");
+    await openStudio(page, ONE_FAIL_LINK);
+    await exportButton(page).click();
+    await exportDialog(page)
+      .getByRole("button", { name: "Fix in the inspector", exact: true })
+      .click();
+    await expect(exportDialog(page)).toHaveCount(0);
+    await expect(page.locator("aside#studio-inspector")).toHaveAttribute("data-open", "");
+    await expect(findingsHeading(page)).toBeFocused();
+  });
+
+  test("F-EXP-17 Rebuild from the parameters commits the regenerated design; Export is ready, and Undo brings the blocked one back", async ({
+    page,
+  }) => {
+    await openStudio(page, ONE_FAIL_LINK);
+    await page.getByRole("button", { name: "Rebuild from the parameters", exact: true }).click();
+    await settled(page);
+    await expect(lotId(page)).toHaveText(lotOf(SPEC));
+    await openReady(page);
+    await expect(downloadButton(page)).not.toHaveAttribute("aria-disabled", "true");
+    await closeButton(page).click();
+    await button(page, "Undo").click();
+    await settled(page);
+    await expect(lotId(page)).toHaveText(lotOf(ONE_FAIL));
+    await exportButton(page).click();
+    await expect(
+      exportDialog(page).getByText(blockReason("fixable", 1), { exact: true }),
+    ).toBeVisible();
+  });
+
+  test("F-EXP-18 the fixable sentence reads in full, and M2's contrast fix leaves a ready dialog", async ({
+    page,
+  }) => {
+    await openStudio(page, ONE_FAIL_LINK);
+    await exportButton(page).click();
+    await expect(
+      exportDialog(page).getByText(
+        "This design fails 1 required check. It came from a link or a file, and rebuilding it from its parameters makes every check pass.",
+        { exact: true },
+      ),
+    ).toBeVisible();
+    await closeButton(page).click();
+    await page.getByRole("button", { name: "Raise contrast to AA+", exact: true }).click();
+    await settled(page);
+    await expect(
+      page
+        .getByRole("group", { name: "Contrast level", exact: true })
+        .getByRole("radio", { name: "AA+", exact: true }),
+    ).toBeChecked();
+    await openReady(page);
+    await expect(downloadButton(page)).not.toHaveAttribute("aria-disabled", "true");
+  });
+
+  test("F-EXP-20 a rebuild that gives a failing design is a fault: the sentence, Show the findings and no download", async ({
+    page,
+  }) => {
+    await failingWorker(page);
+    await openStudio(page, ONE_FAIL_LINK);
+    await echoNext(page, ONE_FAIL);
+    await page.getByRole("button", { name: "Rebuild from the parameters", exact: true }).click();
+    await settled(page);
+    const fault =
+      "This design fails 1 required check although the studio generated it. That is a fault in dyelot: change any parameter to generate it again.";
+    await expect(
+      page.locator("aside#studio-inspector").getByText(fault, { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Rebuild from the parameters" })).toHaveCount(0);
+    await exportButton(page).click();
+    const dialog = exportDialog(page);
+    await expect(dialog.getByText(fault, { exact: true })).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: "Show the findings", exact: true }),
+    ).toBeVisible();
+    await expect(downloadButton(page)).toHaveAttribute("aria-disabled", "true");
   });
 
   test("F-EXP-19 Export follows Copy link in the Tab order, at 1280 and at 360 with View closed and open", async ({

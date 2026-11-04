@@ -111,6 +111,26 @@ function StudioShell({ store }: { store: StudioStore }) {
     wasExportOpen.current = exportOpen;
   }, [exportOpen]);
 
+  // "Fix in the inspector" and "Show the findings" (R3-42): the dialog closes and focus goes to the
+  // Findings heading, in the open inspector drawer below 1280 px.
+  const wantFindings = useRef(false);
+  function showFindings(): void {
+    wantFindings.current = true;
+    setExportOpen(false);
+    const button = exportButton.current;
+    if (isDrawer.inspector && button !== null) openDrawer("inspector", button);
+  }
+  // After the dialog's own focus return above, so the heading is the last to take focus.
+  useEffect(() => {
+    if (!wantFindings.current || exportOpen) return;
+    if (isDrawer.inspector && open !== "inspector") return;
+    wantFindings.current = false;
+    const heading = [...document.querySelectorAll<HTMLElement>("#studio-inspector h3")].find(
+      (each) => each.textContent === "Findings",
+    );
+    heading?.focus();
+  }, [exportOpen, open, isDrawer.inspector]);
+
   useStudioKeys(store, {
     drawerOpen: open !== null,
     dialogOpen: exportOpen,
@@ -218,7 +238,12 @@ function StudioShell({ store }: { store: StudioStore }) {
         {open !== null && (
           <div aria-hidden="true" className="studio-backdrop" onClick={closeDrawer} />
         )}
-        <ExportDialog store={store} open={exportOpen} onClose={() => setExportOpen(false)} />
+        <ExportDialog
+          store={store}
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          onShowFindings={showFindings}
+        />
         <Toast state={toast} onClose={() => setToast(null)} fallbackFocus={copyButton} />
         <DraftsAnnouncer store={store} />
       </div>

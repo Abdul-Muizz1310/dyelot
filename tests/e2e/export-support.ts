@@ -3,24 +3,29 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Locator, Page } from "@playwright/test";
 import { unzipSync } from "fflate";
+import { lintSpec } from "@/engine";
 import { SITE } from "@/lib/site/config";
 import { encodeSpec } from "@/spec";
 import { GOLDENS, IMPORTED, ORIGIN, SPEC } from "../unit/export/golden-support";
+import { ONE_FAIL } from "../unit/export/one-fail-support";
 
 // Shared helpers for tests/e2e/export.spec.ts, the export flows of docs/specs/03-export.md, section
 // 10.12 (Task 3.14). The test builds in Node, through the same entry the page loads, what the dialog
 // must show and what the download must hold.
 
-export { IMPORTED, ORIGIN, SPEC };
+export { IMPORTED, ONE_FAIL, ORIGIN, SPEC };
 
 // Playwright does not read the `?raw` query of the checker's source: the hook makes it the text.
 await import("./raw-hooks.mjs");
 const { buildBundle, zipBundle, zipName } = await import("@/export");
+const { fmt4, trunc4 } = await import("@/export/format");
 
 /** `LINK(spec)` of section 10.12: the studio opened on a design. */
 export const LINK = (spec: typeof SPEC): string => `#s=${encodeSpec(spec)}`;
 export const SPEC_LINK = LINK(SPEC);
 export const IMPORTED_LINK = LINK(IMPORTED);
+/** Fixable, with one error: `SPEC` with one failing pair. */
+export const ONE_FAIL_LINK = LINK(ONE_FAIL);
 
 const defaultGolden = GOLDENS.find((golden) => golden.id === "default");
 if (defaultGolden === undefined) throw new Error("export-support: no default golden");
@@ -134,6 +139,22 @@ export const urlLog = (
   page.evaluate(
     () => (window as unknown as { __urlLog: { op: "create"; url: string }[] }).__urlLog,
   ) as never;
+
+/** What the blocked dialog lists for a spec: its error findings, measured through `trunc4` and `fmt4` (section 9.2). */
+export function failingRows(spec: typeof SPEC): string[] {
+  return lintSpec(spec)
+    .filter((finding) => finding.severity === "error")
+    .map(
+      (finding) =>
+        `${finding.subject}, ${finding.mode}: ${trunc4(finding.measured)} against ${fmt4(finding.threshold)}`,
+    );
+}
+
+/** Sets the echo stub of `failingWorker`: the next request is answered with `spec`. */
+export const echoNext = (page: Page, spec: typeof SPEC): Promise<void> =>
+  page.evaluate((echo) => {
+    (window as unknown as { __dyelotEcho: unknown }).__dyelotEcho = echo;
+  }, spec);
 
 /** Starts a download with the dialog's button and returns its file name and bytes. */
 export async function download(page: Page): Promise<{ name: string; bytes: Uint8Array }> {

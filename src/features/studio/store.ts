@@ -5,6 +5,7 @@ import {
   type DirectionParams,
   LOCKABLE,
   type Lockable,
+  lintSpec,
   normalizeSeed,
   type Oklch,
   PRESET_IDS,
@@ -38,6 +39,7 @@ import {
   withSeed,
 } from "./params";
 import type { GenerateReply } from "./protocol";
+import { type RebuildOutcome, rebuildOutcome } from "./rebuild";
 import { type HashResult, type Notice, readHash, writeHash } from "./url";
 import { DEFAULT_VIEW, mergeView, type View } from "./view";
 
@@ -57,6 +59,11 @@ export type StudioState = Snapshot & {
   readonly future: readonly Snapshot[];
   readonly status: Status;
   readonly view: View;
+  /**
+   * What rebuilding the held design from its parameters gives (R3-42), for a loaded design that fails
+   * a required check; null for every other design.
+   */
+  readonly outcome: RebuildOutcome | null;
 };
 export type StudioActions = {
   setParams(patch: ParamsPatch, options?: { coalesce?: string }): void;
@@ -64,6 +71,8 @@ export type StudioActions = {
   /** A new seed from `deps.newSeed`, with the coalesce key "regenerate". */
   regenerate(): void;
   toggleLock(slot: Lockable): void;
+  /** Regenerates the held design from its own params and seed as a new commit (R3-33). */
+  rebuild(): void;
   setSeedColor(
     slot: Lockable,
     text: string,
@@ -180,12 +189,21 @@ function snapshotOf(
 ): { snapshot: Snapshot; customFonts: boolean } {
   if (draft !== null && draft.params !== null && specId(draft.spec) === specId(spec)) {
     return {
-      snapshot: { params: draft.params, seed: draft.seed, spec, preset: draft.preset },
+      snapshot: {
+        params: draft.params,
+        seed: draft.seed,
+        spec,
+        preset: draft.preset,
+        provenance: "loaded",
+      },
       customFonts: false,
     };
   }
   const { params, customFonts } = paramsOfSpec(spec);
-  return { snapshot: { params, seed: spec.meta.seed, spec, preset: null }, customFonts };
+  return {
+    snapshot: { params, seed: spec.meta.seed, spec, preset: null, provenance: "loaded" },
+    customFonts,
+  };
 }
 
 /**
@@ -214,7 +232,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     const seed = nextSeed();
     const params = freshParams();
     const spec = normalizeSpec(client.generateNow(resolveParams(params, seed), seed));
-    return { params, seed, spec, preset: "default" };
+    return { params, seed, spec, preset: "default", provenance: "generated" };
   }
 
   function firstLoad(draft: Draft | null): { snapshot: Snapshot; notice: Notice | null } {
@@ -235,6 +253,23 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     return { snapshot: fresh(), notice: link.kind === "error" ? linkNotice(link, "fresh") : null };
   }
 
+  // The outcome of rebuilding a held blocked design, by spec id (R3-42): computed when the design is
+  // committed or loaded, before subscribers hear of it, and never again for the same design.
+  const outcomes = new Map<string, RebuildOutcome>();
+  function outcomeOf(snapshot: Snapshot): RebuildOutcome | null {
+    // A generated design needs no outcome: a failing one is a fault whatever a rebuild would give.
+    if (snapshot.provenance !== "loaded") return null;
+    const id = specId(snapshot.spec);
+    const known = outcomes.get(id);
+    if (known !== undefined) return known;
+    if (!lintSpec(snapshot.spec).some((finding) => finding.severity === "error")) return null;
+    const outcome = rebuildOutcome(snapshot, (params, seed) =>
+      client.generateNow(resolveParams(params, seed), seed),
+    );
+    outcomes.set(id, outcome);
+    return outcome;
+  }
+
   const stored = loadDraft(storage);
   const first = firstLoad(stored.draft);
   /** The last committed snapshot: what `spec` shows, what undo pushes and the draft saves. */
@@ -242,6 +277,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
 
   const store = createStore<Studio>()(() => ({
     ...committed,
+    outcome: outcomeOf(committed),
     history: [],
     future: [],
     status: { phase: "idle", notice: first.notice, draft: stored.readable ? "on" : "off" },
@@ -250,6 +286,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     applyPreset,
     regenerate,
     toggleLock,
+    rebuild,
     setSeedColor,
     undo,
     redo,
@@ -338,6 +375,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
       seed: request.seed,
       spec,
       preset: request.preset,
+      provenance: "generated",
     };
     const merge =
       request.coalesce !== undefined &&
@@ -353,6 +391,8 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
       status.notice !== null && CLEARED_BY_COMMIT.has(status.notice.kind) ? null : status.notice;
     patch({
       spec,
+      provenance: "generated",
+      outcome: null,
       ...(newest ? { params: snapshot.params, seed: snapshot.seed, preset: snapshot.preset } : {}),
       history: nextHistory,
       future: [],
@@ -418,6 +458,11 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     issue({ params: withSeed(params, slot, seedColor), seed, preset });
   }
 
+  function rebuild(): void {
+    const { params, seed, preset } = committed;
+    issue({ params, seed, preset });
+  }
+
   function setSeedColor(
     slot: Lockable,
     text: string,
@@ -449,7 +494,13 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     committed = snapshot;
     const { status } = state();
     const notice = status.notice?.kind === "generation" ? null : status.notice;
-    patch({ ...snapshot, history, future, status: { ...status, phase: "idle", notice } });
+    patch({
+      ...snapshot,
+      outcome: outcomeOf(snapshot),
+      history,
+      future,
+      status: { ...status, phase: "idle", notice },
+    });
     schedulePersist();
   }
 

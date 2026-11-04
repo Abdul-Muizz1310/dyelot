@@ -38,6 +38,11 @@ export type FindingsProps = {
   onShowMe(finding: Finding): void;
   /** Applies `fixFor`'s patch through the store, which regenerates the design (R2-10). */
   onFix(finding: Finding): void;
+  /**
+   * Set only in the fixable state (R3-42): a loaded design that fails a required check and rebuilds
+   * clean from its parameters. The section then offers "Rebuild from the parameters".
+   */
+  onRebuild?: () => void;
 };
 
 export function Findings({
@@ -48,6 +53,7 @@ export function Findings({
   outcome,
   onShowMe,
   onFix,
+  onRebuild,
 }: FindingsProps) {
   const groups = groupFindings(findings);
   const heading = useRef<HTMLHeadingElement>(null);
@@ -124,6 +130,16 @@ export function Findings({
                 </ol>
               </div>
             ),
+          )}
+          {onRebuild !== undefined && (
+            <div className="space-y-1.5">
+              <button type="button" onClick={onRebuild} className={TOOL_BUTTON}>
+                Rebuild from the parameters
+              </button>
+              <p className="text-[11px] text-fg-muted leading-snug">
+                Generates the design again from its parameters and seed. Undo brings this one back.
+              </p>
+            </div>
           )}
         </div>
       )}

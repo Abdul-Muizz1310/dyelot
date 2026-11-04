@@ -46,6 +46,7 @@ const snap = (studio: Studio) => ({
   seed: studio.seed,
   spec: studio.spec,
   preset: studio.preset,
+  provenance: studio.provenance,
 });
 
 /** Runs `action`, then replies to the request it posted (a fake spec unless `real`). */
@@ -720,7 +721,8 @@ describe("drafts on the first load", () => {
     first.store.getState().flush();
     const saved = snap(first.store.getState());
     const { store } = makeStore({ storage: first.storage });
-    expect(snap(store.getState())).toEqual(saved);
+    // A draft is a load (R3-42): everything else is what was saved.
+    expect(snap(store.getState())).toEqual({ ...saved, provenance: "loaded" });
     expect(store.getState().preset).toBe("bento");
     expect(store.getState().status.notice).toEqual({ kind: "draft-restored" });
   });

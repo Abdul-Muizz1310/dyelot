@@ -16,12 +16,19 @@ const DRAFT_VERSION = 1;
 /** The part of `Storage` the studio uses. */
 export type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
 
+/**
+ * Where a design came from (R3-42): `"generated"` when the store made it from a generator reply to
+ * its own request, `"loaded"` when it came from a link, a draft or an import.
+ */
+export type Provenance = "generated" | "loaded";
+
 /** A committed design as the store holds it: what undo restores and the draft saves. */
 export type Snapshot = {
   readonly params: DirectionParams;
   readonly seed: string;
   readonly spec: DesignSpec;
   readonly preset: PresetId | null;
+  readonly provenance: Provenance;
 };
 
 /** A draft read back: `params` is null when the stored ones fail the check of R2-14 item 2. */

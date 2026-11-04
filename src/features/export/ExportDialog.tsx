@@ -1,19 +1,28 @@
 "use client";
 
 import "./export.css";
-import { type ReactNode, useEffect, useEffectEvent, useId, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
+import type { Bundle } from "@/export";
 import { trapTab } from "@/features/a11y/trapTab";
 import { BUTTON, PRIMARY_BUTTON, TOGGLE_BUTTON, TOOL_BUTTON } from "@/features/studio/chrome";
 import { type StudioStore, useStudio } from "@/features/studio/store";
 import { downloadBlob } from "./download";
-import { formatBytes, summaryLines } from "./files";
+import {
+  blockReason,
+  type ExportState,
+  exportState,
+  failingChecks,
+  formatBytes,
+  summaryLines,
+} from "./files";
 import { useBundle } from "./useBundle";
 
 // The export dialog (spec R3-34, R3-40, section 9.2): a modal dialog labelled by its heading. The
 // rest of the page is inert (Studio.tsx), focus moves to the heading, Escape and "Close" shut it, and it
 // fades over 150 ms of opacity, with no transition under reduced motion. A ready dialog lists the
 // bundle's files with a preview and a Copy button each, and offers the zip. A design that fails a
-// required check shows no file and offers no action (I-M3-04); Task 3.15 fills the `blocked` slot.
+// required check shows no file text and offers no action (I-M3-04): its blocked state (R3-42, section
+// 9.2) says why, lists the failing checks and points to the inspector.
 
 /** How long the fade runs, with room for its last frame. */
 const FADE_MS = 200;
@@ -30,11 +39,11 @@ type ExportDialogProps = {
   store: StudioStore;
   open: boolean;
   onClose(): void;
-  /** What a design that fails a required check shows below its summary (Task 3.15). */
-  blocked?: ReactNode;
+  /** "Fix in the inspector" and "Show the findings": the studio closes the dialog and shows the Findings section. */
+  onShowFindings(): void;
 };
 
-export function ExportDialog({ store, open, onClose, blocked }: ExportDialogProps) {
+export function ExportDialog({ store, open, onClose, onShowFindings }: ExportDialogProps) {
   // The dialog stays mounted while it fades out; under reduced motion it leaves at once. A dialog
   // that never opened mounts nothing, so the export code stays unloaded (I-M3-09).
   const [mounted, setMounted] = useState(false);
@@ -47,12 +56,15 @@ export function ExportDialog({ store, open, onClose, blocked }: ExportDialogProp
     return () => clearTimeout(timer);
   }, [open]);
   if (!open && (!mounted || reducedMotion())) return null;
-  return <Shell store={store} open={open} onClose={onClose} blocked={blocked} />;
+  return <Shell store={store} open={open} onClose={onClose} onShowFindings={onShowFindings} />;
 }
 
-function Shell({ store, open, onClose, blocked }: ExportDialogProps) {
+function Shell({ store, open, onClose, onShowFindings }: ExportDialogProps) {
   const spec = useStudio(store, (studio) => studio.spec);
   const generating = useStudio(store, (studio) => studio.status.phase === "generating");
+  const provenance = useStudio(store, (studio) => studio.provenance);
+  const outcome = useStudio(store, (studio) => studio.outcome);
+  const reasonId = useId();
   const bundle = useBundle(spec, generating);
   const headingId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
@@ -253,7 +265,15 @@ function Shell({ store, open, onClose, blocked }: ExportDialogProps) {
             </div>
           </>
         )}
-        {bundle.state === "ready" && !passing && blocked}
+        {bundle.state === "ready" && bundle.bundle !== undefined && !passing && (
+          <Blocked
+            bundle={bundle.bundle}
+            bundleZipName={bundle.zipName}
+            state={exportState(bundle.bundle.summary, provenance, outcome ?? undefined)}
+            reasonId={reasonId}
+            onShowFindings={onShowFindings}
+          />
+        )}
         {bundle.state === "failed" && (
           <div className="flex flex-wrap items-center gap-3">
             <p className="text-sm">The export code did not load.</p>
@@ -274,5 +294,75 @@ function Shell({ store, open, onClose, blocked }: ExportDialogProps) {
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * What a blocked dialog shows below its summary (R3-42, section 9.2): the state's sentence, the failing
+ * checks, the file paths without sizes or text, "Download" and every "Copy" off (`aria-disabled`, kept
+ * focusable and described by the sentence), and the way to the Findings section. Nothing here starts a
+ * download or writes the clipboard (I-M3-04).
+ */
+function Blocked({
+  bundle,
+  bundleZipName,
+  state,
+  reasonId,
+  onShowFindings,
+}: {
+  bundle: Bundle;
+  bundleZipName: string | undefined;
+  state: ExportState;
+  reasonId: string;
+  onShowFindings(): void;
+}) {
+  if (state === "passing") return null;
+  const checks = failingChecks(bundle.receipt.findings);
+  return (
+    <>
+      <p id={reasonId} className={`text-sm ${WRAP}`}>
+        {blockReason(state, bundle.summary.lint.error)}
+      </p>
+      <ul aria-label="Failing checks" className="space-y-1 font-mono text-xs">
+        {checks.map((row, index) => (
+          // biome-ignore lint/suspicious/noArrayIndexKey: two findings can read alike; the rows never reorder.
+          <li key={index} className={WRAP}>
+            {row}
+          </li>
+        ))}
+      </ul>
+      <ul aria-label="Files" className="border-border border-t text-sm">
+        {bundle.files.map((each) => (
+          <li
+            key={each.path}
+            className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 border-border border-b py-1"
+          >
+            <span className={`min-w-0 flex-1 font-mono ${WRAP}`}>{each.path}</span>
+            <button
+              type="button"
+              aria-disabled="true"
+              aria-describedby={reasonId}
+              aria-label={`Copy ${each.path}`}
+              className={`${TOOL_BUTTON} min-w-16 justify-center`}
+            >
+              Copy
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <button
+          type="button"
+          aria-disabled="true"
+          aria-describedby={reasonId}
+          className={`${PRIMARY_BUTTON} whitespace-normal py-1 text-left ${WRAP}`}
+        >
+          Download {bundleZipName}
+        </button>
+        <button type="button" onClick={onShowFindings} className={BUTTON}>
+          {state === "fixable" ? "Fix in the inspector" : "Show the findings"}
+        </button>
+      </div>
+    </>
   );
 }

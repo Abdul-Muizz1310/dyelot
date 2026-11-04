@@ -20,6 +20,7 @@ const snapshot = () => ({
   seed: "seed-1",
   spec: freshSpec(),
   preset: "default" as const,
+  provenance: "generated" as const,
 });
 
 const stored = (value: unknown) => memoryStorage({ [DRAFT_KEY]: JSON.stringify(value) });

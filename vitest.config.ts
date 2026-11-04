@@ -96,6 +96,7 @@ const STUDIO_HELPERS = [
   "view",
   "shortcuts",
   "inputs",
+  "rebuild",
 ].map((name) => `src/features/studio/${name}.ts`);
 
 /** The preview's pure helpers (Tasks 2.7 to 2.10a), held to `PURE_FLOORS` the same way. */

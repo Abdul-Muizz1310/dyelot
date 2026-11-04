@@ -172,6 +172,8 @@ export async function pickColor(input: Locator, hex: string): Promise<void> {
  * Replaces `window.Worker` with a subclass of the real worker (F-STUDIO-19, F-EXP-11):
  * - once the test sets `window.__dyelotFault`, every request is answered with a forced `RangeError`;
  *   until then the real worker answers;
+ * - once the test sets `window.__dyelotEcho` to a spec, the next request is answered with `{ id, ok: true,
+ *   spec }` of that spec, and every other request goes to the real worker (F-EXP-20);
  * - once the test sets `window.__dyelotHold` to true, the next reply, from this stub or from the real
  *   worker, is held until the test calls `window.__dyelotRelease()` (a release that comes first lets
  *   the reply through).
@@ -181,10 +183,12 @@ export async function failingWorker(page: Page): Promise<void> {
     const Real = window.Worker;
     const flags = window as unknown as {
       __dyelotFault: boolean;
+      __dyelotEcho: unknown;
       __dyelotHold: boolean;
       __dyelotRelease(): void;
     };
     flags.__dyelotFault = false;
+    flags.__dyelotEcho = null;
     flags.__dyelotHold = false;
     flags.__dyelotRelease = () => {};
     class FaultWorker extends Real {
@@ -210,6 +214,12 @@ export async function failingWorker(page: Page): Promise<void> {
         };
       }
       override postMessage(message: { id: number }, ...rest: never[]) {
+        if (flags.__dyelotEcho !== null) {
+          const data = { id: message.id, ok: true, spec: flags.__dyelotEcho };
+          flags.__dyelotEcho = null;
+          setTimeout(() => this.dispatchEvent(new MessageEvent("message", { data })), 0);
+          return;
+        }
         if (!flags.__dyelotFault) {
           super.postMessage(message, ...rest);
           return;

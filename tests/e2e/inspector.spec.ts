@@ -1164,6 +1164,23 @@ test.describe("7.8 Fixes", () => {
     await expect(findingsStatus(page)).toBeEmpty();
   });
 
+  test("F-INSP-09 the regenerated design is the studio's own: its Receipt follows it and offers no rebuild", async ({
+    page,
+  }) => {
+    const spec = ringFixture();
+    await openStudio(page, linkOf(spec));
+    const rebuild = inspector(page).getByRole("button", { name: "Rebuild from the parameters" });
+    await expect(rebuild).toBeVisible();
+    await expect(region(page, "Receipt")).toContainText(/This design fails \d+ required checks?\./);
+    await findingItem(page, keyOf(spec, "F1", "light", "ring/background"))
+      .getByRole("button", { name: "Raise contrast to AAA", exact: true })
+      .click();
+    await settled(page);
+    await expect(rebuild).toHaveCount(0);
+    await expect(region(page, "Receipt")).not.toContainText("This design fails");
+    await expect(region(page, "Receipt").getByRole("listitem")).toHaveCount(4);
+  });
+
   test("F-INSP-09 in the 360 px drawer a fix keeps focus inside the inspector", async ({
     page,
   }) => {
@@ -1255,6 +1272,10 @@ test.describe("7.8 Fixes", () => {
     await expect(item).toContainText("Contrast is already AAA.");
     await expect(item.getByRole("button", { name: /^Raise contrast/ })).toHaveCount(0);
     await expect(item.getByRole("button", { name: "Show me", exact: true })).toBeVisible();
+    // The link is a loaded design whose rebuild passes, so the section also offers the rebuild (R3-42).
+    await expect(
+      inspector(page).getByRole("button", { name: "Rebuild from the parameters", exact: true }),
+    ).toBeVisible();
   });
 });
 
@@ -1384,6 +1405,13 @@ test.describe("7.8 Keyboard and motion", () => {
       await page.keyboard.press("Tab");
       await expect(stop).toBeFocused();
     }
+    // The ring fixture is a loaded design whose rebuild passes: Tab then reaches "Rebuild from the
+    // parameters", after the findings, and the Receipt section follows it (R3-36, R3-42).
+    await page.keyboard.press("Tab");
+    await expect(
+      inspector(page).getByRole("button", { name: "Rebuild from the parameters", exact: true }),
+    ).toBeFocused();
+    await expect(region(page, "Receipt")).toBeVisible();
   });
 
   test("F-INSP-16 under reduced motion show me, a fix and the drawer start no motion in the canvas", async ({
