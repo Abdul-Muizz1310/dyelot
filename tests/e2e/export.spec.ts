@@ -239,6 +239,25 @@ test.describe("the export dialog", () => {
     await expect(button(page, "Regenerate")).toBeFocused();
   });
 
+  test("F-EXP-08 Ctrl+E with a drawer open closes it, opens the dialog, and Escape returns focus to the drawer's button", async ({
+    page,
+  }) => {
+    await page.setViewportSize(PHONE);
+    await openStudio(page, SPEC_LINK);
+    await button(page, "Inputs").click();
+    await expect(inputsPanel(page)).toBeVisible();
+    await button(page, "Regenerate").focus();
+    await page.keyboard.press("Control+KeyE");
+    await expect(exportDialog(page)).toBeVisible();
+    await expect(
+      exportDialog(page).getByRole("heading", { name: "Export", exact: true }),
+    ).toBeFocused();
+    await expect(button(page, "Inputs")).toHaveAttribute("aria-expanded", "false");
+    await page.keyboard.press("Escape");
+    await expect(exportDialog(page)).toHaveCount(0);
+    await expect(button(page, "Inputs")).toBeFocused();
+  });
+
   test("F-EXP-10 the download says so, and the Blob URL is created, clicked and revoked in order", async ({
     page,
   }) => {

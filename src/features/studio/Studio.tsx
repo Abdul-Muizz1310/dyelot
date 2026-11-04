@@ -85,10 +85,18 @@ function StudioShell({ store }: { store: StudioStore }) {
     }
   }
 
-  /** Opens the export dialog; `opener` is where focus returns (R3-34). With a drawer open, it waits. */
+  /**
+   * Opens the export dialog; `opener` is where focus returns (R3-34). With a drawer open, the drawer
+   * closes first and focus returns to its toggle button, since the focused control inside it is gone.
+   */
   function openExport(opener: HTMLElement | null): void {
-    if (exportOpen || open !== null) return;
-    exportOpener.current = opener;
+    if (exportOpen) return;
+    let returnTo = opener;
+    if (open !== null) {
+      returnTo = document.querySelector<HTMLElement>(`[aria-controls="studio-${open}"]`);
+      closeDrawer();
+    }
+    exportOpener.current = returnTo;
     setExportOpen(true);
   }
 
