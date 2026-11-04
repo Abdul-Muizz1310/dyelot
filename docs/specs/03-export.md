@@ -4,7 +4,7 @@
 > `docs/specs/01-color-engine.md` (M1) and `docs/specs/02-studio.md` (M2). Paths to `docs/research/`, `docs/plans/` and
 > `knowledge/` point into the private `repos` meta-repo.
 
-Status: rebuilt on 2026-11-05. It awaits the owner's approval, and no M3 code starts before it has that approval.
+Status: rebuilt on 2026-11-05 and approved by the owner on 2026-11-05, as written after review fix round 1.
 
 The owner approved the first M3 spec on 2026-11-03. That file lived in a draft folder outside git on a machine the owner
 no longer has, and it is lost. This file rebuilds it from the M3 plan (`docs/plans/2026-11-03-dyelot-m3-export.md` in the
