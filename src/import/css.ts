@@ -272,7 +272,14 @@ export function importShadcnCss(text: string): ImportResult {
   return buildImport(draft);
 }
 
-/** The seed a primary color gives the generator: its gamut-mapped OKLCH. */
+/** The chroma ceiling of the engine's seed domain (`CHROMA_CEILING`). */
+const SEED_CHROMA_MAX = 0.5;
+
+/**
+ * The seed a primary color gives the generator: its gamut-mapped OKLCH, clamped into the seed
+ * domain because the round trip can drift past it by a float (white gives `l` 1.0000000000000002).
+ */
 function seedOf(primary: ParsedColor): ImportDraft["primary"] {
-  return rgbToOklch(gamutMap(rgbToOklch(primary.rgb, "srgb"), "srgb"), "srgb");
+  const { l, c, h } = rgbToOklch(gamutMap(rgbToOklch(primary.rgb, "srgb"), "srgb"), "srgb");
+  return { l: Math.min(1, Math.max(0, l)), c: Math.min(SEED_CHROMA_MAX, Math.max(0, c)), h };
 }

@@ -340,3 +340,25 @@ describe("C-CSSI-10 real alpha", () => {
     }
   });
 });
+
+describe("C-IMP-03 boundary primaries never throw (I-M3-05)", () => {
+  const primaries = [
+    "oklch(1 0 0)",
+    "color(srgb 1 1 1)",
+    "color(display-p3 1 1 1)",
+    "lab(100 0 0)",
+    "rgb(1000 1000 1000)",
+    "#ffffff",
+    "#000000",
+    "oklch(0 0 0)",
+    "oklch(0.7 0.4 145)",
+    "oklch(0.99999 0.5 30)",
+    "color(display-p3 0 1 0)",
+  ];
+  for (const primary of primaries) {
+    it(`reads --primary: ${primary}`, () => {
+      const result = importShadcnCss(`:root { --primary: ${primary}; }`);
+      expect(result.ok, primary).toBe(true);
+    });
+  }
+});
