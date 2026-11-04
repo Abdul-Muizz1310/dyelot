@@ -51,15 +51,15 @@ export type Direction = {
 /** The longest `meta.name` and `meta.seed`: the generator checks its input against the same bounds. */
 export const NAME_MAX = 80;
 export const SEED_MAX = 128;
-/** The longest `meta.oneLiner` (R3-01). */
+/** The R3-01 bounds of `direction` and `rules`, and the longest `meta.oneLiner`; the generator reads the same ones. */
 export const ONE_LINER_MAX = 140;
-const THESIS_MAX = 280;
-const ADJECTIVE_MAX = 24;
-const LIKE_MAX = 80;
-const LIST_MAX = 5;
+export const THESIS_MAX = 280;
+export const ADJECTIVE_MAX = 24;
+export const LIKE_MAX = 80;
+export const LIST_MAX = 5;
 const POLICY_MAX = 64;
-const RULES_MAX = 20;
-const RULE_MAX = 200;
+export const RULES_MAX = 20;
+export const RULE_MAX = 200;
 const ENGINE_VERSION_MAX = 64;
 const MODEL_SLUG = /^[\w.:/@+-]{1,120}$/;
 const FAMILY_ID = /^[a-z0-9-]{1,64}$/;

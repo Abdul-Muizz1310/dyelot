@@ -1,17 +1,23 @@
 import { canonicalJson } from "../spec/canonical";
 import {
+  ADJECTIVE_MAX,
   DEPTH_STYLES,
   type DepthStyle,
   type DesignSpec,
   DesignSpecSchema,
   type Direction,
   type DirectionParams,
+  LIKE_MAX,
+  LIST_MAX,
   MOTION_FEELS,
   type MotionFeel,
   NAME_MAX,
   ONE_LINER_MAX,
+  RULE_MAX,
+  RULES_MAX,
   SEED_MAX,
   SPEC_VERSION,
+  THESIS_MAX,
 } from "../spec/schema";
 import { isPlainText } from "../spec/text";
 import { pickChartColors } from "./color/chart";
@@ -104,7 +110,7 @@ function checkObject(value: unknown, name: string): Record<string, unknown> {
   return value;
 }
 
-/** A list of plain texts: 1 to `LIST_MAX` entries (or 0 to `LIST_MAX` when `min` is 0). */
+/** A list of plain texts within `bounds`. */
 function checkList(value: unknown, bounds: ListBounds, name: string): string[] {
   if (!Array.isArray(value)) {
     throw new TypeError(`${name} must be an array, got ${describeType(value)}`);
@@ -120,12 +126,11 @@ function checkList(value: unknown, bounds: ListBounds, name: string): string[] {
 type ListBounds = { min: number; maxLength: number; maxChars: number };
 
 const DIRECTION_LISTS = {
-  adjectives: { min: 1, maxLength: 5, maxChars: 24 },
-  like: { min: 1, maxLength: 5, maxChars: 80 },
-  unlike: { min: 1, maxLength: 5, maxChars: 80 },
+  adjectives: { min: 1, maxLength: LIST_MAX, maxChars: ADJECTIVE_MAX },
+  like: { min: 1, maxLength: LIST_MAX, maxChars: LIKE_MAX },
+  unlike: { min: 1, maxLength: LIST_MAX, maxChars: LIKE_MAX },
 } as const;
-const THESIS_MAX = 280;
-const RULES_LISTS: ListBounds = { min: 0, maxLength: 20, maxChars: 200 };
+const RULES_LISTS: ListBounds = { min: 0, maxLength: RULES_MAX, maxChars: RULE_MAX };
 
 /** `params.direction`: a strict object with at least one of its four keys (R3-01). */
 function checkDirection(value: unknown): Direction | undefined {
@@ -154,7 +159,7 @@ function checkDirection(value: unknown): Direction | undefined {
   };
 }
 
-/** `params.rules`: the two lists, each 0 to 20 entries of 1 to 200 plain characters. */
+/** `params.rules`: the two lists, each `RULES_MAX` entries of at most `RULE_MAX` plain characters, at least one character. */
 function checkRules(value: unknown): Parsed["rules"] {
   if (value === undefined) return undefined;
   const name = "generateSystem: params.rules";

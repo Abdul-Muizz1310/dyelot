@@ -205,18 +205,28 @@ describe("DesignSpecSchema", () => {
       [["components", "emphasis"], "", "p".repeat(65)],
       [["components", "inputs"], "", "p".repeat(65)],
       [["components", "icons", "library"], "", "p".repeat(65)],
-      [["meta", "oneLiner"], "", "o".repeat(141)],
-      [["direction"], {}, { thesis: "t".repeat(281) }],
-      [["direction"], { adjectives: [] }, { adjectives: ["a".repeat(25)] }],
-      [["direction"], { adjectives: Array(6).fill("a") }, { like: Array(6).fill("a") }],
-      [["direction"], { unlike: Array(6).fill("a") }, { like: ["l".repeat(81)] }],
-      [["direction"], { unlike: ["u".repeat(81)] }, { thesis: "t".repeat(281) }],
-      [["rules", "do"], [""], ["r".repeat(201)]],
     ];
     for (const [path, low, high] of cases) {
-      expectRejected(withValue(spec, path, low));
+      expectRejected(withValue(spec, path, low), path);
       expectRejected(withValue(spec, path, high));
     }
+    // R3-01: the new bounds, each with the path its issue names.
+    const text = (count: number, length = 1) => Array(count).fill("a".repeat(length));
+    const added: ReadonlyArray<readonly [Path, unknown, Path]> = [
+      [["meta", "oneLiner"], "", ["meta", "oneLiner"]],
+      [["meta", "oneLiner"], "o".repeat(141), ["meta", "oneLiner"]],
+      [["direction"], {}, ["direction"]],
+      [["direction"], { thesis: "t".repeat(281) }, ["direction", "thesis"]],
+      [["direction"], { adjectives: [] }, ["direction", "adjectives"]],
+      [["direction"], { adjectives: text(6) }, ["direction", "adjectives"]],
+      [["direction"], { adjectives: text(1, 25) }, ["direction", "adjectives", 0]],
+      [["direction"], { like: text(6) }, ["direction", "like"]],
+      [["direction"], { like: text(1, 81) }, ["direction", "like", 0]],
+      [["direction"], { unlike: text(6) }, ["direction", "unlike"]],
+      [["direction"], { unlike: text(1, 81) }, ["direction", "unlike", 0]],
+      [["rules", "do"], [""], ["rules", "do", 0]],
+    ];
+    for (const [path, value, at] of added) expectRejected(withValue(spec, path, value), at);
     // R3-02: a text field or a policy that is not plain text fails; the bounds above stay.
     const notPlain = [" lead", "a\u0007b", "a\u202eb", "e\u0301"];
     const fields: ReadonlyArray<Path> = [
@@ -229,8 +239,8 @@ describe("DesignSpecSchema", () => {
     ];
     for (const text of notPlain) {
       for (const path of fields) expectRejected(withValue(spec, path, text), path);
-      expectRejected(withValue(spec, ["rules", "do"], [text]));
-      expectRejected(withValue(spec, ["direction"], { thesis: text }));
+      expectRejected(withValue(spec, ["rules", "do"], [text]), ["rules", "do", 0]);
+      expectRejected(withValue(spec, ["direction"], { thesis: text }), ["direction", "thesis"]);
     }
     const edges: ReadonlyArray<readonly [Path, unknown]> = [
       [["meta", "name"], "n".repeat(80)],
