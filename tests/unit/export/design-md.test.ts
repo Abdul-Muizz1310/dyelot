@@ -252,7 +252,7 @@ describe("designMd body", () => {
 
   it("C-DMD-08: Overview holds the sentence, the link and, for a preset, its style and traits", () => {
     const link = editLink(SPEC, ORIGIN);
-    expect(TEXT).toContain(`Made with dyelot. Edit this design: ${link}\n`);
+    expect(TEXT).toContain(`Made with dyelot. Edit this design: <${link}>\n`);
     expect(TEXT).toContain(describeDesign(SPEC));
     const glass = designMd(golden("glass"), ORIGIN);
     expect(glass).toContain(`Style: ${PRESETS.glass.label}. ${PRESETS.glass.summary}`);
@@ -393,6 +393,7 @@ describe("designMd body", () => {
     expect(splitFrontMatter(text).front).toContain(`name: ${yamlString(name)}\n`);
     const scrubbed = outsideFences(splitFrontMatter(text).body)
       .replace(/\\./g, "")
+      .replace(/<https:\/\/[^>\s]*>/g, "")
       .replace(/`[^`\n]*`/g, "")
       .replace(/\*\*/g, "");
     expect(scrubbed.match(/.*[*[\]<].*/g) ?? []).toEqual([]);

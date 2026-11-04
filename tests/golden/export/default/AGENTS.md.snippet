@@ -1,0 +1,11 @@
+<!-- dyelot:start 4177·a34c -->
+## Design system: Default
+- Read DESIGN.md before any UI change; it is the design brief.
+- Colors, type, radius, shadows and motion come only from the tokens in app/theme.css.
+- Never write a raw hex, rgb(), hsl() or oklch() color in a component.
+- Use the role utilities (bg-background, text-foreground, bg-primary, text-primary-foreground, border-border), never Tailwind's default palette classes such as bg-blue-500.
+- Pair every fill with its foreground role, such as bg-primary with text-primary-foreground.
+- Set body text with the type steps (text-body and up), never under 16 px.
+- Animate with the tokens in motion/, and honor prefers-reduced-motion.
+- Before you finish, run `node scripts/dyelot-check.mjs` and fix every finding until it prints PASS.
+<!-- dyelot:end -->

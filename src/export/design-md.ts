@@ -103,7 +103,7 @@ export function designMd(spec: DesignSpec, origin: string): string {
     describeDesign(spec),
     ...(spec.direction?.thesis === undefined ? [] : [mdText(spec.direction.thesis)]),
     ...presetLines(preset),
-    `Made with dyelot. Edit this design: ${link}`,
+    `Made with dyelot. Edit this design: <${link}>`,
   ];
   const family = (label: string, id: string) => {
     const pack = fontPackage(id);

@@ -1,0 +1,1652 @@
+{
+  "default": {
+    "specId": "4177a34c3648bb5a",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 54349,
+        "sha256": "effe913a76630d54c5c1b320124802364e4f4d89715669d26132b04e5c3008c6"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 814,
+        "sha256": "ea094fe25b161e4149a37ec12f3b050fc4063b05028c8a4d771dc0736d2d2bd2"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37216,
+        "sha256": "671b622776a19fca4251c15eb1aef5985947576bf5b69212a8b441db06aa9d84"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24319,
+        "sha256": "209169b0e029798a81c071605016c5595385fa6ba37b082389d7d2d6b84aff8c"
+      },
+      {
+        "path": "registry/default.json",
+        "bytes": 9376,
+        "sha256": "8fee70d94aa5db0001da033af5bc84c11318f083e8d2cb6760214f3a56dbea29"
+      },
+      {
+        "path": "registry/font-young-serif.json",
+        "bytes": 357,
+        "sha256": "bf12b4f3aefe5deac66e88fd2b5a9c4736cef642231d2b3b71806a398f19e433"
+      },
+      {
+        "path": "registry/font-onest.json",
+        "bytes": 295,
+        "sha256": "0726e336bc47c35b50c1ea915bf3a2432efea8b7abb0fd52b41a06cb098821a1"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 22899,
+        "sha256": "0d57f7150f1f5aa54c8990a45d91b637e1e63a0c2d4a92564ec1608975dd1330"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34870,
+        "sha256": "f4a6c918c4e3243306d2f321299ff8a46b8592b87f8fa1121382aaeb8c99e8f4"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34917,
+        "sha256": "f411e2d3bd7aed4e26745bef30b50a7d6d31a58be2de655df87fdfa1c985a187"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7777,
+        "sha256": "38af1fc882eb84113469e1e1bf044696eb13a8c536c528fac1ddc1f0341261bd"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41358,
+        "sha256": "393a4c4765499d0d8c7e0d7921683fdc0bd3446e44fc23d9a19a70b8fb52f2c6"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41448,
+        "sha256": "fa6c88147125084e0d5af16942fc27e0bd83cd9c1a4ea6e6930f9c90f8570ca8"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "8dc30af081c7e1195988a845086ba1a0552af19b920586e0aebe9cb66e8e39d0"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9281,
+        "sha256": "1fdbfe2135438639a08d661d4034cb61a9a968d7bd08f2d03492a7dc6fd569f9"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/default-design/SKILL.md",
+        "bytes": 8239,
+        "sha256": "95c8ec1cf3d1d335e4b8f998775e9207c7b9c8417073d15e75fa64888319ec63"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 45093,
+        "sha256": "2b12438c6ef99cc7fccf4263f975a173496d64c3fb35581744d7251a89611c4f"
+      }
+    ],
+    "zipSha256": "ad753543b6183673a38224094408c6577b37e9f32b3d02b349bcca7e6d3de3a7"
+  },
+  "minimal-swiss": {
+    "specId": "4aa24889811ae616",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 51570,
+        "sha256": "7f3a14677b0044fc10dd6b05590bc47e9a8e3521dd8ed8a847ef9730844ff1b6"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 820,
+        "sha256": "bfbfe55617a034ef7a671cfcc21ff9a08a9e990cbb3bacb7d73e5ce408b00b61"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 35464,
+        "sha256": "fc2ef8969a81a5065e61b41b3965800bdc8840d9fb78aabf96805ad46afe6498"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 23288,
+        "sha256": "f1b58be52c7e568e87011ab804fb715f0a63ee1a196ba0c1cfe87baa40be707a"
+      },
+      {
+        "path": "registry/minimal-swiss.json",
+        "bytes": 9396,
+        "sha256": "38cbe3eeb9abf5e9d7ccbb49d6121a9e1ae29263f2a928b89d429349f7d0bbd5"
+      },
+      {
+        "path": "registry/font-host-grotesk.json",
+        "bytes": 323,
+        "sha256": "e64624c94dcc270e208f9cece1856304b242e5fa22f2095b657f2f4f30b1d51b"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 19812,
+        "sha256": "66c38dc221c3666ffb211b11af43424d9134708762f626b90fde8192836e071c"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34844,
+        "sha256": "69a5aef87c2ed892e612edaefc1a261c558202b05e930f75c9f0900aabb9e47c"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34868,
+        "sha256": "cb44fdebf7881c01c3eb8572b633a22082dd909d867fda6ac90425f099cd76f9"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7080,
+        "sha256": "eaa491fdfff1dbe37c926a85f8018f453d6c43c331f7e621811f0b4301622eea"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41338,
+        "sha256": "f3e98507c1b5a50786028e9f0d4a239d3f534bed34b4138a8357b66dde8e3499"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41445,
+        "sha256": "cc195b029f422265795696415ab72513405ae8e7309cd1506e17043a28e8baf3"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "f727e2ddac9a0f801758b928416dd53053a2fbcbf5ff005fc6a402655fa8c4b3"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 8584,
+        "sha256": "bd8d5a6a82af832a382fdccafb9da346ff07a64132c254252e03bf8ac0c95b92"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/minimal-swiss-design/SKILL.md",
+        "bytes": 7554,
+        "sha256": "36e89c016173be6dbe875f5774a91d6a09b8f09babcbd118e3f861aa5d07a574"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 44262,
+        "sha256": "d9691f111d55b0b5a83ae07f95ba8b8fa977104bfd1ef2de1c6a75a503dbf8d2"
+      }
+    ],
+    "zipSha256": "b45e296cf7617e2f0e24e51057aa0b3e6c08e1140f410e4c4f465a9b856320c0"
+  },
+  "editorial": {
+    "specId": "a6521b022d357315",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 54331,
+        "sha256": "5b6f4340145d8ccbe51c68e7028b5f6431ea1f5f4ff3f183ed01e396dad60f1b"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 816,
+        "sha256": "8dabce5c6ae28b03d12c946d894709f859145035b10b3f32cdde5e46261aa488"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37183,
+        "sha256": "50903fe923ed996ec49774a10d356e26b0ac924c4148018897fdda0fe8d3edcb"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24150,
+        "sha256": "c2b3fb6f2426c192c836b313cd96db4f915ad0e1b7e16aaac1f98c7b280f5f5e"
+      },
+      {
+        "path": "registry/editorial.json",
+        "bytes": 9369,
+        "sha256": "4a9956ada04e557acc3fbec12ef976cfa96fa173f233f4adb50d14a4d0115ef7"
+      },
+      {
+        "path": "registry/font-schibsted-grotesk.json",
+        "bytes": 346,
+        "sha256": "053ecb5a0e1de96cc6854969caa3e3fc5d1ce0a7a095bbfb19c137bf38c7477a"
+      },
+      {
+        "path": "registry/font-source-serif-4.json",
+        "bytes": 331,
+        "sha256": "4874fb361f74e810250e67c65eb04b67f2884ada54fdbef77a608176bed1376f"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 20651,
+        "sha256": "8f1f12f4485888ef2aeb438f54d3231a1074d3f457eb555191b4fa105c6d0105"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34893,
+        "sha256": "52a616a65bdca7987a8f040eca31ceb097a4275904390bb592ae8ecdf627ff04"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34927,
+        "sha256": "1f408037804624c6e24e0d42e73668119346027bebf4154386bfe99c414714db"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7916,
+        "sha256": "8c8da19fcf777081804eb2af12ba9088b58f2faf7904cb815cab5cb59397b1e6"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41391,
+        "sha256": "c35c990dc70c5a3d3dcc7ffc2baa6973147bcc9ffb3a71902d9f3f4de105c0e8"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41457,
+        "sha256": "c36f4d7203336e20d9b69cf76c1324e376c225eb0abf989843ff9a0565d6e060"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "1821683487933f3980f7561518eac76688e0c299d68577e3299573e975d79c22"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9420,
+        "sha256": "bbe6900aacc639fda38b8d2303fde79cabf13307bb982d5a7af558cf8e51ff84"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "7e6feec2dd448d2e302ecf55cc4315b657afe014e1a8cd28a5ba978df9f6d7d5"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 456,
+        "sha256": "d14e19dfb149f37c5ad157f1014ca24cb7b07ab1d0532e823b907d088324b575"
+      },
+      {
+        "path": "skills/editorial-design/SKILL.md",
+        "bytes": 8382,
+        "sha256": "e68aa23dbb56ee5da10312a8c5e341773029db2d8a9af687bc15c9da882750e1"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 45262,
+        "sha256": "b4b796b81aab8bf835b54240bb34175963c450b83dd36dd09fee94adfbe15f0b"
+      }
+    ],
+    "zipSha256": "2590b0ba7cce4c41b7ca6e306d65b97def4d18bb1cfadaf1841e2e2b062b5939"
+  },
+  "neo-brutalism": {
+    "specId": "1cd53ed89de3f306",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 53935,
+        "sha256": "0fa78fb1d4d8f63db9f7827261edf494d0348e3d9762425485861338b18ad578"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 820,
+        "sha256": "e63baf53758dfe78775f8063e756d3a832a03844663d46ac877c2c2eed136e05"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 36906,
+        "sha256": "2c474fa798441bba21097bb84db9a540c0afc2d4382dae1b698ef9d57980b242"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24006,
+        "sha256": "3a09998a27211e579e21344b93ae34f8ee4c2bdac818a3443b862291e2d6fd2b"
+      },
+      {
+        "path": "registry/neo-brutalism.json",
+        "bytes": 9368,
+        "sha256": "fe9a064b3ee7eedd4f9cc498669e5f74a3681f9a2791935ae4a3f835d990ea8e"
+      },
+      {
+        "path": "registry/font-anybody.json",
+        "bytes": 306,
+        "sha256": "0d4c40916d27d427dd88cad2b70bf8a22d074f30d81f6e90051e0e61c07ac04d"
+      },
+      {
+        "path": "registry/font-albert-sans.json",
+        "bytes": 319,
+        "sha256": "d13df1c0b30545856719f85e2d409cd783f784cc6387a4b10c6b5cb1109b16c0"
+      },
+      {
+        "path": "registry/font-spline-sans-mono.json",
+        "bytes": 339,
+        "sha256": "491b3ce25286b2a9d0b4aa76990249133a40132d9c68a372337b6debc94ed725"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 20490,
+        "sha256": "1f99e4410b44b4e59327c1181b06e615d36b4f4995604d88886f85f44d9dd6fe"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34976,
+        "sha256": "ff673f74383e7451ce0b51fafc3330f6ab9da930468c6df8955c3501f418e7ab"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34926,
+        "sha256": "7a5e6e4f84cc65c2a616465df4635618e53797dcbefce0213cc35be3410f813c"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7790,
+        "sha256": "7c192242c1bfa54f24f42aa51e2a20020e763b6b068a3d3effb87e7c1fffcf9a"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41356,
+        "sha256": "357c43cb464ba74fb108c0f3985bde751113c5df2e14ab2a784ccdc1c96f8384"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41471,
+        "sha256": "c4a6c634afeb034ee624d575f2ed1a49e591373073cb49b1d63ef0d7d240087c"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "a7499978478aa298ba4de95d47c307669078d21b54148e68fe506b68f657417a"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9294,
+        "sha256": "4cdb15a150a18273ca81e0e493be76b75c39ff7a4d08c55009797c42cb71d1b3"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/neo-brutalism-design/SKILL.md",
+        "bytes": 8264,
+        "sha256": "05b9d4b3047be3631da833b426366646e249cf85997a6c9dde8b0e797b3844ee"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 45122,
+        "sha256": "775dad5cc7e3c7cf3d9ef02e646f5d83e0e9932afe9541847aa620f0ec82b312"
+      }
+    ],
+    "zipSha256": "2f06233df540770025338d02be3a04fdc5ef7e092c0f07c63b95676c49f31bd9"
+  },
+  "glass": {
+    "specId": "1e2039e5542d2949",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 54956,
+        "sha256": "38840849f2277dbc75cdd5e34d351dfb1bcf996e7449d3f16003044a54259f47"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 812,
+        "sha256": "79d7c887f7f8bebdb2eea7bef850e0ba93d37224028d84b55a51d9a2d582be4d"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37459,
+        "sha256": "632eccdbaa751ffec2360a3d0de97895bf037dd71422db05390955dc203daa29"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24529,
+        "sha256": "a23b7f2247ec151abc004478fafc0aef978e223c31b353f4f1111411f3509baa"
+      },
+      {
+        "path": "registry/glass.json",
+        "bytes": 9373,
+        "sha256": "aa3e1efda6bde715808598aa5cb553e6ecce294c1c3faea67ca3bf82c1beefd4"
+      },
+      {
+        "path": "registry/font-funnel-display.json",
+        "bytes": 334,
+        "sha256": "5fa00655cae67e66566c6020d98d4551741cb2172550da1bf204fba96a230967"
+      },
+      {
+        "path": "registry/font-funnel-sans.json",
+        "bytes": 319,
+        "sha256": "54622544086b410453f60c332d3aee45bce856ff9ff7275b89ff731f34ef6289"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 23556,
+        "sha256": "f11310e134b593e48f031cfa886328db28670947e01251a5e046396dd230dda5"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34874,
+        "sha256": "ef91332c238b3a2bd7610669420a316452a9227d6382f8488871bf5ca60ee39a"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34907,
+        "sha256": "052e00796666243d4d1d68236c57e50bee2eeb76409e3f9a906a1894adf0bdab"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7810,
+        "sha256": "b6703438086639911f1dd9cef0d25070e40124156183ee1aeaf0193258499294"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41399,
+        "sha256": "c17665616997e2a82e183b79219138b58737560bc141fefa21a36a43bb5a3f37"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41428,
+        "sha256": "6df4a5e1fedfbf763de3f35679190a2705f7e032b1868b56a8e99861aaa6d1f6"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "d1b0832b34db9ecd69920367886184a543fedcb08b520a5cdb1248b799bb7640"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9314,
+        "sha256": "8a6f635f7fbd56a8483c68a405bb680b37bf0cbcbcde052c118bc19fcae4de40"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "7e6feec2dd448d2e302ecf55cc4315b657afe014e1a8cd28a5ba978df9f6d7d5"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 456,
+        "sha256": "d14e19dfb149f37c5ad157f1014ca24cb7b07ab1d0532e823b907d088324b575"
+      },
+      {
+        "path": "skills/glass-design/SKILL.md",
+        "bytes": 8268,
+        "sha256": "fdd927a58c44317b6a3cc1205e5ed44e70f1e91ef8431d26a22954c3ed8f5579"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 45128,
+        "sha256": "d5a1316cc353a7d440a9858778eb582a7fb643c3834a1fa1264941ebd96b04d7"
+      }
+    ],
+    "zipSha256": "8ba53a8a22d791c32d5a3c8d495a39742d0a4a496140744c57550e39f96c4d42"
+  },
+  "dark-dev-tool": {
+    "specId": "789a8c2104468509",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 53959,
+        "sha256": "5fb3235f9ef2aad01b08c7f942922b7eaee35bec681fed6c43b67f482f81f041"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 820,
+        "sha256": "cd5ccc15b21537648b2c0160d725150cbfff50091d0bc0a5fc29495d1013fa46"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 36982,
+        "sha256": "bd3949312fafde97d0af3d1085eff4124e29b3dee424b5d5b3862e664066757d"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24032,
+        "sha256": "068df508c740f124a47babd146b6cb530492b5d12a2c7672534914bd9192d6d9"
+      },
+      {
+        "path": "registry/dark-dev-tool.json",
+        "bytes": 9392,
+        "sha256": "1e3877b018617635f4f46427e826ba301d482ce37ab02081bd1a7c895842b1a5"
+      },
+      {
+        "path": "registry/font-hubot-sans.json",
+        "bytes": 318,
+        "sha256": "93531a584402748c7abee1dcd67d848c53c82f57716d71b7c47583eb0520e191"
+      },
+      {
+        "path": "registry/font-mona-sans.json",
+        "bytes": 311,
+        "sha256": "6ddfb3e8afcbac80024a78db526b385d60d0af00c3bdc166455873a80939eaab"
+      },
+      {
+        "path": "registry/font-martian-mono.json",
+        "bytes": 323,
+        "sha256": "25a07da58f8e2aff8a222440b8675c5d3620c0556697b185685ce0341af3d351"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 20551,
+        "sha256": "a71177b96f9e4bce413b1581eec0620b124b9bb14cb594d2e1c7af2f6d6827f7"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34870,
+        "sha256": "c6522d110a4100dd1292f66813d334ff856c981a40e63b403a94ee72d4d35257"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34914,
+        "sha256": "63ab08dfc0716ee4b66ba4bdc358ef35b59dd3711561bf37baa92bd2e32b093e"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7806,
+        "sha256": "cb72c122ffef7b7d71dfd4eb4d9bb968c61268c96ad49ebf7419b202e8e2f5e9"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41376,
+        "sha256": "131bb78ade4d5f3de91e1ee2c052d11b2c314f419795240457047baee06ea761"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41466,
+        "sha256": "6396eac0cb50abefde63585f4a0ccd6b0dda1fd7fd9b6ff7084016428e671e3f"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "708adf924ca55e9cfe0d4e55c7b053defb230464cea9c920121303ce6777fe72"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9310,
+        "sha256": "3b39d03fe0c8e4f80df0f66d973c36312111c66c170336f20627028d251d5f53"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/dark-dev-tool-design/SKILL.md",
+        "bytes": 8280,
+        "sha256": "4682b2aafe20dcf0ffa4a23c99a23dcb859b3bbf03abf670a365aa5b644aac44"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 45140,
+        "sha256": "d9209dde8d54b40d439d5540b97c0a734a18ac60e87c1969be9dc72b0a7258f3"
+      }
+    ],
+    "zipSha256": "3648deda02a3b9f9e09a55b078af7b77e9da8606ac75c5177da26f1ee57d409c"
+  },
+  "bento": {
+    "specId": "1f028272a7787b51",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 54548,
+        "sha256": "7cd70186fc27ddfb9979421b40463077d2b0ca6519d0bbc122af8dc9e65038f2"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 812,
+        "sha256": "4b6e1a4aeda1f23bda3c38dff01962634affd2abf9635d003cac885ec011ed0f"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37314,
+        "sha256": "747d1200c9678a647ddd3bb1c3730a363b0d294cf16216bc5114ef32b5b44878"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24426,
+        "sha256": "6e2c41cb82a3b3752a1b789093bcaabdd0b472123fbadf0aa48e99cba052825b"
+      },
+      {
+        "path": "registry/bento.json",
+        "bytes": 9422,
+        "sha256": "b79562b786773c5fa6947089fd41f3f08355e599931e9327e7f5f5d9458b482b"
+      },
+      {
+        "path": "registry/font-commissioner.json",
+        "bytes": 323,
+        "sha256": "20fd596a445ec5eff78bfb3cf475201210783b80ec7af7ea0af29d657685482d"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 23374,
+        "sha256": "bbebf59b04d44cdc5e7ddb2e8e1dd369d161220ce91c526825743b5d7eed06c3"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34870,
+        "sha256": "f4a6c918c4e3243306d2f321299ff8a46b8592b87f8fa1121382aaeb8c99e8f4"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34917,
+        "sha256": "f411e2d3bd7aed4e26745bef30b50a7d6d31a58be2de655df87fdfa1c985a187"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7763,
+        "sha256": "9cb64cf02fdc10f10e9f26dfb4aa689c2fd67b78b7fcf53b6723302b06ff4496"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41367,
+        "sha256": "65ed39162c83b1168b81cc26280792d2eccdbc238837a16abd443f9f91774cd6"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41457,
+        "sha256": "8d4e6cb764d901a23d3c3035bc8aa4f9396dcdd590d7e1cb2244a27e8cf54344"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "8dc30af081c7e1195988a845086ba1a0552af19b920586e0aebe9cb66e8e39d0"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9267,
+        "sha256": "1152e8d79ea0d13a9541f14a9ced690a12fe3fa4ff54a901b5278e5129ab66b2"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/bento-design/SKILL.md",
+        "bytes": 8221,
+        "sha256": "78e8e85582011a20531dc7f33b05cc7eb23fdf9f48b7fff266e16841f9af118f"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 44916,
+        "sha256": "116f40c167f2ef856801cebe80e6a735361ab918d7d8df56df0ffcb0a4699030"
+      }
+    ],
+    "zipSha256": "b80a5d2bfc01ee1532005de0a785e31464eca904bd1ccde7e6c7053ec9e3295f"
+  },
+  "aurora": {
+    "specId": "ec54a034198440b5",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 55471,
+        "sha256": "f1ca0f2b277e9e3e0737966e7b99590f49cdfde333967a74f3967fd3d5d0aa1a"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 813,
+        "sha256": "412cd3dcf7e6bc25198daa927b5af8f7867125158bb6c0c2858fc82475eb42ae"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37758,
+        "sha256": "e01874980261d04959e6ba1e394bfa589c6f52479b68b0321f3a8a2ac0d2cb82"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24686,
+        "sha256": "ec269f44864a6b46de977b421e2a1cc9e7817430edac95162be62c6db1fd750f"
+      },
+      {
+        "path": "registry/aurora.json",
+        "bytes": 9377,
+        "sha256": "998bcd600ffbf36bdd1f836e37760b6e58f11dca63009ac2f8a1139e6506d1ca"
+      },
+      {
+        "path": "registry/font-zalando-sans-expanded.json",
+        "bytes": 362,
+        "sha256": "29fe00890cc5d36e741ee694c4eddc78a09b2e6ef2e65c73ae15f0aafa860a12"
+      },
+      {
+        "path": "registry/font-zalando-sans.json",
+        "bytes": 323,
+        "sha256": "e9a9bdade066199ff361ee9fa1bac259b63985332ee1d78b04157092bfad96b2"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 23777,
+        "sha256": "bfe999d39ba80829d30174c4a4ae85dd235d4026e39fb8536dac9c625ab044f9"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34892,
+        "sha256": "ff361684fb96a94ac353ca94aa34736e85740c116bc7f2a32cf994f3b0e5d0ac"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34909,
+        "sha256": "c49746757d0c0d4f15e0ee09300ecd689e0d5923f4e35f4891df0a3820e9d6eb"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7949,
+        "sha256": "b5bab7d34d3b2c8ca45e04dac37e014aa95f2b95e8a3150fa6df47e9c63f6b32"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41402,
+        "sha256": "365e9bc65ac116b5f5e0ac0de8e54700af9da46b4a46a16ff3d8f2b3fab575aa"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41437,
+        "sha256": "9a97687f7d60f08929b0a716eca8bf285fe413f8084747ae64ff998ebcafc10d"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "05c9c29a7b9d0662c6ccc840ca6c623100c2d5aca83b2bc895590913bc147675"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9453,
+        "sha256": "1223f1e1b8ca468ccb12ae5c8fc7f8acb29014b169d427c9d35d25cbd0f1fa30"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "7e6feec2dd448d2e302ecf55cc4315b657afe014e1a8cd28a5ba978df9f6d7d5"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 456,
+        "sha256": "d14e19dfb149f37c5ad157f1014ca24cb7b07ab1d0532e823b907d088324b575"
+      },
+      {
+        "path": "skills/aurora-design/SKILL.md",
+        "bytes": 8409,
+        "sha256": "f01fbf3d1c6890bf40367de6ae6bb9e59a5c0eacf6831f28771a24dffb69dbfc"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 45286,
+        "sha256": "a0702d75f247a64a9a7ce829a2a527916fc02721fe1b587583f2f72ab865758f"
+      }
+    ],
+    "zipSha256": "710a69c50f7a631600232c6a64a681ea398342a7be56bbec140a45a56519e0aa"
+  },
+  "retro-futurism": {
+    "specId": "71763fb43b8259fe",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 55325,
+        "sha256": "b4c101365bbc3f7e1b32aa528af090334aeaa512b00a51a0fb4857f7fdd0f4cb"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 821,
+        "sha256": "9c335edf6538c98ce29f4d584dd83d7a5b07ebf1b3f5699d564f111734496713"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37747,
+        "sha256": "e97dcb7c0fdb9c3c31e9eee0de9dd4fd17c88b3d6052a8c053e261f86d86096c"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24657,
+        "sha256": "788ee1b3ab00e568afc4abec0204d8ac515d47fbbb765daacedcfa0db238d785"
+      },
+      {
+        "path": "registry/retro-futurism.json",
+        "bytes": 9393,
+        "sha256": "7f28faa648cb1ef4889782d7ca1ab50776233397d5b8f39e7b7a5cf61badc8f8"
+      },
+      {
+        "path": "registry/font-unbounded.json",
+        "bytes": 314,
+        "sha256": "9bceaeb0ac10862a6f89d68d1fe307888ca5f4d5f8203827448af6240b67702b"
+      },
+      {
+        "path": "registry/font-golos-text.json",
+        "bytes": 315,
+        "sha256": "397814e48d11782cdb09797b2a274707c2e204666aee20bf41dcaa25719954cc"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 23633,
+        "sha256": "ab9cb97a93a305f040d2146d2605d34a4a686941e4ddb870b1560139e90d4cca"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 35029,
+        "sha256": "44edbde7044e94b1f56d8654782af6ef7c96cacd1532a09419ff488d17c3f2ac"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34998,
+        "sha256": "91a5cb6e976c3a25a2957bfb1c59802e07b358b7eac85a871bdd15301f9234d0"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7959,
+        "sha256": "b4fe79fd02596e51f8f8607935a1a5a86980e3533df94062ff9327dc28f2a999"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41405,
+        "sha256": "ea9e5518bace1d6b7864787fc9bb0e14159568f27907ceb1fbc8fb5f3e32014d"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41446,
+        "sha256": "ded80f287f760536007c07acdb49d8e59ba9e01f1c026e5af01100af1f408cfe"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "db3652ffb45a74ca6eff564377fdee6b8e76ddb245d128bade891fb1f1cc3888"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9463,
+        "sha256": "ffec88dd6f1b723f994b8a3c5ef4eb2ec4d6e8741c933325c33a98a30bd4901c"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/retro-futurism-design/SKILL.md",
+        "bytes": 8435,
+        "sha256": "8193a79ede7f748f685c11a90f0d3caafc7d0472ee15f837de40025b51daa757"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 45291,
+        "sha256": "bac137077428f2e08e3fb7e8b105b48b99c3c7cbafd34bb9dbebb436212e337e"
+      }
+    ],
+    "zipSha256": "30b5541c57b30aed3bece149e99486011fa03655111797afbb1c878dff401ae4"
+  },
+  "tactile": {
+    "specId": "e523c49336f2d591",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 54811,
+        "sha256": "db55c8f5a4c5554a3282d684e3f9a4223d00316702f357c3a5c6fd12d826341c"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 814,
+        "sha256": "0de1e58b275c067fe9642f404b090570ad4317a61b05239d6755e0d889dee51a"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37411,
+        "sha256": "9396f7d684d7089a53e946c260909165cf3ccffec9aadcff8876530ec0f4b705"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24480,
+        "sha256": "67ab133f43c585d82747184c364ec8ebb37beb270203e804d1724363d207193d"
+      },
+      {
+        "path": "registry/tactile.json",
+        "bytes": 9377,
+        "sha256": "4934b4ba9445e7ce526688c01ea2b7a2f9fa7a644acac61cd3f294f5bb4ebb8a"
+      },
+      {
+        "path": "registry/font-big-shoulders.json",
+        "bytes": 330,
+        "sha256": "74b4c9eebe0fd2c5bae4ed6bf5ac4dbc8a72f8bfb262b6650f7e7a0d1e2a35fb"
+      },
+      {
+        "path": "registry/font-red-hat-text.json",
+        "bytes": 323,
+        "sha256": "fd3ab68c4c93228d0f9f6c5c07267ede624c54ff9bca186c12ebfbd71a440eea"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 23476,
+        "sha256": "01f2ff39a211966bee361fa4a5cc3af5aaa9d782c29a025fa6ed69601ed897ad"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34908,
+        "sha256": "7c8565b0c150dd6e6ddcf662d401f92f95e4867a4fb6b9c5d483fd31294fb284"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34942,
+        "sha256": "ed7eb30cb945d7a11907bc3b30a1d39c13dd270e2463d7e16eb1c9271db45dce"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7810,
+        "sha256": "bc6f51385f436349ff53fdaf66993829f5abb9120d5a219a5507bfdb3ec65e0e"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41373,
+        "sha256": "dae90d629501d866885d961ea61c7551fb917172dcb2985e7894306f500d1649"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41434,
+        "sha256": "e023990dc5096583dbc8bae3ce043441f88f6ec7e1e4b1e2cc335cbb8d982952"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "9238163140d7d8aa2433f48b3d0bcc76e35adf9dfa60f5feed2fdff3f75d2c66"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9314,
+        "sha256": "ca70dd15b24c1f89d449050585ff59ce16b9b8da4200a908c9abe1d85797c705"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/tactile-design/SKILL.md",
+        "bytes": 8272,
+        "sha256": "433a4a6f39b3ced5c9ed29db9fa6243f69601645e7c86214e8fa0dc473264110"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 45142,
+        "sha256": "33c9542aa8de301920eb2636012b2dccbb49816e5e84b5a0bf839d56f36dca4d"
+      }
+    ],
+    "zipSha256": "11499cd40b4f6a915a4ea9705868dc07fe22d98faced9a0e191e84c9daae8c5b"
+  },
+  "maximalism": {
+    "specId": "ec2e8cd1bf4227e4",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 54763,
+        "sha256": "f257cfe395ad2fdc42a7a79a5b1731f61f9bb8c95b82bb138749f2364e35c391"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 817,
+        "sha256": "e2f6f5cf50f358b4c2e23f0890ecd13a04d8ef92fee69985186d2bb3cbff2a56"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37359,
+        "sha256": "88b1d8a9400b71eff6c0dd35a86590a273ee5aa8198faedb11265305732d92c7"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24394,
+        "sha256": "707f18a3e75c5b65211895875841e98b6cdbc1a357349ae7f5e872d4b1140b7f"
+      },
+      {
+        "path": "registry/maximalism.json",
+        "bytes": 9369,
+        "sha256": "1a73564d38a2179f099d53e1ece1b3596ba4564ae23854f444cd0cf90bfdeb30"
+      },
+      {
+        "path": "registry/font-gloock.json",
+        "bytes": 337,
+        "sha256": "05a7b82133db85c3cb689d1dceb06883429dbd995853077bdb1af95a01663982"
+      },
+      {
+        "path": "registry/font-albert-sans.json",
+        "bytes": 319,
+        "sha256": "d13df1c0b30545856719f85e2d409cd783f784cc6387a4b10c6b5cb1109b16c0"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 23029,
+        "sha256": "f864368fb737fdcca40abba418d20dfe7cea31c4cff088334444cc32b73bf199"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 35011,
+        "sha256": "13324cc68e677ceb7c380b3c35967b894b43c58af1761e2dd8dfd04ee8c1a4c4"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34966,
+        "sha256": "654bd8e66e19fd75ae36f4f5bb38d3e4c02402671b1ec29060ef1a7ee2c79bf5"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7861,
+        "sha256": "17c14efc2b1b682ef821227bcdbe9593d3c4dd7a92e0437d2502875d532206ec"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41352,
+        "sha256": "4dc9c6a42da7f98623ba04e2cec065334fef4f6a890697139c068ec9a593645e"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41461,
+        "sha256": "6877766aefb69d8c0075479d21717cfc60ed4028f8092cb250079281ded6f18f"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "9f3c4930773dfa60b453c2a1727929770eb457e06acd26fbd299a207a7dea6f8"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9365,
+        "sha256": "004db2fc1caff5778ad6c9c2b7c619f1b6ab7732ab1c4fe36f7d178df9b1697e"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/maximalism-design/SKILL.md",
+        "bytes": 8329,
+        "sha256": "7770edbe26115431cd17f37cd247bc83fd71b428b752644a6bfc6fc38eb44e32"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 47689,
+        "sha256": "0b28255b542672e53e0ae4a1bf05d9a516c8fe9d556e816a465b89be3e1e7ed1"
+      }
+    ],
+    "zipSha256": "e3cdbe0b296695a5b1fec0990d27e34128578afeca23a5d7e1c431cb0f72a4f9"
+  },
+  "organic": {
+    "specId": "d2eff4b13924a69b",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 54906,
+        "sha256": "eee3b765b830c0b5b7819e9d64197c401227a4ce83c9f9af18043da2ef31b6fa"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 814,
+        "sha256": "acf26f69e24b5328e1ab893aa8ca6b8f1b58b8d8db4b988268f60c006231fdbc"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37480,
+        "sha256": "9a1cb3f17db6c7cea415160b1a93c4fc9f9c6faaca9857dfc961a725cc642f47"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24472,
+        "sha256": "2910dad22f4c45a3778988f31fbe86dbbd6ae94f701c43f0d4a24088d8722367"
+      },
+      {
+        "path": "registry/organic.json",
+        "bytes": 9362,
+        "sha256": "183347d0a01ff9108e889a24733abc594f99b14bab1bce7fab26e480e4e58991"
+      },
+      {
+        "path": "registry/font-young-serif.json",
+        "bytes": 357,
+        "sha256": "bf12b4f3aefe5deac66e88fd2b5a9c4736cef642231d2b3b71806a398f19e433"
+      },
+      {
+        "path": "registry/font-onest.json",
+        "bytes": 295,
+        "sha256": "0726e336bc47c35b50c1ea915bf3a2432efea8b7abb0fd52b41a06cb098821a1"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 23163,
+        "sha256": "2dbb6234c78f54a6d2c4d270e56ec1f870290e3c513911c5845da79dd8278cc3"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34893,
+        "sha256": "52a616a65bdca7987a8f040eca31ceb097a4275904390bb592ae8ecdf627ff04"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34927,
+        "sha256": "1f408037804624c6e24e0d42e73668119346027bebf4154386bfe99c414714db"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7901,
+        "sha256": "a7a8daeba3ae03aff9d59b1db04f8617d335e715ed232e581552b9807aecb2fc"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41380,
+        "sha256": "eb838bcfccc7e906c1c5963542bc9a6c99de21b7472b7d336a4f178c5e98d16d"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41446,
+        "sha256": "35f63d519b97f87ae5ce2d453e51297882bbbb4b033e2fff96a84c78d4e0a5ec"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "1821683487933f3980f7561518eac76688e0c299d68577e3299573e975d79c22"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9405,
+        "sha256": "2ec4021f0f4ca29edfbc97a87289682ce8e2021a99bac0fd6e7fd430de21fc60"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "7e6feec2dd448d2e302ecf55cc4315b657afe014e1a8cd28a5ba978df9f6d7d5"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 456,
+        "sha256": "d14e19dfb149f37c5ad157f1014ca24cb7b07ab1d0532e823b907d088324b575"
+      },
+      {
+        "path": "skills/organic-design/SKILL.md",
+        "bytes": 8363,
+        "sha256": "48b4926885f623eba32358a3421e5973dcf10142c237fdea0f0a91bfefb0b67d"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 45227,
+        "sha256": "7413ff0b0e471d81b3d57514351eb458adca7a856aeb1048c982296acdc4005c"
+      }
+    ],
+    "zipSha256": "247c50391442671f736eaa6583553631ba53c956be8256517d7bc204de679afa"
+  },
+  "dithering-pixel": {
+    "specId": "40e61b5f63aaac4d",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 51593,
+        "sha256": "98f604fc0d75a1ee2e42ef6cac970584657b01e2d41822ef17177168587232c3"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 826,
+        "sha256": "5c1e085d5fec89c946e12abebb1ccb99e294629b8bc93695f4746668da1e9cb7"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 35440,
+        "sha256": "089050508b496dfd1591b38fcfeaa7fd95c6c2a230072ff5671f1bb33c24886c"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 23256,
+        "sha256": "2d5bd021fc2916d5be252f968b98313dbf17028314a796ff3d8266593133e337"
+      },
+      {
+        "path": "registry/dithering-and-pixel.json",
+        "bytes": 9364,
+        "sha256": "9ff7424ca2e3aefc15f910525c824b8aa8ab5c2407a57e53dec03fc946c5b455"
+      },
+      {
+        "path": "registry/font-tiny5.json",
+        "bytes": 333,
+        "sha256": "ade9b3ade273238dec737676161b9c7b509a778971b5e3c49795d47f787ad8ff"
+      },
+      {
+        "path": "registry/font-spline-sans.json",
+        "bytes": 319,
+        "sha256": "787b717f89fe70b92df32f63c05ba99b59f75c7ecb73a9a52fb755a4b7cc2683"
+      },
+      {
+        "path": "registry/font-spline-sans-mono.json",
+        "bytes": 339,
+        "sha256": "491b3ce25286b2a9d0b4aa76990249133a40132d9c68a372337b6debc94ed725"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 19594,
+        "sha256": "12be5bfabf6b3b415404eaf404c7a0b5fc0db976a1ac0d19a5b0e270b03c114f"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34863,
+        "sha256": "64a38e7c0608b49b755ef145390fd4430973a65ca4a968730ab9104a5a16c1e1"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34882,
+        "sha256": "fd521b788fec6c6eef0bd21face925ff09f82bd97f50bad3c11bc77aaf9c4e17"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7084,
+        "sha256": "4593fc13b2e0cbc7a5e0f0d3e6a9908e3669acbd5a207a193135474062778d8d"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41334,
+        "sha256": "eab9a1a46572ea47896634649fb32daf40cbf75c21dfc13396d8bbf1262e6d44"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41462,
+        "sha256": "d963b1f18801fee4add0dd377cee1d6e7c0f1ffd85b89f7ef2795c1b143c07e3"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "ead349eaca4620da2b429af7c78caf1165e800c3602dcacf3b4094a9ead8e859"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 8588,
+        "sha256": "cdd7734018b93cc0e8baf554c680c91a0323a3bb22327f25e5fc188d865f0c0f"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/dithering-and-pixel-design/SKILL.md",
+        "bytes": 7570,
+        "sha256": "c65bf52d714f311b52f3869a97d698aceea9d89934fc336491aed1dbe82a1b17"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 44436,
+        "sha256": "fb470748e921324dd103c868718b36fae16f7887f296064639da0b95906bf857"
+      }
+    ],
+    "zipSha256": "96f7b5c42106c8eb72cb0c0be8cd8843f5243eeafb8b7162ad8c0e817f35c40f"
+  },
+  "m3-expressive": {
+    "specId": "68222c06f302673c",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 54919,
+        "sha256": "784543ff4c40535dcedb34eda963db722120af5acf590d66c6cb07a5a8ec8527"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 820,
+        "sha256": "aa6a208e78e262d9a608eb34b6cf0a59f8bb86fe8f0e0e78b897d72d5dd4684e"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37441,
+        "sha256": "2e288b3b6cca37c177d734e95ae6bf92a05143474c05e838d4fb45d10badceb5"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24511,
+        "sha256": "8cac8fd27cb2ea14d5a254ebb799910379c2b10533958d4584c6d5626dfb6b94"
+      },
+      {
+        "path": "registry/m3-expressive.json",
+        "bytes": 9451,
+        "sha256": "6c5a414b2ae773a7f5f3a48a514e4bccbc8c8dcc02e033f8f686742965a8b66e"
+      },
+      {
+        "path": "registry/font-google-sans-flex.json",
+        "bytes": 339,
+        "sha256": "c44985501958099b0db44e8403a68ec9a212ceed31103b3fcbd384792fd44ec6"
+      },
+      {
+        "path": "registry/font-google-sans-code.json",
+        "bytes": 339,
+        "sha256": "c67226de4ae7192621271df8ab0764a7cb049f5f084a067a0c58d01a4509cc1d"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 23531,
+        "sha256": "4c91baa65119208a9d979190dd9b713426aad802e65138e4576c64068b2fc4d5"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34870,
+        "sha256": "f4a6c918c4e3243306d2f321299ff8a46b8592b87f8fa1121382aaeb8c99e8f4"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34917,
+        "sha256": "f411e2d3bd7aed4e26745bef30b50a7d6d31a58be2de655df87fdfa1c985a187"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7784,
+        "sha256": "667b1acd06cca2c0246ea1030959d2c68d1bb5f70ad02f26e7c7019da73cc6d5"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41378,
+        "sha256": "cfd900661d5430ec08fbc1d57e44e13388a097a9f0e3abb296aa41a99df8ae5d"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41468,
+        "sha256": "c0f6df301acdddb379eada2f44bbce98e56dd044604d2fd3852f94f1e52fc90c"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "8dc30af081c7e1195988a845086ba1a0552af19b920586e0aebe9cb66e8e39d0"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9288,
+        "sha256": "2e24b7afb790a1cdc09bc2da9b99501c379a61bcba12b3a8f0367e38dd8ada24"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/m3-expressive-design/SKILL.md",
+        "bytes": 8258,
+        "sha256": "ee9edbf4e066ae518e398d3048b06b227c1beb96d9b133152ebe70e2e1de8362"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 44968,
+        "sha256": "8bff4c85564b7d97ae2e32ba7345069b0cffc2b12896394cfd3711e393992d51"
+      }
+    ],
+    "zipSha256": "cdb893cb735f00e198efc43b95c90b7ec49456932d5f8d54360271e7b91feba9"
+  },
+  "imported-shadcn": {
+    "specId": "fa62aec3843f24eb",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 52873,
+        "sha256": "4e32986d58f10bb05edbe118e3ce4d33bc936ccde3c247e8ac7c50835c968738"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 821,
+        "sha256": "388ba74df0c7fbe36bfb23a56eb83ff0e9e95d3976d29eb55fe039c4a041516b"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 36232,
+        "sha256": "96d8fe5dfabfb0ca8ebe4ed0e23add672c2a306a0df73c9043ca0c1916cc0106"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 23885,
+        "sha256": "0960d7a168e48e363919eb8ea39a4949e8f29244ef1c5605508b288d8e4813a5"
+      },
+      {
+        "path": "registry/imported-theme.json",
+        "bytes": 9383,
+        "sha256": "2e390830bfdb23b9e0a6aac9254c8241d09c8dfe4125a00d98daa9c74fa0c61a"
+      },
+      {
+        "path": "registry/font-science-gothic.json",
+        "bytes": 334,
+        "sha256": "2172f5fac3cbe6ef3ca5a9a749e2a4acaa601154460c716f4f4a5b01bced1d69"
+      },
+      {
+        "path": "registry/font-hanken-grotesk.json",
+        "bytes": 331,
+        "sha256": "0317b156fc4305e4bacf9583a45167e969e8273f151ed46b726cd4a08767d9c7"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 22865,
+        "sha256": "9dc680db6bc341f82395a04926cb117250085d94d0526bab8d9f64651a7c3f45"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34848,
+        "sha256": "dd0aa5f37e35f3188783a6198a99ea80fd029bc620f924bf1d749ebd6d4bdc17"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34886,
+        "sha256": "b154f58288d36e1e1e448969ba42d297b4e7539f5b2945313f4be40cb8b4dd8c"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7227,
+        "sha256": "ea2d40fc138af874e498675679073d5ab1ede3b8a63e8867d16266cf75ef819f"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41369,
+        "sha256": "1a1d098496aa75676447b627aa6284ecc2f9568d1c26f545c91ee41e681eb6f9"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41457,
+        "sha256": "dc9c9d43f85a503a5ca4b0a766a9132920af9d7882d2e46d2b25fb82df684037"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "d56ad4037a2b0ca1bfecd12508bdec125560307e734d5d7ed3c014221e988830"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 8731,
+        "sha256": "66a4466816901edd2615136f73a43e7f3f3287550992a54ddfd0924d790d9801"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "skills/imported-theme-design/SKILL.md",
+        "bytes": 7703,
+        "sha256": "c37b2b474c532cc6891a5cce9d6f41c30afcfca80bcf380ad451a4769b4eee54"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 27802,
+        "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 49231,
+        "sha256": "18c33a6610d8b5478086a01c6a7563ed90d1989e002adc7e69b3114ce0e8b43a"
+      }
+    ],
+    "zipSha256": "ce103f2fe5a818abec806a56f7d7563c79b1c3a0d6fbb5c52457ddf1e1b459ec"
+  }
+}
