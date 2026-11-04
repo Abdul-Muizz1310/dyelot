@@ -4,7 +4,7 @@
 > `docs/specs/01-color-engine.md` (M1) and `docs/specs/02-studio.md` (M2). Paths to `docs/research/`, `docs/plans/` and
 > `knowledge/` point into the private `repos` meta-repo.
 
-Status: rebuilt on 2026-11-05 and approved by the owner on 2026-11-05, as written after review fix round 1.
+Status: rebuilt on 2026-11-05 and approved by the owner on 2026-11-05, as written after review fix round 1. Task 3.0 passed on 2026-11-05: no design threw or raised an error.
 
 The owner approved the first M3 spec on 2026-11-03. That file lived in a draft folder outside git on a machine the owner
 no longer has, and it is lost. This file rebuilds it from the M3 plan (`docs/plans/2026-11-03-dyelot-m3-export.md` in the
@@ -586,14 +586,22 @@ primaries (156), plus those 12 sets with a `#1a1c1e` primary and a `#b8422e` acc
 rule of severity `error`, the record keeps how many checks ran, the worst margin (the measured value minus the threshold, in
 the direction that passes), the design that had it and that design's primary hue, plus the four primary hues of `s0` to
 `s3`. **If any design throws or raises an error, M3 stops for the owner's decision; no later task starts until the owner
-decides.** Task 3.1 fills the table below from Task 3.0's report. **(plan)**
+decides.** The table below is Task 3.0's record, copied by Task 3.1. **(plan)**
 
 | Rule (severity `error`) | Checks run | Worst margin | Design | Its primary hue |
 |---|---|---|---|---|
-| C1, C2, C5, N1, N2, F1 (each its own row) | Task 3.1 | Task 3.1 | Task 3.1 | Task 3.1 |
-| S1 (below 0.05), K1, G1, G3 (each its own row) | Task 3.1 | Task 3.1 | Task 3.1 | Task 3.1 |
+| C1 | 99,008 | 1.5751802 | A/default/AA/srgb/standard/s0 | 90 |
+| C2 | 38,080 | 0.0010746501 | D/default/srgb/standard/s0/oklch(0.62 0.14 85) | 85 |
+| C5 | 45,696 | 0.0000969183 | B/default/AA/srgb/standard/s0/#0000ff | 264.052 |
+| N1 | 15,232 | 1.2372054 | A/default/AA/srgb/standard/s3 | 135 |
+| N2 | 76,160 | 1.2389560 | A/default/AA/srgb/standard/s3 | 135 |
+| F1 | 22,848 | 0.9066154553 | D/default/srgb/standard/s0/oklch(0.62 0.14 175) | 175 |
+| S1 (below 0.05) | 60,928 | 0.0315125 | A/default/AA/srgb/even/s0 | 90 |
+| K1 | 609,280 | 0.001158 | C/editorial/AA/srgb/standard/s0/secondary #ff00ff | 90 |
+| G1 | 670,208 | 0.00015728 | C/default/AA/srgb/standard/s0/accent #00ff00 | 90 |
+| G3 | 670,208 | none (yes or no) | none | none |
 
-The primary hues of `s0` to `s3`: recorded by Task 3.1.
+The primary hues of `s0` to `s3`: 90, 159, 29 and 135.
 
 **R3-42 · Provenance and the three blocked states.** A snapshot records `provenance`: `"generated"` when the store made it from
 a generator reply to its own request (a change of parameters, a preset, regenerate, a lock, a fix, `rebuild`), and
