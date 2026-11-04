@@ -11,7 +11,7 @@ import {
   parseColor,
   ROLE_NAMES,
 } from "@/engine";
-import { autoPairingLabel, seedHex } from "@/features/studio/inputs";
+import { autoPairingLabel, seedRowHex } from "@/features/studio/inputs";
 import { findingKey } from "@/features/studio/inspect";
 import { lockSeed } from "@/features/studio/params";
 import { linkUrl, writeHash } from "@/features/studio/url";
@@ -1215,7 +1215,7 @@ test.describe("7.2 The inputs panel", () => {
     await expect(lotId(page)).toHaveText(lotOf(designFor({ ...FRESH, primary: held }, seedOf(2))));
     await expect(button(page, "Lock primary")).toHaveAttribute("aria-pressed", "true");
     await expect(field(page, "Primary")).toHaveValue(
-      seedHex(first(), { ...FRESH, primary: held }, "primary"),
+      seedRowHex(first(), { ...FRESH, primary: held }, "primary"),
     );
   });
 
@@ -1248,7 +1248,10 @@ test.describe("7.2 The inputs panel", () => {
     for (const slot of ["primary", "secondary", "accent"] as const) {
       const name = `${slot[0]?.toUpperCase()}${slot.slice(1)}`;
       await expect(field(page, name)).toHaveValue("");
-      await expect(field(page, name)).toHaveAttribute("placeholder", seedHex(first(), FRESH, slot));
+      await expect(field(page, name)).toHaveAttribute(
+        "placeholder",
+        seedRowHex(first(), FRESH, slot),
+      );
       await expect(
         page.locator(`[data-seed-row="${slot}"]`).getByText("Auto", { exact: true }),
       ).toBeVisible();
@@ -1271,7 +1274,7 @@ test.describe("7.2 The inputs panel", () => {
     await expect(field(page, "Accent")).toHaveValue(accent);
     await expect(field(page, "Primary")).not.toHaveAttribute(
       "placeholder",
-      seedHex(first(), FRESH, "primary"),
+      seedRowHex(first(), FRESH, "primary"),
     );
   });
 

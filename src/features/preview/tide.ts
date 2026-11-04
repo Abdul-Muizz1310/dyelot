@@ -4,6 +4,9 @@ import { describeType } from "@/features/studio/guards";
 // curve, the list of the day's events and the figure's name. A semidiurnal wave (period 12.42 h)
 // with a smaller diurnal term (24.84 h), so the day's two high waters differ, as real tides do. Pure.
 
+/** The hour the sample day shows as "now" (9:30). */
+export const NOW = 9.5;
+
 /** The meters a full height of the curve stands for. */
 export const TIDE_RANGE = 5;
 

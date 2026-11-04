@@ -22,7 +22,7 @@ import {
 import { PRESSED, PRIMARY_BUTTON } from "./chrome";
 import { Choice, LABEL, Picker, same } from "./controls";
 import { isOneOf } from "./guards";
-import { autoPairingLabel, GAMUT_LABELS, SEED_FIELD_MESSAGE, seedHex } from "./inputs";
+import { autoPairingLabel, GAMUT_LABELS, SEED_FIELD_MESSAGE, seedRowHex } from "./inputs";
 import { SEED_SLOT } from "./shortcuts";
 import { type StudioStore, useStudio } from "./store";
 import { DENSITIES } from "./view";
@@ -244,7 +244,7 @@ function SeedRow({ slot, store }: { slot: Lockable; store: StudioStore }) {
   const spec = useStudio(store, (studio) => studio.spec);
   const params = useStudio(store, (studio) => studio.params);
   const locked = params[slot] !== undefined;
-  const hex = seedHex(spec, params, slot);
+  const hex = seedRowHex(spec, params, slot);
   const { setSeedColor, toggleLock } = store.getState();
   const [draft, setDraft] = useState<string | null>(null);
   const [invalid, setInvalid] = useState(false);

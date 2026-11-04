@@ -6,6 +6,7 @@ import {
   type PaletteName,
   type Step,
 } from "@/engine";
+import { FRAMES } from "@/features/preview/frame";
 import { assertOneOf, assertRecord, describeType } from "./guards";
 
 // The canvas view settings (spec section 5.7, `View`): the mode, density, frame, template and the
@@ -42,10 +43,10 @@ export const TEMPLATE_IDS: readonly TemplateId[] = Object.freeze([
   "editorial",
   "kitchen-sink",
 ]);
-const MODES: readonly Mode[] = ["light", "dark"];
+/** The modes, in the toolbar's order. */
+export const MODES: readonly Mode[] = Object.freeze(["light", "dark"]);
 /** The densities, in the order the inputs panel and the toolbar list them. */
 export const DENSITIES: readonly Density[] = Object.freeze(["comfortable", "compact", "dense"]);
-const FRAMES: readonly View["frame"][] = [360, 768, 1280];
 const COPIES: readonly View["copy"][] = ["real", "edge"];
 /** The color-vision views: none, then the three deficiencies `simulate` takes. */
 export const VISIONS: readonly View["vision"][] = Object.freeze(["none", ...DEFICIENCIES]);
@@ -96,6 +97,9 @@ export function mergeView(view: View, patch: Partial<View>, caller = "mergeView"
         assertOneOf(value, VISIONS, name);
         break;
       case "frame":
+        if (typeof value !== "number") {
+          throw new TypeError(`${name} must be a number, got ${describeType(value)}`);
+        }
         if (!FRAMES.some((frame) => frame === value)) {
           throw new RangeError(`${name} must be one of ${FRAMES.join(", ")}, got ${String(value)}`);
         }

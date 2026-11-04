@@ -28,7 +28,7 @@ import {
   Toast,
   type Tone,
 } from "../kit";
-import { clock, TIDE_EVENTS, TIDE_RANGE, tideAt } from "../tide";
+import { clock, NOW, TIDE_EVENTS, TIDE_RANGE, tideAt } from "../tide";
 
 // The dashboard (spec section 7.7): Saltmarsh's console, a fictional tide app's operator view, as a
 // specimen of the design at work density. A sidebar on the sidebar roles that collapses to a rail
@@ -40,7 +40,6 @@ import { clock, TIDE_EVENTS, TIDE_RANGE, tideAt } from "../tide";
 const target = (to: DashboardTarget) => `console-${to}`;
 
 /** "Now" on the sample day's tide: 09:30, as on the landing's tide card. */
-const NOW = 9.5;
 
 const ICONS: Readonly<Record<DashboardTarget, ReactNode>> = {
   top: <LayoutDashboard aria-hidden="true" />,

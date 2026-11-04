@@ -23,7 +23,9 @@ export type Shortcut =
   | { readonly kind: "toggle-lock"; readonly slot: Lockable };
 
 /** The canvas region, `<main aria-label="Canvas">`: it and everything in it keep their keys. */
-export const CANVAS_REGION = "[data-canvas-region]";
+export const CANVAS_REGION_ATTR = "data-canvas-region";
+/** The selector of that attribute. */
+export const CANVAS_REGION = `[${CANVAS_REGION_ATTR}]`;
 /** On each seed row's native color input and lock toggle: the slot that L locks. */
 export const SEED_SLOT = "data-seed-slot";
 /** On the inspector's scroll area, which takes focus so Space and the arrows scroll it (R2-15 item 2). */

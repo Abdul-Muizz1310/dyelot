@@ -4,6 +4,7 @@ import { type CSSProperties, type RefObject, useLayoutEffect } from "react";
 import { Canvas } from "@/features/preview/Canvas";
 import { FIXED_FRAMES } from "@/features/preview/templates";
 import { useFitStore, useFrameFit } from "@/features/preview/useFrameFit";
+import { CANVAS_REGION_ATTR } from "./shortcuts";
 import { type StudioStore, useStudio } from "./store";
 
 // The canvas region (spec section 7.1, `<main aria-label="Canvas">`): the one part of the shell that
@@ -42,7 +43,7 @@ export function CanvasArea({
       aria-busy={busy}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: the canvas region scrolls, so it takes focus for keyboard scrolling (F-KEY-11, F-CANVAS-13).
       tabIndex={0}
-      data-canvas-region=""
+      {...{ [CANVAS_REGION_ATTR]: "" }}
       data-show-me={showMe === "" ? undefined : showMe}
       // highlight.css multiplies the outline by this, so it stays 2 px on screen at any fit (M-7).
       style={{ "--show-me-scale": String(1 / fit.scale) } as CSSProperties}

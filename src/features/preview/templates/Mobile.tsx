@@ -41,7 +41,7 @@ import {
   TideCurve,
   type Tone,
 } from "../kit";
-import { clock, TIDE_EVENTS, TIDE_RANGE, type TideEvent, tideAt } from "../tide";
+import { clock, NOW, TIDE_EVENTS, TIDE_RANGE, type TideEvent, tideAt } from "../tide";
 
 // The mobile template (spec section 7.7): Saltmarsh's phone app, fictional and labeled "sample", as
 // three 360 px screens on a board: the feed, a mooring's detail with its bottom sheet, and the app's
@@ -53,7 +53,6 @@ import { clock, TIDE_EVENTS, TIDE_RANGE, type TideEvent, tideAt } from "../tide"
 // toggle keeps them. Under edge-case copy the slots of R2-21 swap in.
 
 /** "Now" on the sample day's tide: 09:30, as on the landing's tide card and the console. */
-const NOW = 9.5;
 
 const target = (to: "today" | "detail" | "alert") => `mobile-${to}`;
 const ids = (key: MobileTab) => ({ tab: `mobile-tab-${key}`, panel: `mobile-panel-${key}` });

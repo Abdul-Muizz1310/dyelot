@@ -47,3 +47,11 @@ export function assertOneOf<T extends string>(
 export function isOneOf<T extends string>(value: unknown, allowed: readonly T[]): value is T {
   return typeof value === "string" && (allowed as readonly string[]).includes(value);
 }
+
+/** A finite number: another type is a TypeError, NaN and the infinities a RangeError naming `name`. */
+export function assertFinite(value: unknown, name: string): asserts value is number {
+  if (typeof value !== "number") {
+    throw new TypeError(`${name} must be a number, got ${describeType(value)}`);
+  }
+  if (!Number.isFinite(value)) throw new RangeError(`${name} must be finite, got ${value}`);
+}

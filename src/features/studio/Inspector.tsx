@@ -19,6 +19,7 @@ import { NamesSection } from "./Names";
 import { PanelSection } from "./PanelSection";
 import { RoleTable } from "./RoleTable";
 import { Scales } from "./Scales";
+import { SCROLL_AREA } from "./shortcuts";
 import { type StudioStore, useStudio } from "./store";
 import { useFontFailures } from "./useFontFailures";
 import type { Highlight } from "./view";
@@ -130,7 +131,7 @@ export function Inspector({
   return (
     <section
       ref={area}
-      data-scroll-area=""
+      {...{ [SCROLL_AREA]: "" }}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: the inspector's body scrolls, so it takes focus for keyboard scrolling (F-INSP-14, R2-15 item 2).
       tabIndex={0}
       aria-label="Inspector contents"

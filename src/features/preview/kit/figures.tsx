@@ -36,7 +36,7 @@ export function TideCurve({
   now: number;
   nowLabel: string;
 }) {
-  if (!Number.isFinite(now) || now < 0 || now > 24) {
+  if (now < 0 || now > 24) {
     throw new RangeError(`TideCurve: now must be an hour from 0 to 24, got ${now}`);
   }
   const marker = {

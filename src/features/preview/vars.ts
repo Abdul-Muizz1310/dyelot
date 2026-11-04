@@ -1,7 +1,7 @@
 import type { CSSProperties } from "react";
 import { type Mode, ROLE_NAMES, type RoleName } from "@/engine";
 import { assertOneOf, assertRecord, assertString } from "@/features/studio/guards";
-import { DENSITIES, VISIONS, type View } from "@/features/studio/view";
+import { DENSITIES, MODES, VISIONS, type View } from "@/features/studio/view";
 import type { DesignSpec } from "@/spec";
 import { densityVars, type ThemeVars, themeVars } from "@/theme/vars";
 
@@ -10,8 +10,6 @@ import { densityVars, type ThemeVars, themeVars } from "@/theme/vars";
 // color-vision view recomputed through `simulate`, and the density's two properties. Pure. Its
 // checks (R-05) name its own functions: a wrong type is a TypeError, a value outside its set a
 // RangeError.
-
-const MODES: readonly Mode[] = ["light", "dark"];
 
 const isCustomProperty = (name: string): name is `--${string}` => name.startsWith("--");
 
