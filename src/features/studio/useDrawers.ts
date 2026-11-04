@@ -8,6 +8,7 @@ import {
   useState,
   useSyncExternalStore,
 } from "react";
+import { tabStops } from "@/features/a11y/tabStops";
 
 // The studio's two drawers (spec R2-16): below 1024 px the inputs panel and below 1280 px the
 // inspector are modal drawers. An open drawer takes focus to its heading, traps Tab, makes the rest
@@ -23,10 +24,6 @@ const DRAWER_QUERY: Readonly<Record<DrawerName, string>> = {
 
 /** How long a drawer's slide runs (studio.css: 220 ms), with room for the last frame. */
 const SLIDE_MS = 300;
-
-/** Elements a Tab can reach inside a drawer. */
-const FOCUSABLE =
-  "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex='-1'])";
 
 /** Whether a media query matches, following its changes. */
 function useMedia(query: string): boolean {
@@ -44,9 +41,7 @@ function useMedia(query: string): boolean {
 /** Keeps Tab and Shift+Tab inside an open drawer (R2-16 item 2). */
 function trapFocus(event: ReactKeyboardEvent<HTMLElement>): void {
   if (event.key !== "Tab") return;
-  const stops = [...event.currentTarget.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
-    (element) => element.getClientRects().length > 0,
-  );
+  const stops = tabStops(event.currentTarget);
   const first = stops[0];
   const last = stops[stops.length - 1];
   if (first === undefined || last === undefined) {
