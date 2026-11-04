@@ -10,14 +10,20 @@ import type { StudioStore } from "./store";
 type Handlers = {
   /** Whether a modal drawer holds focus. */
   readonly drawerOpen: boolean;
+  /** Whether a modal dialog is open (R3-35): the page then keeps only the chords it must swallow. */
+  readonly dialogOpen: boolean;
   closeDrawer(): void;
   copyLink(): void;
+  openExport(): void;
 };
 
 export function useStudioKeys(store: StudioStore, handlers: Handlers): void {
   const onKeyDown = useEffectEvent((event: KeyboardEvent) => {
     const target = event.target instanceof Element ? event.target : null;
-    const shortcut = shortcutFor(event, target, { drawerOpen: handlers.drawerOpen });
+    const shortcut = shortcutFor(event, target, {
+      drawerOpen: handlers.drawerOpen,
+      dialogOpen: handlers.dialogOpen,
+    });
     if (shortcut === null) return;
     event.preventDefault();
     run(shortcut);
@@ -31,6 +37,12 @@ export function useStudioKeys(store: StudioStore, handlers: Handlers): void {
         return;
       case "copy-link":
         handlers.copyLink();
+        return;
+      case "open-export":
+        handlers.openExport();
+        return;
+      case "swallow":
+        // Nothing to run: `preventDefault` keeps the browser's save dialog and address bar shut.
         return;
       case "toggle-mode":
         studio.toggleMode();

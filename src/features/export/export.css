@@ -1,0 +1,25 @@
+/* The export dialog (spec R3-34): a scrim over the studio that fades in and out over 150 ms of
+ * opacity. `data-shown` is set a frame after it mounts, so the fade has a start. */
+.export-overlay {
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}
+
+.export-overlay[data-shown] {
+  opacity: 1;
+}
+
+/* A closing dialog takes no clicks while it fades. */
+.export-overlay[data-closing] {
+  pointer-events: none;
+}
+
+/* Under reduced motion there is no transition at all (F-EXP-14). The global rule of globals.css
+ * would give every element a 0.01 ms one, which still counts as a running transition. */
+@media (prefers-reduced-motion: reduce) {
+  .export-overlay,
+  .export-overlay * {
+    transition: none !important;
+    animation: none !important;
+  }
+}

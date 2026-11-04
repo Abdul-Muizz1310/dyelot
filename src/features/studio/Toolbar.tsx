@@ -13,7 +13,7 @@ import { DENSITIES, TEMPLATE_IDS, VISIONS, type View } from "./view";
 // The canvas toolbar (spec sections 7.1 and 7.4): one order in the DOM and for Tab. Below 1024 px
 // the "Inputs" and "Inspector" drawer buttons come first (below 1280 px "Inspector" alone), then
 // the frame switcher, the template switcher, the mode switch, the density group, "Reduce motion",
-// the copy group, the vision group, Undo, Redo and Copy link. Below 640 px the five view controls
+// the copy group, the vision group, Undo, Redo, Copy link and Export (R3-34). Below 640 px the five view controls
 // sit in a "View" disclosure in the mode switch's place (F-CANVAS-19). The view settings change the
 // canvas only: no new design and no history entry (C-STORE-29).
 
@@ -34,8 +34,12 @@ type ToolbarProps = {
   open: DrawerName | null;
   onOpen(name: DrawerName, button: HTMLElement): void;
   onCopyLink(): void;
+  /** "Export" opens the export dialog; `button` is where focus returns when it closes (R3-34). */
+  onExport(button: HTMLElement): void;
   /** "Copy link", where focus goes back to after a toast (F-STUDIO-23). */
   copyButton: RefObject<HTMLButtonElement | null>;
+  /** "Export", where focus goes back to when the element that opened the dialog is gone. */
+  exportButton: RefObject<HTMLButtonElement | null>;
 };
 
 export function Toolbar({
@@ -45,7 +49,9 @@ export function Toolbar({
   open,
   onOpen,
   onCopyLink,
+  onExport,
   copyButton,
+  exportButton,
 }: ToolbarProps) {
   // Below 640 px the five view controls sit in the "View" disclosure (F-CANVAS-19); studio.css
   // shows the button and hides the group there, and lays the group out inline above it.
@@ -163,6 +169,16 @@ export function Toolbar({
         className={TOOL_BUTTON}
       >
         Copy link
+      </button>
+      <button
+        ref={exportButton}
+        type="button"
+        aria-haspopup="dialog"
+        aria-keyshortcuts="Control+E Meta+E"
+        onClick={(event) => onExport(event.currentTarget)}
+        className={TOOL_BUTTON}
+      >
+        Export
       </button>
       {draftsOff && (
         <details className="relative">

@@ -866,6 +866,7 @@ test("F-INPUT-16 Regenerate stays in view at 1280 × 800 and every shortcut is n
   await expect(regenerate).toHaveAttribute("aria-keyshortcuts", "Space");
   await expect(modeSwitch(page)).toHaveAttribute("aria-keyshortcuts", "Alt+T");
   await expect(button(page, "Copy link")).toHaveAttribute("aria-keyshortcuts", "Control+S Meta+S");
+  await expect(button(page, "Export")).toHaveAttribute("aria-keyshortcuts", "Control+E Meta+E");
   const hint = inputsPanel(page).locator("[data-shortcut-hint]");
   await expect(hint).toContainText("Alt+T");
   await expect(hint).toContainText("Ctrl+S");
@@ -1589,6 +1590,7 @@ test.describe("7.3 Keyboard", () => {
       button(page, "Undo"),
       button(page, "Redo"),
       button(page, "Copy link"),
+      button(page, "Export"),
     ];
   }
 
@@ -1650,6 +1652,7 @@ test.describe("7.3 Keyboard", () => {
       button(page, "Undo"),
       button(page, "Redo"),
       button(page, "Copy link"),
+      button(page, "Export"),
       canvasRegion(page),
     ];
     await focusBody(page);

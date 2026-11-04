@@ -4,6 +4,7 @@ import "./studio.css";
 import "./highlight.css";
 import Link from "next/link";
 import { type RefObject, useEffect, useRef, useState } from "react";
+import { ExportDialog } from "@/features/export/ExportDialog";
 import { createFitStore, FitContext } from "@/features/preview/useFrameFit";
 import { CanvasArea } from "./CanvasArea";
 import { createStudioClient } from "./client";
@@ -63,6 +64,9 @@ function StudioShell({ store }: { store: StudioStore }) {
   const { open, isDrawer, headings, openDrawer, closeDrawer, panelState } = useDrawers();
   const canvas = useRef<HTMLElement>(null);
   const copyButton = useRef<HTMLButtonElement>(null);
+  const exportButton = useRef<HTMLButtonElement>(null);
+  const exportOpener = useRef<HTMLElement | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   // The canvas area measures the frame's fit and the toolbar's frame switcher shows it (M-8).
   const [fitStore] = useState(createFitStore);
@@ -81,17 +85,43 @@ function StudioShell({ store }: { store: StudioStore }) {
     }
   }
 
+  /** Opens the export dialog; `opener` is where focus returns (R3-34). With a drawer open, it waits. */
+  function openExport(opener: HTMLElement | null): void {
+    if (exportOpen || open !== null) return;
+    exportOpener.current = opener;
+    setExportOpen(true);
+  }
+
+  // Closing gives focus back to the element that opened the dialog, once the page is no longer inert.
+  const wasExportOpen = useRef(false);
+  useEffect(() => {
+    if (wasExportOpen.current && !exportOpen) {
+      const opener = exportOpener.current;
+      const target = opener?.isConnected === true && opener !== document.body ? opener : null;
+      (target ?? exportButton.current)?.focus();
+    }
+    wasExportOpen.current = exportOpen;
+  }, [exportOpen]);
+
   useStudioKeys(store, {
     drawerOpen: open !== null,
+    dialogOpen: exportOpen,
     closeDrawer,
     copyLink: () => void copyLink(),
+    openExport: () =>
+      openExport(document.activeElement instanceof HTMLElement ? document.activeElement : null),
   });
 
   /** After a notice action removes the focused button, focus goes to the canvas (F-STUDIO-23). */
   const focusCanvas = () => canvas.current?.focus();
 
-  /** The rest of the page while a drawer is open: inert (R2-16 item 2). */
-  const blocked = open !== null;
+  /** The rest of the page while a drawer or the export dialog is open: inert (R2-16 item 2, R3-34). */
+  const blocked = open !== null || exportOpen;
+  /** A panel's state, inert too while the dialog is open. */
+  const panel = (name: "inputs" | "inspector") => {
+    const state = panelState(name);
+    return { ...state, inert: state.inert || exportOpen };
+  };
 
   return (
     <FitContext value={fitStore}>
@@ -133,7 +163,7 @@ function StudioShell({ store }: { store: StudioStore }) {
           id="studio-inputs"
           aria-label="Inputs"
           className="studio-panel studio-inputs"
-          {...panelState("inputs")}
+          {...panel("inputs")}
         >
           <PanelHead
             title="Inputs"
@@ -151,14 +181,16 @@ function StudioShell({ store }: { store: StudioStore }) {
           open={open}
           onOpen={openDrawer}
           onCopyLink={() => void copyLink()}
+          onExport={openExport}
           copyButton={copyButton}
+          exportButton={exportButton}
         />
         <CanvasArea store={store} regionRef={canvas} inert={blocked} />
         <aside
           id="studio-inspector"
           aria-label="Inspector"
           className="studio-panel studio-inspector"
-          {...panelState("inspector")}
+          {...panel("inspector")}
         >
           <PanelHead
             title="Inspector"
@@ -178,6 +210,7 @@ function StudioShell({ store }: { store: StudioStore }) {
         {open !== null && (
           <div aria-hidden="true" className="studio-backdrop" onClick={closeDrawer} />
         )}
+        <ExportDialog store={store} open={exportOpen} onClose={() => setExportOpen(false)} />
         <Toast state={toast} onClose={() => setToast(null)} fallbackFocus={copyButton} />
         <DraftsAnnouncer store={store} />
       </div>

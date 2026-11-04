@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 import { decodeSpec, encodeSpec, isPlainText } from "@/spec";
+import { exportButton, exportDialog, lotLine } from "./export-support";
 import {
   button,
   designFor,
@@ -11,8 +12,8 @@ import {
 } from "./studio-support";
 
 // The About flows of docs/specs/03-export.md, section 10.12 (Task 3.13): F-ABT-01 to F-ABT-04, on the
-// fields of R3-33 and section 9.1. The "Import…" button of F-ABT-01 and the export dialog's lot line
-// of F-ABT-02 belong to Tasks 3.16 and 3.14, which add their assertions.
+// fields of R3-33 and section 9.1. The "Import…" button of F-ABT-01 belongs to Task 3.16, which adds its
+// assertion; the export dialog's lot line of F-ABT-02 is asserted here (Task 3.14).
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -68,6 +69,11 @@ test.describe("9.1 About", () => {
     await openStudio(page);
     await nameField(page).pressSequentially("Saltmarsh", { delay: 60 });
     await expectHashedName(page, "Saltmarsh");
+    // The export dialog's lot line names the design (R3-34, 9.2).
+    await exportButton(page).click();
+    await expect(lotLine(page)).toContainText(/^LOT [0-9a-f]{4}·[0-9a-f]{4} · Saltmarsh$/);
+    await page.keyboard.press("Escape");
+    await expect(exportDialog(page)).toHaveCount(0);
     await button(page, "Undo").click();
     await expectHashedName(page, "untitled");
     await expect(nameField(page)).toHaveValue("");

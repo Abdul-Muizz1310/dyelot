@@ -913,7 +913,7 @@ test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", asyn
   await focusBody(page);
   await page.keyboard.press("Alt+KeyT");
   await expect(canvasFrame(page)).toHaveAttribute("data-mode", "dark");
-  // The Tab order: Inputs, Inspector, frame, template, View, then Undo, Redo, Copy link.
+  // The Tab order: Inputs, Inspector, frame, template, View, then Undo, Redo, Copy link, Export.
   await focusBody(page);
   const closed = [
     page.getByRole("button", { name: "Inputs", exact: true }),
@@ -939,7 +939,7 @@ test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", asyn
   await expect(view).toBeFocused();
   await page.keyboard.press("Space");
   await expect(view).toHaveAttribute("aria-expanded", "true");
-  // Open: the five view controls follow the button, then Undo, Redo and Copy link.
+  // Open: the five view controls follow the button, then Undo, Redo, Copy link and Export.
   for (const stop of [
     modeSwitch(page),
     toolbarRadio(page, "Density", "comfortable"),
@@ -949,6 +949,7 @@ test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", asyn
     page.getByRole("button", { name: "Undo", exact: true }),
     page.getByRole("button", { name: "Redo", exact: true }),
     page.getByRole("button", { name: "Copy link", exact: true }),
+    page.getByRole("button", { name: "Export", exact: true }),
   ]) {
     await page.keyboard.press("Tab");
     await expect(stop).toBeFocused();

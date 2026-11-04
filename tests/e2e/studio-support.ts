@@ -169,15 +169,46 @@ export async function pickColor(input: Locator, hex: string): Promise<void> {
 }
 
 /**
- * Replaces `window.Worker` with a subclass that answers every request with a forced `RangeError`
- * once the test sets `window.__dyelotFault` (F-STUDIO-19); until then it is the real worker.
+ * Replaces `window.Worker` with a subclass of the real worker (F-STUDIO-19, F-EXP-11):
+ * - once the test sets `window.__dyelotFault`, every request is answered with a forced `RangeError`;
+ *   until then the real worker answers;
+ * - once the test sets `window.__dyelotHold` to true, the next reply, from this stub or from the real
+ *   worker, is held until the test calls `window.__dyelotRelease()` (a release that comes first lets
+ *   the reply through).
  */
 export async function failingWorker(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const Real = window.Worker;
-    const flags = window as unknown as { __dyelotFault: boolean };
+    const flags = window as unknown as {
+      __dyelotFault: boolean;
+      __dyelotHold: boolean;
+      __dyelotRelease(): void;
+    };
     flags.__dyelotFault = false;
+    flags.__dyelotHold = false;
+    flags.__dyelotRelease = () => {};
     class FaultWorker extends Real {
+      constructor(url: string | URL, options?: WorkerOptions) {
+        super(url, options);
+        let held: MessageEvent | null = null;
+        const released = new WeakSet<Event>();
+        // First in line, so a held reply never reaches the client's own listener.
+        this.addEventListener("message", (event) => {
+          if (released.has(event) || !flags.__dyelotHold) return;
+          flags.__dyelotHold = false;
+          event.stopImmediatePropagation();
+          held = event;
+        });
+        flags.__dyelotRelease = () => {
+          // A release before the reply has arrived ends the hold: that reply passes.
+          flags.__dyelotHold = false;
+          if (held === null) return;
+          const reply = new MessageEvent("message", { data: held.data });
+          held = null;
+          released.add(reply);
+          this.dispatchEvent(reply);
+        };
+      }
       override postMessage(message: { id: number }, ...rest: never[]) {
         if (!flags.__dyelotFault) {
           super.postMessage(message, ...rest);
