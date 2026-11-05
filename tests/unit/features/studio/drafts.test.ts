@@ -21,6 +21,7 @@ const snapshot = () => ({
   spec: freshSpec(),
   preset: "default" as const,
   provenance: "generated" as const,
+  createdWith: "controls" as const,
 });
 
 const stored = (value: unknown) => memoryStorage({ [DRAFT_KEY]: JSON.stringify(value) });

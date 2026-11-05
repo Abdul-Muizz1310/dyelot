@@ -3,6 +3,6 @@
 export { canonicalize, normalizeSpec } from "./canonical";
 export { specId } from "./hash";
 export { lotTag } from "./lot";
-export { type DesignSpec, DesignSpecSchema } from "./schema";
+export { type CreatedWith, type DesignSpec, DesignSpecSchema } from "./schema";
 export { isPlainText, toPlainText } from "./text";
 export { decodeSpec, encodeSpec, SpecDecodeError } from "./url-codec";

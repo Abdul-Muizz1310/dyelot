@@ -48,6 +48,7 @@ describe("importDesign", () => {
       spec: before.spec,
       preset: before.preset,
       provenance: before.provenance,
+      createdWith: before.createdWith,
     };
     store.getState().importDesign(OK);
     const state = store.getState();
@@ -57,6 +58,8 @@ describe("importDesign", () => {
     expect(state.seed).toBe(IMPORTED.meta.seed);
     expect(state.preset).toBe(presetOf(IMPORTED));
     expect(state.provenance).toBe("loaded");
+    // R4-37 (docs/specs/04-ai.md, section 16): the imported snapshot holds createdWith "import".
+    expect(state.createdWith).toBe("import");
     expect(state.history).toHaveLength(1);
     expect(state.history[0]).toEqual(previous);
     expect(state.future).toEqual([]);

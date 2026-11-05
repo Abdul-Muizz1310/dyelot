@@ -1,5 +1,6 @@
 import { useStore } from "zustand";
 import { createStore, type StoreApi } from "zustand/vanilla";
+import type { AiChange } from "@/ai";
 import {
   ColorParseError,
   type DirectionParams,
@@ -16,7 +17,7 @@ import {
   applyPreset as presetParams,
 } from "@/engine";
 import type { ImportResult } from "@/import";
-import { type DesignSpec, normalizeSpec, specId } from "@/spec";
+import { type CreatedWith, type DesignSpec, DesignSpecSchema, normalizeSpec, specId } from "@/spec";
 import type { StudioClient } from "./client";
 import {
   clearDraft,
@@ -43,7 +44,7 @@ import {
 import type { GenerateReply } from "./protocol";
 import { type RebuildOutcome, rebuildOutcome } from "./rebuild";
 import { type HashResult, type Notice, readHash, writeHash } from "./url";
-import { DEFAULT_VIEW, mergeView, type View } from "./view";
+import { DEFAULT_VIEW, DENSITIES, mergeView, type View } from "./view";
 
 // The studio store (spec section 5.7, R2-13, R2-14, R2-17, R2-28, R2-29). Every change is a
 // numbered request to the generator through `deps.client`; a reply applies only when its id is
@@ -85,6 +86,15 @@ export type StudioActions = {
     text: string,
     options?: { coalesce?: string },
   ): { ok: true } | { ok: false; message: string };
+  /**
+   * Applies an AI or rule result as one commit (R4-37): the preset first, as `applyPreset` applies
+   * it with its view mode and density, then the patch through `mergeParams`, then `change.density`;
+   * the commit holds `change.createdWith`. True when it issued a generation; false, with nothing
+   * issued, when params, preset and createdWith already match. A density applies to the view either
+   * way. A wrong type is a TypeError and a value outside its set a RangeError, each naming `applyAi`,
+   * and the state is unchanged after either.
+   */
+  applyAi(change: AiChange, options?: { coalesce?: string }): boolean;
   undo(): void;
   redo(): void;
   /** Flips `view.mode`: no history, no request. */
@@ -126,13 +136,41 @@ const CLEARED_BY_COMMIT: ReadonlySet<Notice["kind"]> = new Set([
   "imported",
 ]);
 
-/** The parameters and the preset a request asks for, and the seed it uses. */
+/** What a generated design can be made with: an import is loaded, never generated (R4-37). */
+type Generated = Exclude<CreatedWith, "import">;
+
+/** The parameters and the preset a request asks for, the seed it uses and what made it. */
 type Intent = {
   readonly params: DirectionParams;
   readonly seed: string;
   readonly preset: PresetId | null;
+  readonly createdWith: Generated;
 };
 type Issued = Intent & { readonly coalesce: string | undefined; readonly at: number };
+
+/**
+ * What regenerating a held design is made with (R4-37): the held value, except that a held
+ * `"import"` becomes `"controls"`, because the new design is generated, not imported.
+ */
+const regenerated = (held: CreatedWith): Generated => (held === "import" ? "controls" : held);
+
+/** The fields of an `AiChange`. */
+const AI_CHANGE_KEYS: ReadonlySet<string> = new Set(["preset", "patch", "density", "createdWith"]);
+/** The spec schema's own rule for `meta.createdWith`, which `applyAi` checks against. */
+const CREATED_WITH = DesignSpecSchema.shape.meta.shape.createdWith;
+
+/** `change.createdWith`: a string the spec schema accepts, and never `"import"` (R4-37). */
+function aiCreatedWith(value: unknown): Generated {
+  const name = "applyAi: change.createdWith";
+  assertString(value, name);
+  const parsed = CREATED_WITH.safeParse(value);
+  if (!parsed.success || parsed.data === "import") {
+    throw new RangeError(
+      `${name} must be a value meta.createdWith takes other than "import", got ${JSON.stringify(value)}`,
+    );
+  }
+  return parsed.data;
+}
 
 function coalesceOf(
   options: { coalesce?: string } | undefined,
@@ -206,13 +244,21 @@ function snapshotOf(
         spec,
         preset: draft.preset,
         provenance: "loaded",
+        createdWith: spec.meta.createdWith,
       },
       customFonts: false,
     };
   }
   const { params, customFonts } = paramsOfSpec(spec);
   return {
-    snapshot: { params, seed: spec.meta.seed, spec, preset: null, provenance: "loaded" },
+    snapshot: {
+      params,
+      seed: spec.meta.seed,
+      spec,
+      preset: null,
+      provenance: "loaded",
+      createdWith: spec.meta.createdWith,
+    },
     customFonts,
   };
 }
@@ -243,7 +289,14 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     const seed = nextSeed();
     const params = freshParams();
     const spec = normalizeSpec(client.generateNow(resolveParams(params, seed), seed));
-    return { params, seed, spec, preset: "default", provenance: "generated" };
+    return {
+      params,
+      seed,
+      spec,
+      preset: "default",
+      provenance: "generated",
+      createdWith: "controls",
+    };
   }
 
   function firstLoad(draft: Draft | null): { snapshot: Snapshot; notice: Notice | null } {
@@ -303,6 +356,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     rebuild,
     importDesign,
     setSeedColor,
+    applyAi,
     undo,
     redo,
     toggleMode,
@@ -363,17 +417,30 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     for (const key of issued.keys()) if (key <= id) issued.delete(key);
   }
 
-  function issue(intent: Intent, coalesce?: string): void {
-    if (disposed) return;
+  /**
+   * Posts a numbered request for `intent`; false after `dispose`. The request carries `createdWith`
+   * only when it is not "controls" (an intent is never "import"), so every M2 request stays
+   * `{ id, params, seed }` (R4-37).
+   */
+  function issue(intent: Intent, coalesce?: string): boolean {
+    if (disposed) return false;
     const id = ++lastIssued;
     issued.set(id, { ...intent, coalesce, at: clock() });
     patch({
       params: intent.params,
       seed: intent.seed,
       preset: intent.preset,
+      createdWith: intent.createdWith,
       ...withStatus({ phase: "generating" }),
     });
-    client.request({ id, params: resolveParams(intent.params, intent.seed), seed: intent.seed });
+    const { createdWith } = intent;
+    client.request({
+      id,
+      params: resolveParams(intent.params, intent.seed),
+      seed: intent.seed,
+      ...(createdWith === "controls" ? {} : { createdWith }),
+    });
+    return true;
   }
 
   function fail(id: number, message: string): void {
@@ -391,6 +458,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
       spec,
       preset: request.preset,
       provenance: "generated",
+      createdWith: request.createdWith,
     };
     const merge =
       request.coalesce !== undefined &&
@@ -408,7 +476,14 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
       spec,
       provenance: "generated",
       outcome: null,
-      ...(newest ? { params: snapshot.params, seed: snapshot.seed, preset: snapshot.preset } : {}),
+      ...(newest
+        ? {
+            params: snapshot.params,
+            seed: snapshot.seed,
+            preset: snapshot.preset,
+            createdWith: snapshot.createdWith,
+          }
+        : {}),
       history: nextHistory,
       future: [],
       status: { ...status, phase: newest ? "idle" : "generating", notice },
@@ -447,7 +522,8 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     const { params, seed, preset } = state();
     const next = mergeParams(params, change, "setParams");
     if (sameParams(next, params)) return;
-    issue({ params: next, seed, preset: touchesPreset(params, next) ? null : preset }, key);
+    const kept = touchesPreset(params, next) ? null : preset;
+    issue({ params: next, seed, preset: kept, createdWith: "controls" }, key);
   }
 
   function applyPreset(id: PresetId): void {
@@ -457,25 +533,26 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     const { mode, density } = PRESETS[id].view;
     patch({ view: { ...view, mode, density } });
     if (preset === id && sameParams(next, params)) return;
-    issue({ params: next, seed, preset: id });
+    issue({ params: next, seed, preset: id, createdWith: "controls" });
   }
 
   function regenerate(): void {
     const seed = nextSeed();
-    const { params, preset } = state();
-    issue({ params, seed, preset }, "regenerate");
+    const { params, preset, createdWith } = state();
+    issue({ params, seed, preset, createdWith: regenerated(createdWith) }, "regenerate");
   }
 
   function toggleLock(slot: Lockable): void {
     assertOneOf(slot, LOCKABLE, "toggleLock: slot");
-    const { params, seed, preset, spec } = state();
+    const { params, seed, preset, spec, createdWith } = state();
     const seedColor = params[slot] === undefined ? lockSeed(spec, slot) : undefined;
-    issue({ params: withSeed(params, slot, seedColor), seed, preset });
+    const next = withSeed(params, slot, seedColor);
+    issue({ params: next, seed, preset, createdWith: regenerated(createdWith) });
   }
 
   function rebuild(): void {
-    const { params, seed, preset } = committed;
-    issue({ params, seed, preset });
+    const { params, seed, preset, createdWith } = committed;
+    issue({ params, seed, preset, createdWith: regenerated(createdWith) });
   }
 
   function importDesign(result: Extract<ImportResult, { ok: true }>): void {
@@ -513,6 +590,8 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
       spec,
       preset: presetOf(spec),
       provenance: "loaded",
+      // A loaded design takes its spec's value: "import" for every import (R4-37).
+      createdWith: spec.meta.createdWith,
     };
     const { history } = state();
     show(snapshot, [...history, committed].slice(-HISTORY_LIMIT), []);
@@ -536,8 +615,48 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     }
     const { params, seed, preset } = state();
     const next = withSeed(params, slot, color);
-    if (!sameParams(next, params)) issue({ params: next, seed, preset }, key);
+    if (!sameParams(next, params)) {
+      issue({ params: next, seed, preset, createdWith: "controls" }, key);
+    }
     return { ok: true };
+  }
+
+  function applyAi(change: AiChange, options?: { coalesce?: string }): boolean {
+    assertRecord(change, "applyAi: change");
+    for (const field of Object.keys(change)) {
+      if (!AI_CHANGE_KEYS.has(field)) {
+        throw new RangeError(`applyAi: change.${field} is not a field of an AI change`);
+      }
+    }
+    const key = coalesceOf(options, "applyAi");
+    const createdWith = aiCreatedWith(change.createdWith);
+    // Read once: a getter could hand back another value between the check and the use.
+    const { preset: presetId, density, patch: aiPatch } = change;
+    if (presetId !== undefined) assertOneOf(presetId, PRESET_IDS, "applyAi: change.preset");
+    if (density !== undefined) assertOneOf(density, DENSITIES, "applyAi: change.density");
+    const held = state();
+    // Everything is computed before the state changes, so a throw leaves it as it was.
+    let base = held.params;
+    let preset = held.preset;
+    let view = held.view;
+    if (presetId !== undefined) {
+      base = presetParams(held.params, presetId);
+      preset = presetId;
+      const { mode, density: presetDensity } = PRESETS[presetId].view;
+      view = { ...view, mode, density: presetDensity };
+    }
+    const next = mergeParams(base, aiPatch, "applyAi");
+    if (touchesPreset(base, next)) preset = null;
+    if (density !== undefined) {
+      // R2-28: a density other than the one the design shows makes it "Custom".
+      if (density !== view.density) preset = null;
+      view = { ...view, density };
+    }
+    if (view !== held.view) patch({ view });
+    const same =
+      sameParams(next, held.params) && preset === held.preset && createdWith === held.createdWith;
+    if (same) return false;
+    return issue({ params: next, seed: held.seed, preset, createdWith }, key);
   }
 
   /** Shows a snapshot that undo, redo or a load restored: no request, nothing in flight. */
@@ -625,7 +744,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     }
     clearDraft(storage);
     patch(withStatus({ notice: null }));
-    issue({ params: freshParams(), seed, preset: "default" });
+    issue({ params: freshParams(), seed, preset: "default", createdWith: "controls" });
   }
 
   function revert(): void {
@@ -634,6 +753,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
       params: committed.params,
       seed: committed.seed,
       preset: committed.preset,
+      createdWith: committed.createdWith,
       ...withStatus({ phase: "idle", notice: null }),
     });
   }
