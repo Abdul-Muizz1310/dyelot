@@ -3,7 +3,7 @@
 // runtime names with their modules (chat, cache key, prompts, lexicon, colors, refine, image, PKCE).
 
 export type { AiChange, AiPatch } from "./apply";
-export { rationaleChange, refineChange } from "./apply";
+export { briefChange, rationaleChange, refineChange } from "./apply";
 export { cacheKey } from "./cache-key";
 export type { Tier, TierName } from "./cascade";
 export { cascadePlan, isFreeSlug } from "./cascade";
@@ -16,6 +16,7 @@ export type {
   Usage,
 } from "./chat";
 export { buildChatRequest, chatMessages, OPENROUTER_ORIGIN, readReply } from "./chat";
+export { briefColors } from "./colors";
 export type { CapCookie } from "./cookie";
 export {
   CAP_COOKIE,
@@ -60,6 +61,8 @@ export {
 } from "./features";
 export { guardVerdict, readKeyRemaining } from "./guard";
 export { briefInput, critiqueInput, rationaleInput, refineInput, vibeInput } from "./inputs";
+export type { LexiconCategory, LexiconEntry, LexiconMatch } from "./lexicon/match";
+export { matchLexicon } from "./lexicon/match";
 export type { PromptFile } from "./prompts";
 export { PROMPTS } from "./prompts";
 export type { AiPath, RouteCode, RouteReply } from "./route-reply";

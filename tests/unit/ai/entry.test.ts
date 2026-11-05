@@ -3,10 +3,17 @@ import path from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type * as types from "@/ai";
 import * as ai from "@/ai";
-import { type MOOD_TAGS, rationaleChange, refineChange, type TYPE_VIBES } from "@/ai/apply";
+import {
+  briefChange,
+  type MOOD_TAGS,
+  rationaleChange,
+  refineChange,
+  type TYPE_VIBES,
+} from "@/ai/apply";
 import { cacheKey } from "@/ai/cache-key";
 import { cascadePlan, isFreeSlug } from "@/ai/cascade";
 import { buildChatRequest, chatMessages, OPENROUTER_ORIGIN, readReply } from "@/ai/chat";
+import { briefColors } from "@/ai/colors";
 import {
   CAP_COOKIE,
   capMacInput,
@@ -25,6 +32,7 @@ import {
 } from "@/ai/features";
 import { guardVerdict, readKeyRemaining } from "@/ai/guard";
 import { briefInput, critiqueInput, rationaleInput, refineInput, vibeInput } from "@/ai/inputs";
+import { matchLexicon } from "@/ai/lexicon/match";
 import { PROMPTS } from "@/ai/prompts";
 import { ROUTE_CODES, readRouteReply } from "@/ai/route-reply";
 import type { CHROMA_LEVELS, NEUTRAL_TINTS } from "@/engine";
@@ -84,9 +92,6 @@ const AI_KEYS = [
  * lines and deletes its keys here; the entry holds exactly the rest.
  */
 const PENDING_KEYS: readonly string[] = [
-  "briefChange",
-  "briefColors",
-  "matchLexicon",
   "imageChange",
   "vibeChange",
   "authorizeUrl",
@@ -120,6 +125,8 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
       PROMPTS,
       ROUTE_CODES,
       VISITOR_CAP,
+      briefChange,
+      briefColors,
       briefInput,
       buildChatRequest,
       cacheKey,
@@ -134,6 +141,7 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
       inputSchema,
       isFreeSlug,
       madeWith,
+      matchLexicon,
       outputJsonSchema,
       outputSchema,
       parseCapCookie,

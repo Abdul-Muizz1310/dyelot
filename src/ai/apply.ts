@@ -1,33 +1,52 @@
-import type {
-  ContrastLevel,
-  Density,
-  DepthStyle,
-  DirectionParams,
-  Harmony,
-  MotionFeel,
-  Oklch,
-  PairingId,
-  PresetId,
-  RadiusSet,
-  TypeContext,
-} from "@/engine";
 import {
+  applyPreset,
+  CHROMA_LEVELS,
   CHROMA_LEVELS,
   CONTRAST_LEVELS,
+  CONTRAST_LEVELS,
+  type ContrastLevel,
   DEPTH_STYLES,
+  DEPTH_STYLES,
+  type Density,
+  type DepthStyle,
+  type DirectionParams,
   HARMONIES,
+  HARMONIES,
+  type Harmony,
+  LOCKABLE,
   LOCKABLE,
   type Lockable,
+  type Lockable,
   MOTION_FEELS,
+  MOTION_FEELS,
+  type MotionFeel,
+  NEUTRAL_TINTS,
   NEUTRAL_TINTS,
   normalizeSeed,
+  normalizeSeed,
+  type Oklch,
   PAIRING_IDS,
+  PAIRING_IDS,
+  type PairingId,
+  PRESET_IDS,
+  type PresetId,
   RADIUS_SET_NAMES,
+  RADIUS_SET_NAMES,
+  type RadiusSet,
   TYPE_CONTEXTS,
+  TYPE_CONTEXTS,
+  type TypeContext,
 } from "@/engine";
 import { type CreatedWith, isPlainText } from "@/spec";
-import { assertOneOf, assertRecord, describeType, isRecord } from "./assert";
-import type { ChromaLevel, NeutralTint, RationaleOutput, RefineOp, RefineOutput } from "./features";
+import { assertInteger, assertOneOf, assertRecord, describeType, isRecord } from "./assert";
+import type {
+  BriefDraft,
+  ChromaLevel,
+  NeutralTint,
+  RationaleOutput,
+  RefineOp,
+  RefineOutput,
+} from "./features";
 
 // The changes an AI or rule result makes to the studio (docs/specs/04-ai.md, section 5.2): the two
 // types the store's `applyAi` takes (Task 4.1), the vibe tables of section 9.4, and the change
@@ -108,6 +127,14 @@ export const TYPE_VIBE_PAIRING: Readonly<Record<(typeof TYPE_VIBES)[number], Pai
     display: "unbounded-golos",
   });
 
+/** The lightness and chroma a model or lexicon hue takes as a seed, by chroma level (section 7.6). */
+export const HUE_SEEDS: Readonly<Record<ChromaLevel, { readonly l: number; readonly c: number }>> =
+  Object.freeze({
+    muted: Object.freeze({ l: 0.62, c: 0.07 }),
+    balanced: Object.freeze({ l: 0.6, c: 0.13 }),
+    vivid: Object.freeze({ l: 0.62, c: 0.2 }),
+  });
+
 // The bounds of RationaleOutput (R4-49), within the spec's own bounds of R3-01. They repeat
 // features.ts's because features.ts imports this module's tables at run time; importing back would
 // make a cycle.
@@ -137,6 +164,164 @@ function assertRules(value: unknown, name: string): asserts value is readonly st
   value.forEach((rule, i) => {
     assertProse(rule, RULE_MAX, `${name}[${i}]`);
   });
+}
+
+// The bounds of BriefOutput (R4-39), repeated from features.ts for the same reason.
+const BRIEF_NAME_MAX = 40;
+const ADJECTIVE_MAX = 24;
+const ADJECTIVES_MAX = 5;
+/** The most literal colors a brief gives: one per lockable slot (R4-40). */
+const LITERALS_MAX = LOCKABLE.length;
+const HUE_MAX = 359;
+const BRIEF_KEYS: readonly string[] = [
+  "name",
+  "oneLiner",
+  "adjectives",
+  "hues",
+  "chroma",
+  "neutralTint",
+  "harmony",
+  "contrastLevel",
+  "preset",
+  "pairing",
+  "typeContext",
+  "radius",
+  "depth",
+  "motion",
+];
+/** The brief's enum fields, each with the engine's list it takes its value from (I-M4-07). */
+const BRIEF_ENUMS: ReadonlyArray<readonly [key: string, values: readonly string[]]> = [
+  ["chroma", CHROMA_LEVELS],
+  ["neutralTint", NEUTRAL_TINTS],
+  ["harmony", HARMONIES],
+  ["contrastLevel", CONTRAST_LEVELS],
+  ["preset", PRESET_IDS],
+  ["pairing", PAIRING_IDS],
+  ["typeContext", TYPE_CONTEXTS],
+  ["radius", RADIUS_SET_NAMES],
+  ["depth", DEPTH_STYLES],
+  ["motion", MOTION_FEELS],
+];
+/** Contrast levels in order: a brief never lowers the level, as presets never do (R2-06). */
+const RANK: Readonly<Record<ContrastLevel, number>> = { AA: 0, "AA+": 1, AAA: 2 };
+
+/** A draft of the brief's output shape, every field optional; an explicit undefined is absent. */
+function assertDraft(draft: unknown): asserts draft is BriefDraft {
+  assertRecord(draft, "briefChange: draft");
+  const extra = Object.keys(draft).find((key) => !BRIEF_KEYS.includes(key));
+  if (extra !== undefined) {
+    throw new RangeError(`briefChange: draft has an unknown key ${JSON.stringify(extra)}`);
+  }
+  for (const [key, values] of BRIEF_ENUMS) {
+    if (draft[key] !== undefined) assertOneOf(draft[key], values, `briefChange: draft.${key}`);
+  }
+  if (draft.hues !== undefined) {
+    assertRecord(draft.hues, "briefChange: draft.hues");
+    for (const [slot, hue] of Object.entries(draft.hues)) {
+      assertOneOf(slot, LOCKABLE, "briefChange: draft.hues slot");
+      if (hue !== undefined) assertInteger(hue, 0, HUE_MAX, `briefChange: draft.hues.${slot}`);
+    }
+  }
+  if (draft.name !== undefined) assertProse(draft.name, BRIEF_NAME_MAX, "briefChange: draft.name");
+  if (draft.oneLiner !== undefined) {
+    assertProse(draft.oneLiner, ONE_LINER_MAX, "briefChange: draft.oneLiner");
+  }
+  const { adjectives } = draft;
+  if (adjectives === undefined) return;
+  if (!Array.isArray(adjectives)) {
+    throw new TypeError(
+      `briefChange: draft.adjectives must be an array, got ${describeType(adjectives)}`,
+    );
+  }
+  if (adjectives.length < 1 || adjectives.length > ADJECTIVES_MAX) {
+    throw new RangeError(
+      `briefChange: draft.adjectives must hold 1 to ${ADJECTIVES_MAX} words, got ${adjectives.length}`,
+    );
+  }
+  adjectives.forEach((word, i) => {
+    assertProse(word, ADJECTIVE_MAX, `briefChange: draft.adjectives[${i}]`);
+  });
+}
+
+/** The fields of `fields` that are not undefined. */
+function defined<T extends Record<string, unknown>>(
+  fields: T,
+): { [K in keyof T]?: Exclude<T[K], undefined> } {
+  return Object.fromEntries(Object.entries(fields).filter(([, value]) => value !== undefined)) as {
+    [K in keyof T]?: Exclude<T[K], undefined>;
+  };
+}
+
+/**
+ * A brief's change (R4-41, section 7.6): the draft's preset, applied first, and one patch. The
+ * literal colors of the brief (`briefColors`' seeds, at most three) fill primary, secondary and accent
+ * in order, even over a lock. A draft hue fills a slot only when the slot is unlocked in `params`, the
+ * store's parameters when the reply is applied, and no literal filled it; it takes `HUE_SEEDS`' L and
+ * C at the draft's chroma, else the preset's, else the held one. The contrast level applies only when
+ * it ranks above the level after the preset. The name and one-liner replace the held ones, and the
+ * adjectives replace `direction.adjectives`, keeping the rest of `direction`. The result holds only
+ * the fields of an AiChange it owns: `preset` when the draft names one, and `patch`.
+ */
+export function briefChange(
+  draft: BriefDraft,
+  context: { params: DirectionParams; literals: readonly Oklch[] },
+): { readonly preset?: PresetId; readonly patch: AiPatch } {
+  assertDraft(draft);
+  assertRecord(context, "briefChange: context");
+  const { params, literals } = context;
+  assertRecord(params, "briefChange: context.params");
+  if (!Array.isArray(literals)) {
+    throw new TypeError(
+      `briefChange: context.literals must be an array, got ${describeType(literals)}`,
+    );
+  }
+  if (literals.length > LITERALS_MAX) {
+    throw new RangeError(
+      `briefChange: context.literals must hold at most ${LITERALS_MAX} colors, got ${literals.length}`,
+    );
+  }
+  const seeds = literals.map((literal, i) =>
+    normalizeSeed(literal, `briefChange: context.literals[${i}]`),
+  );
+  assertOneOf(params.chroma, CHROMA_LEVELS, "briefChange: context.params.chroma");
+  assertOneOf(params.contrastLevel, CONTRAST_LEVELS, "briefChange: context.params.contrastLevel");
+  const held = params.direction;
+  if (held !== undefined && !isRecord(held)) {
+    throw new TypeError(
+      `briefChange: context.params.direction must be an object, got ${describeType(held)}`,
+    );
+  }
+  const { preset, hues, contrastLevel, typeContext, adjectives, ...rest } = draft;
+  const base = preset === undefined ? params : applyPreset(params, preset);
+  const { l, c } = HUE_SEEDS[rest.chroma ?? base.chroma];
+  const slots: Partial<Record<Lockable, Oklch>> = {};
+  LOCKABLE.forEach((slot, i) => {
+    const literal = seeds[i];
+    const hue = hues?.[slot];
+    if (literal !== undefined) {
+      slots[slot] = literal;
+    } else if (hue !== undefined && params[slot] === undefined) {
+      slots[slot] = normalizeSeed({ l, c, h: hue }, `briefChange: draft.hues.${slot}`);
+    }
+  });
+  const raises = contrastLevel !== undefined && RANK[contrastLevel] > RANK[base.contrastLevel];
+  const patch: AiPatch = {
+    ...slots,
+    ...defined({
+      harmony: rest.harmony,
+      chroma: rest.chroma,
+      neutralTint: rest.neutralTint,
+      radius: rest.radius,
+      depth: rest.depth,
+      motion: rest.motion,
+      pairing: rest.pairing,
+    }),
+    ...(typeContext === undefined ? {} : { type: { context: typeContext } }),
+    ...(raises ? { contrastLevel } : {}),
+    ...defined({ name: rest.name, oneLiner: rest.oneLiner }),
+    ...(adjectives === undefined ? {} : { direction: { ...held, adjectives: [...adjectives] } }),
+  };
+  return preset === undefined ? { patch } : { preset, patch };
 }
 
 /**
