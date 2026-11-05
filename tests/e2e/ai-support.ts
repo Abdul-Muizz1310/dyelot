@@ -276,25 +276,62 @@ export const isAiRequest = (request: Request): boolean => {
  * `availability` answers `state`; a session's `prompt` answers `reply`. A `create` with a monitor
  * (the download) reports each fraction of `download` 500 ms apart, then the model is available.
  * With `hold`, a `prompt` ignores its signal and answers only once the test calls
- * `window.__lmRelease()`, then sets `window.__lm.replied`. `window.__lm` counts the calls.
+ * `window.__lmRelease()`, then sets `window.__lm.replied`. With `holdDownload`, the download stops
+ * after reporting each fraction the list holds until the test calls `window.__lmDownloadRelease()`,
+ * so a flow reads a fraction's line without racing the next one under load; a release that comes
+ * before its stop (the page shows "0%" before the first report) lets that stop pass at once.
+ * `window.__lm` counts the calls.
  */
 export async function fakeLanguageModel(
   page: Page,
-  options: { state: OnDeviceState; reply?: string; download?: readonly number[]; hold?: boolean },
+  options: {
+    state: OnDeviceState;
+    reply?: string;
+    download?: readonly number[];
+    hold?: boolean;
+    holdDownload?: readonly number[];
+  },
 ): Promise<void> {
   await page.addInitScript(
-    ({ state, reply, download, hold }) => {
+    ({ state, reply, download, hold, holdDownload }) => {
       const STEP_MS = 500;
       const wait = () => new Promise((resolve) => setTimeout(resolve, STEP_MS));
       let current = state;
       const calls = { availability: 0, create: 0, prompt: 0, destroy: 0, replied: false };
-      const host = window as unknown as { __lm: typeof calls; __lmRelease: () => void };
+      const host = window as unknown as {
+        __lm: typeof calls;
+        __lmRelease: () => void;
+        __lmDownloadRelease: () => void;
+      };
       host.__lm = calls;
       let release = () => {};
       const released = new Promise<void>((resolve) => {
         release = resolve;
       });
       host.__lmRelease = () => release();
+      // The download's waiting stop, set before the fraction it follows is reported; a release
+      // with no stop waiting is kept for the next stop.
+      let resume: (() => void) | null = null;
+      let early = 0;
+      host.__lmDownloadRelease = () => {
+        if (resume === null) {
+          early += 1;
+          return;
+        }
+        const go = resume;
+        resume = null;
+        go();
+      };
+      const stopAfter = (loaded: number): Promise<void> | null => {
+        if (!holdDownload.includes(loaded)) return null;
+        if (early > 0) {
+          early -= 1;
+          return null;
+        }
+        return new Promise<void>((resolve) => {
+          resume = resolve;
+        });
+      };
       const session = () => ({
         prompt: async () => {
           calls.prompt += 1;
@@ -321,7 +358,9 @@ export async function fakeLanguageModel(
               await wait();
               const event = new Event("downloadprogress");
               Object.defineProperty(event, "loaded", { value: loaded });
+              const stop = stopAfter(loaded);
               target.dispatchEvent(event);
+              if (stop !== null) await stop;
             }
             await wait();
             current = "available";
@@ -340,6 +379,7 @@ export async function fakeLanguageModel(
       hold: options.hold ?? false,
       reply: options.reply ?? "",
       download: [...(options.download ?? [0, 1])],
+      holdDownload: [...(options.holdDownload ?? [])],
     },
   );
 }

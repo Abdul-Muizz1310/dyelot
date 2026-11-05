@@ -620,6 +620,236 @@ describe("C-REPO-M2-03 the new pure folders and helpers keep the pure-core floor
   );
 });
 
+// C-GUARD4-10 of docs/specs/04-ai.md, section 14.10 (R4-59), which is section 16's change to
+// C-REPO-M2-03: the core project runs tests/unit/ai and tests/unit/server, and the coverage scope
+// holds section 15's include and floors, each named file of which exists. The rows are written from
+// section 15, not read back from vitest.config.ts, so a list the config drops is still asked for.
+
+type FloorSet = { lines: number; statements: number; functions: number; branches: number };
+const floorsOf = (main: number, branches: number): FloorSet => ({
+  lines: main,
+  statements: main,
+  functions: main,
+  branches,
+});
+
+/** Section 15's whole coverage scope: 80, 80, 75 and 70. */
+const SCOPE_FLOORS = { lines: 80, statements: 80, functions: 75, branches: 70 };
+/** The test folders R4-59 puts in `core`. */
+const AI_CORE_TESTS = ["tests/unit/ai/**/*.test.{ts,tsx}", "tests/unit/server/**/*.test.{ts,tsx}"];
+/** Section 15's folders: the include glob that measures each, its threshold key and its floors. */
+const SECTION_15_FOLDERS: ReadonlyArray<readonly [include: string, key: string, floors: FloorSet]> =
+  [
+    ["src/engine/**", "src/engine/**", floorsOf(95, 90)],
+    ["src/spec/**", "src/spec/**", floorsOf(95, 90)],
+    ["src/theme/**", "src/theme/**", floorsOf(95, 90)],
+    // The AI core's code, not its prompt files (Task 4.6b's fix round).
+    ["src/ai/**/*.ts", "src/ai/**", floorsOf(95, 90)],
+    ["src/export/**", "src/export/**", floorsOf(90, 85)],
+    ["src/import/**", "src/import/**", floorsOf(90, 85)],
+  ];
+/** Section 15's files, each measured by name with its own floors. */
+const SECTION_15_FILES: ReadonlyArray<readonly [file: string, floors: FloorSet]> = [
+  ...["env", "clock", "cap", "guard", "cache", "transport", "trace", "smoke", "handle"].map(
+    (name) => [`src/server/ai/${name}.ts`, floorsOf(90, 85)] as const,
+  ),
+  // AI_HELPERS: the seven helpers of src/features/ai.
+  ...["shared", "visitor-key", "connect", "on-device", "router", "image-protocol", "steer"].map(
+    (name) => [`src/features/ai/${name}.ts`, floorsOf(95, 90)] as const,
+  ),
+];
+
+/** The parts of a Vitest config that C-GUARD4-10 reads. */
+type CoverageConfig = {
+  test?: {
+    projects?: unknown;
+    coverage?: { include?: unknown; thresholds?: unknown };
+  };
+};
+
+/**
+ * Every way `candidate` misses R4-59 and section 15, named; an empty list when it holds them all.
+ * `exists` says whether a named file is in the repository.
+ */
+function guard4Problems(candidate: CoverageConfig, exists: (file: string) => boolean): string[] {
+  const problems: string[] = [];
+  const projects = Array.isArray(candidate.test?.projects)
+    ? (candidate.test.projects as { test?: { name?: unknown; include?: unknown } }[])
+    : [];
+  const core = projects.find((project) => project.test?.name === "core");
+  const coreInclude = Array.isArray(core?.test?.include) ? core.test.include : [];
+  for (const glob of AI_CORE_TESTS) {
+    if (!coreInclude.includes(glob)) problems.push(`core does not run ${glob}`);
+  }
+
+  const coverage = candidate.test?.coverage;
+  const include = Array.isArray(coverage?.include) ? (coverage.include as unknown[]) : [];
+  const thresholds = (
+    typeof coverage?.thresholds === "object" && coverage.thresholds !== null
+      ? coverage.thresholds
+      : {}
+  ) as Record<string, unknown>;
+  const same = (value: unknown, floors: FloorSet) =>
+    JSON.stringify(value) === JSON.stringify(floors);
+  const held = (floors: FloorSet) => `${floors.lines} and ${floors.branches}`;
+
+  for (const [name, floor] of Object.entries(SCOPE_FLOORS)) {
+    if (thresholds[name] !== floor) {
+      problems.push(`the whole scope's ${name} floor is ${String(thresholds[name])}, not ${floor}`);
+    }
+  }
+  for (const [glob, key, floors] of SECTION_15_FOLDERS) {
+    if (!include.includes(glob)) problems.push(`coverage does not measure ${glob}`);
+    if (!same(thresholds[key], floors)) problems.push(`${key} is not held to ${held(floors)}`);
+  }
+  for (const [file, floors] of SECTION_15_FILES) {
+    if (!include.includes(file)) problems.push(`coverage does not measure ${file}`);
+    if (!same(thresholds[file], floors)) problems.push(`${file} is not held to ${held(floors)}`);
+    if (!exists(file)) problems.push(`${file} does not exist`);
+  }
+  // src/lib/site/csp.ts falls under src/lib/site/**, which the scope includes (section 15).
+  if (!include.includes("src/lib/site/**"))
+    problems.push("coverage does not measure src/lib/site/**");
+  if (!exists("src/lib/site/csp.ts")) problems.push("src/lib/site/csp.ts does not exist");
+  return problems;
+}
+
+/** A plain copy of the real config's parts that C-GUARD4-10 reads, for a probe to change. */
+function configCopy(): {
+  test: {
+    projects: { test?: { name?: string; include?: string[] } }[];
+    coverage: { include: string[]; thresholds: Record<string, unknown> };
+  };
+} {
+  return JSON.parse(
+    JSON.stringify({
+      test: {
+        projects: config.test?.projects,
+        coverage: {
+          include: config.test?.coverage?.include,
+          thresholds: config.test?.coverage?.thresholds,
+        },
+      },
+    }),
+  );
+}
+
+const inRepository = (file: string): boolean => existsSync(path.join(ROOT, file));
+
+describe("C-GUARD4-10 the AI tests run in core, and section 15's include and floors hold", () => {
+  it("C-GUARD4-10 finds no gap in vitest.config.ts, and each named file exists", () => {
+    expect(guard4Problems(config, inRepository)).toEqual([]);
+  });
+
+  it("C-GUARD4-10 names each of section 15's files: nine server files and the seven AI helpers", () => {
+    expect(SECTION_15_FILES.map(([file]) => file)).toHaveLength(16);
+    for (const [file] of SECTION_15_FILES) expect(inRepository(file), file).toBe(true);
+  });
+
+  type Probe = ReturnType<typeof configCopy>;
+  const coreOf = (probe: Probe) => probe.test.projects.find((each) => each.test?.name === "core");
+  it.each<[string, (probe: Probe) => void, string]>([
+    [
+      "core without tests/unit/ai",
+      (probe) => {
+        const core = coreOf(probe);
+        if (core?.test?.include) {
+          core.test.include = core.test.include.filter(
+            (glob) => !glob.startsWith("tests/unit/ai/"),
+          );
+        }
+      },
+      "core does not run tests/unit/ai/**/*.test.{ts,tsx}",
+    ],
+    [
+      "core without tests/unit/server",
+      (probe) => {
+        const core = coreOf(probe);
+        if (core?.test?.include) {
+          core.test.include = core.test.include.filter(
+            (glob) => !glob.startsWith("tests/unit/server/"),
+          );
+        }
+      },
+      "core does not run tests/unit/server/**/*.test.{ts,tsx}",
+    ],
+    [
+      "no core project",
+      (probe) => {
+        probe.test.projects = probe.test.projects.filter((each) => each.test?.name !== "core");
+      },
+      "core does not run tests/unit/ai/**/*.test.{ts,tsx}",
+    ],
+    [
+      "a whole-scope floor of 60 branches",
+      (probe) => {
+        probe.test.coverage.thresholds.branches = 60;
+      },
+      "the whole scope's branches floor is 60, not 70",
+    ],
+    [
+      "src/ai/** at 90 and 85",
+      (probe) => {
+        probe.test.coverage.thresholds["src/ai/**"] = floorsOf(90, 85);
+      },
+      "src/ai/** is not held to 95 and 90",
+    ],
+    [
+      "src/ai unmeasured",
+      (probe) => {
+        probe.test.coverage.include = probe.test.coverage.include.filter(
+          (glob) => !glob.startsWith("src/ai/"),
+        );
+      },
+      "coverage does not measure src/ai/**/*.ts",
+    ],
+    [
+      "a server file without its floor",
+      (probe) => {
+        delete probe.test.coverage.thresholds["src/server/ai/smoke.ts"];
+      },
+      "src/server/ai/smoke.ts is not held to 90 and 85",
+    ],
+    [
+      "an AI helper left out of the scope",
+      (probe) => {
+        probe.test.coverage.include = probe.test.coverage.include.filter(
+          (glob) => glob !== "src/features/ai/router.ts",
+        );
+      },
+      "coverage does not measure src/features/ai/router.ts",
+    ],
+    [
+      "an AI helper at the server floors",
+      (probe) => {
+        probe.test.coverage.thresholds["src/features/ai/steer.ts"] = floorsOf(90, 85);
+      },
+      "src/features/ai/steer.ts is not held to 95 and 90",
+    ],
+    [
+      "src/lib/site unmeasured, so csp.ts is not",
+      (probe) => {
+        probe.test.coverage.include = probe.test.coverage.include.filter(
+          (glob) => glob !== "src/lib/site/**",
+        );
+      },
+      "coverage does not measure src/lib/site/**",
+    ],
+  ])("C-GUARD4-10 reports the probe: %s", (_name, change, problem) => {
+    const probe = configCopy();
+    expect(guard4Problems(probe, inRepository)).toEqual([]);
+    change(probe);
+    expect(guard4Problems(probe, inRepository)).toContain(problem);
+  });
+
+  it("C-GUARD4-10 reports a named file that does not exist (a probe)", () => {
+    const missing = (file: string) => file !== "src/features/ai/connect.ts" && inRepository(file);
+    expect(guard4Problems(configCopy(), missing)).toEqual([
+      "src/features/ai/connect.ts does not exist",
+    ]);
+  });
+});
+
 // C-GUARD3-01 to 04 of docs/specs/03-export.md, section 10.9 (R3-38, I-M3-02, R3-39): the export and
 // import cores load only through a dynamic import, and stay pure. Section 16 of docs/specs/04-ai.md
 // amends C-GUARD3-01, 03 and 04 (R4-04): the AI core, src/ai, is the third such core.

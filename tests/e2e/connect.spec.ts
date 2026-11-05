@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page, type Request, test } from "@playwright/test";
 import { decodeSpec } from "@/spec";
 import {
   aiSettings,
@@ -102,6 +102,23 @@ async function signIn(page: Page, options: { remember: boolean }) {
   return { opened, exchanges, hash };
 }
 
+/**
+ * Intercepts every request to `origin` (E3: the flows assert by intercepting every request) and
+ * hands each on unchanged. Registered after the flow's own answers, it sees each request first;
+ * `fallback` then passes it to them, or to the server. It returns the requests it saw.
+ */
+async function interceptOrigin(page: Page, origin: string): Promise<Request[]> {
+  const seen: Request[] = [];
+  await page.route(
+    (url) => url.origin === origin,
+    async (route) => {
+      seen.push(route.request());
+      await route.fallback();
+    },
+  );
+  return seen;
+}
+
 /** The base64url SHA-256 of a verifier: its S256 challenge. */
 const challengeOf = (verifier: string) => createHash("sha256").update(verifier).digest("base64url");
 
@@ -185,26 +202,42 @@ test.describe("13.6 the connect pages", () => {
 
   test("F-KEY4-04 no request to dyelot's origin carries the key, and the page never shows it", async ({
     page,
+    baseURL,
   }) => {
     const requests = recordRequests(page);
+    const logged: string[] = [];
+    page.on("console", (message) => logged.push(message.text()));
     await answerModels(page);
     await answerOpenRouter(page, () => chatReply(BRIEF_OUT));
+    // Every request to the page's origin is intercepted (decision E3), not only observed.
+    const origin = new URL(baseURL ?? "http://localhost:3100").origin;
+    const intercepted = await interceptOrigin(page, origin);
     await signIn(page, { remember: false });
     await expect(page.locator("body")).not.toContainText(TEST_KEY);
     await runBrief(page, "a key that stays home");
     await expectBriefLines(page, ["Made with your OpenRouter key (test/text-1:free)."]);
     await openAiSettings(page);
     await expect(page.locator("body")).not.toContainText(TEST_KEY);
-    const origin = new URL(page.url()).origin;
+    expect(new URL(page.url()).origin).toBe(origin);
     const own = requests.filter((request) => new URL(request.url()).origin === origin);
     expect(own.length).toBeGreaterThan(0);
-    for (const request of own) {
+    const paths = (list: readonly Request[]) => list.map((each) => new URL(each.url()).pathname);
+    expect(paths(intercepted)).toEqual(
+      expect.arrayContaining(["/studio", "/connect", "/api/ai/models"]),
+    );
+    // Playwright routes no redirect's target, so the callback that OpenRouter's redirect opens is
+    // read from the observed requests; every other request to the origin was intercepted.
+    const routed = new Set(intercepted);
+    expect(paths(own.filter((request) => !routed.has(request)))).toEqual(["/connect/callback"]);
+    for (const request of [...intercepted, ...own]) {
       const headers = JSON.stringify(await request.allHeaders());
       const leak = [request.url(), headers, request.postData() ?? ""].some((part) =>
         part.includes(TEST_KEY),
       );
       expect(leak, request.url()).toBe(false);
     }
+    // The browser shell never logs it (R4-29).
+    expect(logged.filter((line) => line.includes(TEST_KEY))).toEqual([]);
     // The key did reach OpenRouter, so the check above looked for a value that was in play.
     const toOpenRouter = requests.filter((request) =>
       request.url().startsWith("https://openrouter.ai/api/v1/chat/completions"),

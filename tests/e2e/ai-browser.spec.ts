@@ -1,6 +1,14 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, type Page, type Response, test } from "@playwright/test";
-import { type DirectionParams, gamutMap, type Hex, lintSpec, paramsOfSpec, toHex } from "@/engine";
+import { expect, type Locator, type Page, type Response, test } from "@playwright/test";
+import {
+  CHROMA_LEVELS,
+  type DirectionParams,
+  gamutMap,
+  type Hex,
+  lintSpec,
+  paramsOfSpec,
+  toHex,
+} from "@/engine";
 import { CHIPS, chipChange } from "@/features/ai/steer";
 import { fixFor } from "@/features/studio/fixes";
 import { findingTitle } from "@/features/studio/inspect";
@@ -50,6 +58,7 @@ import {
   sharedOk,
   steerSection,
   swatchItems,
+  TEST_KEY,
   writeRationale,
 } from "./ai-support";
 import {
@@ -60,11 +69,13 @@ import {
   inputsPanel,
   inspectorAside,
   lotId,
+  modeSwitch,
   nearHex,
   openStudio,
   seedOf,
   settled,
 } from "./studio-support";
+import { canvasAtRest } from "./template-support";
 
 // The browser flows of docs/specs/04-ai.md, section 14.11, for Task 4.10a: the Brief section
 // (13.1, R4-39, R4-40), the action hook's cancel and load failure (R4-56, section 13), the
@@ -75,13 +86,19 @@ import {
 test.use({ viewport: { width: 1280, height: 800 } });
 
 /** What the fake `LanguageModel` of `fakeLanguageModel` leaves on the window. */
-type LmHost = { __lm: { prompt: number; replied: boolean }; __lmRelease(): void };
+type LmHost = {
+  __lm: { prompt: number; replied: boolean };
+  __lmRelease(): void;
+  __lmDownloadRelease(): void;
+};
 
 const SHARED_LINE = "Made with dyelot's shared AI (test/text-1:free).";
 const ON_DEVICE_LINE = "Made with Chrome's built-in model.";
 const NOTHING = "No known words, so nothing changed.";
 const CANCELED = "Canceled. Nothing changed.";
 const LOAD_FAILED = "This tool could not load. Reload the page to try again.";
+/** R4-56's description of an action that waits for another. */
+const WAIT = "Wait for the current action to finish.";
 /** A brief whose words the lexicon matches. */
 const CALM = "calm tea house at dusk";
 
@@ -295,6 +312,47 @@ test.describe("13.1 Brief", () => {
     await page.unroute(chunks);
     await readBrief(page).click();
     await expectBriefLines(page, [SHARED_LINE]);
+  });
+
+  test("F-BRIEF-12 while the brief reads, the other four actions wait, a chip still commits, and all four run again after", async ({
+    page,
+  }) => {
+    // A design with findings, an image chosen and words to refine: each of the four can run.
+    await openStudio(page, `#s=${encodeSpec(ONE_FAIL)}`);
+    await chooseImage(page, "four-colors.png");
+    await expect(swatchItems(page)).toHaveCount(4);
+    await refineField(page).fill("warmer");
+    const others = [
+      readVibe(page),
+      refineButton(page),
+      writeRationale(page),
+      explainFindings(page),
+    ];
+    for (const each of others) await expect(each).not.toHaveAttribute("aria-disabled", "true");
+
+    const release = await holdShared(page, "brief");
+    await runBrief(page, "a held brief at the harbor");
+    const busy = inputsPanel(page).getByRole("button", { name: "Reading the brief…", exact: true });
+    await expect(busy).toHaveAttribute("aria-busy", "true");
+    for (const each of others) {
+      await expect(each).toHaveAttribute("aria-disabled", "true");
+      await expect(each).toHaveAccessibleDescription(WAIT);
+    }
+    // The chips stay usable while an action runs (R4-56): "Warmer" commits a new design.
+    const warmer = chipButton(page, "Warmer");
+    await expect(warmer).not.toHaveAttribute("aria-disabled", "true");
+    const lot = await lotId(page).textContent();
+    await warmer.click();
+    await expect(lotId(page)).not.toHaveText(lot ?? "");
+    await settled(page);
+    await expect(busy).toHaveAttribute("aria-busy", "true");
+
+    await release();
+    await expectBriefLines(page, [SHARED_LINE]);
+    for (const each of others) {
+      await expect(each).not.toHaveAttribute("aria-disabled", "true");
+      await expect(each).not.toHaveAccessibleDescription(WAIT);
+    }
   });
 });
 
@@ -595,6 +653,9 @@ test.describe("10.2 the on-device model", () => {
   const briefJson = JSON.stringify(BRIEF_OUT);
   const download = (page: Page) =>
     inputsPanel(page).getByRole("button", { name: "Download the model", exact: true });
+  /** Lets the fake model's download go on past the fraction it holds at. */
+  const releaseDownload = (page: Page) =>
+    page.evaluate(() => (window as unknown as LmHost).__lmDownloadRelease());
 
   test("F-DEV-01 with the switch on, an available model reads the brief on the device", async ({
     page,
@@ -618,10 +679,13 @@ test.describe("10.2 the on-device model", () => {
   test("F-DEV-02 a model that needs a download falls to the shared quota until it is downloaded", async ({
     page,
   }) => {
+    // The fake holds the download at 50% until the test has read that line, so the line cannot
+    // pass before the test sees it when the machine is loaded.
     await fakeLanguageModel(page, {
       state: "downloadable",
       reply: briefJson,
       download: [0, 0.5, 1],
+      holdDownload: [0.5],
     });
     await answerShared(page, "brief", sharedOk("brief", BRIEF_OUT));
     await openAt(page);
@@ -632,6 +696,7 @@ test.describe("10.2 the on-device model", () => {
     await expectBriefLines(page, [NOT_DOWNLOADED, SHARED_LINE]);
     await download(page).click();
     await expect(aiSettings(page)).toContainText("Downloading the model: 50%.");
+    await releaseDownload(page);
     await expect(aiSettings(page)).toContainText("Ready on this device.");
     await expect(download(page)).toHaveCount(0);
     const result = await new AxeBuilder({ page })
@@ -644,15 +709,22 @@ test.describe("10.2 the on-device model", () => {
   });
 
   test("the download's progress survives closing and reopening AI settings", async ({ page }) => {
-    await fakeLanguageModel(page, { state: "downloadable", download: [0, 0.5, 1] });
+    // Held at 0% and at 50%, so neither line can pass before the test reads it.
+    await fakeLanguageModel(page, {
+      state: "downloadable",
+      download: [0, 0.5, 1],
+      holdDownload: [0, 0.5],
+    });
     await openAt(page);
     await openAiSettings(page);
     await download(page).click();
     await expect(aiSettings(page)).toContainText("Downloading the model: 0%.");
+    await releaseDownload(page);
     await aiSettingsButton(page).click();
     await expect(aiSettings(page)).toHaveCount(0);
     await openAiSettings(page);
     await expect(aiSettings(page)).toContainText("Downloading the model: 50%.");
+    await releaseDownload(page);
     await expect(aiSettings(page)).toContainText("Ready on this device.");
   });
 
@@ -1000,5 +1072,296 @@ test.describe("R4-56 keys and focus in the new sections", () => {
     await expectImageLines(page, ["Canceled. Nothing changed."]);
     await expect(readVibe(page)).toBeFocused();
     await releaseVibe();
+  });
+});
+
+test.describe("R4-53 to R4-57 accessibility of the new sections", () => {
+  const DESKTOP = { width: 1280, height: 800 };
+  const PHONE = { width: 360, height: 740 };
+  const VIEWPORTS = [DESKTOP, PHONE] as const;
+  const MODES = ["light", "dark"] as const;
+  const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+  const ONE_FAIL_LINK = `#s=${encodeSpec(ONE_FAIL)}`;
+  const CHIP_LABELS = ["Warmer", "Cooler", "Bolder", "Quieter", "Softer", "Sharper", "Airier"];
+  /** 13.6's sentence for a callback whose sign-in did not start in this tab. */
+  const NOT_STARTED =
+    "This sign-in did not start here, so dyelot did not use it. Start again from Connect.";
+
+  const isPhone = (page: Page) => (page.viewportSize()?.width ?? DESKTOP.width) < 640;
+  const panelButton = (page: Page, name: string) =>
+    inputsPanel(page).getByRole("button", { name, exact: true });
+
+  /** Turns the canvas dark when `mode` is dark: below 640 px the switch sits in View (7.4). */
+  async function canvasMode(page: Page, mode: "light" | "dark"): Promise<void> {
+    if (mode === "light") return;
+    if (isPhone(page)) await button(page, "View").click();
+    await modeSwitch(page).click();
+    await expect(modeSwitch(page)).toHaveAttribute("aria-checked", "true");
+  }
+
+  /** Opens a drawer below 1024 px; at 1280 px both panels are open. */
+  async function openPanel(page: Page, name: "Inputs" | "Inspector"): Promise<void> {
+    if ((page.viewportSize()?.width ?? DESKTOP.width) >= 1280) return;
+    await button(page, name).click();
+    await expect(page.getByRole("heading", { name, exact: true })).toBeFocused();
+  }
+
+  /**
+   * The inputs panel with each new part shown: the brief's result with its sentence, the image's
+   * swatches, AI settings open, a disabled chip and a busy action. It returns the busy action's
+   * release.
+   */
+  async function inputsState(page: Page): Promise<() => Promise<void>> {
+    await answerShared(page, "brief", sharedFailure("not-configured"));
+    await runBrief(page, CALM);
+    await expectBriefLines(page, [SHARED_SENTENCES["not-configured"], lexiconLine(CALM)]);
+    await chooseImage(page, "four-colors.png");
+    await expect(swatchItems(page)).toHaveCount(4);
+    // "Bolder" until chroma is vivid, where the chip is disabled and says why.
+    const bolder = chipButton(page, "Bolder");
+    for (let press = 0; press < CHROMA_LEVELS.length; press++) {
+      if ((await bolder.getAttribute("aria-disabled")) === "true") break;
+      const lot = await lotId(page).textContent();
+      await bolder.click();
+      await expect(lotId(page)).not.toHaveText(lot ?? "");
+      await settled(page);
+    }
+    await expect(bolder).toHaveAttribute("aria-disabled", "true");
+    await expect(bolder).toHaveAccessibleDescription("Chroma is already vivid.");
+    await openAiSettings(page);
+    const release = await holdShared(page, "refine", sharedFailure("not-configured"));
+    await refineField(page).fill("warmer");
+    await refineButton(page).click();
+    await expect(panelButton(page, "Refining…")).toHaveAttribute("aria-busy", "true");
+    return release;
+  }
+
+  /**
+   * The inspector with the rationale written and the top findings explained.
+   */
+  async function inspectorState(page: Page): Promise<void> {
+    await answerShared(page, "rationale", sharedOk("rationale"));
+    await writeRationale(page).click();
+    await expect(rationaleLines(page).locator("p")).toHaveText([SHARED_LINE]);
+    // The rationale's commit regenerates the design (ONE_FAIL becomes the design its parameters
+    // make), and a design that lands after an explanation clears it (controller ruling on Task
+    // 4.11's review): the critique asks once the commit is in the link and the canvas has settled.
+    await expect
+      .poll(async () => (await hashedSpec(page)).direction?.thesis)
+      .toBe(OUTPUTS.rationale.thesis);
+    await settled(page);
+    await explainTop(page);
+  }
+
+  /** Explains the top findings of the held design. */
+  async function explainTop(page: Page): Promise<void> {
+    await answerShared(page, "critique", sharedOk("critique"));
+    await explainFindings(page).click();
+    await expect(findingsLines(page).locator("p")).toHaveText([SHARED_LINE]);
+    await expect(explanation(page).getByRole("listitem")).toHaveCount(OUTPUTS.critique.top.length);
+  }
+
+  /** The box a click on `control` reaches: its own, joined with its labels' when it has any. */
+  const hitArea = (control: Locator) =>
+    control.evaluate((element) => {
+      const labels = [...((element as HTMLInputElement).labels ?? [])];
+      const boxes = [element, ...labels].map((each) => each.getBoundingClientRect());
+      const width = Math.max(...boxes.map((b) => b.right)) - Math.min(...boxes.map((b) => b.left));
+      const height = Math.max(...boxes.map((b) => b.bottom)) - Math.min(...boxes.map((b) => b.top));
+      return { width, height };
+    });
+
+  async function expectTargets(controls: ReadonlyArray<readonly [string, Locator]>, where: string) {
+    for (const [name, control] of controls) {
+      await expect(control, `${name} (${where})`).toHaveCount(1);
+      const area = await hitArea(control);
+      expect(area.width, `${name} width (${where})`).toBeGreaterThanOrEqual(24);
+      expect(area.height, `${name} height (${where})`).toBeGreaterThanOrEqual(24);
+    }
+  }
+
+  /** What scrolls sideways under `selector`: itself or a scroll container inside it. */
+  const sideways = (page: Page, selector: string) =>
+    page.evaluate((selector) => {
+      const root = document.querySelector(selector);
+      if (root === null) return [`${selector} is missing`];
+      return [root, ...root.querySelectorAll("*")]
+        .filter((element) => {
+          const overflow = getComputedStyle(element).overflowX;
+          return element === root || overflow === "auto" || overflow === "scroll";
+        })
+        .filter((element) => element.scrollWidth > element.clientWidth)
+        .map((element) => `${element.outerHTML.slice(0, 80)} ${element.scrollWidth}`);
+    }, selector);
+  const pageSideways = (page: Page) =>
+    page.evaluate(
+      () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    );
+
+  for (const viewport of VIEWPORTS) {
+    for (const mode of MODES) {
+      test(`F-A11Y4-01 axe finds no violation in the studio's new sections at ${viewport.width} px, canvas in ${mode}`, async ({
+        page,
+      }) => {
+        test.setTimeout(150_000);
+        await page.setViewportSize(viewport);
+        // A model that needs a download: AI settings show the switch and "Download the model".
+        await fakeLanguageModel(page, { state: "downloadable" });
+        await openAt(page);
+        await canvasMode(page, mode);
+        await openPanel(page, "Inputs");
+        const release = await inputsState(page);
+        await canvasAtRest(page);
+        const inputs = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+        expect(inputs.violations, "the inputs panel").toEqual([]);
+        await release();
+
+        // ONE_FAIL fails a contrast check on the canvas by design: axe reads the inspector.
+        await page.goto("about:blank");
+        await openStudio(page, ONE_FAIL_LINK);
+        await canvasMode(page, mode);
+        await openPanel(page, "Inspector");
+        await inspectorState(page);
+        const inspector = await new AxeBuilder({ page })
+          .include("aside#studio-inspector")
+          .withTags(AXE_TAGS)
+          .analyze();
+        expect(inspector.violations, "the inspector").toEqual([]);
+      });
+
+      test(`F-A11Y4-01 axe finds no violation on /connect and on /connect/callback with an error at ${viewport.width} px, ${mode}`, async ({
+        page,
+      }) => {
+        await page.setViewportSize(viewport);
+        await page.emulateMedia({ colorScheme: mode });
+        await page.goto("/connect");
+        await expect(button(page, "Continue to OpenRouter")).toBeVisible();
+        const connect = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+        expect(connect.violations, "/connect").toEqual([]);
+        await page.goto(`/connect/callback?code=C&state=${"A".repeat(22)}`);
+        await expect(page.getByRole("main").getByRole("alert")).toContainText(NOT_STARTED);
+        const callback = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+        expect(callback.violations, "/connect/callback").toEqual([]);
+      });
+    }
+  }
+
+  for (const viewport of VIEWPORTS) {
+    test(`F-A11Y4-03 each result region is a status region, each new control is a 24 px target and the drawer fits, at ${viewport.width} px`, async ({
+      page,
+    }) => {
+      test.setTimeout(150_000);
+      const where = `${viewport.width} px`;
+      await page.setViewportSize(viewport);
+      await fakeLanguageModel(page, { state: "downloadable" });
+      await openStudio(page, ONE_FAIL_LINK);
+      // The five actions' result regions, each a status region (13).
+      const regions = page.locator("[data-ai-lines]");
+      await expect(regions).toHaveCount(5);
+      for (const region of await regions.all()) {
+        await expect(region).toHaveAttribute("role", "status");
+      }
+
+      await openPanel(page, "Inspector");
+      // ONE_FAIL's own explanation: its contrast error carries a fix button.
+      await explainTop(page);
+      const fixes = explanation(page).getByRole("button");
+      expect(await fixes.count()).toBeGreaterThan(0);
+      await expectTargets(
+        [
+          ["Explain the top findings", explainFindings(page)],
+          ...(await fixes.all()).map((fix, i) => [`fix ${i}`, fix] as const),
+        ],
+        where,
+      );
+      await inspectorState(page);
+      await expectTargets([["Write the rationale", writeRationale(page)]], where);
+      if (isPhone(page)) await page.keyboard.press("Escape");
+
+      await openPanel(page, "Inputs");
+      const release = await inputsState(page);
+      await expectTargets(
+        [
+          ["the brief", briefField(page)],
+          ["Read the brief", readBrief(page)],
+          ["AI settings", aiSettingsButton(page)],
+          ["the on-device switch", onDeviceSwitch(page)],
+          ["Download the model", panelButton(page, "Download the model")],
+          [
+            "Connect your OpenRouter key",
+            inputsPanel(page).getByRole("link", {
+              name: "Connect your OpenRouter key",
+              exact: true,
+            }),
+          ],
+          ["Choose an image", imageInput(page)],
+          ["Read the vibe", readVibe(page)],
+          ...CHIP_LABELS.map((name) => [name, chipButton(page, name)] as const),
+          ["Refine in words", refineField(page)],
+          ["Refining…", panelButton(page, "Refining…")],
+          ["Cancel", panelButton(page, "Cancel")],
+        ],
+        where,
+      );
+      if (isPhone(page)) {
+        // The drawer, with the brief's sentences, AI settings and the swatches shown, fits.
+        expect(await sideways(page, "aside#studio-inputs"), "the inputs drawer").toEqual([]);
+        expect(await pageSideways(page), "the page").toBeLessThanOrEqual(0);
+      }
+      await release();
+
+      // With a key, AI settings offer "Disconnect" in the link's place.
+      await page.evaluate((key) => sessionStorage.setItem("dyelot:openrouter-key", key), TEST_KEY);
+      await page.goto("about:blank");
+      await openStudio(page, ONE_FAIL_LINK);
+      await openPanel(page, "Inputs");
+      await openAiSettings(page);
+      await expectTargets([["Disconnect", panelButton(page, "Disconnect")]], where);
+    });
+  }
+
+  test("F-A11Y4-03 /connect and /connect/callback fit 360 px, and their controls are 24 px targets", async ({
+    page,
+  }) => {
+    for (const viewport of VIEWPORTS) {
+      const where = `${viewport.width} px`;
+      await page.setViewportSize(viewport);
+      await page.goto("/connect");
+      await expect(button(page, "Continue to OpenRouter")).toBeVisible();
+      await expectTargets(
+        [
+          [
+            "Remember on this device",
+            page.getByRole("checkbox", { name: "Remember on this device", exact: true }),
+          ],
+          ["Continue to OpenRouter", button(page, "Continue to OpenRouter")],
+          [
+            "Back to the studio",
+            page.getByRole("main").getByRole("link", { name: "Back to the studio", exact: true }),
+          ],
+        ],
+        `/connect, ${where}`,
+      );
+      if (viewport === PHONE) expect(await pageSideways(page), "/connect").toBeLessThanOrEqual(0);
+
+      await page.goto(`/connect/callback?code=C&state=${"A".repeat(22)}`);
+      await expect(page.getByRole("main").getByRole("alert")).toContainText(NOT_STARTED);
+      await expectTargets(
+        [
+          [
+            "Start again",
+            page.getByRole("main").getByRole("link", { name: "Start again", exact: true }),
+          ],
+          [
+            "Back to the studio",
+            page.getByRole("main").getByRole("link", { name: "Back to the studio", exact: true }),
+          ],
+        ],
+        `/connect/callback, ${where}`,
+      );
+      if (viewport === PHONE) {
+        expect(await pageSideways(page), "/connect/callback").toBeLessThanOrEqual(0);
+      }
+    }
   });
 });
