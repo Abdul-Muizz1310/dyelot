@@ -712,8 +712,8 @@ console errors, a render included. Every flow that renders answers `POST https:/
 `@react-three/postprocessing`, `gsap`, `@remotion/cli`, `@remotion/three`, `lenis`, `@paper-design/shaders` or
 `detect-gpu`. Imports: `three`, `three/*` and `@react-three/*` only under `src/features/explore/`; `remotion` and
 `@remotion/player` only under `src/flavor/remotion/` and `src/features/flavor/`; `@remotion/web-renderer` and
-`mediabunny` only through `import()` in `src/features/flavor/`. A Dependabot group keeps the three Remotion packages
-together, and one keeps three, `@types/three` and the two `@react-three` packages together. **(decision K2; the
+`mediabunny` only through `import()` in `src/features/flavor/`. Two Dependabot groups keep the Remotion packages with
+`mediabunny`, and three with `@types/three` and the two `@react-three` packages (12.3). **(decision K2; the
 Dependabot groups drafter)**
 
 **R5-61 · Laziness.** The first load of `/studio` fetches no chunk that holds three, R3F, Remotion or Mediabunny code;
@@ -830,8 +830,9 @@ mark, none of the banned words. A unit case checks every exported copy table (C-
   randomness, environment, locale or Web Crypto.
 - **I-M5-06 · The shipped sources are the run sources.** The four raw files of `flavor/` equal `src/flavor/`'s byte for
   byte, and `src/flavor/` imports nothing outside itself but `react` and `remotion`.
-- **I-M5-07 · The loop is seamless and deterministic.** A draw at fraction 0 and at fraction 1 give the same pixels, and
-  the same stops and seed give the same pixels on any mount.
+- **I-M5-07 · The loop is seamless and deterministic.** The field depends on time only through the cosine and sine of
+  whole multiples of the phase, so a draw at fraction 0 and one at fraction 1 are the same image, and the same stops and
+  seed give the same image on any mount.
 - **I-M5-08 · M1 to M4 hold.** Every earlier case passes except the changes of section 16, every golden holds, and a
   design without `motionTokens` keeps its spec id.
 - **I-M5-09 · No test touches the network**, and every render's usage POST is answered by `page.route`.
@@ -1116,6 +1117,7 @@ function cameraOf(position: readonly [number, number, number]): Camera;       //
 function slicePath(points: readonly SlicePoint[], size: number): string;      // the SVG path of one outline
 function dotAt(oklch: Oklch, size: number): readonly [x: number, y: number];   // a step's place in the flat view
 function sceneSummary(name: string, mode: Mode, gamut: SolidGamut, l: number): string;   // 8.3
+const EXPLORE_LINES: Readonly<Record<"loading" | "no-webgl2" | "context-lost" | "restart" | "bad-link", string>>;   // 8.4, frozen
 
 // src/features/explore/webgl.ts
 function supportsWebgl2(create?: () => HTMLCanvasElement): boolean;
@@ -1158,6 +1160,7 @@ function nextAnnounced(last: number, progress: number): number | null;       // 
 function progressLine(job: VideoJob, percent: number): string;               // "Rendering: 30%." / "Recording: 30%."
 function doneLine(fileName: string): string;                                  // "Downloaded <file name>."
 const VIDEO_LINES: Readonly<Record<string, string>>;                          // 13.3's sentences, frozen
+const FLAVOR_LINES: Readonly<Record<"no-webgl2" | "context-lost" | "restart" | "still" | "pause", string>>;   // 6.4, frozen
 
 // src/features/flavor/render.ts (R5-53): the renderer's shell, dependencies injected
 type RenderDeps = { load(): Promise<typeof import("@remotion/web-renderer")>; signal: AbortSignal;
@@ -1305,7 +1308,8 @@ holding its colors. With `S` = `storySteps(HERO)`:
 | `receipt` | A receipt | Every export carries a receipt. This design passes `<passed>` of `<required>` required contrast checks. | The numbers `<passed> / <required>` with the label "required checks pass" |
 
 `<hex>` is `toHex(oklchToRgb(spec.color.params.primary, "srgb"))` and `<oklch>` `formatOklch` of the same seed; for
-`HERO` they read `#f66c6d` and `oklch(0.7000 0.1700 22.00)`. A family name is the catalog's `family`, or the id for a family
+`HERO` they read `#f66c6d` and `oklch(0.7000 0.1700 22.00)`. `storySteps` needs a locked primary seed, which every hero
+design has; a spec without one is a `RangeError`. A family name is the catalog's `family`, or the id for a family
 outside the catalog. `<passed>` and `<required>` are `summarize(measureSpec(spec), lintSpec(spec),
 spec.color.params.gamut).contrast.requiredPass` and `.required`.
 
@@ -1374,8 +1378,8 @@ and zoom to 0.05 (clamped to 0.5 to 2). `OrbitControls` takes the target (0, 0, 
 
 The 3D panel is `[data-explorer]`, a 4:3 box with the attributes `data-explorer-state` (`loading`, `3d` or `flat`),
 `data-explorer-reason` (`no-webgl2` or `context-lost`, while `flat`), `data-gamut`, `data-mode`, `data-slice` (2
-decimals), `data-turn`, `data-tilt`, `data-zoom` (2 decimals), `data-points` (88), `data-tubes` (8) and
-`data-solid-vertices` (6 534 for 32 steps). `<Canvas frameloop="demand" dpr={[1, 1.5]} gl={{ antialias: true, alpha: true
+decimals), `data-turn`, `data-tilt`, `data-zoom` (2 decimals), `data-damping` (`true` or `false`), `data-points` (88),
+`data-tubes` (8) and `data-solid-vertices` (6534 for 32 steps). `<Canvas frameloop="demand" dpr={[1, 1.5]} gl={{ antialias: true, alpha: true
 }} camera={{ fov: 40, near: 0.1, far: 20, position }}>` sits in an `aria-hidden="true"` wrapper; `onCreated` sets
 `gl.localClippingEnabled = true` and listens for `webglcontextlost`. Under the panel, the summary
 `sceneSummary(name, mode, gamut, l)`: "Madder: 88 steps of the light scales in OKLab, inside the sRGB gamut solid, cut at
@@ -1472,7 +1476,10 @@ it starts on when the OS asks for reduced motion. Then five `figure`s:
 | Tab indicator | Tab indicator: the bouncy spring | the bar slides under the tabs "One", "Two" and "Three" | Replay the tab indicator |
 | Hover | Hover: fast and standard | lifts 2 px | Replay the hover |
 
-"Replay" remounts its preview with a new key (the switch and the tab indicator move to their next state). The switch
+"Replay" remounts its preview with a new key (the switch and the tab indicator move to their next state). Each
+preview's `figure` carries `data-preview` (`dialog`, `toast`, `switch`, `tabs` or `hover`) and `data-transition`, what it
+runs: `tween:<ms>:<easing>` for a duration and an easing (the dialog's entrance, the hover), `spring:<name>` for a spring,
+and, with "Reduced motion" on, `linear:<fast ms>` in place of every spring. The switch
 inside the preview is labeled "Example switch" and the tabs form a tab list labeled "Example tabs". With "Reduced motion"
 on, the previews' `MotionConfig` is `reducedMotion="always"` and each spring transition becomes
 `reducedTransition(spec)`: `{ duration: fast / 1000, ease: "linear" }`.
@@ -1534,7 +1541,9 @@ share="dyelot-morph" default="none">`), the hex and the ratio, as M2 draws them.
 
 Escape with focus inside the row closes it. After it opens, focus is on its button; after it closes (button, Escape, or
 another row opening), focus is on the compact button of the step it showed. A design change that keeps the step keeps the
-row open with the new values; a mode toggle keeps it open in the new mode.
+row open with the new values; a mode toggle keeps it open in the new mode. Each palette's 11 step buttons are one Tab
+stop (a roving `tabIndex`): ↑ and ↓ move to the step above or below in that palette, Home and End to its first and last,
+and Enter or Space opens (buttons take Space and the arrows themselves, R2-15).
 
 ### 10.3 The CSS
 
@@ -1579,7 +1588,8 @@ of F-CANVAS-07 now run for an OS change too.
 ```
 
 `props` is `useMemo(() => brand.brandProps(spec, mode), [spec, mode])`, `brand` the loaded `@/export`; `reduced` is the OS
-setting or the canvas's "Reduce motion". The Player has no `audio`, so `muted` changes nothing; it autoplays only when
+setting or the canvas's "Reduce motion". The Player's wrapper is `[data-brand-player]` with `data-autoplay` (`true` or
+`false`) and `data-mode`. The Player has no `audio`, so `muted` changes nothing; it autoplays only when
 `reduced` is false. The dialog loads `BrandPlayer` with `dynamic(() => import("./BrandPlayer"), { ssr: false, loading:
 () => <p>Loading the preview…</p> })`.
 
@@ -1741,8 +1751,9 @@ change.
 `next.config.ts`'s `turbopack.rules` hold `*.mjs`, `*.md` and `*.tsx`, each `{ condition: { query: /[?&]raw(?=&|$)/ },
 type: "raw" }`; no `experimental` key, `cacheComponents` stays off. `src/types/raw.d.ts` declares `"*.mjs?raw"`,
 `"*.md?raw"` and `"*.tsx?raw"`, each a default `string`. `tsconfig.json`'s `include` adds `src/flavor/*.mjs`.
-`.github/dependabot.yml` (created if absent) groups `remotion`, `@remotion/player` and `@remotion/web-renderer` as
-`remotion`, and `three`, `@types/three`, `@react-three/fiber` and `@react-three/drei` as `three`.
+`.github/dependabot.yml`'s npm entry gains two groups beside `react` and `playwright`, by exact names: `remotion`
+(`remotion`, `@remotion/player`, `@remotion/web-renderer`, `mediabunny`) and `three` (`three`, `@types/three`,
+`@react-three/fiber`, `@react-three/drei`).
 
 ## 13. The studio's new UI (Tasks 5.4 and 5.7 to 5.10)
 
@@ -1821,9 +1832,521 @@ The Scales section's step rows are the buttons of 10.2. After the palettes, the 
 ### 13.8 Keyboard and focus order
 
 The toolbar's Tab order ends "Undo", "Redo", "Copy link", "Export", "Flavor". In the inputs panel, "Edit in the motion
-lab" follows "Motion feel" and precedes the Steer section. In the inspector, each Scales step button is a stop, in
-palette order, then "See these scales in the explorer"; an open token row's stops are its button, then "Copy". The Flavor
+lab" follows "Motion feel" and precedes the Steer section. In the inspector, each palette of Scales is one stop
+(its focused step's button), in palette order, then "See these scales in the explorer"; an open token row adds "Copy"
+after its button. The Flavor
 dialog's order is the Background section's Pause (when shown) and "Restart the animation" (when shown), the Player's
 controls, the render button or the note's buttons, "Cancel" while busy, the record button, "Cancel" while busy, and
 "Close". Space, ← and → in the lab's and the explorer's fields type or move the slider as the control does; the studio's
 shortcuts do not run outside the studio.
+
+## 14. Cases
+
+Each case below becomes a test whose title starts with its id. A case that names a task belongs to that task, and every
+other case to the task of its subsection. A property case that generates designs runs with `PROPERTY_TIMEOUT`
+(`tests/unit/spec/support.ts`), and its file joins `SLOW_CORE_TESTS` or `SLOW_WEB_TESTS` when its measured solo time
+reaches 10 s (R2-31). The flows compute what a page must show by importing `@/engine`, `@/spec` and `@/export` in Node
+(with `tests/e2e/raw-hooks.mjs` for `?raw`). "The render budget" and "the record budget" are 3 × the times probe 4 and
+probe 5 record.
+
+### 14.1 Engine color (Task 5.1)
+
+Tests: `tests/unit/engine/color/rec2020.test.ts`, `tests/unit/engine/color/solid.test.ts`,
+`tests/unit/engine/color/slice.test.ts`, with colorjs.io 0.7.1 as the oracle.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-COL5-01 | pass | `rec2020ToOklab` of `[1, 0, 0]` equals colorjs.io's `new Color("rec2020", [1, 0, 0]).to("oklab")`, (0.6870890420, 0.3327304291, 0.1494382314), within 1e-7 per coordinate; so do `[0, 1, 0]`, `[0, 0, 1]`, `[0.5, 0.5, 0.5]`, `[1, 1, 1]` (L 1, a and b within 1e-7 of 0) and `[0, 0, 0]` | ruling R5-06 |
+| C-COL5-02 | pass | Property, 1,000 runs, `seed: 5001`: for encoded triples in [−0.2, 1.2]³, `rec2020ToOklab` matches colorjs.io's `rec2020` within 1e-7, and `oklchToRec2020` of the result's OKLCH gives the triple back within 1e-9 | ruling R5-06 |
+| C-COL5-03 | pass | The transfer is the 2.4 power with the sign kept: the linear value of the channel 0.5 is 0.5^2.4 (0.1894645708) and of −0.5 its negative, as colorjs.io's `rec2020-linear` reads them, and not BT.2020's OETF value (0.2604) | ruling R5-06 |
+| C-COL5-04 | pass | `oklchToRec2020({ l: 1e103, c: 0, h: null })` gives null and never throws; a color in range gives three finite channels | ruling R5-06 |
+| C-COL5-05 | failure | `rec2020ToOklab("x")` and `rec2020ToOklab([1, 2])` throw `TypeError` and `[NaN, 0, 0]` `RangeError`, each naming `rec2020ToOklab`; `oklchToRec2020(null)` throws `TypeError` naming `oklchToRec2020` | ruling R5-06, R-05 |
+| C-SOLID-01 | pass | `gamutSolid("srgb", 2)` holds `gamut` `"srgb"`, `steps` 2, a `Float32Array` of 162 positions, a `Float32Array` of 162 colors and a `Uint16Array` of 144 indices | ruling R5-07 |
+| C-SOLID-02 | pass | Layout, with `steps` 2: vertex 7 is face 0 at `(i, j) = (1, 2)`, sRGB (0, 0.5, 1), so `colors[21..24]` is `[0, 0.5, 1]`; the first cell's six indices are `[0, 1, 3, 1, 4, 3]`; face 1 starts at vertex 9 with sRGB (1, 0, 0) | ruling R5-07 |
+| C-SOLID-03 | pass | In `gamutSolid("srgb", 32)` the vertex of (1, 1, 1) sits at `[0, 0.5, 0]`, (0, 0, 0) at `[0, −0.5, 0]`, and (1, 0, 0) at `[0.449726, 0.127955, 0.251693]`, each within 1e-5 | ruling R5-07, R5-08 |
+| C-SOLID-04 | pass | The sRGB solid's colors are its vertices' own channels; every color of the P3 and Rec. 2020 solids equals `gamutMap(<its OKLCH>, "srgb")` within 1e-6 and lies in [0, 1]; the Rec. 2020 solid's red vertex has the OKLab of C-COL5-01 (its position over 2) within 1e-5 | ruling R5-07 |
+| C-SOLID-05 | pass | Property, 200 runs, `seed: 5001`: for `steps` 1 to 8 and each gamut, the lengths follow R5-07's formulas, every index is below the vertex count, every color channel lies in [0, 1], and every `y` lies in [−0.5, 0.5] within 1e-5 | ruling R5-07 |
+| C-SOLID-06 | pass | White and black sit at the same place in all three solids (within 1e-5); the red vertex of the Rec. 2020 solid is farther from the axis than P3's, and P3's than sRGB's | ruling R5-07 |
+| C-SOLID-07 | failure | `gamutSolid(5, 32)` and `gamutSolid("srgb", "32")` throw `TypeError`; `gamutSolid("cmyk", 32)` and `steps` 0, 65, 2.5 and `NaN` throw `RangeError`; types first, so `gamutSolid(5, 0)` throws `TypeError`; each names `gamutSolid` | ruling R5-07, R-05 |
+| C-SOLID-08 | pass | `solidPosition({ l: 0.6, c: 0.1, h: 90 })` is `[0, 0.1, 0.2]` and `solidPosition({ l: 0.5, c: 0, h: null })` is `[0, 0, 0]`, within 1e-12 | ruling R5-08 |
+| C-SOLID-09 | failure | `solidPosition(null)` throws `TypeError` and `{ l: NaN, c: 0, h: 0 }` `RangeError`, each naming `solidPosition` | ruling R5-08, R-05 |
+| C-SLICE-01 | pass | `gamutSlice("srgb", 0.6)` holds 360 points, `h` 0 to 359 in order, frozen, each `c` equal to `round6(maxChroma(0.6, h, "srgb", 24))` | ruling R5-08 |
+| C-SLICE-02 | pass | At L 0.3, 0.5, 0.7 and 0.9, for every hue, sRGB's `c` ≤ P3's ≤ Rec. 2020's, within 1e-6 | ruling R5-08 |
+| C-SLICE-03 | pass | At L 0 and L 1 every `c` is at most 1e-6, for each gamut | ruling R5-08 |
+| C-SLICE-04 | pass | For Rec. 2020 at L 0.6 and the hues 0, 90, 180 and 270, colorjs.io reads `oklch(0.6 c h)` as inside `rec2020` (ε 1e-6) and `oklch(0.6 c+0.001 h)` as outside | ruling R5-06, R5-08 |
+| C-SLICE-05 | failure | `gamutSlice("srgb", l)` throws `RangeError` for `l` −0.01, 1.01, `NaN` and `Infinity`, and `TypeError` for `"1"`; a gamut of `3` throws `TypeError` and `"rec709"` `RangeError`; each names `gamutSlice` | ruling R5-08, R-05 |
+
+### 14.2 Engine motion and the studio's params (Task 5.2)
+
+Tests: `tests/unit/engine/tokens/motion-tokens.test.ts`, `tests/unit/engine/tokens/motion-presets.test.ts`,
+`tests/unit/engine/tokens/bezier.test.ts`, `tests/unit/engine/generate-m5.test.ts`,
+`tests/unit/engine/generate-motion-property.test.ts`, `tests/unit/features/studio/params-m5.test.ts`,
+`tests/unit/features/studio/protocol-m5.test.ts`, `tests/unit/features/studio/store-motion.test.ts` (M2's `StubClient`),
+and the amended `tests/unit/engine/entry.test.ts` and `tests/unit/export/entry.test.ts`.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-MOT5-01 | pass | `normalizeMotionTokens(motionTokens())` deep-equals `motionTokens()` and is deeply frozen; an input built with its keys in another order comes back in the name lists' order; a duration of 0.1234567 comes back 0.123457 | ruling R5-09 |
+| C-MOT5-02 | failure | `TypeError`, each message starting with `normalizeMotionTokens: tokens` and the path: `null`, `[]` and `"x"`; no `durations`; `durations.base` `"200"`; `easings.standard` an object; `springs.snappy.bounce` missing; with `name` given, the message starts with it | ruling R5-09, R-05 |
+| C-MOT5-03 | failure | `RangeError`, naming the path: a top-level key `budget`; a duration `long`; `durations.base` −1, `NaN` and `Infinity`; an easing of 3 or 5 numbers; `x1` −0.01 or 1.01; `visualDuration` 0; `bounce` −0.01 or 1.01. A `y1` of 1000 passes. Types first: tokens holding both a key `budget` and a string duration throw the `TypeError` | ruling R5-09, R-05 |
+| C-MOT5-04 | pass | `generateSystem(DEFAULT_PARAMS, "seed-1")` deep-equals `SPEC`; with `motionTokens: motionTokens()` it deep-equals `SPEC` and has `SPEC`'s spec id; with `CUSTOM_TOKENS` its `motion` is `{ feel, ...CUSTOM_TOKENS }` and every other section deep-equals `SPEC`'s | ruling R5-10, I-M5-08 |
+| C-MOT5-05 | failure | `generateSystem` with `motionTokens: 5` throws `TypeError` naming `generateSystem: params.motionTokens`, and with `durations.base` −1 `RangeError` naming `generateSystem: params.motionTokens.durations.base` | ruling R5-10, R-05 |
+| C-MOT5-06 | pass | `paramsOfSpec(SPEC).params` has no `motionTokens` key; `paramsOfSpec(CUSTOM).params.motionTokens` deep-equals `normalizeMotionTokens(CUSTOM_TOKENS)`; `generateSystem` of those params and `CUSTOM`'s seed deep-equals `CUSTOM` | ruling R5-10 |
+| C-MOT5-07 | pass | `sameMotionTokens(motionTokens(), SPEC.motion)` is true (the `feel` key is not read); one number 1e-6 away makes it false; keys in another order keep it true | ruling R5-10 |
+| C-MOT5-08 | pass | Property, 100 runs, `seed: 5002`: for a preset's parameters, a seed from `fc.string({ minLength: 1, maxLength: 20 })` and tokens from `tokensArb`, `withMotion(generateSystem(P, s), T)` deep-equals `generateSystem({ ...P, motionTokens: T }, s)`, and their spec ids are equal | ruling R5-11 |
+| C-MOT5-09 | pass | `withMotion(SPEC, motionTokens())` deep-equals `SPEC`; `withMotion(SPEC, CUSTOM_TOKENS)` passes `DesignSpecSchema`, and every section but `motion` equals `SPEC`'s, `meta.createdWith` included | ruling R5-11 |
+| C-MOT5-10 | failure | `withMotion(null, CUSTOM_TOKENS)` throws `TypeError` naming `withMotion: spec`; a spec with `version: "x"` throws `RangeError` naming `withMotion`; `withMotion(SPEC, {})` throws `TypeError` naming `withMotion: tokens.durations`; the spec first, so `withMotion(null, null)` names `withMotion: spec` | ruling R5-11, R-05 |
+| C-MOT5-11 | pass | `bezierPoints([0.2, 0, 0, 1], 2)` is `[[0, 0], [0.2, 0.5], [1, 1]]`; `bezierPoints([0, 0, 1, 1], 4)` has 5 points with `x === y`; a `y` that rounds to −0 is written 0 (`Object.is`) | ruling R5-13 |
+| C-MOT5-12 | failure | `bezierPoints("x", 4)` and `bezierPoints([0.2, 0, 0, 1], "4")` throw `TypeError`; three numbers, `x1` 1.2, a `NaN`, and `segments` 1, 257 and 2.5 throw `RangeError`; each names `bezierPoints` | ruling R5-13, R-05 |
+| C-MOT5-13 | failure | `sameMotionTokens(null, motionTokens())` and `sameMotionTokens(motionTokens(), { durations: {} })` (a group without its names) throw `TypeError` naming `sameMotionTokens`; it has no domain beyond its types | ruling R5-10, R-05 |
+| C-MOT5-RF5 | pass | Property, 300 runs, `seed: 5002`, over tokens at their edges (durations 0 and 2,000; `y` −2 and 3; `visualDuration` 0.01 and 5; `bounce` 0 and 1) and the lab's caps: `generateSystem`, `themeVars`, `motionFiles` and `springCurve` of every spring succeed, and `motion.css` holds one `linear(` per spring | RF5, ruling R5-09 |
+| C-PRE5-01 | pass | `MOTION_PRESET_IDS` is `["dyelot", "productive", "expressive", "gentle", "snappy"]`, frozen; `MOTION_PRESETS` is deeply frozen and each entry's `id`, `label`, `note` and `tokens` equal R5-12's table | ruling R5-12 |
+| C-PRE5-02 | pass | `MOTION_PRESETS.dyelot.tokens` deep-equals `motionTokens()`; each preset's tokens come back unchanged from `normalizeMotionTokens` and fit `LAB_BOUNDS` | ruling R5-12 |
+| C-PRE5-03 | pass | `motionPresetOf` gives each preset's id for its tokens, `"dyelot"` for `motionTokens()`, and `null` for `CUSTOM_TOKENS` and for `productive` with one duration plus 1; no id, label or note holds "material", "carbon", "fluent", "tailwind", "apple", "ibm", "google" or "microsoft" in any case | ruling R5-12 |
+| C-PRE5-04 | failure | `motionPresetOf(null)` throws `TypeError` and tokens with `bounce` 2 `RangeError`, each naming `motionPresetOf` | ruling R5-12, R-05 |
+| C-STUD5-01 | pass | `DIRECTION_PARAM_KEYS` ends with `"motionTokens"`; `parseParams({ ...freshParams(), motionTokens: CUSTOM_TOKENS })` keeps the tokens; `motionTokens` of `{}` or with `bounce` 2 gives `null` | ruling R5-14 |
+| C-STUD5-02 | pass | `mergeParams(P, { motionTokens: CUSTOM_TOKENS })` sets the whole set; `{ motionTokens: undefined }` removes the key; `{ motionTokens: 5 }` throws `TypeError` naming the caller | ruling R5-14 |
+| C-STUD5-03 | pass | `touchesPreset(P, { ...P, motionTokens: CUSTOM_TOKENS })` is false; `applyPreset({ ...P, motionTokens: CUSTOM_TOKENS }, "editorial").motionTokens` is `CUSTOM_TOKENS` | ruling R5-14 |
+| C-STUD5-04 | pass | `runGenerate({ id: 4, params: { ...DEFAULT_PARAMS, motionTokens: CUSTOM_TOKENS }, seed: "seed-1" })` replies `{ id: 4, ok: true, spec }` with `CUSTOM_TOKENS` in `spec.motion`; with `bounce` 2 it replies `{ id: 4, ok: false, error: { name: "RangeError", message } }`, the message starting `generateSystem: params.motionTokens`, and never throws | ruling R5-10, R5-14, I-M2-03 |
+| C-STUD5-05 | pass | `paramsMatchSpec(paramsOfSpec(CUSTOM).params, CUSTOM)` is true, and `paramsMatchSpec(paramsOfSpec(SPEC).params, CUSTOM)` false | ruling R5-14 |
+| C-STUD5-06 | pass | The store loads `#s=<encodeSpec(CUSTOM)>`; `regenerate()` sends params whose `motionTokens` deep-equal `CUSTOM_TOKENS`, and the committed spec keeps them; `setParams({ motion: "calm" })` keeps them too | ruling R5-10, R5-14 |
+| C-ENTRY5-01 | pass | The engine entry's key set is M4's plus exactly the 17 names of 5.1, each the same object its home module exports; the spec entry's key set is unchanged | ruling R5-04 |
+| C-ENTRY5-02 | pass | The export entry's key set is exactly `buildBundle`, `RECEIPT_FORMAT`, `sha256`, `zipBundle`, `zipName`, `motionFiles`, `brandProps` and `mediaName`, each the same object its home module exports | ruling R5-28 |
+
+### 14.3 Flavor core (Task 5.3)
+
+Tests: `tests/unit/engine/flavor.test.ts` (core); `tests/unit/flavor/flavor.test.ts`,
+`tests/unit/flavor/flavor-mount.test.ts` (a fake WebGL2 context that records its calls, fake `requestAnimationFrame`,
+`IntersectionObserver`, `ResizeObserver` and `matchMedia`, fake timers), `tests/unit/flavor/flavor-react.test.tsx`,
+`tests/unit/flavor/brand-intro.test.ts` and `tests/unit/flavor/raw.test.ts` (web).
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-STOPS-01 | pass | `flavorStops(SPEC, "light")` is the light hexes of neutral 100, primary 200, secondary 400, accent 400 and primary 500, in that order, and `"dark"` the dark hexes of the same steps; `FLAVOR_STEPS` is that list, frozen | ruling R5-16 |
+| C-STOPS-02 | pass | Property, 100 runs, `seed: 5003`, over generated designs and both modes: every stop is a step hex of that mode (I-M5-01) | ruling R5-16, I-M5-01 |
+| C-STOPS-03 | failure | `flavorStops(null, "light")` and `flavorStops(SPEC, 1)` throw `TypeError`; `flavorStops(SPEC, "dim")` throws `RangeError`; a spec whose primary light scale lacks step 200 throws `TypeError` naming `flavorStops: spec.color.palettes.primary.light`; each names `flavorStops` | ruling R5-16, R-05 |
+| C-STOPS-04 | pass | `flavorSeed("0000000000000000")` is `[0, 0]`, `flavorSeed("8000000040000000")` `[50, 25]`, and `flavorSeed("ffffffffffffffff")` `[100, 100]` (4 decimals); two calls on `specId(SPEC)` agree | ruling R5-16 |
+| C-STOPS-05 | failure | `flavorSeed(5)` throws `TypeError`; `"abc"`, `"4177A34C3648BB5A"` and a 17-digit id throw `RangeError`; each names `flavorSeed` | ruling R5-16, R-05 |
+| C-FLAV-01 | pass | `LOOP_SECONDS` 10, `LOOP_FRAMES` 300, `GRAIN` 0.035, `MAX_DPR` 1.5, `MAX_BUFFER` `{ width: 1920, height: 1080 }` and `DEFAULT_FADE` `{ durationMs: 200, easing: [0.2, 0, 0, 1] }`, the objects frozen; `GRAIN_SVG` equals R5-20's text and `GRAIN_URL` `url("data:image/svg+xml,${encodeURIComponent(GRAIN_SVG)}")` | ruling R5-17, R5-20 |
+| C-FLAV-02 | pass | `flavorBackground(STOPS)` equals R5-20's two values with `STOPS`; with the five `var()` stops it equals the declarations of `flavor/flavor.css` (C-FEX-03), and `scanLine` finds nothing in those values | ruling R5-20 |
+| C-FLAV-03 | failure | `flavorBackground` with 4 stops, or a stop `"red"`, `"#fff"` or `"rgb(0 0 0)"`, throws `RangeError`; `null` and a stop `5` throw `TypeError`; each names `flavorBackground` | ruling R5-20, R-05 |
+| C-FLAV-04 | pass | `bufferSize(800, 450, 1)` is 800 × 450; `(800, 450, 2)` is 1200 × 675 (the ratio capped at 1.5); `(2000, 1200, 1.5)` is 1800 × 1080; `(0.2, 0.2, 1)` is 1 × 1 | ruling R5-18 |
+| C-FLAV-05 | failure | `bufferSize("1", 1, 1)` throws `TypeError`; −1, a ratio of 0 and `NaN` throw `RangeError`; each names `bufferSize` | ruling R5-18, R-05 |
+| C-FLAV-06 | pass | `easeAt([0, 0, 1, 1], x)` is `x` within 1e-6 at 0, 0.25, 0.5 and 1; `easeAt([0.2, 0, 0, 1], 0.2)` is 0.5 within 1e-5; every easing gives 0 at 0 and 1 at 1 | ruling R5-18 |
+| C-FLAV-07 | failure | `easeAt` with `x` −0.1, 1.1 or `NaN`, three numbers, or `x1` 1.5 throws `RangeError`; `"x"` throws `TypeError`; each names `easeAt` | ruling R5-18, R-05 |
+| C-FLAV-08 | pass | The shader texts: both start `#version 300 es`; the vertex text reads no attribute; the fragment declares the seven uniforms of R5-17 and no other; time enters only as `u_phase`, inside `cos` and `sin` of `1.0`, `2.0` and `3.0` times it, on circles of 0.60, 0.40 and 0.25; it holds the webgl-noise notice ("Permission is hereby granted, free of charge" and "Stefan Gustavson"); its four matrices, read from the text and applied in the test, take 200 random sRGB colors to `rgbToOklab(rgb, "srgb")` and back within 1e-6 | ruling R5-17, I-M5-07 |
+| C-FLAV-09 | pass | `supportsFlavor()` is false in jsdom, true when a canvas's `getContext("webgl2")` gives a context, and false, with no throw, when `getContext` throws | ruling R5-21 |
+| C-FLAV-10 | pass | `mountFlavor` on a canvas whose `getContext` gives null: `data-flavor` `fallback`, `data-flavor-reason` `no-webgl2`, `onFallback` called once with `"no-webgl2"`, the canvas's inline `background-image` set to `flavorBackground(stops).backgroundImage`, and no console output | ruling R5-19, R5-20, I-M5-03 |
+| C-FLAV-11 | pass | A fake context whose compile status is false, and one whose link status is false, each give the `no-webgl2` fallback with no throw and no console output | ruling R5-19 |
+| C-FLAV-12 | pass | With the fake context and the observer reporting the canvas visible: `data-flavor` `running`, a frame calls `drawArrays(TRIANGLES, 0, 3)` and uploads `u_from` and `u_to` as the stops over 255; `setPaused(true)` gives `paused` and no further frame request; `setPaused(false)` gives `running`; a hidden page gives `hidden`, the observer reporting it outside `offscreen`; paused and hidden together read `paused` | ruling R5-18 |
+| C-FLAV-13 | pass | `reducedMotion: true` gives `still`, one draw with `u_phase` 0 and no frame request; with `matchMedia` matching `reduce` the same; its `change` to no preference gives `running`; `setStops` while `still` draws once with `u_mix` 1 | ruling R5-18, I-M5-02 |
+| C-FLAV-14 | pass | `setStops(S2)` with `fade { durationMs: 100, easing: [0, 0, 1, 1] }` and the fake clock: `data-flavor-stops` reads `S2` at once; `u_mix` is 0.5 at 50 ms and 1 at 100 ms; a third `setStops` at 50 ms uploads as `u_from` the OKLab mix of the first two sets at 0.5, within 1e-4 per channel | ruling R5-18 |
+| C-FLAV-15 | pass | `drawAt(0.25)` draws with `u_phase` π / 2 and leaves `paused`; `drawAt(1)` uses 2π; `autoplay: false` mounts `paused` with one draw at phase 0; `size { width: 1280, height: 720 }` sets the canvas to 1280 × 720 and a resize changes nothing | ruling R5-21 |
+| C-FLAV-16 | pass | A `webglcontextlost` event is `preventDefault`ed, gives `fallback` with reason `context-lost`, calls `onFallback("context-lost")` once and stops the frames; a later `webglcontextrestored` changes nothing | ruling R5-19 |
+| C-FLAV-17 | pass | `destroy()` cancels the frame request, disconnects both observers, removes the `visibilitychange` and `change` listeners, calls `loseContext()` of `WEBGL_lose_context` and removes the three attributes; a second `destroy()` and a `setStops` after it do nothing and do not throw | ruling R5-21 |
+| C-FLAV-18 | failure | `mountFlavor(null, options)` and `mountFlavor(canvas, null)` throw `TypeError`; 4 stops, a stop `"#ggg000"`, a seed of one number, `fade.durationMs` −1, a size 1 × 720 or 4097 wide, and an option `loop` throw `RangeError`; `seed: ["1", 2]`, `reducedMotion: "yes"` and `onFallback: 5` throw `TypeError`; types first, so `{ stops: ["#000000"], seed: "x" }` throws `TypeError`; the handle's `setStops(["#000000"])` and `drawAt(1.5)` throw `RangeError` and `setPaused("no")` `TypeError`; each names its function | ruling R5-21, R-05 |
+| C-FLAV-19 | pass | `<Flavor>` renders one `canvas` with `aria-hidden="true"` and its `className`, calls `mountFlavor` once in an effect with its props, calls `setStops` once per stops change and `setPaused` per `paused` change, destroys on unmount, and mounts a new canvas for a new `key` | ruling R5-21 |
+| C-FLAV-20 | pass | Read through `?raw` in the `web` project, `flavor.mjs`, `flavor-react.tsx`, `remotion/brand-intro.tsx` and `remotion/root.tsx` equal their files byte for byte (probe 3) | ruling R5-05, R5-23, I-M5-06 |
+| C-BRAND-01 | pass | `BRAND_INTRO` is `{ width: 1280, height: 720, fps: 30, durationInFrames: 180 }` and `BRAND_TIMELINE` `{ name: 0, oneLiner: 6, palettes: 30, rowGap: 12, stepGap: 2, specimen: 96, receipt: 132 }` | ruling R5-22 |
+| C-BRAND-02 | pass | `springAt({ settleMs: 400, samples: [0, 0.5, 1] }, f, 30)` is 0 at frame −1, 0.25 at 3, 0.5 at 6, 1 at 12 and at 100 | ruling R5-22 |
+| C-BRAND-03 | failure | `springAt` with a frame of `NaN` throws `RangeError`; one sample or a `null` curve throws `TypeError`; each names `springAt` | ruling R5-22, R-05 |
+| C-BRAND-04 | pass | `brand-intro.tsx` opens with R5-22's four comment lines, and the text holds `https://remotion.pro/license` | ruling R5-22, R5-55 |
+| C-BRAND-05 | pass | `root.tsx` imports exactly `remotion`, `./brand-intro` and `./brand.json`; registers `brand-intro-light` and `brand-intro-dark` with `{...BRAND_INTRO}` and `brand.light` and `brand.dark`; and calls `registerRoot(RemotionRoot)` once | ruling R5-22 |
+
+### 14.4 Export (Task 5.4)
+
+Tests: `tests/unit/export/flavor.test.ts`, `tests/unit/export/brand.test.ts`, `tests/unit/export/media.test.ts`,
+`tests/unit/export/bundle-flavor.test.ts`, `tests/unit/export/checker-flavor.test.ts`, the amended
+`tests/unit/export/{golden,zip}.test.ts`, and `tests/unit/features/export/download.test.ts` (web).
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-FEX-01 | pass | `FLAVOR_SOURCES` holds exactly its four keys, each text equal to its file under `src/flavor/` byte for byte (read with `node:fs` in the test) | ruling R5-05, I-M5-06 |
+| C-FEX-02 | pass | `flavorFiles(SPEC, ORIGIN)` gives R5-24's nine paths in order; each text has no `\r`, no byte-order mark and no line ending in a space or a tab, and ends with one newline; the four raw files equal `FLAVOR_SOURCES` | ruling R5-24, R3-09 |
+| C-FEX-03 | pass | `flavor/flavor.css` is M3's three header comments for `SPEC`, the fourth comment of 12.1 and R5-20's rule with the five `var()` stops; `scanLine` finds nothing on any of its lines | ruling R5-20, R5-24 |
+| C-FEX-04 | pass | `flavor/palette.json` reads `{ name: "untitled", loopSeconds: 10, seed: flavorSeed(specId(SPEC)), fade: { durationMs: 200, easing: [0.2, 0, 0, 1] }, light: flavorStops(SPEC, "light"), dark: flavorStops(SPEC, "dark") }` with its keys in that order, written `JSON.stringify(value, null, 2)` plus a newline | ruling R5-24, R3-11 |
+| C-FEX-05 | pass | The two READMEs equal 12.1's texts with `SPEC`'s name, lot and link; `flavor/remotion/README.md` holds `https://remotion.pro/license`, "Companies of four or more people need a Remotion Company License." and `npm install remotion@4.0.539 @remotion/cli@4.0.539 react react-dom` | ruling R5-24, R5-55 |
+| C-FEX-06 | pass | `flavor/remotion/brand.json` is `{ light: brandProps(SPEC, "light"), dark: brandProps(SPEC, "dark") }` in R3-11's layout | ruling R5-24, R5-30 |
+| C-FEX-07 | pass | `brandProps(SPEC, "light")`: `name` `"untitled"`, `oneLiner` `""`, `lot` `lotTag(specId(SPEC))`, `checks` the `requiredPass` and `required` of `summarize(measureSpec(SPEC), lintSpec(SPEC), "srgb").contrast`, the palettes primary, secondary, accent, neutral and danger with their 11 light hexes, `colors` the eight light roles, `fonts` the light `--font-display` and `--font-body` of `themeVars`, and `motion` `{ baseMs: 200, standard: [0.2, 0, 0, 1], springs }` with `settleMs` 411, 706 and 1056; `JSON.parse(JSON.stringify(props))` deep-equals it | ruling R5-30 |
+| C-FEX-08 | failure | `brandProps(null, "light")` throws `TypeError` and `brandProps(SPEC, "dim")` `RangeError`, each naming `brandProps` | ruling R5-30, R-05 |
+| C-FEX-09 | pass | `mediaName(SPEC, "brand", "mp4")` is `untitled-<8 hex>-brand.mp4` and `(SPEC, "loop", "webm")` `untitled-<8 hex>-loop.webm`; a design named "Café Crème" gives `cafe-creme-<8 hex>-brand.mp4` | ruling R5-28 |
+| C-FEX-10 | failure | `mediaName(SPEC, "poster", "mp4")` and `(SPEC, "brand", "mov")` throw `RangeError`; `(SPEC, 1, "mp4")` and `(null, "brand", "mp4")` throw `TypeError`; each names `mediaName` | ruling R5-28, R-05 |
+| C-FEX-11 | pass | `buildBundle({ spec: SPEC, origin: ORIGIN })` and `flavor: false` equal M4's `BUNDLE` byte for byte; `flavor: true` gives 29 files: `BUNDLE`'s 20 with the nine inserted right after `motion/gsap.ts`; every file but `receipt.json` equals `BUNDLE`'s or `flavorFiles`'; `receipt.files` lists the 28 others with their byte lengths and SHA-256 | ruling R5-24, R5-26 |
+| C-FEX-12 | pass | `src/flavor/remotion/brand.json` equals the `default-flavor` golden's `flavor/remotion/brand.json` byte for byte | ruling R5-22, R5-27 |
+| C-FEX-13 | failure | `buildBundle({ spec: SPEC, origin: ORIGIN, flavor: "yes" })`, `flavor: 1` and `flavor: null` throw `TypeError` naming `buildBundle: input.flavor` | ruling R5-24, R-05 |
+| C-FEX-14 | pass | The `default-flavor` golden's files, byte lengths and SHA-256 and its zip's SHA-256 equal `manifest.json`; its files equal the `default` golden's except `receipt.json`, with the nine inserted after `motion/gsap.ts`; every other golden is unchanged | ruling R5-27, I-M5-08 |
+| C-FEX-15 | pass | `zipBundle(FLAVOR_BUNDLE)` accepts `flavor/README.md` and `flavor/remotion/README.md` and its entries are the bundle's files in order; a path `README.MD`, `Readme.md` or `docs/A.md` still throws `RangeError` | ruling R5-24 |
+| C-FEX-16 | pass | The bundled checker on `FLAVOR_APP` exits 0 with `PASS`, and its `checked.files` counts the four moved copies | ruling R5-26 |
+| C-FEX-17 | failure | `FLAVOR_APP` with `color: #ff0000;` added to the moved `src/components/flavor.css` exits 1 with a `raw-color` finding at that path and line | ruling R5-26 |
+| C-FEX-18 | pass | `downloadBlob("a.mp4", bytes, "video/mp4")` clicks a link to a `Blob` of type `video/mp4`; with no type the `Blob` is `application/zip`; a type of `5` throws `TypeError` and `""` `RangeError`, each naming `downloadBlob` | ruling R5-28 |
+| C-FEX-19 | failure | `flavorFiles(null, ORIGIN)` throws `TypeError` and `flavorFiles(SPEC, "http://dyelot.vercel.app")` `RangeError`, each naming `flavorFiles` | ruling R5-24, R-05 |
+
+### 14.5 Landing and site (Task 5.5)
+
+Tests: `tests/unit/features/landing/heroes.test.ts`, `tests/unit/features/landing/story.test.ts`,
+`tests/unit/features/landing/story-css.test.ts`, `tests/unit/features/landing/cycle.test.ts`,
+`tests/unit/site/csp.test.ts`, `tests/unit/site/nav.test.tsx`, `tests/unit/site/config-m5.test.ts`, and the amended
+`tests/unit/site/{define,routes,next-config}.test.ts`.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-LAND5-01 | pass | `HERO_PARAMS` equals R5-31's table (names, seeds, primary OKLCH), frozen; each primary is inside sRGB and its hex is the table's | ruling R5-31 |
+| C-LAND5-02 | pass | `heroDesigns()` gives six entries and the same array on a second call; each spec deep-equals `generateSystem({ ...freshParams(), primary, name }, seed)`; each card's `href` is `/studio#s=` plus `encodeSpec(spec)`, `stops` `flavorStops(spec, "dark")`, `seed` `flavorSeed(specId(spec))` and `fade` the `base` duration and `standard` easing; `defaultDesign()` is the first spec | ruling R5-31 |
+| C-LAND5-03 | pass | `storySteps(HERO)` gives the kinds `seed`, `scale`, `roles`, `type` and `receipt` in order: `#f66c6d` and `oklch(0.7000 0.1700 22.00)`; the 11 light primary steps with their contrasts to 2 decimals; the six roles of 7.2 with their light hexes; the two family names; the first 8 space steps; and the receipt's `requiredPass` and `required` | ruling R5-33 |
+| C-LAND5-04 | failure | `storySteps(null)` throws `TypeError` and `storySteps(SPEC)` (no locked primary seed) `RangeError`, each naming `storySteps` | ruling R5-33, R-05 |
+| C-LAND5-05 | pass | `story.css`, read as text with its blocks matched: every `animation`, `animation-timeline` and `animation-range` declaration sits inside `@supports (animation-timeline: view())` inside `@media (prefers-reduced-motion: no-preference)`; the one `@keyframes` changes only `opacity` and `translate`, by at most 24 px; no rule outside the guards sets `opacity`, `translate` or `transform` | ruling R5-33 |
+| C-LAND5-06 | pass | `nextIndex(0, 6)` is 1 and `nextIndex(5, 6)` 0; `paletteLine(0, 6, "Madder")` is "Palette 1 of 6: Madder." | ruling R5-32 |
+| C-LAND5-07 | failure | `nextIndex(6, 6)`, `nextIndex(-1, 6)` and `nextIndex(0, 0)` throw `RangeError` and `nextIndex("0", 6)` `TypeError`; `paletteLine(0, 6, "")` throws `RangeError`; each names its function | ruling R5-32, R-05 |
+| C-SITE5-01 | pass | `cspHeader("bm9uY2Utbm9uY2Utbm9uY2U=", { dev: false })` equals 12.2's string with that nonce; `dev: true` adds `'unsafe-eval'` and `ws: http://localhost:*` after `https://www.remotion.pro` | ruling R5-58 |
+| C-SITE5-02 | pass | `SITE.routes.sitemap` is `["/", "/studio", "/explore", "/motion"]`, and `sitemap()` lists the four absolute URLs in that order; `robots()` is C-SITE4-01's value | ruling R5-34 |
+| C-SITE5-03 | pass | The metadata of `/explore` and `/motion`: titles "Explorer" and "Motion lab", the descriptions of 8.1 and 9.1 (140 and 116 characters), canonical `/explore` and `/motion` | ruling R5-34 |
+| C-SITE5-04 | pass | `AppNav` renders "home", "studio", "explore", "motion" and "github" in order with their hrefs; `active="explore"` marks only "explore" with `aria-current="page"`; no `active` marks none; `AppNavProps["active"]` is `"home" \| "explore" \| "motion" \| undefined` (`expectTypeOf`) | ruling R5-34 |
+| C-SITE5-05 | pass | `next.config.ts`'s `turbopack.rules` deep-equal the three rules of 12.3 and hold no `experimental` key; `raw.d.ts` declares the three modules; `tsconfig.json`'s `include` holds `src/flavor/*.mjs`; `.github/dependabot.yml`'s npm entry holds the groups `remotion` and `three` with 12.3's names | ruling R5-23, R5-60 |
+
+### 14.6 Explorer (Task 5.6)
+
+Tests: `tests/unit/features/explore/scene.test.ts`, `tests/unit/features/explore/webgl.test.ts`,
+`tests/unit/features/explore/flat-view.test.tsx`.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-EXPL5-01 | pass | `scenePoints(SPEC, "light")` gives 88 points in `PALETTE_NAMES` then `STEPS` order, each with the step's hex and OKLCH, `position` `solidPosition(oklch)`, and `seed` true exactly where the palette's `seedStep.light` is that step | ruling R5-36 |
+| C-EXPL5-02 | pass | `sliceSteps(points, 0.6)` keeps exactly the points with \|L − 0.6\| ≤ 0.04, in order: L 0.64 stays and 0.6401 goes | ruling R5-37 |
+| C-EXPL5-03 | pass | `cameraPosition(DEFAULT_CAMERA)` is 3.2 × (cos 25° sin 35°, sin 25°, cos 25° cos 35°) within 1e-9; `cameraOf(cameraPosition(c))` gives `c` back for turn −180 to 180 by 15, tilt 0 to 90 by 15 and zoom 0.5 to 2 by 0.25; `cameraOf` rounds (35.4° to 35), clamps (tilt −5° to 0, zoom 3 to 2) and wraps (turn 190° to −170) | ruling R5-38 |
+| C-EXPL5-04 | failure | `cameraPosition` with turn 181, tilt 91 or zoom 0.4 throws `RangeError` and with turn `"1"` `TypeError`; `cameraOf([0, 0, 0])` throws `RangeError`; each names its function | ruling R5-38, R-05 |
+| C-EXPL5-05 | pass | `slicePath(points, 320)` starts `M`, has 360 vertices and ends `Z`; hue 0 at chroma 0.4 is `310.00 160.00` and hue 90 at 0.2 `160.00 85.00`; `dotAt({ l: 0.5, c: 0, h: null }, 320)` is `[160, 160]` | ruling R5-37 |
+| C-EXPL5-06 | pass | `sceneSummary("Madder", "light", "srgb", 0.6)` is "Madder: 88 steps of the light scales in OKLab, inside the sRGB gamut solid, cut at L 0.60."; `p3` reads "Display P3" and `rec2020` "Rec. 2020"; `EXPLORE_LINES` equals 8.4's table, frozen | ruling R5-37, R5-39 |
+| C-EXPL5-07 | failure | `sceneSummary` with gamut `"x"` or L 2 throws `RangeError` and with name `5` `TypeError`; `scenePoints(SPEC, "dim")` throws `RangeError`; each names its function | ruling R5-37, R-05 |
+| C-EXPL5-08 | pass | `supportsWebgl2(create)` is true when the canvas gives a context, false when it gives null, and false, with no throw, when `getContext` throws | ruling R5-39 |
+| C-EXPL5-09 | pass | `FlatView` for `SPEC` at L 0.6 renders three `path`s with 8.3's line styles, one `circle` per slice step filled with its hex, the caption with the step count, the legend list, and the step items in 8.3's format; at an L no step is near, the one item "No step lies within 0.04 of L <l>." | ruling R5-37 |
+| C-EXPL5-10 | failure | `scenePoints(null, "light")`, `sliceSteps(null, 0.5)`, `cameraOf("x")`, `slicePath(null, 320)` and `dotAt(null, 320)` throw `TypeError`; `sliceSteps(points, 2)`, `slicePath(points, 0)` and `dotAt({ l: 0.5, c: 0, h: null }, -1)` throw `RangeError`; each names its function | ruling R5-37, R5-38, R-05 |
+
+### 14.7 Motion lab (Task 5.7)
+
+Tests: `tests/unit/features/motion/lab.test.ts`, `tests/unit/features/studio/pages.test.ts`.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-LAB-01 | pass | `LAB_BOUNDS` equals 9.3's table, frozen | ruling R5-42 |
+| C-LAB-02 | pass | `readField` reads `"200"` as 200 and `" 12.4 "` as 12 for a duration, `"0.333"` as 0.33 for an `x`, `"−0.5"` (U+2212) as −0.5 for a `y`, `"2"` and `"0.05"` for a spring's duration, and `"1"` for a bounce | ruling R5-42 |
+| C-LAB-03 | failure | `readField` gives `{ ok: false, message }` with its kind's sentence for `""`, `"abc"`, `"1e400"`, `"501"` and `"-1"` (duration), `"1.01"` (`x`), `"2.01"` (`y`), `"0.04"` and `"2.01"` (spring duration) and `"1.01"` (bounce); property, 500 runs, `seed: 5007`: it never throws for any string; a path of an unknown kind throws `RangeError` and a text of `5` `TypeError`, each naming `readField` | ruling R5-42, R-05 |
+| C-LAB-04 | pass | `editTokens(motionTokens(), { kind: "duration", name: "base" }, 160)` sets `base` 160 and keeps every other value, normalized and frozen; an easing path with `index` 1 sets `y1`; a spring path sets its field; the input is unchanged | ruling R5-41 |
+| C-LAB-05 | failure | `editTokens` with `x1` 1.5 throws `RangeError`, an `index` of 4 `RangeError`, and `null` tokens `TypeError`, each naming `editTokens` | ruling R5-41, R-05 |
+| C-LAB-06 | pass | `fieldText` writes 200 as `"200"`, 0.2 as `"0.2"`, 0 as `"0"`, 0.05 as `"0.05"` and 1 as `"1"` | ruling R5-42 |
+| C-LAB-07 | pass | `curvePath(bezierPoints([0, 0, 1, 1], 2), { width: 200, height: 200, pad: 20, yMin: −1, yMax: 2 })` is `M 20.00 126.67 L 100.00 100.00 L 180.00 73.33` | ruling R5-41 |
+| C-LAB-08 | pass | `durationBars` of a brisk design gives exported equal to stored (50 to 500); of a calm design exported 63, 125, 188, 250, 375, 500 and 500 | ruling R5-41, R2-08 |
+| C-LAB-09 | pass | `presetLine(motionTokens())` is "These tokens match the dyelot preset. dyelot's default: 50 to 500 ms, standard curves and three springs." and `presetLine(CUSTOM_TOKENS)` "Custom tokens: no preset matches." | ruling R5-41 |
+| C-LAB-10 | pass | `reducedTransition(SPEC)` is `{ duration: 0.1, ease: "linear" }` | ruling R5-43 |
+| C-LAB-11 | failure | `curvePath` with `yMin` not below `yMax` or a point holding `NaN` throws `RangeError` and with `null` points `TypeError`; `fieldText(null, path)`, `durationBars(null)`, `presetLine(null)` and `reducedTransition(null)` throw `TypeError`; `fieldText` with a path of kind `"x"` and `presetLine` of tokens with `bounce` 2 throw `RangeError`; `pageHref("explore", null)` and `motionLine(null)` throw `TypeError`; each names its function | ruling R5-41 to R5-45, R-05 |
+| C-STUD5-07 | pass | `pageHref("explore", SPEC)` is `/explore#s=` plus `encodeSpec(SPEC)`, and likewise for `motion` and `studio`; `pageHref("about", SPEC)` throws `RangeError` naming `pageHref` | ruling R5-40, R5-45 |
+| C-STUD5-08 | pass | `motionLine(SPEC)` is "Motion tokens: dyelot preset.", `motionLine(CUSTOM)` "Motion tokens: custom." and `motionLine(withMotion(SPEC, MOTION_PRESETS.gentle.tokens))` "Motion tokens: Gentle preset." | ruling R5-45 |
+
+### 14.8 View transitions (Task 5.8)
+
+Tests: `tests/unit/features/preview/transition.test.ts`, `tests/unit/features/preview/reduced.test.ts`,
+`tests/unit/features/studio/token-row.test.ts`, `tests/unit/features/studio/scales-row.test.tsx`,
+`tests/unit/site/globals-css.test.ts`.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-VT-01 | pass | `templateTransition(false)` is `{ share: "auto", enter: "auto", exit: "auto", default: "none" }` and `templateTransition(true)` `{ share: "none", enter: "none", exit: "none", default: "none" }`, each frozen | ruling R5-46 |
+| C-VT-02 | failure | `templateTransition("yes")` throws `TypeError` naming `templateTransition` | ruling R5-46, R-05 |
+| C-VT-03 | pass | `tokenRow(SPEC, "light", "primary", 500)` gives `--color-primary-500`, the step's hex, `formatOklch` of its OKLCH, its contrast as `<2 decimals>:1`, and the roles whose light hex equals the step's in `ROLE_NAMES` order; a step no role uses gives `[]` | ruling R5-47 |
+| C-VT-04 | failure | `tokenRow` with mode `"dim"`, palette `"teal"` or step 450 throws `RangeError` and with a `null` spec `TypeError`, each naming `tokenRow` | ruling R5-47, R-05 |
+| C-VT-05 | pass | `swatchName("primary", 500)` is `dyelot-swatch-primary-500`, and the 88 names are distinct | ruling R5-47 |
+| C-VT-06 | pass | `watchReducedMotion(media, onChange)` calls `onChange` with `media.matches` at once and on each `change`; the function it returns removes the listener | ruling R5-49 |
+| C-VT-07 | pass | `Scales` rendered: a step button opens its token row (`aria-expanded="true"`, `data-token-row`, 10.2's fields); opening another step closes the first; Escape closes it and focus returns to the compact button; ↓ and ↑ move focus within a palette and Home and End to its ends, with one `tabIndex` 0 per palette | ruling R5-47 |
+| C-VT-08 | pass | `src/app/globals.css` holds 10.3's three rules as written | ruling R5-48 |
+| C-VT-09 | failure | `swatchName(5, 500)` and `watchReducedMotion(null, f)` and `watchReducedMotion(media, 5)` throw `TypeError`; `swatchName("teal", 500)` throws `RangeError`; each names its function; `templateTransition` has no domain beyond its type | ruling R5-47, R5-49, R-05 |
+
+### 14.9 The Flavor dialog's helpers (Tasks 5.9 and 5.10)
+
+Tests: `tests/unit/features/flavor/video.test.ts`, `tests/unit/features/flavor/render.test.ts`,
+`tests/unit/features/flavor/record.test.ts` (fake renderer, fake Mediabunny, the fake WebGL2 context of 14.3),
+`tests/unit/features/flavor/video-job.test.tsx` (the hook, with a fake job).
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-DLG-01 | pass | `canMakeVideo` is true for `{ VideoEncoder: function () {} }` and false for `{}` and `{ VideoEncoder: 5 }` | ruling R5-53 |
+| C-DLG-02 | pass | `nextAnnounced(0, 0.05)` is null, `(0, 0.1)` 10, `(10, 0.27)` 20, `(20, 0.27)` null, `(90, 1)` 100 and `(100, 1)` null; `progressLine("render", 30)` is "Rendering: 30%.", `progressLine("record", 30)` "Recording: 30%." and `doneLine("a.mp4")` "Downloaded a.mp4." | ruling R5-53 |
+| C-DLG-03 | failure | `nextAnnounced(0, 1.1)` throws `RangeError` and `("0", 0.5)` `TypeError`; `progressLine("encode", 10)` throws `RangeError`; each names its function | ruling R5-53, R-05 |
+| C-DLG-04 | pass | `VIDEO_LINES` equals 13.3's table and `FLAVOR_LINES` 6.4's, each frozen | ruling R5-53, R5-19 |
+| C-DLG-05 | pass | `pickRenderTarget` asks first for `{ width: 1280, height: 720, container: "mp4", videoCodec: "h264", muted: true }`: yes gives `{ container: "mp4", videoCodec: "h264" }`; no, then yes for WebM, gives `{ container: "webm", videoCodec: "vp8" }`; no for both gives null; a throw counts as no | ruling R5-53 |
+| C-DLG-06 | pass | `renderBrandVideo` passes `composition` `{ id: "brand-intro", component: BrandIntro, width: 1280, height: 720, fps: 30, durationInFrames: 180 }`, the props, the target, `muted: true`, `licenseKey: "free-license"`, `outputTarget: "arraybuffer"`, the signal and an `onProgress` that forwards `progress`; it gives `done` with the bytes of `getBlob()`; a rejected `load()` gives `load-failed`, an `AbortError` `canceled`, any other throw `failed`, and no outcome holds the error | ruling R5-53, I-M5-03 |
+| C-DLG-07 | pass | `pickCodec` asks `canEncodeVideo` with `{ width: 1280, height: 720 }` for `avc`, `vp9` and `vp8` in turn, and gives `{ avc, mp4 }`, `{ vp9, webm }` or `{ vp8, webm }` for the first yes, or null | ruling R5-56 |
+| C-DLG-08 | pass | `recordLoop` with the fakes: 300 `add` calls with the timestamps `i / 30` and the duration `1 / 30` in order, each after `drawAt(i / 300)`; one `finalize()`; the bytes of `target.buffer`; progress `(i + 1) / 300`; an abort midway calls `output.cancel()` and gives `canceled`; a throwing `add` gives `failed`; the flavor handle is destroyed in every outcome | ruling R5-56 |
+| C-DLG-09 | failure | `canMakeVideo(null)`, `doneLine(5)`, `renderBrandVideo(null, target, deps)` and `recordLoop(flavor, null)` throw `TypeError`; `doneLine("")`, a target `container` of `"mov"` and `recordLoop` with 4 stops throw `RangeError`; each names its function, and none starts a load | ruling R5-53, R5-56, R-05 |
+| C-DLG-RF4 | pass | Two `renderBrandVideo` calls through one `useVideoJob` (a hook test) start one job: the second press while a job runs does nothing; closing (the hook's `abort`) gives `canceled` and leaves the job idle | RF4, ruling R5-51, R5-53 |
+
+### 14.10 Repository guards (every task)
+
+Tests: `tests/unit/engine/repo-guards-m5.test.ts`, `tests/unit/scripts/gate.test.ts`.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| C-GUARD5-01 | pass | The ids are read from the rows of `docs/specs/05-motion-3d.md` between `\n## 14. ` and `\n## 15. ` (`^\| [CF]-[A-Z0-9]+-[A-Z0-9]+ \|`, one per row, each once); every `C-` id appears whole in a `describe` or `it` title under `tests/unit` and every `F-` id in a `test` title under `tests/e2e`, read from each file's syntax tree; a probe id with no title is reported | ruling R5-62 |
+| C-GUARD5-02 | pass | `package.json` pins exactly R5-60's versions and holds none of `postprocessing`, `@react-three/postprocessing`, `gsap`, `@remotion/cli`, `@remotion/three`, `lenis`, `@paper-design/shaders` or `detect-gpu`; `motion` is `14.3.0` | ruling R5-50, R5-60 |
+| C-GUARD5-03 | pass | `three`, `three/*` and `@react-three/*` are imported only under `src/features/explore/`, and only R5-35's names; a probe importing `Text` from `@react-three/drei` or `EffectComposer` is reported | ruling R5-35, R5-60 |
+| C-GUARD5-04 | pass | `remotion` and `@remotion/player` are imported only under `src/flavor/remotion/` and `src/features/flavor/`; `@remotion/web-renderer` and `mediabunny` only through `import()` in `src/features/flavor/`, never statically (`import type` allowed); probes of each are reported | ruling R5-60, R5-61 |
+| C-GUARD5-05 | pass | `src/features/landing/heroes.ts` is imported only by `src/app/page.tsx`, `src/app/explore/page.tsx` and `src/app/motion/page.tsx`; the static import graph of `src/features/landing/Hero.tsx` reaches no file under `src/engine`, `src/spec` or `src/export` | ruling R5-31, R5-61 |
+| C-GUARD5-06 | pass | Every import under `src/flavor/` is `react`, `remotion` or a relative path inside `src/flavor/`; `src/flavor/remotion/root.tsx` is imported nowhere but with `?raw` in `src/export/flavor-sources.ts`; `scanLine` finds nothing on any line of any file under `src/flavor/` | ruling R5-05, I-M5-06 |
+| C-GUARD5-07 | pass | `brand-intro.tsx`, comments removed, holds none of `zIndex`, `z-index`, `radial-gradient`, `conic-gradient`, `backdropFilter`, `perspective`, `transformStyle`, `mixBlendMode`, `objectPosition`, `filter:`, `inset`, `clipPath`, `oklch(`, `rgb(`, `rgba(`, `hsl(` or `url(`; a probe of each is reported | ruling R5-22 |
+| C-GUARD5-08 | pass | No file under `src` creates a `video` element (JSX `<video` or `createElement("video")`) or calls `flushSync`; `src/lib/site/csp.ts` names no `media-src` and no `'wasm-unsafe-eval'` | ruling R5-02, R5-48, R5-58 |
+| C-GUARD5-09 | pass | `vitest.config.ts` runs `tests/unit/flavor/**` and `tests/unit/features/{landing,explore,motion,flavor}/**` in `web`, keeps `tests/unit/engine/**` and `tests/unit/export/**` in `core`, and holds section 15's include and floors; each named file exists | ruling R5-62 |
+| C-GUARD5-10 | pass | `FLAVOR_LINES`, `VIDEO_LINES`, `EXPLORE_LINES`, `LAB_BOUNDS`' sentences, `MOTION_PRESETS`' labels and notes, `presetLine` and `motionLine` of every preset and of `CUSTOM_TOKENS`, and the string literals of `Story.tsx`, `Hero.tsx`, `LabClient.tsx`, `Previews.tsx`, `ExploreClient.tsx`, `FlavorDialog.tsx` and `PrivacyNote.tsx` hold no banned word, no `!`, no emoji, and none of "colour", "behaviour", "cancelled", "grey" or "centre" | ruling R5-66 |
+| C-GUARD5-11 | pass | The purity guards C-REPO-01 and C-GUARD3-02 list `src/engine/color/rec2020.ts`, `src/engine/color/solid.ts`, `src/engine/flavor.ts`, `src/engine/tokens/{motion-presets,bezier}.ts` and `src/export/{flavor,brand,media,flavor-sources}.ts` among the files they scan, and find nothing in them | ruling R5-04, I-M5-05 |
+| C-GUARD5-12 | pass | Every file under `tests/e2e` that holds the text "Render the brand video" also calls `TELEMETRY(`; a probe file that clicks it without the call is reported | ruling R5-59, I-M5-09 |
+
+### 14.11 Flows (Tasks 5.5 to 5.11)
+
+Tests: `tests/e2e/landing.spec.ts`, `tests/e2e/explore.spec.ts`, `tests/e2e/motion-lab.spec.ts`,
+`tests/e2e/transitions.spec.ts`, `tests/e2e/flavor.spec.ts`, `tests/e2e/export-flavor.spec.ts`,
+`tests/e2e/security.spec.ts`, `tests/e2e/a11y-m5.spec.ts`, `tests/e2e/lazy-m5.spec.ts`, the amended
+`tests/e2e/{home,studio,canvas}.spec.ts`, with `tests/e2e/flavor-support.ts`. Every flow fails on a
+`securitypolicyviolation` event or a console error unless its row says otherwise.
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| F-HERO-01 | pass | `/`: the hero canvas reads `data-flavor="running"` and `data-flavor-stops` the first card's stops; the window title is `madder.flavor`; the line "Palette 1 of 6: Madder."; "Pause" with `aria-pressed="false"`; "Open this palette in the studio" has the first card's `href`; the 16:9 box holds the canvas and no text node | ruling R5-32, I-M5-10 |
+| F-HERO-02 | pass | "Next palette" six times: the lines read "Palette 2 of 6: Weld." to "Palette 6 of 6: Cochineal." and then "Palette 1 of 6: Madder."; each press sets `data-flavor-stops` to that card's stops, the title to `<name>.flavor` and the link to its `href`, and `data-flavor` stays `running` | ruling R5-32, R5-18 |
+| F-HERO-03 | pass | "Pause" sets `aria-pressed="true"` and `data-flavor="paused"`; "Next palette" while paused keeps `paused` and changes the stops; "Pause" again gives `running` | ruling R5-18, R5-32 |
+| F-HERO-04 | pass | After one "Next palette", "Open this palette in the studio" opens `/studio` with Weld's link: the studio shows the name "Weld" and the lot `lotTag(specId(<Weld's spec>))` | ruling R5-31 |
+| F-HERO-05 | failure | With `NO_WEBGL`: `data-flavor="fallback"` and `data-flavor-reason="no-webgl2"`; the sentence "This browser cannot draw the animated background, so a still gradient shows instead."; no "Pause"; the canvas's computed `background-image` holds `linear-gradient` and `data:image/svg+xml`; "Next palette" still changes `data-flavor-stops` and the gradient | ruling R5-19, R5-20, I-M5-03 |
+| F-HERO-06 | failure | `loseContext` on the hero canvas: `fallback` with reason `context-lost`, the sentence "The animated background stopped, so a still gradient shows instead." and "Restart the animation"; `restoreContext` alone leaves `fallback`; "Restart the animation" mounts a new canvas reading `running` | ruling R5-19 |
+| F-HERO-07 | pass | With `page.emulateMedia({ reducedMotion: "reduce" })` before the load: `data-flavor="still"`, the line "The background is still because this device asks for reduced motion.", no "Pause"; "Next palette" changes the stops and `data-flavor` stays `still`; emulating no preference then gives `running` and "Pause" appears | ruling R5-18, R5-32, I-M5-02 |
+| F-HERO-08 | pass | Scrolling the hero out of view gives `data-flavor="offscreen"` and back `running`; a page made hidden (`visibilityState` redefined and `visibilitychange` sent) gives `hidden`, and visible again `running` | ruling R5-18 |
+| F-HERO-09 | pass | Two loads of `/` under reduced motion give byte-equal screenshots of the hero canvas; after "Next palette" the screenshot differs | ruling R5-17, I-M5-07 |
+| F-HERO-10 | failure | With an init script making `getShaderParameter(shader, COMPILE_STATUS)` answer false, the hero reads `fallback` with reason `no-webgl2` and shows its sentence, with no console error | ruling R5-19, I-M5-03 |
+| F-HERO-RF1 | pass | Reduced motion switched on during a cross-fade ("Next palette", then `emulateMedia` reduce at once): `data-flavor` reads `still` and `data-flavor-stops` the new card's; switched off, `running` with the same stops | RF1, ruling R5-18 |
+| F-STORY-01 | pass | `CSS.supports("animation-timeline: view()")` is true; each `[data-story-step]` has the computed `animation-name` `story-rise` and `animation-timeline` `view()`; scrolled fully into view, each step's computed opacity is 1 | ruling R5-33 |
+| F-STORY-02 | pass | Under `emulateMedia` reduce, before any scroll, every step's `animation-name` is `none`, its opacity 1 and its `translate` `none` | ruling R5-33, I-M5-02 |
+| F-STORY-03 | pass | The story's text equals 7.2's table for `HERO`: the hex and OKLCH, 11 swatches with their contrasts, the six role names, the two family names, the 8 space values and "<passed> / <required>" | ruling R5-33 |
+| F-STORY-04 | pass | Every element under `[data-story]` whose inline style sets a color sits inside a `[data-specimen]` figure | ruling R5-33, I-M5-01 |
+| F-STORY-05 | pass | In a context with JavaScript off, `/` shows the five steps with their text and every step's opacity is 1 | ruling R5-33 |
+| F-HOME5-01 | pass | The nav lists "home", "studio", "explore", "motion" and "github" in order; the current page's link has `aria-current="page"` on `/`, `/explore` and `/motion`, and none has it on the 404 page | ruling R5-34 |
+| F-HOME5-02 | pass | `/` has one `h1`; `start.log` holds "open the studio", "open the explorer", "open the motion lab" and the repository link as children of one `div`; the text "in progress: the export bundle" is gone | ruling R5-34 |
+| F-HOME5-03 | pass | `/sitemap.xml` lists `https://dyelot.vercel.app/`, `/studio`, `/explore` and `/motion` in that order | ruling R5-34 |
+| F-HOME5-04 | pass | At 360 × 740 the nav's five links are visible on one row, and `/`, `/explore` and `/motion` scroll no wider than the viewport | ruling R5-34 |
+| F-EXP5-01 | pass | `/explore`: `data-explorer-state` becomes `3d`; `data-points` 88, `data-tubes` 8, `data-solid-vertices` 6534, `data-gamut` `srgb`, `data-slice` `0.60`, `data-mode` `light`; the summary equals `sceneSummary("Madder", "light", "srgb", 0.6)`; the flat view shows three outlines | ruling R5-36, R5-37 |
+| F-EXP5-02 | pass | "Display P3" and "Rec. 2020" set `data-gamut` and the summary; the slice slider moved by the keyboard to 0.45 sets `data-slice` `0.45`, the caption "At L 0.45: …" and the step list `sliceSteps` gives in Node; "Dark" sets `data-mode` `dark` and the dots take the dark hexes | ruling R5-36, R5-37 |
+| F-EXP5-03 | pass | "Turn" with ArrowRight 10 times reads `data-turn` 45; "Tilt" with End `90`; "Zoom" with Home `0.50`; "Reset view" gives 35, 25 and `1.00`; a pointer drag on the canvas changes `data-turn`, and the "Turn" slider's value equals it | ruling R5-38 |
+| F-EXP5-04 | pass | `/explore#s=<LINK(SPEC)>` shows `SPEC`: the summary starts "untitled:"; "Open in the studio" has the `href` `/studio#s=` plus `encodeSpec(SPEC)` | ruling R5-40 |
+| F-EXP5-05 | failure | `/explore#s=garbage` shows the default and the line "This link is damaged or cut short, so the studio cannot open it. The explorer shows the default design instead."; a `hashchange` to `LINK(SPEC)` loads `SPEC` and clears the line | ruling R5-40, I-M5-03 |
+| F-EXP5-06 | failure | With `NO_WEBGL`: `data-explorer-state` `flat`, reason `no-webgl2`, no `canvas` in the panel, the sentence of 8.4, and the slice slider still redraws the flat view | ruling R5-39 |
+| F-EXP5-07 | failure | `loseContext` on the explorer's canvas: `flat` with reason `context-lost`, the sentence and "Restart the 3D view", which gives `3d` with a new canvas | ruling R5-39 |
+| F-EXP5-08 | pass | `data-damping` is `true`, and under `emulateMedia` reduce `false` | ruling R5-38, I-M5-02 |
+| F-EXP5-09 | pass | In the studio on `LINK(SPEC)`, "See these scales in the explorer" opens `/explore` showing `SPEC`, and its "Open in the studio" returns to a studio with `SPEC`'s lot | ruling R5-40 |
+| F-EXP5-RF2 | pass | `/explore#s=<a P3 design's link>` starts with "Display P3" checked, and its 88 points include steps outside sRGB, which the flat view draws beyond the sRGB outline | RF2, ruling R5-36 |
+| F-LAB-01 | pass | `/motion` shows the first hero design's tokens in the fields (50 to 500, the easings and springs), "dyelot" with `aria-pressed="true"`, `data-preset` `dyelot`, the preset line of C-LAB-09, the three files, and "Copy" and "Download" enabled once loaded | ruling R5-41, R5-44 |
+| F-LAB-02 | pass | "Gentle" sets every field to the preset's values and `data-preset` `gentle`; the hash then decodes (polled) to `withMotion(<the hero's spec>, gentle)`; "Open in the studio" opens a studio whose motion line reads "Motion tokens: Gentle preset." | ruling R5-41, R5-45 |
+| F-LAB-03 | pass | Typing 160 into "base (ms)" and leaving it sets `data-preset` `custom`, the line "Custom tokens: no preset matches.", the ladder's base label, and `--duration-base: 160ms;` in the shown `motion.css` | ruling R5-41, R5-42 |
+| F-LAB-04 | failure | "abc" in "base (ms)" sets `aria-invalid="true"`, shows "Enter a number of milliseconds from 0 to 500." and leaves the hash and `motion.css` unchanged; leaving the field restores "200"; "600" does the same; "1.5" in "standard x1" shows "Enter a number from 0 to 1." | ruling R5-42, I-M5-03 |
+| F-LAB-05 | pass | With clipboard permission, "Copy motion/motion.css" writes `motionFiles(...)[0].text` exactly and the button reads "Copied"; "Download motion/gsap.ts" downloads `gsap.ts` with the generated text | ruling R5-44 |
+| F-LAB-06 | failure | With `navigator.clipboard.writeText` rejecting: the disclosure opens with its text selected and the sentence "Copy is blocked here. The text is selected: press Ctrl+C or ⌘C." | ruling R5-44 |
+| F-LAB-07 | pass | "Reduced motion" starts off; on, `data-lab-reduced` is `true` and the toast, switch and tab previews read `data-transition` `linear:100` while the dialog reads `tween:300:decelerate`; off, they read `spring:smooth`, `spring:snappy` and `spring:bouncy` | ruling R5-43 |
+| F-LAB-08 | pass | Under `emulateMedia` reduce, "Reduced motion" starts on (`aria-checked="true"`) | ruling R5-43, I-M5-02 |
+| F-LAB-09 | failure | `/motion#s=garbage` shows the default with "This link is damaged or cut short, so the studio cannot open it. The lab shows the default design instead." | ruling R5-41 |
+| F-LAB-10 | failure | With every new JavaScript chunk aborted after the first load, "Copy" and "Download" stay `aria-disabled` and the line "This tool could not load. Reload the page to try again." shows; the editing still works | ruling R5-44, I-M5-03 |
+| F-LAB-RF2 | pass | `/motion#s=<withMotion(SPEC, slowest 900)>` shows "900" in "slowest (ms)", the ladder's label "slowest 900 ms, exported as 500 ms", and editing "base (ms)" keeps 900 in the hash's spec | RF2, ruling R5-42 |
+| F-STUD5-01 | pass | On `LINK(SPEC)` the inputs panel shows "Motion tokens: dyelot preset." and "Edit in the motion lab" with the `href` `/motion#s=` plus `encodeSpec(SPEC)`; Tab goes from the Motion feel group to that link to the Steer section | ruling R5-45 |
+| F-STUD5-02 | pass | The studio on `LINK(CUSTOM)` shows "Motion tokens: custom."; "Regenerate" keeps `CUSTOM_TOKENS` in the hash's spec; after a reload the draft keeps them | ruling R5-10, R5-14 |
+| F-STUD5-03 | pass | The toolbar's Tab order ends "Undo", "Redo", "Copy link", "Export", "Flavor"; at 360 × 740 the closed toolbar is at most 170 px tall | ruling R5-51 |
+| F-VT-01 | pass | With `VT_RECORD`, choosing the template "dashboard" makes one `startViewTransition` call whose record holds an animation on `::view-transition-group(dyelot-template)` with a duration above 0; `data-template` then reads `dashboard` | ruling R5-46 |
+| F-VT-02 | pass | Under `emulateMedia` reduce the same switch records only animations of duration 0, and `data-template` reads `dashboard` | ruling R5-48, I-M5-02 |
+| F-VT-03 | pass | With the canvas's "Reduce motion" on (no OS setting), a template switch records no animation on `dyelot-template` with a duration above 0; turning the switch on and off keeps the landing's open FAQ item | ruling R5-46, R5-48 |
+| F-VT-04 | pass | In Scales, "primary 500, <hex>" opens the token row with `--color-primary-500`, the hex, OKLCH, contrast and roles `tokenRow` gives in Node; the record holds an animation on `::view-transition-group(dyelot-swatch-primary-500)` of 250 ms; opening "primary 600" closes the first; Escape closes it and focus returns to "primary 600, <hex>" | ruling R5-47 |
+| F-VT-05 | pass | The token row's "Copy" writes `--color-primary-500` and reads "Copied" | ruling R5-47 |
+| F-VT-06 | pass | Under `emulateMedia` reduce, opening a token row records the swatch's animation with duration 0 | ruling R5-48 |
+| F-VT-07 | pass | The mobile template's sheet rising, `emulateMedia` reduce 60 ms into the rise, then no preference: the sheet's layer is settled (`data-settled`), the sheet stays open, and no animation starts in its layer afterward | ruling R5-49 |
+| F-FLAVOR-01 | pass | "Flavor" opens a modal dialog named "Flavor" with focus on its heading and the sections "Background", "Brand video" and "Shader loop"; the preview canvas reads `running` with `flavorStops(spec, "light")` and "Pause"; Escape closes it and focus returns to "Flavor" | ruling R5-51 |
+| F-FLAVOR-02 | pass | With the canvas's "Reduce motion" on, `[data-brand-player]` reads `data-autoplay="false"` and the Player shows the finished picture: the design's name, "Get started" and the checks line | ruling R5-52 |
+| F-FLAVOR-03 | pass | With no reduced motion, `data-autoplay` is `true`; with the canvas in dark mode, the preview's stops are `flavorStops(spec, "dark")` and the Player's `data-mode` is `dark` | ruling R5-51, R5-52 |
+| F-FLAVOR-04 | failure | With `NO_WEBGL` in the studio: the preview reads `fallback` with its sentence; "Record the shader loop" is replaced by "This browser cannot record the shader loop."; "Render the brand video" still shows; the canvas templates render as before | ruling R5-02, R5-19, R5-56 |
+| F-FLAVOR-05 | failure | `loseContext` on the preview: its sentence and "Restart the animation", which gives `running` | ruling R5-19 |
+| F-FLAVOR-06 | pass | Under `emulateMedia` reduce: the preview reads `still` with no "Pause", `data-autoplay` is `false`, and "Record the shader loop" is enabled | ruling R5-52, R5-57, I-M5-02 |
+| F-RENDER-01 | pass | With `TELEMETRY`: "Render the brand video" shows "Checking this browser…", then the note "Before the first render" with 13.4's paragraph and focus on its heading, and no request to remotion.pro yet; "Render" shows "Rendering…", the bar and "Cancel"; within the render budget a download named `mediaName(spec, "brand", "mp4")` arrives whose bytes 4 to 8 read `ftyp`, and "Downloaded <name>." shows; exactly one `POST` reached `https://www.remotion.pro/api/track/register-usage-point`, its JSON `host` the page's origin, holding neither the design's name nor any of its hexes | ruling R5-53, R5-54, R5-59 |
+| F-RENDER-02 | pass | A second render on the same page load, after closing and reopening the dialog, starts with no note; after a reload the note shows again | ruling R5-54 |
+| F-RENDER-03 | pass | "Cancel" in the note returns the render button with focus on it; no request went to remotion.pro and nothing downloaded | ruling R5-54 |
+| F-RENDER-04 | pass | "Cancel" while rendering shows "Canceled. Nothing was downloaded." and the button again; no download event fires | ruling R5-53 |
+| F-RENDER-05 | failure | With `NO_WEBCODECS`: "This browser cannot make videos. Try a recent Chrome, Edge or Firefox." in the render button's place and "This browser cannot record the shader loop." in the record button's; no renderer or Mediabunny chunk loads | ruling R5-53, R5-56 |
+| F-RENDER-06 | failure | With `NO_ENCODE`: a click shows "Checking this browser…" and then "This browser cannot render the brand video." in the button's place; no request to remotion.pro | ruling R5-53 |
+| F-RENDER-07 | failure | With every new JavaScript chunk aborted after the dialog opened, a click shows "This tool could not load. Reload the page to try again."; with the abort removed, the next click reaches the note | ruling R5-53, I-M5-03 |
+| F-RENDER-08 | pass | While a render runs, "Record the shader loop" is `aria-disabled="true"` and described by "Wait for the current video to finish."; closing the dialog then aborts the render (no download), and on reopening the render button is idle | ruling R5-51, R5-53 |
+| F-RENDER-09 | pass | Every text the live region took during a render (recorded by a `MutationObserver`) is "Rendering: <n>%." with `n` one of 10, 20, … 100, and no `n` repeats | ruling R5-53 |
+| F-RENDER-RF4 | pass | A double click on "Render" in the note starts one render: one `POST` and one download | RF4, ruling R5-53 |
+| F-LOOP-01 | pass | "Record the shader loop" shows "Recording…", the bar and "Cancel"; within the record budget a download named `mediaName(spec, "loop", "mp4")` arrives whose bytes 4 to 8 read `ftyp`, and "Downloaded <name>." shows; no request left the page's origin | ruling R5-56, I-M5-09 |
+| F-LOOP-02 | pass | "Cancel" while recording shows "Canceled. Nothing was downloaded." and no download event fires | ruling R5-56 |
+| F-LOOP-03 | pass | With `VideoEncoder.isConfigSupported` answering no for every `avc1` codec, the recording downloads `mediaName(spec, "loop", "webm")` whose first four bytes are `1A 45 DF A3` | ruling R5-56 |
+| F-LOOP-04 | pass | Under `emulateMedia` reduce the recording downloads its file while the preview stays `still` | ruling R5-57 |
+| F-LOOP-RF3 | pass | `loseContext` on the preview while a recording runs: the preview shows its fallback and the recording still downloads its file | RF3, ruling R5-56 |
+| F-FEX-01 | pass | The export dialog on `LINK(SPEC)` lists 20 files with "Include flavor files" off (described by 13.5's sentence); on, 29, the nine right after `motion/gsap.ts`; focus stays on the switch | ruling R5-24, R5-29 |
+| F-FEX-02 | pass | With the switch on, the downloaded zip's entries are `FLAVOR_BUNDLE`'s paths in order, its `receipt.json` lists the flavor files, and its name is `zipName` as before | ruling R5-24, R5-26 |
+| F-FEX-03 | pass | The preview of `flavor/flavor.css` shows R5-20's rule; "Copy flavor/palette.json" writes its text | ruling R5-24 |
+| F-FEX-04 | pass | The switch stays on after closing and reopening the dialog, and is off after a reload | ruling R5-29 |
+| F-SEC5-01 | pass | `/`, `/studio`, `/explore`, `/motion`, `/connect`, `/connect/callback` and `/no-such-page` carry 12.2's policy with a nonce that differs between two loads; `connect-src` is exactly `'self' https://openrouter.ai https://www.remotion.pro`; no `media-src` and no `'wasm-unsafe-eval'` appear | ruling R5-58 |
+| F-SEC5-02 | pass | `/`, `/explore` and `/motion`, and `/studio` with the Flavor dialog open, load with no console error and no violation; `/studio` starts exactly one worker before the dialog opens | ruling R5-59 |
+| F-SEC5-03 | pass | Loading `/`, `/explore` (3D running), `/motion` and the open Flavor dialog requests no URL outside the page's origin | ruling R5-59, I-M5-09 |
+| F-A11Y5-01 | pass | axe finds no violation on `/` (hero running and story), `/` with `NO_WEBGL`, `/explore` in 3D and with `NO_WEBGL`, `/motion` with an invalid field shown, the studio with a token row open, the Flavor dialog with the note shown and during a render, and the export dialog with flavor on; at 1280 × 800 and 360 × 740 | ruling R5-01, R5-66 |
+| F-A11Y5-02 | pass | Keyboard only, Tab reaches every new control in the orders of 8.1, 9.1 and 13.8, each with a visible focus ring of at least 2 px and a hit area of at least 24 × 24 px; "Next palette", "Pause", the sliders and the radios work from the keyboard | ruling R5-38, R5-51 |
+| F-A11Y5-03 | pass | The hero canvas and the 3D wrapper are `aria-hidden="true"`; the flat view's `svg` has `role="img"` named by its caption; the explorer's summary and the hero's palette line are text | ruling R5-37, I-M5-10 |
+| F-A11Y5-04 | pass | At 360 × 740, `/`, `/explore`, `/motion` and the open Flavor dialog scroll no wider than the viewport | ruling R5-32, R5-51 |
+| F-LAZY5-01 | pass | The first load of `/` fetches no JavaScript holding the markers of three, R3F or Remotion, or `dyelot.engine/1`, while the hero runs | ruling R5-31, R5-61 |
+| F-LAZY5-02 | pass | The first load of `/studio` fetches no JavaScript holding the markers of three, R3F, Remotion, the web renderer or Mediabunny | ruling R5-61, I-M5-04 |
+| F-LAZY5-03 | pass | `/explore` in 3D has loaded the three and R3F markers and none of Remotion's or Mediabunny's, and its JavaScript holds none of the eight strings of probe 1 | ruling R5-35, R5-61 |
+| F-LAZY5-04 | pass | Opening the Flavor dialog loads the Player's marker and neither the web renderer's nor Mediabunny's; the render click loads the renderer's and not Mediabunny's; the record click loads Mediabunny's | ruling R5-61 |
+
+## 15. Coverage
+
+`pnpm vitest run --coverage` keeps M4's scope and floors and adds:
+
+| Scope | Lines, statements, functions | Branches |
+|---|---|---|
+| The whole coverage scope | 80, 80, 75 | 70 |
+| `src/engine/**` (now with `color/rec2020.ts`, `color/solid.ts`, `flavor.ts`, `tokens/motion-presets.ts`, `tokens/bezier.ts`), `src/spec/**`, `src/theme/**`, `src/ai/**`, each pure helper of M2 to M4 | 95 | 90 |
+| `src/export/**` (now with `flavor.ts`, `brand.ts`, `media.ts`, `flavor-sources.ts`), `src/import/**` | 90 | 85 |
+| `STUDIO_HELPERS` gains `src/features/studio/{pages,token-row}.ts`; `PREVIEW_HELPERS` gains `src/features/preview/{transition,kit/reduced}.ts`, each by name | 95 | 90 |
+| `LANDING_HELPERS`: `src/features/landing/{heroes,story,cycle}.ts`, each by name | 95 | 90 |
+| `EXPLORE_HELPERS`: `src/features/explore/{scene,webgl}.ts`, each by name | 95 | 90 |
+| `MOTION_HELPERS`: `src/features/motion/lab.ts` | 95 | 90 |
+| `FLAVOR_HELPERS`: `src/features/flavor/{video,render,record}.ts`, each by name | 95 | 90 |
+
+`useOsReducedMotion` in `kit/reduced.ts` is reached by `MotionScope`'s unit render. `src/flavor/**` has no floor: its
+pure parts and its argument checks are C-FLAV and C-BRAND cases, and its WebGL and Remotion paths run only in a real
+browser, in the flows of 14.11. The routes, `Hero.tsx`, `Story.tsx`, `ExploreClient.tsx`, `Explorer3D.tsx`,
+`FlatView.tsx`, `LabClient.tsx`, `Previews.tsx`, `FlavorDialog.tsx`, `BrandPlayer.tsx`, `PrivacyNote.tsx` and
+`useVideoJob.ts` are covered by the flows, not by floors. Each case is written from its row, never from an
+uncovered-line report.
+
+## 16. Changes to M1 to M4 cases
+
+| Case | Was | Now | Why |
+|---|---|---|---|
+| C-ENTRY-01 (M2), C-ENTRY3-01 (M3), C-ENTRY4-01 (M4) | The engine entry's key set is M4's set exactly | M4's set plus exactly the 17 names of 5.1 (C-ENTRY5-01) | R5-04 |
+| C-ENTRY3-02 (M3) | The export entry's key set is exactly `buildBundle`, `zipBundle`, `zipName`, `sha256` and `RECEIPT_FORMAT` | Those plus `motionFiles`, `brandProps` and `mediaName` (C-ENTRY5-02) | R5-28 |
+| C-PAR3-03 (M3), the `DIRECTION_PARAM_KEYS` test (M2, amended in M3) | The list holds 18 keys, ending `"rules"` | 19 keys, ending `"rules"`, `"motionTokens"` | R5-14 |
+| C-CSP-01 (M4) | `cspHeader` equals M4's 12.1 string, `connect-src 'self' https://openrouter.ai` | 12.2's string, with `https://www.remotion.pro` (C-SITE5-01) | R5-58 |
+| F-SEC4-01 (M4) | `connect-src` is `'self' https://openrouter.ai`; pages `/`, `/studio`, `/connect`, `/connect/callback`, `/no-such-page` | `connect-src` ends with `https://www.remotion.pro`; the pages also `/explore` and `/motion`; `PAGE_POLICY` is 12.2's text | R5-58 |
+| F-SEC4-02 (M4) | `/`, `/studio` and `/connect` load under the policy | Also `/explore` and `/motion` | R5-59 |
+| F-SEC4-03 (M4) | `/sitemap.xml` lists `/` and `/studio` | It lists the four routes of R5-34 | R5-34 |
+| C-SITE4-01 (M4) | The sitemap still lists `/` and `/studio` only | The sitemap lists the four routes; `robots()` is unchanged | R5-34 |
+| T-FE-20 (M0, amended in M4) | `SITE.routes.sitemap` is `["/", "/studio"]` | `["/", "/studio", "/explore", "/motion"]`; `disallow` unchanged | R5-34 |
+| F-HOME-03 (M2) | The sitemap lists `/` and `/studio` | The four routes, in R5-34's order | R5-34 |
+| M0's header test (`tests/e2e/home.spec.ts`, "every page is served with the security headers and a same-origin policy", amended in M4) | `connect-src` is `["'self'", "https://openrouter.ai"]` | `["'self'", "https://openrouter.ai", "https://www.remotion.pro"]`; the paths also `/explore` and `/motion` | R5-58 |
+| M0's text test (`tests/e2e/home.spec.ts`, "the home page shows the prompt, the one-liner and the work in progress") | `main` holds "in progress: the export bundle" | `main` holds the prompt, the one-liner and "Palette 1 of 6: Madder.", and not "in progress" | R5-34 |
+| F-HOME-01 (M2) | One `div` holds the studio link and the repository link | The same `div` (in `start.log`) also holds the explorer and motion lab links | R5-32 |
+| F-CANVAS-19 (M2, amended in M3) | The Tab order ends Undo, Redo, Copy link, Export | It ends Undo, Redo, Copy link, Export, Flavor; the closed toolbar at 360 × 740 is still at most 170 px tall | R5-51 |
+| F-KEY-11 (M2, amended in M3 and M4) | The inspector's stops run from its scroll area to each finding's actions, as 13.7 of M4 orders them | The Scales section adds one stop per palette and then "See these scales in the explorer" before the role table; the inputs panel adds "Edit in the motion lab" after "Motion feel" | R5-45, R5-47 |
+| F-INSP-14 (M2, amended in M3 and M4) | Every inspector control is reachable by keyboard | Also each Scales step (one stop per palette, the arrows within) and the token row's "Copy" | R5-47 |
+| C-ZIP-06 (M3) | Only `DESIGN.md`, `AGENTS.md.snippet` and `SKILL.md` may hold capitals; `A.txt` is a `RangeError` | `README.md` joins them; `A.txt`, `README.MD` and `Readme.md` stay `RangeError` | R5-24 |
+| C-BND-02 (M3) | Every file of every golden matches R3-09's path rule with the three fixed names | With `README.md` as a fourth fixed name, for the `default-flavor` golden | R5-24 |
+| C-BND-06 (M3) | The 15 `GOLDENS` equal the manifest | The 16, `default-flavor` added (C-FEX-14) | R5-27 |
+| C-REPO-M2-03 (M2), C-GUARD4-10 (M4) | The coverage include and floors of M4's section 15 | Also section 15's new lists and folders (C-GUARD5-09) | R5-62 |
+
+Every other M1 to M4 case stands as written (I-M5-08), among them C-MOT-02 (`motion.css` does not change), C-GEN-13
+(a regenerated spec equals its source, now with custom tokens too), C-BND-01 (the bundle without flavor), every golden,
+C-WORK-11 (the worker imports only `@/engine` and `./protocol`), F-CANVAS-07 (now also reached by an OS change, F-VT-07),
+F-STUDIO-21 and F-SEC4-02's one worker, F-LAZY4-01 (the AI layer stays lazy), and the guards C-GUARD3-01 to 04 and
+C-GUARD4-01 to 12.
+
+## 17. Review Focus
+
+The five input classes most likely to bite a visitor, each with the tests that pin it:
+
+| RF | Input | Cases |
+|---|---|---|
+| RF1 | Reduced motion switched while something moves: during a cross-fade, a template switch, the sheet's rise | F-HERO-RF1, F-VT-07, F-VT-02, C-FLAV-13 |
+| RF2 | Links that reach the edges: a lab link with a token outside the lab's caps, a P3 design in the explorer, a bad hash on each page | F-LAB-RF2, F-EXP5-RF2, F-EXP5-05, F-LAB-09 |
+| RF3 | WebGL lost or missing at a bad moment: during a fade, during a recording, before the explorer mounts | F-LOOP-RF3, F-HERO-06, F-EXP5-06, F-EXP5-07 |
+| RF4 | Video jobs that race: a double click, a close during a render, two jobs at once | F-RENDER-RF4, C-DLG-RF4, F-RENDER-08 |
+| RF5 | Motion tokens at their bounds: bounce 1, durations 0, easing y far outside [0, 1] | C-MOT5-RF5, C-MOT5-03, C-LAB-03 |
+
+## 18. Deferred, and the seams for M6
+
+| Item | Comes from | Milestone |
+|---|---|---|
+| The `/about` page: the math, the receipt, the licenses, the privacy note for in-browser video | umbrella §7, decision A2 | M6 |
+| Landing polish: "the receipt explained in one screen" beyond the story's last step, entry points from a brief, an image or the gallery | umbrella §7, decision A2 | M6 |
+| The gallery and share cards | umbrella §7, decision A2 | M6 |
+| Real chunk sizes and a Lighthouse measure of `/`, `/explore` and `/motion` | R5-64 | M6 (the audits) |
+| Cosine and Poline-style generators | M1 section 18, decision A3 | Not scheduled |
+| Tokens for the unexpressed style traits (hard offset shadows, blur, grain) | M2 and M3 section 18, D2 of M3 | Not scheduled; each needs its own decision |
+| Animations and keyframes in `theme.css` | M3 section 18 | Not scheduled; the motion files carry the motion |
+| WebGL in the canvas templates | umbrella §11, decision A2 | Not scheduled |
+| GIF, glTF, dotLottie, a palette nebula, WebGPU, audio in videos | decision A2 | Not scheduled |
+| A motion budget and a stored reduced-motion policy | umbrella §4 and §6, decision E5 | Not scheduled |
+| Remotion 5.0's terms (attribution and no upload of user code), when they take effect | R6 section 3.1 | When Remotion 5.0 ships; the header and READMEs already say "Built with Remotion" |
+
+The seams M5 leaves: `flavorStops`, `flavorSeed` and `brandProps` give M6's share cards and gallery a design's colors and
+video props; `heroDesigns()` is the first gallery's six entries; `pageHref` links any page to any design; the `motion`
+section of a spec now records custom tokens, so a gallery card keeps them.
+
+## 19. Risks
+
+- **Software WebGL in CI.** Playwright's Chromium draws WebGL2 through SwiftShader, which is slow and may change with a
+  Chromium release. The flows assert state, not frames; the render and record budgets are measured at Task 5.0 and
+  scaled by 3; F-HERO-09's screenshots compare two runs of one build on one machine.
+- **The usage event is the visitor's.** Each render sends the visitor's IP address and dyelot's origin to remotion.pro,
+  and nothing in dyelot can stop it; the privacy note says so before the first render of a page load, and the README and
+  `/about` (M6) repeat it. A blocked request (an ad blocker) is retried by Remotion and never fails the render.
+- **Remotion's license can tighten.** Remotion 5.0's draft counts contractors toward the three-person limit and adds
+  attribution and download rules. dyelot stays an individual's project; the exported files already carry the header and
+  the four-or-more rule.
+- **Remotion 4.0.539 is 11 days old on 2026-11-06**, younger than the house's two-week habit; it is the umbrella's pin and
+  the version Mediabunny 1.62.0 pairs with. By the merge it will be older than two weeks; no newer version is taken.
+- **drei may drag in remote assets.** Probe 1 decides; with drei gone, `OrbitControls` comes from three's examples, which
+  three versions with the core.
+- **A raw `.tsx` rule is new.** Probe 3 decides; the fallback is a generated file and a test that it equals the sources.
+- **Scroll-driven animations are new in Firefox and Safari** (Firefox 159, Safari 26). Older browsers show every step
+  in its final state, by construction.
+- **The theme bridge caps durations at 500 ms.** A lab token above 500 (only from a hand-made link) exports as 500; the
+  ladder says so.
+- **A custom motion token changes the spec id.** A design edited in the lab is a new design with a new lot; the studio
+  shows "custom" so the visitor knows (owner approval item 4).
+- **Three more WebGL contexts.** The hero, the explorer and the Flavor preview each hold one context; no page holds more
+  than two at once (the studio's dialog and nothing else), far below the browser's cap.
+- **Hand-made links with exponent numbers.** A spec whose easing holds a number `String()` writes with an exponent
+  (1e-7) exports wrong numbers in `motion.css`, as in M3; the lab rounds every value to two decimals, so no lab-made link
+  carries one.
+
+## 20. Done when
+
+- Every case in section 14 has a test that carries its id (C-GUARD5-01), and every `failure` case fails the way its row
+  says.
+- `pnpm gate:full` passes with section 15's floors, and `pnpm gate` passes; both times are recorded.
+- Every M1 to M4 case passes except section 16's changes, every golden holds, and a design without `motionTokens` keeps
+  its spec id (I-M5-08).
+- Task 5.0's probe results are recorded in R5-64.
+- After the merge, the hand check of R5-65 on `https://dyelot.vercel.app`, with one real render, is recorded in this
+  spec's close note.
+- `docs/specs/00-design.md` carries a note starting "Refined in M5" at each row of section 1's first table.
+- The README states M5 with measured claims only, and its Remotion section (11.4).
+- The knowledge graph records the M5 pins and the Remotion license use (a decision or infrastructure node, per
+  `.claude/rules/knowledge-graph.md`).
+- The pull request merges once CI is green (the owner's ruling of 2026-11-04).
+
+## 21. Owner approval items
+
+Each item ends with a recommendation: the controller's for items 1 to 7, the drafter's for items 8 to 11.
+
+1. **Remotion.** dyelot uses Remotion under its Free License as an individual's project, with `licenseKey:
+   "free-license"`; each render sends one usage event from the visitor's browser to remotion.pro (IP address and
+   origin); `https://www.remotion.pro` joins `connect-src`; the README tells reusers that companies of four or more people
+   need a Company License (R5-53 to R5-55, R5-58). *Recommendation: approve.*
+2. **Videos are separate downloads**, not zip files; `flavor/` is text only (R5-25). *Recommendation: accept.*
+3. **Cosine and Poline-style generators are not scheduled** (R5-03). *Recommendation: accept.*
+4. **The lab writes custom tokens into the design** through the optional `motionTokens` parameter: a design edited in the
+   lab gets a new spec id; no other design changes (R5-09 to R5-11). *Recommendation: accept.*
+5. **Stack refinements.** One viewport without drei's `View`; drei limited to `OrbitControls`, or none after probe 1; no
+   `postprocessing`; dyelot's own gamut mesh instead of oklch-picker's (R5-07, R5-35). *Recommendation: accept.*
+6. **No WebGL in the canvas templates** (R5-02). *Recommendation: accept.*
+7. **The hand check after the merge includes one real render**, one usage event from the controller's browser (R5-65).
+   *Recommendation: approve.*
+8. **Two inherited items are not scheduled**: tokens for the unexpressed style traits, and animations in `theme.css`;
+   each would change every golden (R5-03). *Recommendation: accept, and give each its own decision later.*
+9. **M2's mobile-sheet item is fixed in M5**: `MotionScope` follows the OS setting live, so an OS change settles the sheet
+   as the canvas's switch does (R5-49). *Recommendation: accept; it is one small change with one flow (F-VT-07).*
+10. **The lab's caps**: durations 0 to 500 ms, an easing's y −1 to 2, a spring's duration 0.05 to 2 s, each rounded to
+    its field's step, inside the schema's bounds (R5-42). *Recommendation: accept; the bridge already caps durations at
+    500 ms.*
+11. **The six hero designs** are named after historical dyes (Madder, Weld, Verdigris, Woad, Logwood, Cochineal), with
+    the seeds of R5-31; the first is the explorer's and the lab's default (R5-31). *Recommendation: accept.*
