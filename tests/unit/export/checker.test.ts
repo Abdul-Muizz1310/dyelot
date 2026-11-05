@@ -10,7 +10,7 @@ import { lotTag, specId } from "@/spec";
 import { APP, type AppFiles, cleanFolders, SHADCN_APP, STUB_FILES } from "./checker-support";
 import { ORIGIN, SPEC } from "./golden-support";
 
-// C-CHK-01 to 23, 27 to 30, 34 to 37 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
+// C-CHK-01 to 23, 27 to 30, 34 to 38 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
 // through `main(argv, io)`. C-CHK-24 and 26 spawn node: tests/unit/export/checker-entry.test.ts.
 
 afterAll(cleanFolders);
@@ -507,6 +507,47 @@ describe("the scan", () => {
       ["raw-color", "app/components.css"],
       ["raw-color", "src/a.tsx"],
     ]);
+  });
+
+  it("C-CHK-38: on the registry route, the theme's @theme mappings are judged, not only masked", () => {
+    const palettes = "neutral primary secondary accent success warning danger info".split(" ");
+    const steps = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+    const scale = palettes.flatMap((p) => steps.map((s) => `  --${p}-${s}: #123456;`)).join("\n");
+    // shadcn's @theme inline, mapping each role and step to its variable; the set varies by version,
+    // so one role (sidebar-ring) is left out on purpose, and the user's own --color-brand is beside them.
+    const maps = [
+      ...ROLE_NAMES.filter((n) => n !== "sidebar-ring").map((n) => `  --color-${n}: var(--${n});`),
+      ...palettes.flatMap((p) => steps.map((s) => `  --color-${p}-${s}: var(--${p}-${s});`)),
+      "  --color-brand: var(--primary);",
+    ].join("\n");
+    const route2 = (css: string) =>
+      `${css.replace(":root {\n", `:root {\n${scale}\n`).replace(".dark {\n", `.dark {\n${scale}\n`)}\n@theme inline {\n${maps}\n}\n`;
+    const pass = run(["--root", registryApp(route2)]);
+    expect(pass.code).toBe(0);
+    expect(last(pass)).toBe("PASS");
+    const edits: [string, string, string][] = [
+      ["--color-primary: var(--primary);", "--color-primary: #ff0000;", "--color-primary"],
+      [
+        "--color-primary-500: var(--primary-500);",
+        "--color-primary-500: #ff0000;",
+        "--color-primary-500",
+      ],
+    ];
+    for (const [from, to, name] of edits) {
+      const r = check(registryApp((css) => route2(css).replace(from, to)));
+      expect(codes(r), name).toEqual(["theme-name-changed"]);
+      expect(r.json.findings[0].message).toBe(
+        `${name} points at #ff0000, not var(--${name.slice(8)}).`,
+      );
+    }
+    // A plain @theme block is judged the same way, and its value is check 1b's alone.
+    const plain = check(
+      registryApp((css) => `${route2(css)}@theme {\n  --color-sidebar-ring: #ff0000;\n}\n`),
+    );
+    expect(codes(plain)).toEqual(["theme-name-changed"]);
+    expect(plain.json.findings[0].message).toBe(
+      "--color-sidebar-ring points at #ff0000, not var(--sidebar-ring).",
+    );
   });
 
   it("C-CHK-33: a malformed receipt is exit 2 with a message, never a stack", () => {

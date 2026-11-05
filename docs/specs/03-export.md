@@ -409,7 +409,11 @@ by default, with the current folder as the root. It runs four checks in this ord
    a checkout by Git for Windows, whose default turns LF into CRLF, still passes. **1b.** In the theme's `:root` and `.dark` blocks each of the 46 roles
    must equal the receipt's hex for that mode, case aside (`role-mismatch`, `role-missing`); `--radius` must equal the
    receipt's (`radius-mismatch`); and, when the theme is the bundle's `theme.css`, every name its `@theme inline` block maps
-   (`--color-<role>`, `--color-<palette>-<step>`) must still point at the same variable (`theme-name-changed`).
+   (`--color-<role>`, `--color-<palette>-<step>`) must still point at the same variable (`theme-name-changed`). When the
+   theme is the global stylesheet (the registry route), each `--color-<role>` or `--color-<palette>-<step>` declaration in
+   its `@theme` and `@theme inline` blocks must likewise point at `var(--<role>)` or `var(--<palette>-<step>)`, white space
+   and case aside (`theme-name-changed`, with the same message), but none is required, because shadcn's CLI writes them
+   and the set varies by version. Another name there, such as `--color-brand: var(--primary)`, is not judged.
 2. **The pairs.** Each of the 78 required checks is measured again with WCAG 2.2 on the theme's values; a pair below its
    threshold is `contrast-fails`, with the message `<check> in <mode> mode is <ratio>, below <threshold>.`, where `<check>`
    is the receipt's id, which already names the pair (`C1:muted-foreground/muted`), and `<ratio>` is cut by `trunc4`.
@@ -419,11 +423,14 @@ by default, with the current folder as the root. It runs four checks in this ord
 4. **The scan.** Every file with an extension of `.ts .tsx .js .jsx .mjs .cjs .css .scss .html .vue .svelte .astro .mdx`
    under the root is scanned, except folders named `node_modules` at any depth, `.git`, `.next`, `dist`, `build`, `out` and
    `coverage`, the bundle's own files (`receipt.json` and every path its `files` list names) and any file over 1 MiB. The
-   scan masks the declarations that checks 1b and 3 judge, so none is counted twice: a role, `--radius`, `--color-<role>` or
-   `--color-<palette>-<step>` declaration that check 3 reads (in a `:root`, `.dark`, `@theme` or `@theme inline` block of the
-   theme, of the global stylesheet after the theme's import, or of a stylesheet it imports after the theme), and a scale-step
-   declaration (`--<palette>-<step>` for the palettes neutral, primary, secondary, accent, success, warning, danger, info and
-   the steps 50, 100 ... 900, 950) in the theme's `:root` and `.dark` blocks, where the registry route writes them. The mask
+   scan masks the declarations that checks 1b and 3 judge, and only those, so none is counted twice: a role, `--radius`,
+   `--color-<role>` or `--color-<palette>-<step>` declaration that check 3 reads (in a `:root`, `.dark`, `@theme` or
+   `@theme inline` block of the theme, of the global stylesheet after the theme's import, or of a stylesheet it imports after
+   the theme), and, on the registry route, the theme's own `--color-<role>` and `--color-<palette>-<step>` declarations that
+   check 1b judges. (On the `theme.css` route the theme is the bundle's own file and is not scanned at all.) It also masks
+   each scale-step declaration (`--<palette>-<step>` for the palettes neutral, primary, secondary, accent, success, warning, danger, info and
+   the steps 50, 100 ... 900, 950) in the theme's `:root` and `.dark` blocks, where the registry route writes them; no check judges a scale step, so this
+   one mask is an exemption, not a judgment. The mask
    runs from the declaration's name to its `;` or `}`, not over the whole line, so another color on the same line is still
    found. Every other declaration is scanned like any line, in any file: `@theme { --color-brand: #ff00aa; }`,
    `body { --primary: #ff0000; }`, a `:root` in a stylesheet that the global one does not import, and a scale step outside
@@ -1642,6 +1649,7 @@ value `main` returns; "last line" means the last line of everything `io.out` rec
 | C-CHK-35 | failure | The scan masks only the declarations checks 1b and 3 judge (R3-25 item 4). Each of these gives one `raw-color`: `@theme { --color-brand: #ff00aa; }` in `app/globals.css` after the theme's import, and the same block in `app/brand.css`; `body { --primary: #ff0000; }` and `.marketing { --background: oklch(0.2 0.1 30); }` in `globals.css`; `:root { --primary: #f00; }` in `app/marketing.css`, which `globals.css` does not import; and each of `:root { --primary: #ff0000; }`, `--radius: #fff;` and `--color-primary: #abc;` in `src/decl.css`, which nothing imports. A line of the registry route's theme that holds the light `--primary` and then `--brand: #ff0000;` gives one `raw-color`, for `#ff0000` at its column; `:root { --primary: <the theme's hex>; } a { color: #ff0000; }` after the import gives one, for `#ff0000`. `:root { --primary: #000000; }` in `app/extra.css`, imported after the theme, gives `shadowed` alone. C-CHK-05, C-CHK-15's cleaned state and C-CHK-34 still pass | final review I-1 and minor 82, ruling R3-25 |
 | C-CHK-36 | pass | Line ends: an `APP` whose `app/theme.css` is the bundle's text with every LF turned into CRLF, with every LF turned into CR, with a leading U+FEFF, or with both a U+FEFF and CRLF exits 0 and prints `PASS`. C-CHK-08's one-character edit, written with a U+FEFF and CRLF, still gives `theme-changed` alone | final review I-4, ruling R3-25 |
 | C-CHK-37 | failure | A color function's text and message: in a `.css` file, `rgb(255 0 0)` gives the text `rgb(255 0 0)` and the message "The color function rgb(255 0 0) skips the theme. Use a role such as var(--primary)."; `color(display-p3 1 0 0)` and `oklch(0.5 calc(0.1 + 0.05) 20)` on one line give their whole calls, nested parentheses included, at their columns; `rgb(255 0` with `0)` on the next line gives the text `rgb(` and the message "The color function rgb() skips the theme. Use a role such as var(--primary)." | final review minor 56, ruling R3-25 |
+| C-CHK-38 | failure | The registry route judges its theme's mappings. A Route-2-shaped app (C-CHK-34's roles, radius and 88 steps, plus an `@theme inline` that maps every role but `sidebar-ring` and every step to its variable, and `--color-brand: var(--primary)`) exits 0 and prints `PASS`: no mapping is required, and `--color-brand` is not judged. `--color-primary: #ff0000` there gives exactly one finding, `theme-name-changed`, "--color-primary points at #ff0000, not var(--primary).", and no `raw-color`; so does `--color-primary-500: #ff0000`; and `@theme { --color-sidebar-ring: #ff0000; }` added to the theme gives exactly one `theme-name-changed` | final re-review, controller ruling, R3-25 |
 | C-CHK-RF5 | pass | A generated folder of 5,000 small `.tsx` files plus `packages/a/node_modules/x/index.js` holding `#ff0000`: in process, `main` returns 0 in under 10 s, and `io.readFile` is never called with a path holding `/node_modules/` | RF5 |
 
 ### 10.8 DESIGN.md, the AGENTS block, the prompt and the skill (Task 3.9)

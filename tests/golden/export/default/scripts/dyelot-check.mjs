@@ -658,25 +658,42 @@ export function main(argv, io) {
         `--radius is ${radius === undefined ? "missing" : radius.value}, the receipt has ${receipt.radius}.`,
       );
     }
+    const escaped = roleNames.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+    const scale = `(?:${SCALE_PALETTES.join("|")})-(?:${SCALE_STEPS.join("|")})`;
+    /** @param {Decl} decl A `--color-<name>` mapping, which must point at `var(--<name>)`. */
+    const judgeMapping = (decl) => {
+      const name = decl.name.slice(8);
+      if (normalize(decl.value) !== `var(--${name})`) {
+        report("theme-name-changed", `${decl.name} points at ${decl.value}, not var(--${name}).`);
+      }
+    };
     const mapped = new Map();
+    /** @type {Decl[]} The registry route's mappings in the theme: check 1b judges them, check 4 masks them. */
+    const themeMaps = [];
     if (path.posix.basename(theme.path) === "theme.css") {
       for (const block of themeBlocks) {
         if (block.kind !== "theme-inline") continue;
         for (const decl of block.decls) {
           if (!decl.name.startsWith("--color-")) continue;
-          const name = decl.name.slice(8);
           mapped.set(decl.name, decl);
-          if (normalize(decl.value) !== `var(--${name})`) {
-            report(
-              "theme-name-changed",
-              `${decl.name} points at ${decl.value}, not var(--${name}).`,
-            );
-          }
+          judgeMapping(decl);
         }
       }
       for (const name of roleNames) {
         if (!mapped.has(`--color-${name}`))
           report("theme-name-changed", `--color-${name} is not mapped in @theme inline.`);
+      }
+    } else {
+      // The registry route: shadcn's CLI writes the mappings, a set that varies by version, so none is
+      // required; each role or step mapping the theme's @theme or @theme inline holds keeps its variable.
+      const mapping = new RegExp(`^--color-(?:${escaped}|${scale})$`);
+      for (const block of themeBlocks) {
+        if (block.kind === "rule") continue;
+        for (const decl of block.decls) {
+          if (!mapping.test(decl.name)) continue;
+          themeMaps.push(decl);
+          judgeMapping(decl);
+        }
       }
     }
 
@@ -732,10 +749,10 @@ export function main(argv, io) {
     // Check 4: the scan.
     // It masks exactly the declarations checks 1b and 3 judge, so none is counted twice: the
     // roles, --radius and --color-<role> or --color-<palette>-<step> mappings in check 3's stream,
-    // and the scale steps in the theme's :root and .dark, where the registry route writes them.
-    // Every other declaration is scanned like any line, and so is the rest of a masked one's line.
-    const escaped = roleNames.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
-    const scale = `(?:${SCALE_PALETTES.join("|")})-(?:${SCALE_STEPS.join("|")})`;
+    // and on the registry route the theme's own mappings, which check 1b judges. It also masks the
+    // scale steps in the theme's :root and .dark, where the registry route writes them (no check
+    // judges a step). Every other declaration is scanned like any line, and so is the rest of a
+    // masked one's line.
     const judged = new RegExp(`^--(?:${escaped}|radius|color-(?:${escaped}|${scale}))$`);
     const step = new RegExp(`^--${scale}$`);
     /** @type {Map<string, [number, number][]>} */
@@ -747,6 +764,7 @@ export function main(argv, io) {
       spans.set(file, list);
     };
     for (const item of stream) if (judged.test(item.decl.name)) hide(item.path, item.decl);
+    for (const decl of themeMaps) hide(theme.path, decl);
     for (const block of themeBlocks) {
       if (!hasSelector(block, ":root") && !hasSelector(block, ".dark")) continue;
       for (const decl of block.decls) if (step.test(decl.name)) hide(theme.path, decl);
