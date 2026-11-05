@@ -1311,7 +1311,7 @@ describe("C-ROUTE-16 a visitor's cancel", () => {
     expect(context.deps.gate.enter(NOW)).not.toBeNull();
   });
 
-  it("C-ROUTE-16 an abort during a re-read stops before tier 2", async () => {
+  it("C-ROUTE-16 an abort during a re-read stops before tier 2, answered as that re-read's failure, counted", async () => {
     const controller = new AbortController();
     const reread = watched(abortable);
     const context = setup({
@@ -1328,6 +1328,15 @@ describe("C-ROUTE-16 a visitor's cancel", () => {
     const reply = await settle(context, "brief", pending);
     expect(context.recording.chatCalls()).toHaveLength(1);
     expect(reply.setCookie).toBe(setCookieLine(capValue(TODAY, 1)));
+    // The aborted re-read reads as failed, so the action answers as a failed re-read does (R4-16).
+    expect(reply.status).toBe(503);
+    expect(reply.json).toEqual({
+      ok: false,
+      code: "guard-unavailable",
+      remaining: 2,
+      failures: [{ tier: "primary", slug: TEXT_SLUGS[0], kind: "http", status: 500 }],
+    });
+    expect(context.deps.gate.enter(NOW)).not.toBeNull();
   });
 });
 
