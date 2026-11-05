@@ -211,8 +211,8 @@ export default defineConfig({
         // The export and import layers of M3 (pure, held to a floor of their own).
         "src/export/**",
         "src/import/**",
-        // The AI core of M4 (R4-59), held to the pure-core floor.
-        "src/ai/**",
+        // The AI core of M4 (R4-59), held to the pure-core floor: its code, not its prompt files.
+        "src/ai/**/*.ts",
         "src/lib/site/**",
         "src/features/fonts/load.ts",
         // The studio's pure helpers (spec R2-22). The store, the worker shell and the UI are

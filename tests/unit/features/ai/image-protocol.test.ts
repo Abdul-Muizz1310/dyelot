@@ -268,8 +268,8 @@ describe("C-IMG-11 parseImageReply", () => {
   });
 });
 
-// The header builders of C-IMG-15: each sample records `need`, the bytes its header takes, so the
-// cases can cut it one byte short.
+// The header builders of C-IMG-15: each sample records `need`, the bytes its header takes (a whole
+// GIF, whose every block is read), so the cases can cut it one byte short.
 
 const ascii = (text: string): number[] => [...text].map((char) => char.charCodeAt(0));
 const be16 = (n: number): number[] => [(n >>> 8) & 0xff, n & 0xff];
@@ -288,8 +288,33 @@ function png(width: number, height: number, ihdr = "IHDR", length = 13): Sample 
   return { bytes: join(head, [8, 2, 0, 0, 0], [0, 0, 0, 0]), need: 24 };
 }
 
+/** A GIF frame: the image descriptor at its offset, a local color table of 2 colors when `local`, then LZW data. */
+function frame(left: number, top: number, width: number, height: number, local = false): number[] {
+  const descriptor = [0x2c, ...le16(left), ...le16(top), ...le16(width), ...le16(height)];
+  const table = local ? [0x80, 0, 0, 0, 255, 255, 255] : [0x00];
+  return [...descriptor, ...table, 2, 2, 0x4c, 0x01, 0];
+}
+/** A graphic control extension, and a comment extension of two sub-blocks. */
+const GCE = [0x21, 0xf9, 4, 0x00, 10, 0, 0, 0];
+const COMMENT = [0x21, 0xfe, 3, ...ascii("abc"), 2, ...ascii("de"), 0];
+/** The NETSCAPE2.0 loop extension: an 11-byte sub-block, then a 3-byte one. */
+const LOOP = [0x21, 0xff, 11, ...ascii("NETSCAPE2.0"), 3, 1, 0, 0, 0];
+
+/** A whole GIF: the signature, the logical screen with a global color table of 2 colors, `blocks`, the trailer. */
+function gifFile(
+  width: number,
+  height: number,
+  blocks: readonly (readonly number[])[],
+  { version = "89a", trailer = [0x3b] as readonly number[] } = {},
+): Sample {
+  const head = [...ascii(`GIF${version}`), ...le16(width), ...le16(height), 0xf0, 0, 0];
+  const bytes = join(head, [0, 0, 0, 255, 255, 255], ...blocks, trailer);
+  return { bytes, need: bytes.length };
+}
+
+/** A one-frame GIF whose frame fills the logical screen. */
 function gif(width: number, height: number, version = "89a"): Sample {
-  return { bytes: join(ascii(`GIF${version}`), le16(width), le16(height), [0xf7, 0, 0]), need: 10 };
+  return gifFile(width, height, [GCE, frame(0, 0, width, height)], { version });
 }
 
 /** A JPEG segment: FF, the marker, the length (counting itself) and the payload. */
@@ -400,21 +425,48 @@ const PITM = fullBox("pitm", [0, 1]);
 const IPMA = fullBox("ipma", [0, 0, 0, 1, 0, 1, 2, 0x81, 0x02]);
 const PIXI = fullBox("pixi", [3, 8, 8, 8]);
 
-/** An AVIF of `ftyp`, then `meta` holding `hdlr`, `pitm` and `iprp` (`ipco` with `props`, `ipma`), then `mdat`. */
+/**
+ * An AVIF of `ftyp`, `before`, then `meta` holding `hdlr`, `pitm` and `iprp` (`ipco` with `props`,
+ * `ipma`), then `after` and `mdat`. Every top-level box is read, so a cut `mdat` gives null too;
+ * `need` ends with the boxes before it.
+ */
 function avif(
   props: readonly (readonly number[])[],
-  { ftyp = FTYP, before = [] as readonly number[] } = {},
+  { ftyp = FTYP, before = [] as readonly number[], after = [] as readonly number[] } = {},
 ): Sample {
   const ipco = box("ipco", props.flat());
   const meta = fullBox("meta", [...HDLR, ...PITM, ...box("iprp", [...ipco, ...IPMA])]);
-  const bytes = join(ftyp, before, meta, box("mdat", [1, 2, 3, 4]));
-  return { bytes, need: ftyp.length + before.length + meta.length };
+  const bytes = join(ftyp, before, meta, after, box("mdat", [1, 2, 3, 4]));
+  return { bytes, need: ftyp.length + before.length + meta.length + after.length };
 }
+/** A movie box with one track header (version 0): the image sequence's track. */
+const MOOV = box(
+  "moov",
+  box(
+    "trak",
+    fullBox(
+      "tkhd",
+      Array.from({ length: 80 }, () => 0),
+    ),
+  ),
+);
 
 const SAMPLES: readonly [string, Sample, string, { width: number; height: number }][] = [
   ["a PNG IHDR", png(640, 480), "image/png", { width: 640, height: 480 }],
   ["a GIF89a logical screen", gif(320, 200), "image/gif", { width: 320, height: 200 }],
   ["a GIF87a logical screen", gif(7, 9, "87a"), "image/gif", { width: 7, height: 9 }],
+  [
+    "a GIF whose first frame is larger than its 1 x 1 logical screen",
+    gifFile(1, 1, [GCE, frame(0, 0, 300, 200)]),
+    "image/gif",
+    { width: 300, height: 200 },
+  ],
+  [
+    "a GIF whose frames reach past the screen by their offsets, after comment and loop extensions",
+    gifFile(10, 10, [LOOP, COMMENT, GCE, frame(5, 5, 20, 10, true), GCE, frame(0, 0, 4, 30)]),
+    "image/gif",
+    { width: 25, height: 30 },
+  ],
   ["a JPEG's SOF0 after EXIF", jpeg(0xc0, 4032, 3024), "image/jpeg", { width: 4032, height: 3024 }],
   ["a JPEG's SOF2 after EXIF", jpeg(0xc2, 9000, 6000), "image/jpeg", { width: 9000, height: 6000 }],
   [
@@ -460,8 +512,19 @@ describe("C-IMG-15 imageSize", () => {
     expect((size?.width ?? 0) * (size?.height ?? 0)).toBeGreaterThan(MAX_PIXELS);
   });
 
-  it("C-IMG-15 reads the logical screen of two-frames.gif", () => {
+  it("C-IMG-15 reads the logical screen of two-frames.gif, walking both its frames", () => {
     expect(imageSize(fixture("odd/two-frames.gif"), "image/gif")).toEqual({ width: 8, height: 8 });
+  });
+
+  it("C-IMG-15 counts a GIF frame larger than the screen: the 1 x 1 screen's 300 x 200 frame, and a frame over the limit", () => {
+    const small = imageSize(gifFile(1, 1, [GCE, frame(0, 0, 300, 200)]).bytes, "image/gif");
+    expect((small?.width ?? 0) * (small?.height ?? 0)).toBeGreaterThanOrEqual(300 * 200);
+    const later = gifFile(1, 1, [GCE, frame(0, 0, 1, 1), GCE, frame(0, 0, 8000, 7000)]);
+    const bomb = imageSize(later.bytes, "image/gif");
+    expect(bomb).toEqual({ width: 8000, height: 7000 });
+    expect((bomb?.width ?? 0) * (bomb?.height ?? 0)).toBeGreaterThan(MAX_PIXELS);
+    const offset = imageSize(gifFile(1, 1, [frame(7000, 7000, 7000, 7000)]).bytes, "image/gif");
+    expect((offset?.width ?? 0) * (offset?.height ?? 0)).toBeGreaterThan(MAX_PIXELS);
   });
 
   it("C-IMG-15 reads the other committed fixtures, a JPEG's stored size before its EXIF turn", () => {
@@ -519,12 +582,39 @@ describe("C-IMG-15 imageSize", () => {
     expect(imageSize(first, "image/avif")).toEqual({ width: 300, height: 200 });
     const toEnd = join(FTYP, be32(0), ascii("meta"), metaPayload);
     expect(imageSize(toEnd, "image/avif")).toEqual({ width: 300, height: 200 });
-    const avisOnly = box("ftyp", [...ascii("msf1"), 0, 0, 0, 0, ...ascii("avis")]);
-    expect(imageSize(avif([ispe(5, 6)], { ftyp: avisOnly }).bytes, "image/avif")).toEqual({
+    const manyBrands = box("ftyp", [
+      ...ascii("mif1"),
+      0,
+      0,
+      0,
+      0,
+      ...ascii("mif1".repeat(5000)),
+      ...ascii("avif"),
+    ]);
+    expect(imageSize(avif([ispe(5, 6)], { ftyp: manyBrands }).bytes, "image/avif")).toEqual({
       width: 5,
       height: 6,
     });
   });
+
+  const avisOnly = box("ftyp", [...ascii("msf1"), 0, 0, 0, 0, ...ascii("avis")]);
+  const avisMajor = box("ftyp", [...ascii("avis"), 0, 0, 0, 0, ...ascii("avifavismif1")]);
+  const avisCompatible = box("ftyp", [...ascii("avif"), 0, 0, 0, 0, ...ascii("avifmif1avis")]);
+  it.each<[string, Uint8Array]>([
+    ["an avis compatible brand alone", avif([ispe(5, 6)], { ftyp: avisOnly }).bytes],
+    ["an avis major brand", avif([ispe(5, 6)], { ftyp: avisMajor }).bytes],
+    [
+      "an avif major brand with avis among the compatible ones",
+      avif([ispe(5, 6)], { ftyp: avisCompatible }).bytes,
+    ],
+    ["a moov box after the meta", avif([ispe(5, 6)], { after: MOOV }).bytes],
+    ["a moov box before the meta", avif([ispe(5, 6)], { before: MOOV }).bytes],
+  ])(
+    "C-IMG-15 refuses an AVIF image sequence, named by %s, as an unsupported type",
+    (_label, bytes) => {
+      expect(imageSize(bytes, "image/avif")).toBeNull();
+    },
+  );
 
   const heic = box("ftyp", [...ascii("heic"), 0, 0, 0, 0, ...ascii("mif1heic")]);
   const shortFtyp = box("ftyp", ascii("avi"));
@@ -532,6 +622,15 @@ describe("C-IMG-15 imageSize", () => {
   const metaTooShort = join(FTYP, box("meta", [0, 0]));
   const noIprp = join(FTYP, fullBox("meta", HDLR));
   const noIpco = join(FTYP, fullBox("meta", box("iprp", IPMA)));
+  const brokenBeforeIprp = join(
+    FTYP,
+    fullBox("meta", [
+      ...HDLR,
+      ...be32(4),
+      ...ascii("free"),
+      ...box("iprp", box("ipco", ispe(9, 9))),
+    ]),
+  );
   const shortIspe = avif([box("ispe", [0, 0, 0, 0, ...be32(10)])]);
   const pastEnd = join(FTYP, [...be32(64), ...ascii("meta"), 0, 0, 0, 0]);
   const smallerThanHeader = join(FTYP, [...be32(4), ...ascii("free")]);
@@ -549,6 +648,27 @@ describe("C-IMG-15 imageSize", () => {
     ],
     ["a GIF of height 0", gif(5, 0).bytes, "image/gif"],
     ["a GIF88a", gif(5, 5, "88a").bytes, "image/gif"],
+    [
+      "a GIF without its trailer",
+      gifFile(5, 5, [frame(0, 0, 5, 5)], { trailer: [] }).bytes,
+      "image/gif",
+    ],
+    ["a GIF with an unknown block", gifFile(5, 5, [[0x99], frame(0, 0, 5, 5)]).bytes, "image/gif"],
+    [
+      "a GIF whose sub-block runs past the end",
+      gifFile(5, 5, [[0x21, 0xfe, 200, 1, 2, 3]], { trailer: [] }).bytes,
+      "image/gif",
+    ],
+    [
+      "a GIF whose global color table runs past the end",
+      join(ascii("GIF89a"), le16(5), le16(5), [0xf7, 0, 0], [0, 0, 0], [0x3b]),
+      "image/gif",
+    ],
+    [
+      "a GIF whose frame has no LZW data",
+      gifFile(5, 5, [frame(0, 0, 5, 5).slice(0, 10)]).bytes,
+      "image/gif",
+    ],
     ["a JPEG without its SOI", jpeg(0xc0, 9, 9).bytes.subarray(2), "image/jpeg"],
     [
       "a JPEG whose scan starts before a frame header",
@@ -611,9 +731,11 @@ describe("C-IMG-15 imageSize", () => {
       "image/avif",
     ],
     ["an AVIF without meta", noMeta, "image/avif"],
+    ["an AVIF whose mdat is cut", avif([ispe(10, 10)]).bytes.subarray(0, -1), "image/avif"],
     ["an AVIF whose meta has no room for its version", metaTooShort, "image/avif"],
     ["an AVIF without iprp", noIprp, "image/avif"],
     ["an AVIF without ipco", noIpco, "image/avif"],
+    ["an AVIF whose meta holds a malformed box before iprp", brokenBeforeIprp, "image/avif"],
     ["an AVIF without ispe", avif([PIXI]).bytes, "image/avif"],
     ["an AVIF whose ispe is too short", shortIspe.bytes, "image/avif"],
     ["an AVIF with an ispe of width 0", avif([ispe(0, 10)]).bytes, "image/avif"],

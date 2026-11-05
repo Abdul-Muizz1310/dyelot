@@ -128,12 +128,56 @@ function pngSize(b: Uint8Array): ImageDimensions | null {
   return width > PNG_SIDE_MAX || height > PNG_SIDE_MAX ? null : { width, height };
 }
 
-/** The GIF logical screen descriptor, right after the signature. */
+const GIF_EXTENSION = 0x21;
+const GIF_IMAGE = 0x2c;
+const GIF_TRAILER = 0x3b;
+/** The signature and the logical screen descriptor. */
+const GIF_HEADER = 13;
+/** An image descriptor: the separator, the offset and size (four 16-bit fields) and its flags. */
+const GIF_DESCRIPTOR = 10;
+
+/** The bytes of the color table a GIF flags byte announces: 3 × 2^(n + 1) when bit 7 is set. */
+const colorTable = (flags: number): number => (flags & 0x80 ? 3 * 2 ** ((flags & 0x07) + 1) : 0);
+
+/** Where the data sub-blocks starting at `at` end, after their 0 terminator, or null past the end. */
+function afterSubBlocks(b: Uint8Array, at: number): number | null {
+  for (let i = at; i < b.length; i += (b[i] as number) + 1) {
+    if (b[i] === 0) return i + 1;
+  }
+  return null;
+}
+
+/**
+ * The GIF's canvas (ruling on Task 4.6b's review): every block is walked up to the trailer, each
+ * extension and each frame's LZW data by its sub-blocks, and the logical screen is widened to hold
+ * every frame's rectangle (its offset plus its size), because a decoder widens the canvas to a frame
+ * larger than the screen. A block of another kind, or bytes that end before the trailer, give null.
+ * Each step moves forward by at least one byte and reads only bytes it has checked.
+ */
 function gifSize(b: Uint8Array): ImageDimensions | null {
-  if (b.length < 10) return null;
+  if (b.length < GIF_HEADER) return null;
   const signature = tag(b, 0, 6);
   if (signature !== "GIF87a" && signature !== "GIF89a") return null;
-  return { width: le16(b, 6), height: le16(b, 8) };
+  let width = le16(b, 6);
+  let height = le16(b, 8);
+  let at: number | null = GIF_HEADER + colorTable(b[10] as number);
+  while (at !== null && at < b.length) {
+    const block = b[at];
+    if (block === GIF_TRAILER) return { width, height };
+    if (block === GIF_EXTENSION) {
+      // The label, then the sub-blocks.
+      at = afterSubBlocks(b, at + 2);
+    } else if (block === GIF_IMAGE) {
+      if (at + GIF_DESCRIPTOR > b.length) return null;
+      width = Math.max(width, le16(b, at + 1) + le16(b, at + 5));
+      height = Math.max(height, le16(b, at + 3) + le16(b, at + 7));
+      // The local color table, the LZW minimum code size, then the data sub-blocks.
+      at = afterSubBlocks(b, at + GIF_DESCRIPTOR + colorTable(b[at + 9] as number) + 1);
+    } else {
+      return null;
+    }
+  }
+  return null;
 }
 
 /** A frame header: SOF0 to SOF15 other than DHT (C4), JPG (C8) and DAC (CC). */
@@ -218,48 +262,68 @@ function readBox(b: Uint8Array, at: number, end: number): Box | null {
   return { type: tag(b, at + 4), start: at + header, end: at + size };
 }
 
-/** Every box of a container's payload, or null when one is malformed. */
-function children(b: Uint8Array, container: Box, skip = 0): Box[] | null {
-  const boxes: Box[] = [];
-  for (let at = container.start + skip; at < container.end; ) {
-    const next = readBox(b, at, container.end);
-    if (next === null) return null;
-    boxes.push(next);
-    at = next.end;
+/**
+ * The boxes of [start, end), one at a time, so crafted input never builds a long list; a malformed
+ * box is yielded as null and ends the walk.
+ */
+function* boxesIn(b: Uint8Array, start: number, end: number): Generator<Box | null> {
+  for (let at = start; at < end; ) {
+    const box = readBox(b, at, end);
+    yield box;
+    if (box === null) return;
+    at = box.end;
   }
-  return boxes;
 }
 
-const AVIF_BRANDS = ["avif", "avis"];
-
-/** Whether an `ftyp` box names AVIF as its major brand or a compatible one. */
-function isAvif(b: Uint8Array, ftyp: Box): boolean {
-  if (ftyp.end - ftyp.start < 8) return false;
-  const brands = [tag(b, ftyp.start)];
-  for (let at = ftyp.start + 8; at + 4 <= ftyp.end; at += 4) brands.push(tag(b, at));
-  return brands.some((brand) => AVIF_BRANDS.includes(brand));
+/** The first box of `type` in [start, end), or null when there is none or a box before it is malformed. */
+function firstBox(b: Uint8Array, start: number, end: number, type: string): Box | null {
+  for (const box of boxesIn(b, start, end)) {
+    if (box?.type === type) return box;
+  }
+  return null;
 }
 
 /**
- * The AVIF's `ispe` boxes, in `meta` › `iprp` › `ipco`, after an `ftyp` that names AVIF: the
- * largest by area, the first of equals. A grid image lists its tiles' `ispe` beside its own, and a
- * thumbnail or an alpha plane has one too, so the largest is the one that bounds the decode.
+ * Whether an `ftyp` box names a still AVIF: `avif` as its major brand or a compatible one, and no
+ * `avis`, which marks an image sequence. The brands are read one at a time.
+ */
+function isStillAvif(b: Uint8Array, ftyp: Box): boolean {
+  if (ftyp.end - ftyp.start < 8) return false;
+  const major = tag(b, ftyp.start);
+  let still = major === "avif";
+  // The minor version comes between the major brand and the compatible brands.
+  for (let at = ftyp.start + 8; at + 4 <= ftyp.end; at += 4) {
+    const brand = tag(b, at);
+    if (brand === "avis") return false;
+    if (brand === "avif") still = true;
+  }
+  return still && major !== "avis";
+}
+
+/**
+ * A still AVIF's `ispe` boxes, in `meta` › `iprp` › `ipco`: the largest by area, the first of
+ * equals. A grid image lists its tiles' `ispe` beside its own, and a thumbnail or an alpha plane has
+ * one too, so the largest is the one that bounds the decode. An image sequence (an `avis` brand or a
+ * top-level `moov` box) is not a supported type (ruling on Task 4.6b's review): its track, not an
+ * `ispe`, sets what is decoded, so it gives null. Every top-level box is read, to find a `moov`.
  */
 function avifSize(b: Uint8Array): ImageDimensions | null {
   if (tag(b, 4) !== "ftyp") return null;
   const ftyp = readBox(b, 0, b.length);
-  if (ftyp === null || !isAvif(b, ftyp)) return null;
-  let meta = readBox(b, ftyp.end, b.length);
-  while (meta !== null && meta.type !== "meta") meta = readBox(b, meta.end, b.length);
-  if (meta === null) return null;
+  if (ftyp === null || !isStillAvif(b, ftyp)) return null;
+  let meta: Box | null = null;
+  for (const box of boxesIn(b, ftyp.end, b.length)) {
+    if (box === null || box.type === "moov") return null;
+    if (box.type === "meta" && meta === null) meta = box;
+  }
   // `meta` is a full box: four bytes of version and flags come before its children.
-  if (meta.end - meta.start < 4) return null;
-  const iprp = children(b, meta, 4)?.find((box) => box.type === "iprp");
-  const ipco = iprp && children(b, iprp)?.find((box) => box.type === "ipco");
-  const properties = ipco && children(b, ipco);
-  if (!properties) return null;
+  if (meta === null || meta.end - meta.start < 4) return null;
+  const iprp = firstBox(b, meta.start + 4, meta.end, "iprp");
+  const ipco = iprp && firstBox(b, iprp.start, iprp.end, "ipco");
+  if (!ipco) return null;
   let largest: ImageDimensions | null = null;
-  for (const box of properties) {
+  for (const box of boxesIn(b, ipco.start, ipco.end)) {
+    if (box === null) return null;
     if (box.type !== "ispe") continue;
     // A full box too: version and flags, then the width and the height.
     if (box.end - box.start < 12) return null;
@@ -273,10 +337,11 @@ function avifSize(b: Uint8Array): ImageDimensions | null {
 
 /**
  * The width and height a file's header states (9.1 step 1), read before any decode: the PNG
- * `IHDR`, the GIF logical screen descriptor, the first JPEG frame header, the WebP `VP8 `, `VP8L` or
- * `VP8X` chunk, or the AVIF `ispe`. The reader follows the bytes' signature, as the browser's decoder
- * sniffs them, so a file that claims another listed type is still sized. Null for a type outside
- * `IMAGE_TYPES`, a header it cannot read, or a side of 0. It never throws for a `Uint8Array`.
+ * `IHDR`, the GIF canvas (the logical screen widened to every frame), the first JPEG frame header,
+ * the WebP `VP8 `, `VP8L` or `VP8X` chunk, or a still AVIF's largest `ispe`. The reader follows the
+ * bytes' signature, as the browser's decoder sniffs them, so a file that claims another listed type
+ * is still sized. Null for a type outside `IMAGE_TYPES`, an AVIF image sequence, a header it cannot
+ * read, or a side of 0. It never throws for a `Uint8Array`.
  */
 export function imageSize(bytes: Uint8Array, type: string): ImageDimensions | null {
   if (!(bytes instanceof Uint8Array)) {
