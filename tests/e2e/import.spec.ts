@@ -273,6 +273,7 @@ test.describe("the import dialog", () => {
     await openStudio(page, SPEC_LINK);
     await openDialog(page);
     await paste(page, "keep me");
+    await fileInput(page).focus();
     await fileInput(page).setInputFiles({
       name: "a.json",
       mimeType: "application/json",
@@ -280,6 +281,8 @@ test.describe("the import dialog", () => {
     });
     await expect(errorRegion(page)).toHaveText("Choose a .md or a .css file.");
     await expect(textarea(page)).toHaveValue("keep me");
+    await expect(textarea(page)).toBeFocused();
+    await fileInput(page).focus();
     await fileInput(page).setInputFiles({
       name: "big.css",
       mimeType: "text/css",
@@ -287,6 +290,7 @@ test.describe("the import dialog", () => {
     });
     await expect(errorRegion(page)).toHaveText(TOO_LARGE);
     await expect(textarea(page)).toHaveValue("keep me");
+    await expect(textarea(page)).toBeFocused();
     expect(
       await page.evaluate(
         () => (window as unknown as { __reads: { count: number } }).__reads.count,
@@ -302,6 +306,7 @@ test.describe("the import dialog", () => {
     await expect(errorRegion(page)).toHaveText(
       "The YAML on line 4 could not be read. Check its indentation and quotes, then import again.",
     );
+    await expect(textarea(page)).toBeFocused();
     await paste(
       page,
       '---\nname: X\ncolors:\n  primary: "#112233"\n  base: "#445566"\n  other: &a "#778899"\n---\n',
@@ -310,6 +315,7 @@ test.describe("the import dialog", () => {
     await expect(errorRegion(page)).toHaveText(
       "The YAML uses an anchor or an alias on line 6. Write the values out in full, then import again.",
     );
+    await expect(textarea(page)).toBeFocused();
     await expect(dialog(page)).toBeVisible();
   });
 
@@ -328,6 +334,7 @@ test.describe("the import dialog", () => {
     if (result.ok) throw new Error("hello must not import");
     expect(result.error.code).toBe("no-roles");
     await expect(errorRegion(page)).toHaveText(result.error.message);
+    await expect(textarea(page)).toBeFocused();
   });
 
   test("F-IMP-11 an imported theme that fails a check offers the rebuild and blocks export; Cancel and Escape return focus", async ({

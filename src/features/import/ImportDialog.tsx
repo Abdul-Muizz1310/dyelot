@@ -172,16 +172,16 @@ function Shell({ store, open, onClose, onImported }: ImportDialogProps) {
     const verdict = fileAccepted(file.name, file.size);
     if (!verdict.ok) {
       // Refused before it is read: the textarea keeps its text.
-      setError(verdict.message);
       input.value = "";
+      fail(verdict.message);
       return;
     }
     let content: string;
     try {
       content = await file.text();
     } catch {
-      setError("That file could not be read. Choose it again.");
       input.value = "";
+      fail("That file could not be read. Choose it again.");
       return;
     }
     input.value = "";
