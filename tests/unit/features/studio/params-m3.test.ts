@@ -13,7 +13,7 @@ import {
 import type { DesignSpec } from "@/spec";
 import { FRESH_PARAMS, freshSpec, generate } from "./support";
 
-// Cases C-PAR3-01 to C-PAR3-07 of docs/specs/03-export.md, section 10.1 (R3-03).
+// Cases C-PAR3-01 to C-PAR3-08 of docs/specs/03-export.md, section 10.1 (R3-03).
 
 const RICH = {
   oneLiner: "Tide charts for small boats",
@@ -91,6 +91,23 @@ describe("the moved helpers", () => {
     expect(paramsMatchSpec(params, spec)).toBe(true);
     const other = as({ ...spec, meta: { ...spec.meta, oneLiner: "Something else" } });
     expect(paramsMatchSpec(params, other)).toBe(false);
+  });
+
+  it("C-PAR3-08 empty rules are no rules, so a draft that holds them matches its spec", () => {
+    const empty = { do: [], dont: [] };
+    const parsed = parseParams({ ...FRESH_PARAMS, ...RICH, rules: empty });
+    expect(parsed).toEqual({ ...FRESH_PARAMS, oneLiner: RICH.oneLiner, direction: RICH.direction });
+    expect(parsed !== null && "rules" in parsed).toBe(false);
+    const merged = mergeParams({ ...FRESH_PARAMS, ...RICH }, { rules: empty });
+    expect("rules" in merged).toBe(false);
+    const spec = generate(resolveParams({ ...FRESH_PARAMS, rules: empty }, "seed-1"), "seed-1");
+    const draft = parseParams({ ...FRESH_PARAMS, rules: empty });
+    expect(draft).not.toBeNull();
+    expect(paramsMatchSpec(draft as NonNullable<typeof draft>, spec)).toBe(true);
+    // A list with an entry is kept as it is.
+    const one = { do: ["x"], dont: [] };
+    expect(parseParams({ ...FRESH_PARAMS, rules: one })?.rules).toEqual(one);
+    expect(mergeParams(FRESH_PARAMS, { rules: one }).rules).toEqual(one);
   });
 
   it("C-PAR3-07 throws TypeError and RangeError naming the function", () => {

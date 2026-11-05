@@ -174,7 +174,10 @@ entry and the four policies (`components.cards`, `.emphasis`, `.inputs`, `.icons
 also reads `meta.oneLiner`, `direction` and `rules` back into `oneLiner`, `direction` and `rules` (the last only when either
 list is non-empty), so a regenerate keeps a loaded design's text. `DIRECTION_PARAM_KEYS` gains `"oneLiner"`, `"direction"`
 and `"rules"` after `"name"`. The studio's `parseParams` (drafts) accepts them within R3-01's bounds, and `mergeParams`
-treats them as it treats `name`: a value sets the field, `undefined` removes it. **(plan)**
+treats them as it treats `name`: a value sets the field, `undefined` removes it. Both treat `rules: { do: [], dont: [] }` as
+absent, as `paramsOfSpec` does: `parseParams` leaves the key out and `mergeParams` removes it, so a draft whose rules are
+empty (an AI reply with no rules, in M4) still matches the spec it generates and keeps its params on restore. **(plan; the
+empty rules added after the final review)**
 
 ### Derived values (Tasks 3.3 and 3.4)
 
@@ -1430,6 +1433,7 @@ Tests: `tests/unit/spec/schema-m3.test.ts`, `tests/unit/spec/text.test.ts`, `tes
 | C-PAR3-05 | pass | `mergeParams` sets `oneLiner`, `direction` and `rules` from a patch and removes each for a patch value of `undefined`; `touchesPreset(before, after)` is false when only these three, or `name`, differ | plan, ruling R3-03 |
 | C-PAR3-06 | pass | `paramsMatchSpec(params, spec)` is true for params with `oneLiner` and `direction` and the spec generated from them, and false when the spec's `meta.oneLiner` differs from `params.oneLiner` | ruling R3-03 |
 | C-PAR3-07 | failure | `paramsOfSpec(null)`, `resolveParams(null, "s")` and `resolveParams({ ...freshParams() }, 5)` throw `TypeError` naming their function; `mergeParams(freshParams(), { about: "x" })` throws `RangeError` naming `patch.about` | added, R-05 |
+| C-PAR3-08 | pass | Empty rules are no rules: `parseParams` of fresh params with `oneLiner`, `direction` and `rules: { do: [], dont: [] }` deep-equals those params without `rules`; `mergeParams(params, { rules: { do: [], dont: [] } })` has no `rules` key; `paramsMatchSpec(parseParams({ ...fresh, rules: { do: [], dont: [] } }), spec)` is true for the spec those params generate. `rules: { do: ["x"], dont: [] }` is kept by both | final review minor 9, ruling R3-03 |
 | C-ENTRY3-01 | pass | The spec entry's key set is M2's plus exactly `lotTag`, `isPlainText` and `toPlainText` (Task 3.2). The engine entry's key set is M2's plus exactly `freshParams`, `resolveParams` and `paramsOfSpec` (Task 3.2), `CONTRAST_CHECKS`, `measureSpec` and `summarize` (Task 3.3), and `typeWeights`, `presetOf`, `springCurve`, `onFill`, `round6` and `roundHue` (Task 3.4); each is the same object its home module exports. Each task extends the expected set by its own names | plan, ruling R3-38 |
 | C-ENTRY3-02 | pass | The export entry's key set is exactly `buildBundle`, `zipBundle`, `zipName`, `sha256` and `RECEIPT_FORMAT`, with `RECEIPT_FORMAT === "dyelot.check/1"` (Task 3.11). The import entry's key set is exactly `importDesignMd`, `importShadcnCss`, `detectImport` and `IMPORT_MAX_BYTES`, with `IMPORT_MAX_BYTES === 262144` (Task 3.12) | plan, ruling R3-38 |
 

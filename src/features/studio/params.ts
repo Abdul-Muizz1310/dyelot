@@ -105,6 +105,20 @@ function parseType(value: unknown): DirectionParams["type"] | null {
 const SPEC_SHAPE = DesignSpecSchema.shape;
 
 /**
+ * Rules with no entry in either list are no rules (R3-03): `paramsOfSpec` leaves them out, so a
+ * draft or a patch that holds them must too, or the params would never match their own spec.
+ */
+function isEmptyRules(rules: unknown): boolean {
+  return (
+    isRecord(rules) &&
+    Array.isArray(rules.do) &&
+    Array.isArray(rules.dont) &&
+    rules.do.length === 0 &&
+    rules.dont.length === 0
+  );
+}
+
+/**
  * Whether the text parameters stored in a draft fit R3-01's bounds, the very schema a spec of
  * theirs would pass: `oneLiner`, `direction` and `rules`, each absent or valid.
  */
@@ -166,7 +180,9 @@ export function parseParams(value: unknown): DirectionParams | null {
     ...(name === undefined ? {} : { name }),
     ...(oneLiner === undefined ? {} : { oneLiner: oneLiner as string }),
     ...(direction === undefined ? {} : { direction: direction as DirectionParams["direction"] }),
-    ...(rules === undefined ? {} : { rules: rules as DirectionParams["rules"] }),
+    ...(rules === undefined || isEmptyRules(rules)
+      ? {}
+      : { rules: rules as DirectionParams["rules"] }),
   };
 }
 
@@ -341,7 +357,8 @@ export function mergeParams(
   ] as const) {
     if (!Object.hasOwn(patch, key)) continue;
     const { [key]: _old, ...rest } = next;
-    next = value === undefined ? rest : { ...rest, [key]: value };
+    const absent = value === undefined || (key === "rules" && isEmptyRules(value));
+    next = absent ? rest : { ...rest, [key]: value };
   }
   return next;
 }
