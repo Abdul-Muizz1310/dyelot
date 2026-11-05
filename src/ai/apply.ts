@@ -211,6 +211,7 @@ export function refineChange(
   assertRecord(context.params, "refineChange: context.params");
   assertRecord(context.seeds, "refineChange: context.seeds");
   const patch: { -readonly [K in keyof AiPatch]: AiPatch[K] } = {};
+  let stale = false;
   for (const [i, raw] of (output.ops as readonly unknown[]).entries()) {
     const name = `refineChange: output.ops[${i}]`;
     assertRecord(raw, name);
@@ -219,8 +220,9 @@ export function refineChange(
       case "shiftHue": {
         const slot = opField(raw, "slot", LOCKABLE, name);
         const { degrees } = op;
+        if (degrees === undefined) throw new RangeError(`${name}.degrees is required`);
         if (typeof degrees !== "number") {
-          throw new RangeError(`${name}.degrees is required`);
+          throw new TypeError(`${name}.degrees must be a number, got ${describeType(degrees)}`);
         }
         if (!Number.isInteger(degrees) || degrees === 0 || Math.abs(degrees) > HUE_DEGREES) {
           throw new RangeError(
@@ -231,7 +233,8 @@ export function refineChange(
         assertRecord(seed, `refineChange: context.seeds.${slot}`);
         const held = normalizeSeed(seed as Oklch, `refineChange: context.seeds.${slot}`);
         if (held.h === null) {
-          return null;
+          stale = true;
+          break;
         }
         patch[slot] = normalizeSeed({
           l: held.l,
@@ -270,8 +273,11 @@ export function refineChange(
         patch.type = { ...patch.type, context: opField(raw, "typeContext", TYPE_CONTEXTS, name) };
         break;
       default:
+        if (typeof op.op !== "string") {
+          throw new TypeError(`${name}.op must be a string, got ${describeType(op.op)}`);
+        }
         throw new RangeError(`${name}.op is not a refine op, got ${JSON.stringify(op.op)}`);
     }
   }
-  return { patch };
+  return stale ? null : { patch };
 }

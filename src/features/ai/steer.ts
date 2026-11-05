@@ -4,13 +4,20 @@ import {
   DEPTH_STYLES,
   type Density,
   type DirectionParams,
+  NEUTRAL_TINTS,
   normalizeSeed,
   type Oklch,
   RADIUS_SET_NAMES,
   TYPE_CONTEXTS,
   type TypeContext,
 } from "@/engine";
-import { assertOneOf, assertRecord, assertString, describeType } from "@/features/studio/guards";
+import {
+  assertFinite,
+  assertOneOf,
+  assertRecord,
+  assertString,
+  describeType,
+} from "@/features/studio/guards";
 
 // The seven steer chips (R4-44, section 8.1 and 8.3 of docs/specs/04-ai.md): pure operations on
 // the held parameters and the view density, so the Steer section shows each chip's state at first
@@ -89,6 +96,17 @@ function checkedContext(context: unknown, caller: string): ChipContext {
   assertRecord(context.params, `${caller}: context.params`);
   assertRecord(context.params.type, `${caller}: context.params.type`);
   assertOneOf(context.params.type.context, TYPE_CONTEXTS, `${caller}: context.params.type.context`);
+  assertOneOf(context.params.chroma, CHROMA_LEVELS, `${caller}: context.params.chroma`);
+  assertOneOf(context.params.radius, RADIUS_SET_NAMES, `${caller}: context.params.radius`);
+  assertOneOf(context.params.depth, DEPTH_STYLES, `${caller}: context.params.depth`);
+  assertOneOf(context.params.neutralTint, NEUTRAL_TINTS, `${caller}: context.params.neutralTint`);
+  const { ratio } = context.params.type;
+  if (ratio !== undefined) {
+    assertFinite(ratio, `${caller}: context.params.type.ratio`);
+    if (ratio <= 1 || ratio > 2) {
+      throw new RangeError(`${caller}: context.params.type.ratio must lie in (1, 2], got ${ratio}`);
+    }
+  }
   assertOneOf(context.density, DENSITIES, `${caller}: context.density`);
   assertRecord(context.primary, `${caller}: context.primary`);
   normalizeSeed(context.primary as Oklch, `${caller}: context.primary`);

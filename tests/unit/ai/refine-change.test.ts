@@ -145,6 +145,30 @@ describe("C-REFINE-03 the checks of R-05", () => {
     expect(() => refineChange(out(null as unknown as RefineOp), ctx())).toThrow(TypeError);
   });
 
+  it("C-REFINE-03 a wrong-type degrees or op is a TypeError naming refineChange", () => {
+    for (const op of [
+      { op: "shiftHue", slot: "primary", degrees: "10" },
+      { op: 3 },
+      { op: null },
+      { op: "setChroma", chroma: 3 },
+    ]) {
+      expect(() => refineChange(out(op as unknown as RefineOp), ctx())).toThrow(TypeError);
+      expect(() => refineChange(out(op as unknown as RefineOp), ctx())).toThrow(/^refineChange/);
+    }
+  });
+
+  it("C-REFINE-03 a null-hue shiftHue does not hide a later malformed op", () => {
+    const seeds = { ...SEEDS, primary: { l: 0.6, c: 0, h: null } };
+    const ops: RefineOp[] = [{ op: "shiftHue", slot: "primary", degrees: 10 }];
+    expect(refineChange(out(...ops), ctx(seeds))).toBeNull();
+    expect(() =>
+      refineChange(out(...ops, { op: "setDepth", depth: "deep" as never }), ctx(seeds)),
+    ).toThrow(RangeError);
+    expect(() => refineChange(out(...ops, { op: "bogus" as never }), ctx(seeds))).toThrow(
+      /^refineChange/,
+    );
+  });
+
   it("C-REFINE-03 a seed that is not a color is a RangeError, a missing one a TypeError", () => {
     const o = out({ op: "shiftHue", slot: "primary", degrees: 10 });
     expect(() => refineChange(o, ctx({ ...SEEDS, primary: { l: 2, c: 0, h: 10 } }))).toThrow(

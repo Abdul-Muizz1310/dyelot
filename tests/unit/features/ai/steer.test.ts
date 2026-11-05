@@ -391,6 +391,29 @@ describe("C-CHIP-10 the checks of R-05", () => {
     expect(() => chipChange("warmer", bad)).toThrow(/^chipChange/);
   });
 
+  it("C-CHIP-10 a chroma, radius, depth or tint outside its list is a RangeError, another type a TypeError", () => {
+    for (const field of ["chroma", "radius", "depth", "neutralTint"] as const) {
+      const bad = (value: unknown) => ({
+        ...CTX({}),
+        params: { ...DEFAULT_PARAMS, [field]: value } as DirectionParams,
+      });
+      expect(() => chipChange("warmer", bad("loud"))).toThrow(RangeError);
+      expect(() => chipChange("warmer", bad("loud"))).toThrow(new RegExp(`^chipChange.*${field}`));
+      expect(() => chipChange("warmer", bad(3))).toThrow(TypeError);
+      expect(() => chipsChange(["warmer"], bad("loud"))).toThrow(/^chipsChange/);
+    }
+  });
+
+  it("C-CHIP-10 a type.ratio outside (1, 2] is a RangeError, a non-number a TypeError", () => {
+    const withRatio = (ratio: unknown) =>
+      CTX({ params: { type: { context: "product", ratio: ratio as number } } });
+    for (const ratio of [1, 0.5, 2.5, Number.NaN]) {
+      expect(() => chipChange("airier", withRatio(ratio))).toThrow(RangeError);
+      expect(() => chipChange("airier", withRatio(ratio))).toThrow(/^chipChange.*ratio/);
+    }
+    expect(() => chipChange("airier", withRatio("1.5"))).toThrow(TypeError);
+  });
+
   it("C-CHIP-10 chipsChange and chipWords name themselves", () => {
     expect(() => chipsChange("warmer" as unknown as Chip[], CTX({}))).toThrow(/^chipsChange/);
     expect(() => chipsChange(["hotter" as Chip], CTX({}))).toThrow(RangeError);
