@@ -1166,6 +1166,7 @@ describe("C-GUARD4-08 .env.example declares every variable of section 11.4", () 
       ["E", "x=y"],
     ]);
   });
+});
 
 // C-GUARD4-09 of docs/specs/04-ai.md, section 14.10 (R4-29, I-M4-05): the visitor key's storage name
 // lives in one file of src, and nothing in the browser's AI shell logs, so the key cannot leave
