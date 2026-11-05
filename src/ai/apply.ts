@@ -11,9 +11,23 @@ import type {
   RadiusSet,
   TypeContext,
 } from "@/engine";
+import {
+  CHROMA_LEVELS,
+  CONTRAST_LEVELS,
+  DEPTH_STYLES,
+  HARMONIES,
+  LOCKABLE,
+  type Lockable,
+  MOTION_FEELS,
+  NEUTRAL_TINTS,
+  normalizeSeed,
+  PAIRING_IDS,
+  RADIUS_SET_NAMES,
+  TYPE_CONTEXTS,
+} from "@/engine";
 import { type CreatedWith, isPlainText } from "@/spec";
-import { assertRecord, describeType, isRecord } from "./assert";
-import type { ChromaLevel, NeutralTint, RationaleOutput } from "./features";
+import { assertOneOf, assertRecord, describeType, isRecord } from "./assert";
+import type { ChromaLevel, NeutralTint, RationaleOutput, RefineOp, RefineOutput } from "./features";
 
 // The changes an AI or rule result makes to the studio (docs/specs/04-ai.md, section 5.2): the two
 // types the store's `applyAi` takes (Task 4.1), the vibe tables of section 9.4, and the change
@@ -158,4 +172,106 @@ export function rationaleChange(
       rules: { do: [...output.do], dont: [...output.dont] },
     },
   };
+}
+
+const HUE_DEGREES = 60;
+
+/** The op's own field, checked against its list: a missing one is a RangeError, a wrong type a TypeError. */
+function opField<T extends string>(
+  op: Readonly<Record<string, unknown>>,
+  field: string,
+  allowed: readonly T[],
+  name: string,
+): T {
+  if (op[field] === undefined) throw new RangeError(`${name}.${field} is required`);
+  assertOneOf(op[field], allowed, `${name}.${field}`);
+  return op[field];
+}
+
+/**
+ * The ops of a refine output (R4-45, section 8.2) as one patch, applied in order: a later op on a
+ * field wins and two `shiftHue` on one slot add up. `seeds` holds each slot's held seed. Returns
+ * null when a `shiftHue` finds its slot's hue null, because the design changed while the model
+ * read it (I-M4-03). Only `patch` is returned: the caller adds `createdWith`.
+ */
+export function refineChange(
+  output: RefineOutput,
+  context: {
+    readonly params: DirectionParams;
+    readonly seeds: Readonly<Record<Lockable, Oklch>>;
+  },
+): { readonly patch: AiPatch } | null {
+  assertRecord(output, "refineChange: output");
+  if (!Array.isArray(output.ops)) {
+    throw new TypeError(
+      `refineChange: output.ops must be an array, got ${describeType(output.ops)}`,
+    );
+  }
+  assertRecord(context, "refineChange: context");
+  assertRecord(context.params, "refineChange: context.params");
+  assertRecord(context.seeds, "refineChange: context.seeds");
+  const patch: { -readonly [K in keyof AiPatch]: AiPatch[K] } = {};
+  for (const [i, raw] of (output.ops as readonly unknown[]).entries()) {
+    const name = `refineChange: output.ops[${i}]`;
+    assertRecord(raw, name);
+    const op = raw as RefineOp;
+    switch (op.op) {
+      case "shiftHue": {
+        const slot = opField(raw, "slot", LOCKABLE, name);
+        const { degrees } = op;
+        if (typeof degrees !== "number") {
+          throw new RangeError(`${name}.degrees is required`);
+        }
+        if (!Number.isInteger(degrees) || degrees === 0 || Math.abs(degrees) > HUE_DEGREES) {
+          throw new RangeError(
+            `${name}.degrees must be an integer from -60 to 60 but not 0, got ${degrees}`,
+          );
+        }
+        const seed = patch[slot] ?? context.seeds[slot];
+        assertRecord(seed, `refineChange: context.seeds.${slot}`);
+        const held = normalizeSeed(seed as Oklch, `refineChange: context.seeds.${slot}`);
+        if (held.h === null) {
+          return null;
+        }
+        patch[slot] = normalizeSeed({
+          l: held.l,
+          c: held.c,
+          h: (((held.h + degrees) % 360) + 360) % 360,
+        });
+        break;
+      }
+      case "setChroma":
+        patch.chroma = opField(raw, "chroma", CHROMA_LEVELS, name);
+        break;
+      case "setNeutralTint":
+        patch.neutralTint = opField(raw, "neutralTint", NEUTRAL_TINTS, name);
+        break;
+      case "setContrast":
+        patch.contrastLevel = opField(raw, "contrastLevel", CONTRAST_LEVELS, name);
+        break;
+      case "setHarmony":
+        patch.harmony = opField(raw, "harmony", HARMONIES, name);
+        break;
+      case "setPairing": {
+        const pairing = opField(raw, "pairing", [...PAIRING_IDS, "auto"], name);
+        patch.pairing = pairing === "auto" ? undefined : (pairing as PairingId);
+        break;
+      }
+      case "setRadius":
+        patch.radius = opField(raw, "radius", RADIUS_SET_NAMES, name);
+        break;
+      case "setDepth":
+        patch.depth = opField(raw, "depth", DEPTH_STYLES, name);
+        break;
+      case "setMotion":
+        patch.motion = opField(raw, "motion", MOTION_FEELS, name);
+        break;
+      case "setTypeContext":
+        patch.type = { ...patch.type, context: opField(raw, "typeContext", TYPE_CONTEXTS, name) };
+        break;
+      default:
+        throw new RangeError(`${name}.op is not a refine op, got ${JSON.stringify(op.op)}`);
+    }
+  }
+  return { patch };
 }

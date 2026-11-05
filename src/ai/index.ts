@@ -3,7 +3,7 @@
 // runtime names with their modules (chat, cache key, prompts, lexicon, colors, refine, image, PKCE).
 
 export type { AiChange, AiPatch } from "./apply";
-export { rationaleChange } from "./apply";
+export { rationaleChange, refineChange } from "./apply";
 export type { Tier, TierName } from "./cascade";
 export { cascadePlan, isFreeSlug } from "./cascade";
 export type { CapCookie } from "./cookie";

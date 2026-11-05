@@ -3,7 +3,7 @@ import path from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
 import type * as types from "@/ai";
 import * as ai from "@/ai";
-import { type MOOD_TAGS, rationaleChange, type TYPE_VIBES } from "@/ai/apply";
+import { type MOOD_TAGS, rationaleChange, refineChange, type TYPE_VIBES } from "@/ai/apply";
 import { cascadePlan, isFreeSlug } from "@/ai/cascade";
 import {
   CAP_COOKIE,
@@ -90,7 +90,6 @@ const PENDING_KEYS: readonly string[] = [
   "briefChange",
   "briefColors",
   "matchLexicon",
-  "refineChange",
   "imageChange",
   "vibeChange",
   "authorizeUrl",
@@ -143,6 +142,7 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
       rationaleInput,
       readKeyRemaining,
       readRouteReply,
+      refineChange,
       refineInput,
       vibeInput,
     };

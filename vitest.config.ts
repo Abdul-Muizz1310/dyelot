@@ -55,6 +55,7 @@ const SLOW_WEB_TESTS = [
   "tests/unit/features/studio/store-lock-seeds.test.ts", // 18.1 s: C-STORE-34
   "tests/unit/features/studio/store-lock-pair-aaa.test.ts", // 13.7 s
   "tests/unit/features/studio/store-lock-pair-aa.test.ts", // 13.4 s
+  "tests/unit/features/ai/steer-property.test.ts", // 44.7 s under lane load: C-CHIP-09
 ];
 
 /** The slow set of R2-31 apart from the scan; the gate guard (C-REPO-M2-07) reads it. */
@@ -118,6 +119,9 @@ const EXPORT_HELPERS = ["files"].map((name) => `src/features/export/${name}.ts`)
 
 /** The import dialog's pure helpers (Task 3.16), held to `PURE_FLOORS` the same way. */
 const IMPORT_HELPERS = ["form"].map((name) => `src/features/import/${name}.ts`);
+
+/** The AI feature's pure helpers (Task 4.5 on), held to `PURE_FLOORS` the same way. */
+const AI_HELPERS = ["steer"].map((name) => `src/features/ai/${name}.ts`);
 
 export default defineConfig({
   plugins: [react()],
@@ -207,6 +211,7 @@ export default defineConfig({
         ...PREVIEW_HELPERS,
         ...EXPORT_HELPERS,
         ...IMPORT_HELPERS,
+        ...AI_HELPERS,
       ],
       thresholds: {
         lines: 80,
@@ -223,9 +228,13 @@ export default defineConfig({
         "src/import/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
         "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
         ...Object.fromEntries(
-          [...STUDIO_HELPERS, ...PREVIEW_HELPERS, ...EXPORT_HELPERS, ...IMPORT_HELPERS].map(
-            (file) => [file, PURE_FLOORS],
-          ),
+          [
+            ...STUDIO_HELPERS,
+            ...PREVIEW_HELPERS,
+            ...EXPORT_HELPERS,
+            ...IMPORT_HELPERS,
+            ...AI_HELPERS,
+          ].map((file) => [file, PURE_FLOORS]),
         ),
       },
     },
