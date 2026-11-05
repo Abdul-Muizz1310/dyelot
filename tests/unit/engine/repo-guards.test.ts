@@ -1936,6 +1936,31 @@ describe("C-GUARD4-06 every configured, fixed or mocked slug is free", () => {
   });
 });
 
+// C-GUARD4-12 of docs/specs/04-ai.md, section 14.10 (R4-16, R4-56): on Vercel `request.signal` fires
+// only for a function that opts in, so vercel.json opts the AI POST route in, and holds nothing else.
+// The key is the function's source path, the form of the vercel.json reference's `functions` key
+// (its `pages/blog/[hello].tsx`), and the setting is the one of the Functions API reference's
+// "Cancel requests" section.
+
+/** The AI POST route's source file (R4-15). */
+const AI_ROUTE_FILE = "src/app/api/ai/[feature]/route.ts";
+
+describe("C-GUARD4-12 vercel.json opts the AI route, and only it, into request cancellation", () => {
+  it("C-GUARD4-12 holds exactly supportsCancellation for the AI POST route, and no other setting", () => {
+    const vercel: unknown = JSON.parse(readFileSync(path.join(ROOT, "vercel.json"), "utf8"));
+    expect(vercel).toEqual({
+      $schema: "https://openapi.vercel.sh/vercel.json",
+      functions: { [AI_ROUTE_FILE]: { supportsCancellation: true } },
+    });
+  });
+
+  it("C-GUARD4-12 names a route file that exists and answers POST", () => {
+    const route = path.join(ROOT, AI_ROUTE_FILE);
+    expect(existsSync(route)).toBe(true);
+    expect(readFileSync(route, "utf8")).toMatch(/^export async function POST\(/m);
+  });
+});
+
 // C-GUARD4-11 of docs/specs/04-ai.md, section 14.10 (R4-59, section 20): every case of section 14
 // carries its id in a test title, a C- id in a `describe` or `it` title under tests/unit and an F-
 // id in a `test` title under tests/e2e. The ids are read from section 14's rows, so the count is
