@@ -19,9 +19,10 @@ import type { StudioStore } from "@/features/studio/store";
 
 // The disclosure "AI settings" of the Brief section (docs/specs/04-ai.md, R4-54, 13.2, 10.2): the
 // on-device switch and its status (only where the Prompt API is present), the visitor key's line
-// with "Connect your OpenRouter key" or "Disconnect", and the shared quota's line. The model's state
-// and the key are read each time the settings open; the switch is remembered per browser
-// (R4-31) and held in the activity, where the router reads it.
+// with "Connect your OpenRouter key" or "Disconnect", and the shared quota's line. The parts stay
+// mounted while the settings are closed, so a download keeps its progress; the model's state and
+// the key are read again each time the settings open. The switch is remembered per browser (R4-31)
+// and held in the activity, where the router reads it; it can always be turned off.
 
 const SWITCH_LABEL = "Use Chrome's built-in model (experimental)";
 /** 10.2's status text per state; `downloading` writes its percentage. */
@@ -33,6 +34,8 @@ const STATUS: Readonly<Record<Exclude<OnDeviceState, "absent" | "downloading">, 
 const DOWNLOAD_FAILED = "The download did not finish. Try again later.";
 const downloadingLine = (fraction: number) =>
   `Downloading the model: ${Math.round(fraction * 100)}%.`;
+/** How often a download this page did not start is read again while the settings are open (10.2). */
+const DOWNLOAD_POLL_MS = 1_000;
 
 const NO_KEY = "No OpenRouter key connected.";
 const KEY_FOR_TAB = "Your OpenRouter key is connected for this tab.";
@@ -92,25 +95,33 @@ export function AiSettings({ store, activity }: { store: StudioStore; activity: 
         hidden={!open}
         className="space-y-4 rounded-md border border-border px-3 py-3 text-xs"
       >
-        {open && <Settings store={store} activity={activity} />}
+        <Settings store={store} activity={activity} open={open} />
       </section>
     </div>
   );
 }
 
-/** The settings' three parts, mounted while the disclosure is open so each opening reads afresh. */
-function Settings({ store, activity }: { store: StudioStore; activity: AiActivity }) {
+/** The settings' three parts, mounted while the disclosure is closed too; each opening reads afresh. */
+function Settings({
+  store,
+  activity,
+  open,
+}: {
+  store: StudioStore;
+  activity: AiActivity;
+  open: boolean;
+}) {
   const shared = useStore(activity, (state) => state.shared);
   return (
     <>
-      <OnDevicePart activity={activity} />
-      <KeyPart store={store} />
+      <OnDevicePart activity={activity} open={open} />
+      <KeyPart store={store} open={open} />
       <p className="text-foreground">{sharedLine(shared)}</p>
     </>
   );
 }
 
-function OnDevicePart({ activity }: { activity: AiActivity }) {
+function OnDevicePart({ activity, open }: { activity: AiActivity; open: boolean }) {
   const on = useStore(activity, (state) => state.onDevice);
   const [state, setState] = useState<OnDeviceState | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
@@ -121,7 +132,9 @@ function OnDevicePart({ activity }: { activity: AiActivity }) {
   const downloadRef = useRef<HTMLButtonElement | null>(null);
   const toSwitch = useRef(false);
 
+  // The state is read each time the settings open (10.2).
   useEffect(() => {
+    if (!open) return;
     let live = true;
     void onDeviceState(languageModel()).then((read) => {
       if (live) setState(read);
@@ -129,7 +142,17 @@ function OnDevicePart({ activity }: { activity: AiActivity }) {
     return () => {
       live = false;
     };
-  }, []);
+  }, [open]);
+
+  // A download this page did not start (another tab's, or one from before a reload) reports no
+  // progress here, so its state is read again until it ends.
+  useEffect(() => {
+    if (!open || state !== "downloading" || progress !== null) return;
+    const timer = setInterval(() => {
+      void onDeviceState(languageModel()).then(setState);
+    }, DOWNLOAD_POLL_MS);
+    return () => clearInterval(timer);
+  }, [open, state, progress]);
 
   // "Download the model" goes away once the model is there: focus moves to the switch before it.
   useEffect(() => {
@@ -171,7 +194,9 @@ function OnDevicePart({ activity }: { activity: AiActivity }) {
           label={SWITCH_LABEL}
           checked={on}
           describedBy={statusId}
-          unavailable={state === "unavailable"}
+          // Off, it cannot be turned on while the model is unavailable; on, it can always be
+          // turned off (R4-31, controller ruling on Task 4.10a's review).
+          unavailable={state === "unavailable" && !on}
           onToggle={() => {
             const next = !on;
             writeToggle(browserStores().local, next);
@@ -199,10 +224,16 @@ function OnDevicePart({ activity }: { activity: AiActivity }) {
   );
 }
 
-function KeyPart({ store }: { store: StudioStore }) {
-  const [key, setKey] = useState<KeyState>(readKeyState);
+function KeyPart({ store, open }: { store: StudioStore; open: boolean }) {
+  const [key, setKey] = useState<KeyState>("none");
+  const lineId = useId();
   const linkRef = useRef<HTMLAnchorElement | null>(null);
   const toLink = useRef(false);
+
+  // The key is read each time the settings open.
+  useEffect(() => {
+    if (open) setKey(readKeyState());
+  }, [open]);
 
   // After "Disconnect" goes away, focus moves to the link that takes its place.
   useEffect(() => {
@@ -220,14 +251,17 @@ function KeyPart({ store }: { store: StudioStore }) {
         : key === "disconnected"
           ? DISCONNECTED
           : NO_KEY;
+  // The line describes the control beside it rather than being a second live region in the Brief
+  // section (13): after "Disconnect", focus moves to the link, which reads it.
   return (
     <div className="space-y-2">
-      <p role="status" className="text-foreground">
+      <p id={lineId} className="text-foreground">
         {line}
       </p>
       {connected ? (
         <button
           type="button"
+          aria-describedby={lineId}
           onClick={(event) => {
             toLink.current = document.activeElement === event.currentTarget;
             clearKey(browserStores());
@@ -241,6 +275,7 @@ function KeyPart({ store }: { store: StudioStore }) {
         <Link
           href="/connect"
           ref={linkRef}
+          aria-describedby={lineId}
           onClick={() => {
             // The sign-in returns to this design (R4-33): the hash is written now, then saved.
             store.getState().flush();

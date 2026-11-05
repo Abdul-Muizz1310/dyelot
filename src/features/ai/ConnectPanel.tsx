@@ -85,7 +85,14 @@ export function ConnectPanel() {
       setStarting(false);
       return;
     }
-    window.location.assign(url);
+    try {
+      window.location.assign(url);
+    } catch {
+      // The browser refused the address; the page stays, as below.
+    }
+    // A navigation that is blocked or fails (a 204, a refused address) leaves this page where it
+    // is, and one that goes ahead unloads it: either way the button works again.
+    setStarting(false);
   }
 
   return (

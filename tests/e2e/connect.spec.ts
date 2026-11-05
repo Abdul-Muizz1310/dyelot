@@ -3,7 +3,6 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, test } from "@playwright/test";
 import { decodeSpec } from "@/spec";
 import {
-  ai,
   aiSettings,
   answerAuthorize,
   answerExchange,
@@ -47,6 +46,9 @@ const SENTENCES = {
   "storage-refused":
     "This browser would not keep the key. Allow this site to store data, or connect without Remember on this device.",
 } as const;
+/** 13.6's line when the callback cannot load the AI layer (controller ruling on Task 4.10a's review). */
+const CALLBACK_LOAD_FAILED = "This page could not finish the sign-in. Start again from Connect.";
+const CONNECT_STORAGE = "dyelot:connect";
 const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 const connectLink = (page: Page) =>
@@ -226,7 +228,9 @@ test.describe("13.6 the connect pages", () => {
     await expect(aiSettings(page)).toContainText(REMEMBERED);
     await inputsPanel(page).getByRole("button", { name: "Disconnect", exact: true }).click();
     await expect(aiSettings(page)).toContainText(DISCONNECTED);
-    await expect(connectLink(page)).toBeVisible();
+    // Focus moves to the link that takes Disconnect's place, which the key's line describes.
+    await expect(connectLink(page)).toBeFocused();
+    await expect(connectLink(page)).toHaveAccessibleDescription(DISCONNECTED);
     expect(await storedKeys(page)).toEqual({ session: null, local: null });
   });
 
@@ -243,7 +247,7 @@ test.describe("13.6 the connect pages", () => {
     await openAt(page);
     await runBrief(page, "a refused key at the harbor");
     await expectBriefLines(page, [
-      ai.failureSentence({ provider: "visitor-key", reason: "refused" }, "brief", "shared"),
+      "OpenRouter refused your key, so dyelot used its shared quota.",
       "Made with dyelot's shared AI (test/text-1:free).",
     ]);
     expect(calls).toHaveLength(1);
@@ -341,5 +345,84 @@ test.describe("13.6 the connect pages", () => {
     await expect(callbackAlert(page)).toContainText(SENTENCES["storage-refused"]);
     expect(await storedKeys(page)).toEqual({ session: null, local: null });
     await expect(page.getByRole("link", { name: "Back to the studio", exact: true })).toBeVisible();
+  });
+  test("the callback says it is checking, then that it connected, before it returns", async ({
+    page,
+  }) => {
+    // Each text the callback's status shows reaches the test as it changes, even while the page
+    // is leaving (Playwright's own reads wait for a pending navigation to finish).
+    const texts: string[] = [];
+    await page.exposeFunction("__statusText", (text: string) => texts.push(text));
+    await page.addInitScript(() => {
+      if (window.location.pathname !== "/connect/callback") return;
+      let last: string | null = null;
+      new MutationObserver(() => {
+        const text = document.querySelector('main [role="status"]')?.textContent ?? null;
+        if (text === null || text === last) return;
+        last = text;
+        (window as unknown as { __statusText(text: string): void }).__statusText(text);
+      }).observe(document, { subtree: true, childList: true, characterData: true });
+    });
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    await answerAuthorize(page, callbackFor(page));
+    await answerExchange(page, async () => {
+      await answered;
+      return { status: 200, body: { key: TEST_KEY } };
+    });
+    await page.goto("/connect");
+    await button(page, "Continue to OpenRouter").click();
+    await expect.poll(() => texts).toEqual(["Checking the sign-in…"]);
+    answer();
+    await page.waitForURL((url) => url.pathname === "/studio");
+    expect(texts).toEqual(["Checking the sign-in…", "Connected. Returning to the studio…"]);
+  });
+
+  test("a callback that cannot load the AI layer asks to start again and drops the sign-in record", async ({
+    page,
+  }) => {
+    await page.goto("/connect");
+    await page.evaluate(([name, record]) => sessionStorage.setItem(name, record), [
+      CONNECT_STORAGE,
+      JSON.stringify({ v: 1, verifier: "v".repeat(43), state: "A".repeat(22), remember: false }),
+    ] as const);
+    // Only the AI layer's chunk fails: it is the one that holds the prompts.
+    await page.route("**/_next/static/**/*.js", async (route) => {
+      const response = await route.fetch();
+      const body = await response.text();
+      if (body.includes("Never write a color value")) await route.abort("failed");
+      else await route.fulfill({ response, body });
+    });
+    await page.goto(`/connect/callback?code=C&state=${"A".repeat(22)}`);
+    await expect(callbackAlert(page)).toContainText(CALLBACK_LOAD_FAILED);
+    await expect(page.getByRole("link", { name: "Start again", exact: true })).toBeVisible();
+    expect(await page.evaluate((name) => sessionStorage.getItem(name), CONNECT_STORAGE)).toBeNull();
+    expect(new URL(page.url()).search).toBe("");
+  });
+
+  test("Continue to OpenRouter works again when the sign-in page does not open", async ({
+    page,
+  }) => {
+    const opened: string[] = [];
+    // A 204 answer ends the navigation and leaves this page where it is.
+    await page.route("https://openrouter.ai/auth?**", async (route) => {
+      opened.push(route.request().url());
+      await route.fulfill({ status: 204 });
+    });
+    await page.goto("/connect");
+    await button(page, "Continue to OpenRouter").click();
+    await expect.poll(() => opened.length).toBe(1);
+    // Playwright's locators wait for that navigation to finish, which a 204 never does; the page
+    // itself is idle, so the second press goes through the page.
+    await page.evaluate(() => {
+      const go = [...document.querySelectorAll("button")].find(
+        (each) => each.textContent === "Continue to OpenRouter",
+      );
+      go?.click();
+    });
+    await expect.poll(() => opened.length).toBe(2);
+    expect(new URL(page.url()).pathname).toBe("/connect");
   });
 });

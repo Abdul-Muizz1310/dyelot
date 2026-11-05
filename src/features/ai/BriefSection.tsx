@@ -57,7 +57,7 @@ function lockedHues(params: DirectionParams, literals: readonly Oklch[]): BriefI
  * Reads one cleaned brief and applies what it gives as one commit (13.1): the lines to show. A
  * cancel leaves the design as it was.
  */
-async function readBrief(
+export async function readBrief(
   ai: AiModule,
   deps: { store: StudioStore; activity: AiActivity; text: string; signal: AbortSignal },
 ): Promise<{ failures: readonly string[]; result: string }> {
@@ -74,10 +74,13 @@ async function readBrief(
     return store.getState().applyAi(change);
   };
 
+  // Every line is built before the change commits, so a failure while building changes nothing
+  // (I-M4-03; controller ruling on Task 4.10a's review).
   if (!LETTER.test(rest)) {
     if (seeds.length === 0) return { failures: [], result: NOTHING };
+    const result = seedsLine(seeds.length);
     apply({}, "controls");
-    return { failures: [], result: seedsLine(seeds.length) };
+    return { failures: [], result };
   }
   const input = ai.briefInput(text, lockedHues(store.getState().params, seeds));
   const routed = await runProviders(stepsFor(ai, "brief", input, browserDeps(activity)), signal);
@@ -86,19 +89,17 @@ async function readBrief(
     const { path } = routed;
     // The router answers a model's path only from a model's step (runProviders checks it).
     if (path.provider === "rules") throw new RangeError("readBrief: the rules answered as a model");
-    const changed = apply(routed.output, createdWithOf(path));
+    const failures = failureLines(ai, routed.failures, "brief", path.provider);
     const made = ai.madeWith(path, "brief");
-    return {
-      failures: failureLines(ai, routed.failures, "brief", path.provider),
-      result: changed ? made : `${made} ${MATCHED_ALREADY}`,
-    };
+    const changed = apply(routed.output, createdWithOf(path));
+    return { failures, result: changed ? made : `${made} ${MATCHED_ALREADY}` };
   }
   const failures = failureLines(ai, routed.failures, "brief", "rules");
   const match = ai.matchLexicon(rest);
   if (match.draft !== null) {
+    const result = `${ai.madeWith({ provider: "rules" }, "brief")} Matched: ${match.terms.join(", ")}.`;
     apply(match.draft, "lexicon");
-    const made = ai.madeWith({ provider: "rules" }, "brief");
-    return { failures, result: `${made} Matched: ${match.terms.join(", ")}.` };
+    return { failures, result };
   }
   if (seeds.length > 0) {
     apply({}, "controls");

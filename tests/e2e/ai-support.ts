@@ -258,22 +258,31 @@ export const isAiRequest = (request: Request): boolean => {
  * Installs a fake `LanguageModel` (Chrome's Prompt API, R4-31) before the page's scripts run: its
  * `availability` answers `state`; a session's `prompt` answers `reply`. A `create` with a monitor
  * (the download) reports each fraction of `download` 500 ms apart, then the model is available.
- * `window.__lm` counts the calls.
+ * With `hold`, a `prompt` ignores its signal and answers only once the test calls
+ * `window.__lmRelease()`, then sets `window.__lm.replied`. `window.__lm` counts the calls.
  */
 export async function fakeLanguageModel(
   page: Page,
-  options: { state: OnDeviceState; reply?: string; download?: readonly number[] },
+  options: { state: OnDeviceState; reply?: string; download?: readonly number[]; hold?: boolean },
 ): Promise<void> {
   await page.addInitScript(
-    ({ state, reply, download }) => {
+    ({ state, reply, download, hold }) => {
       const STEP_MS = 500;
       const wait = () => new Promise((resolve) => setTimeout(resolve, STEP_MS));
       let current = state;
-      const calls = { availability: 0, create: 0, prompt: 0, destroy: 0 };
-      (window as unknown as { __lm: typeof calls }).__lm = calls;
+      const calls = { availability: 0, create: 0, prompt: 0, destroy: 0, replied: false };
+      const host = window as unknown as { __lm: typeof calls; __lmRelease: () => void };
+      host.__lm = calls;
+      let release = () => {};
+      const released = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      host.__lmRelease = () => release();
       const session = () => ({
         prompt: async () => {
           calls.prompt += 1;
+          if (hold) await released;
+          calls.replied = true;
           return reply;
         },
         destroy: () => {
@@ -311,6 +320,7 @@ export async function fakeLanguageModel(
     },
     {
       state: options.state,
+      hold: options.hold ?? false,
       reply: options.reply ?? "",
       download: [...(options.download ?? [0, 1])],
     },

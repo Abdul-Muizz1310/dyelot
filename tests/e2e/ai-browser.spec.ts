@@ -5,13 +5,14 @@ import { decodeSpec } from "@/spec";
 import {
   ai,
   aiSettings,
+  aiSettingsButton,
   answerShared,
   BRIEF_OUT,
   briefField,
   briefLines,
+  briefSection,
   expectBriefLines,
   fakeLanguageModel,
-  holdShared,
   isAiRequest,
   lexiconLine,
   noLanguageModel,
@@ -32,6 +33,9 @@ import { button, inputsPanel, lotId, nearHex, settled } from "./studio-support";
 // `page.route`; the mock-backed flows live in ai-route.spec.ts (Task 4.12a).
 
 test.use({ viewport: { width: 1280, height: 800 } });
+
+/** What the fake `LanguageModel` of `fakeLanguageModel` leaves on the window. */
+type LmHost = { __lm: { prompt: number; replied: boolean }; __lmRelease(): void };
 
 const SHARED_LINE = "Made with dyelot's shared AI (test/text-1:free).";
 const ON_DEVICE_LINE = "Made with Chrome's built-in model.";
@@ -59,9 +63,26 @@ async function expectCreatedWith(page: Page, value: string): Promise<void> {
     .toBe(value);
 }
 
-/** The shared failure sentence of 10.3 for `code` with the word list next. */
-const sharedSentence = (reason: Parameters<typeof ai.failureSentence>[0]["reason"]) =>
-  ai.failureSentence({ provider: "shared", reason } as never, "brief", "rules");
+/** 10.3's sentences for the brief's shared step, word for word, with the word list next. */
+const SHARED_SENTENCES = {
+  "not-configured": "The shared quota is off here, so dyelot used the word list.",
+  "visitor-cap": "You have used today's 3 shared actions, so dyelot used the word list.",
+  "pool-low": "The shared quota is nearly used up for today, so dyelot used the word list.",
+  "guard-unavailable": "The shared quota could not be checked, so dyelot used the word list.",
+  busy: "The shared quota is busy with another request, so dyelot used the word list.",
+  "forbidden-origin": "The shared quota refused this page's address, so dyelot used the word list.",
+  "bad-request": "The shared quota could not be reached, so dyelot used the word list.",
+  "too-large": "The shared quota could not be reached, so dyelot used the word list.",
+  unreachable: "The shared quota could not be reached, so dyelot used the word list.",
+} as const;
+/** 10.3's on-device sentences for the brief, word for word, with the shared quota next. */
+const NOT_DOWNLOADED =
+  "Chrome's built-in model is not downloaded yet, so dyelot used its shared quota.";
+const UNAVAILABLE =
+  "Chrome's built-in model is not available on this device, so dyelot used its shared quota.";
+const ON_DEVICE_FAILED =
+  "Chrome's built-in model could not read the brief, so dyelot used its shared quota.";
+const NOT_AVAILABLE = "Not available on this device.";
 
 /** The lot tag and the written hash, which a change that does nothing leaves as they were. */
 async function design(page: Page): Promise<[string | null, string]> {
@@ -85,6 +106,9 @@ test.describe("13.1 Brief", () => {
     expect(spec.meta.name).toBe(BRIEF_OUT.name);
     await openAiSettings(page);
     await expect(aiSettings(page)).toContainText("Shared AI: 2 of 3 left today.");
+    // One live region in the section while AI settings are open: the result lines (13).
+    await expect(briefSection(page).getByRole("status")).toHaveCount(1);
+    await expect(briefSection(page).getByRole("status")).toHaveText(SHARED_LINE);
     await button(page, "Undo").click();
     await expect.poll(() => design(page)).toEqual(before);
   });
@@ -92,13 +116,21 @@ test.describe("13.1 Brief", () => {
   test("Cancel ends the busy state at once, keeps focus on Read the brief and changes nothing", async ({
     page,
   }) => {
-    const release = await holdShared(page, "brief");
+    // The on-device model ignores the cancel and answers when the test releases it, so a reply
+    // that lands after the cancel would change the design if anything let it through.
+    await fakeLanguageModel(page, {
+      state: "available",
+      reply: JSON.stringify(BRIEF_OUT),
+      hold: true,
+    });
+    await page.addInitScript(() => localStorage.setItem("dyelot:on-device", "on"));
     await openAt(page);
     const before = await design(page);
     await briefField(page).fill("a slow brief at noon");
     await readBrief(page).click();
     const busy = inputsPanel(page).getByRole("button", { name: "Reading the brief…", exact: true });
     await expect(busy).toHaveAttribute("aria-busy", "true");
+    await expect.poll(() => page.evaluate(() => (window as unknown as LmHost).__lm.prompt)).toBe(1);
     const cancel = inputsPanel(page).getByRole("button", { name: "Cancel", exact: true });
     // "Cancel" comes right after its busy button in Tab order (13.7).
     await busy.focus();
@@ -109,8 +141,10 @@ test.describe("13.1 Brief", () => {
     await expect(cancel).toHaveCount(0);
     await expect(readBrief(page)).not.toHaveAttribute("aria-busy", "true");
     await expect(readBrief(page)).toBeFocused();
-    await release();
-    await page.waitForTimeout(300);
+    await page.evaluate(() => (window as unknown as LmHost).__lmRelease());
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as LmHost).__lm.replied))
+      .toBe(true);
     expect(await design(page)).toEqual(before);
     await expectBriefLines(page, [CANCELED]);
   });
@@ -135,13 +169,13 @@ test.describe("13.1 Brief", () => {
       // The new route answered this run, so the lines below are this run's.
       await expect.poll(() => posted.length).toBe(1);
       // Exactly the two lines: no raw text of the reply appears.
-      await expectBriefLines(page, [sharedSentence(code), lexiconLine(CALM)]);
+      await expectBriefLines(page, [SHARED_SENTENCES[code], lexiconLine(CALM)]);
       await expect(briefLines(page)).not.toContainText(/[{}"]/);
     }
     const aborted = await answerShared(page, "brief", { abort: true });
     await runBrief(page, CALM);
     await expect.poll(() => aborted.length).toBe(1);
-    await expectBriefLines(page, [sharedSentence("unreachable"), lexiconLine(CALM)]);
+    await expectBriefLines(page, [SHARED_SENTENCES.unreachable, lexiconLine(CALM)]);
     await expectCreatedWith(page, "lexicon");
     await expect(briefLines(page)).toHaveAttribute("role", "status");
   });
@@ -177,8 +211,8 @@ test.describe("13.1 Brief", () => {
     await openAt(page);
     const before = await design(page);
     await runBrief(page, "qwxz vbnm");
-    await expectBriefLines(page, [sharedSentence("not-configured"), NOTHING]);
-    await page.waitForTimeout(400);
+    await expectBriefLines(page, [SHARED_SENTENCES["not-configured"], NOTHING]);
+    // The lines show only after any commit was issued, and `design` waits for the canvas to settle.
     expect(await design(page)).toEqual(before);
   });
 
@@ -188,7 +222,7 @@ test.describe("13.1 Brief", () => {
     const posted = await answerShared(page, "brief", sharedFailure("not-configured"));
     await openAt(page);
     await runBrief(page, "calm  tea house\nat dusk ");
-    await expectBriefLines(page, [sharedSentence("not-configured"), lexiconLine(CALM)]);
+    await expectBriefLines(page, [SHARED_SENTENCES["not-configured"], lexiconLine(CALM)]);
     expect(posted).toEqual([{ brief: "calm tea house at dusk", locked: {} }]);
 
     await briefField(page).fill("   ");
@@ -199,9 +233,9 @@ test.describe("13.1 Brief", () => {
     // Playwright will not click an aria-disabled button; the keyboard still reaches it.
     await readBrief(page).focus();
     await page.keyboard.press("Enter");
-    await page.waitForTimeout(300);
-    expect(posted).toHaveLength(1);
+    await expectBriefLines(page, [SHARED_SENTENCES["not-configured"], lexiconLine(CALM)]);
 
+    // A full action later, the blank brief has still sent nothing.
     await runBrief(page, "1234");
     await expectBriefLines(page, [NOTHING]);
     expect(posted).toHaveLength(1);
@@ -226,11 +260,8 @@ test.describe("13.1 Brief", () => {
 
 test.describe("10.2 the on-device model", () => {
   const briefJson = JSON.stringify(BRIEF_OUT);
-  const notDownloaded = ai.failureSentence(
-    { provider: "on-device", reason: "not-downloaded" },
-    "brief",
-    "shared",
-  );
+  const download = (page: Page) =>
+    inputsPanel(page).getByRole("button", { name: "Download the model", exact: true });
 
   test("F-DEV-01 with the switch on, an available model reads the brief on the device", async ({
     page,
@@ -265,15 +296,11 @@ test.describe("10.2 the on-device model", () => {
     await expect(aiSettings(page)).toContainText("Needs a one-time download from Chrome.");
     await onDeviceSwitch(page).click();
     await runBrief(page, "a print shop before the download");
-    await expectBriefLines(page, [notDownloaded, SHARED_LINE]);
-    const download = inputsPanel(page).getByRole("button", {
-      name: "Download the model",
-      exact: true,
-    });
-    await download.click();
+    await expectBriefLines(page, [NOT_DOWNLOADED, SHARED_LINE]);
+    await download(page).click();
     await expect(aiSettings(page)).toContainText("Downloading the model: 50%.");
     await expect(aiSettings(page)).toContainText("Ready on this device.");
-    await expect(download).toHaveCount(0);
+    await expect(download(page)).toHaveCount(0);
     const result = await new AxeBuilder({ page })
       .include("#studio-inputs")
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
@@ -283,21 +310,68 @@ test.describe("10.2 the on-device model", () => {
     await expectBriefLines(page, [ON_DEVICE_LINE]);
   });
 
+  test("the download's progress survives closing and reopening AI settings", async ({ page }) => {
+    await fakeLanguageModel(page, { state: "downloadable", download: [0, 0.5, 1] });
+    await openAt(page);
+    await openAiSettings(page);
+    await download(page).click();
+    await expect(aiSettings(page)).toContainText("Downloading the model: 0%.");
+    await aiSettingsButton(page).click();
+    await expect(aiSettings(page)).toHaveCount(0);
+    await openAiSettings(page);
+    await expect(aiSettings(page)).toContainText("Downloading the model: 50%.");
+    await expect(aiSettings(page)).toContainText("Ready on this device.");
+  });
+
   test("F-DEV-03 an unavailable model disables the switch, and a stored switch adds its sentence", async ({
     page,
   }) => {
     await fakeLanguageModel(page, { state: "unavailable" });
-    await page.addInitScript(() => localStorage.setItem("dyelot:on-device", "on"));
     await answerShared(page, "brief", sharedOk("brief", BRIEF_OUT));
     await openAt(page);
     await openAiSettings(page);
+    await expect(onDeviceSwitch(page)).toHaveAttribute("aria-checked", "false");
     await expect(onDeviceSwitch(page)).toHaveAttribute("aria-disabled", "true");
-    await expect(onDeviceSwitch(page)).toHaveAccessibleDescription("Not available on this device.");
+    await expect(onDeviceSwitch(page)).toHaveAccessibleDescription(NOT_AVAILABLE);
+    await page.evaluate(() => localStorage.setItem("dyelot:on-device", "on"));
+    await page.reload();
     await runBrief(page, "a ferry terminal at noon");
-    await expectBriefLines(page, [
-      ai.failureSentence({ provider: "on-device", reason: "unavailable" }, "brief", "shared"),
-      SHARED_LINE,
-    ]);
+    await expectBriefLines(page, [UNAVAILABLE, SHARED_LINE]);
+  });
+
+  test("F-DEV-06 a switch stored on can be turned off while the model is unavailable", async ({
+    page,
+  }) => {
+    await fakeLanguageModel(page, { state: "unavailable" });
+    await page.addInitScript(() => {
+      // Only the first load starts with the switch stored on.
+      if (sessionStorage.getItem("f-dev-06") === null) {
+        sessionStorage.setItem("f-dev-06", "seen");
+        localStorage.setItem("dyelot:on-device", "on");
+      }
+    });
+    await answerShared(page, "brief", sharedOk("brief", BRIEF_OUT));
+    await openAt(page);
+    await openAiSettings(page);
+    const toggle = onDeviceSwitch(page);
+    await expect(toggle).toHaveAttribute("aria-checked", "true");
+    await expect(toggle).not.toHaveAttribute("aria-disabled", "true");
+    await expect(toggle).toHaveAccessibleDescription(NOT_AVAILABLE);
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+    await expect(toggle).toHaveAttribute("aria-disabled", "true");
+    await expect(toggle).toHaveAccessibleDescription(NOT_AVAILABLE);
+    await expect(toggle).toBeFocused();
+    expect(await page.evaluate(() => localStorage.getItem("dyelot:on-device"))).toBeNull();
+    // Off, it cannot be turned on again while the model is unavailable.
+    await page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-checked", "false");
+    await runBrief(page, "a ferry terminal after the switch");
+    await expectBriefLines(page, [SHARED_LINE]);
+    // The choice holds after a reload.
+    await page.reload();
+    await openAiSettings(page);
+    await expect(onDeviceSwitch(page)).toHaveAttribute("aria-checked", "false");
   });
 
   test("F-DEV-04 without a LanguageModel, AI settings show no on-device switch", async ({
@@ -318,10 +392,7 @@ test.describe("10.2 the on-device model", () => {
     await answerShared(page, "brief", sharedOk("brief", BRIEF_OUT));
     await openAt(page);
     await runBrief(page, "a library that answers in prose");
-    await expectBriefLines(page, [
-      ai.failureSentence({ provider: "on-device", reason: "failed" }, "brief", "shared"),
-      SHARED_LINE,
-    ]);
+    await expectBriefLines(page, [ON_DEVICE_FAILED, SHARED_LINE]);
   });
 });
 
