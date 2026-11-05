@@ -35,6 +35,7 @@ import {
 } from "@/engine/fonts/catalog";
 import { choosePairing, PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
 import { ENGINE_VERSION, generateSystem } from "@/engine/generate";
+import { imagePalette } from "@/engine/image/palette";
 import { lintSpec } from "@/engine/lint";
 import { RULE_IDS } from "@/engine/lint/types";
 import { CONTRAST_CHECKS, measureSpec, summarize } from "@/engine/measure";
@@ -103,6 +104,7 @@ const ENGINE_KEYS = [
   "generateSystem",
   "genericness",
   "hexToRgb",
+  "imagePalette",
   "indexNames",
   "lintSpec",
   "measureSpec",
@@ -139,6 +141,9 @@ const ENGINE_KEYS = [
  * entry only when the full set above names it.
  */
 const PENDING_KEYS: readonly string[] = [];
+
+/** M3's engine key set: the entry's keys before Task 4.6a. */
+const M3_ENGINE_KEYS: readonly string[] = ENGINE_KEYS.filter((key) => key !== "imagePalette");
 
 const SPEC_KEYS = [
   "DesignSpecSchema",
@@ -203,6 +208,7 @@ describe("the engine entry", () => {
       generateSystem,
       genericness,
       hexToRgb,
+      imagePalette,
       indexNames,
       lintSpec,
       measureSpec,
@@ -237,6 +243,15 @@ describe("the engine entry", () => {
     for (const [name, home] of Object.entries(homes)) {
       expect(exported[name], name).toBe(home);
     }
+  });
+
+  it("C-ENTRY4-01 exports imagePalette beside M3's keys, the very function its module exports, and no other new key", () => {
+    expect(ENGINE_KEYS).toContain("imagePalette");
+    expect(engine.imagePalette).toBe(imagePalette);
+    expect(sorted(Object.keys(engine)).filter((key) => !M3_ENGINE_KEYS.includes(key))).toEqual([
+      "imagePalette",
+    ]);
+    expect(sorted(Object.keys(spec))).toEqual(sorted(SPEC_KEYS));
   });
 
   it.each(["multiply", "runRules", "tryOklchToRgb", "gamutExcess"])(
