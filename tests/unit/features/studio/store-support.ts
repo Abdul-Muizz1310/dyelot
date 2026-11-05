@@ -1,6 +1,7 @@
+import { afterEach } from "vitest";
 import type { StudioClient } from "@/features/studio/client";
 import type { GenerateReply, GenerateRequest } from "@/features/studio/protocol";
-import { createStudioStore, type StudioDeps } from "@/features/studio/store";
+import { createStudioStore, type StudioDeps, type StudioStore } from "@/features/studio/store";
 import type { DesignSpec } from "@/spec";
 import { withValue } from "../../spec/support";
 import {
@@ -94,6 +95,16 @@ export function stubClient() {
   };
 }
 
+// Every store `makeStore` builds, disposed after each test of each importing file: a store left
+// alive keeps its 300 ms persist timer, which can fire after the test is over (machine load) and
+// write the hash of a fake spec. `dispose` is idempotent, so a test may dispose its own store.
+const made = new Set<StudioStore>();
+
+afterEach(() => {
+  for (const store of made) store.getState().dispose();
+  made.clear();
+});
+
 /** A store at `FRESH` (or with the given deps), with every fake it was built from. */
 export function makeStore(overrides: Partial<StudioDeps> & { stub?: Stub } = {}) {
   const { stub: given, ...deps } = overrides;
@@ -112,6 +123,7 @@ export function makeStore(overrides: Partial<StudioDeps> & { stub?: Stub } = {})
     ...deps,
   };
   const store = createStudioStore(all);
+  made.add(store);
   return { store, stub, storage, clock, newSeed, location, history, deps: all };
 }
 
