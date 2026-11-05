@@ -935,20 +935,25 @@ export const MAX_BUFFER = Object.freeze({ width: 1920, height: 1080 });
 export const DEFAULT_FADE = Object.freeze({ durationMs: 200, easing: Object.freeze([0.2, 0, 0, 1]) });
 export const GRAIN_SVG: string;                     // R5-20's text
 export const GRAIN_URL: string;                     // `url("data:image/svg+xml,${encodeURIComponent(GRAIN_SVG)}")`
-/** @typedef {readonly [string, string, string, string, string]} FlavorStops  each "#rrggbb" */
+/** @typedef {readonly string[]} FlavorStops  five "#rrggbb", the count checked at run time */
 /** @typedef {"no-webgl2" | "context-lost"} FallbackReason */
-/** @typedef {{ durationMs: number, easing: readonly [number, number, number, number] }} Fade */
-/** @typedef {{ stops: FlavorStops, seed: readonly [number, number], reducedMotion?: boolean, fade?: Fade,
+/** @typedef {{ durationMs: number, easing: readonly number[] }} Fade  easing: four numbers, checked at run time */
+/** @typedef {{ stops: FlavorStops, seed: readonly number[], reducedMotion?: boolean, fade?: Fade,
  *   size?: { width: number, height: number }, autoplay?: boolean, onFallback?: (reason: FallbackReason) => void }} FlavorOptions */
 /** @typedef {{ setStops(stops: FlavorStops): void, setPaused(paused: boolean): void, drawAt(fraction: number): void,
  *   destroy(): void }} FlavorHandle */
+export const VERTEX_SHADER: string;                 // 6.1's texts, exported so the unit cases can read them
+export const FRAGMENT_SHADER: string;
 export function supportsFlavor(): boolean;          // a scratch canvas gives a WebGL2 context
 export function mountFlavor(canvas: HTMLCanvasElement, options: FlavorOptions): FlavorHandle;
-export function flavorBackground(stops: readonly [string, string, string, string, string]):
-  { backgroundColor: string; backgroundImage: string };   // stops: "#rrggbb" or "var(--name)"
+export function flavorBackground(stops: readonly string[]):
+  { backgroundColor: string; backgroundImage: string };   // five stops, each "#rrggbb" or "var(--name)"
 export function bufferSize(cssWidth: number, cssHeight: number, dpr: number): { width: number; height: number };
-export function easeAt(easing: readonly [number, number, number, number], x: number): number;   // cubic-bezier y at x, x in [0, 1]
+export function easeAt(easing: readonly number[], x: number): number;   // cubic-bezier y at x, x in [0, 1]
 ```
+
+The runtime's types are plain arrays, so `palette.json` imports into them with no cast; the counts (five stops, two seed
+numbers, four easing numbers) are checked at run time, a wrong count being a `RangeError`.
 
 `mountFlavor` checks, types first: `canvas` an `HTMLCanvasElement`; `options` a plain object; `stops` an array of five
 strings each `#rrggbb` (lowercase or uppercase); `seed` two finite numbers; `reducedMotion` and `autoplay` booleans when
@@ -963,7 +968,7 @@ bisection to 1e-6.
 import { type FallbackReason, type Fade, type FlavorStops } from "./flavor.mjs";
 export type FlavorProps = {
   readonly stops: FlavorStops;
-  readonly seed: readonly [number, number];
+  readonly seed: readonly number[];
   readonly paused?: boolean;
   readonly reducedMotion?: boolean;
   readonly fade?: Fade;
@@ -1177,3 +1182,648 @@ function recordLoop(flavor: { stops: FlavorStops; seed: readonly [number, number
 
 `FlavorDialog.tsx`, `BrandPlayer.tsx`, `PrivacyNote.tsx` and `useVideoJob.ts` are shells covered by the flows. A failed
 `load()` gives `load-failed`; an `AbortError` gives `canceled`; any other throw gives `failed` and is never shown.
+
+## 6. The shader and the flavor runtime (Task 5.3)
+
+### 6.1 The shader texts
+
+`VERTEX_SHADER` draws one triangle that covers the view, from `gl_VertexID` alone:
+
+```glsl
+#version 300 es
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2));
+  gl_Position = vec4(p * 2.0 - 1.0, 0.0, 1.0);
+}
+```
+
+`FRAGMENT_SHADER` is `#version 300 es` with `precision highp float;`, the uniforms of R5-17, one output `out vec4 color;`
+with alpha 1, and these parts in this order: the webgl-noise notice and `snoise` (2D simplex noise, adapted to GLSL ES
+3.00 and otherwise as published); `hash(vec2 p) = fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453)`; the sRGB
+decode and encode (M1's piecewise functions); the linear-sRGB-to-LMS matrix, the product of M1's `XYZ_TO_LMS` and
+`SRGB_TO_XYZ`, and `LMS_TO_OKLAB`, with their inverses (the products of `XYZ_TO_SRGB` and `LMS_TO_XYZ`, and
+`OKLAB_TO_LMS`), each number written to 10 significant digits; `toOklab(vec3 srgb)` and `toSrgb(vec3 lab)`; the field of
+R5-17; the two OKLab mixes; the grain; the clamp. The draw is `drawArrays(TRIANGLES, 0, 3)` with an empty vertex array
+object bound. The runtime uploads each stop as its three channels divided by 255, and `u_seed` as the two seed numbers.
+
+### 6.2 The loop
+
+The runtime keeps the run time `t` in seconds. Each animation frame adds the time since the last one, capped at 0.1 s, so
+a stalled tab never jumps, and only while the state is `running`; the phase is 2π × (`t` mod 10) / 10. `drawAt(f)` sets
+the phase to 2π × `f`. A pause, an off-screen canvas or a hidden page cancels the frame request; returning to `running`
+starts a new chain from the kept `t`. While nothing runs (paused, off-screen, hidden, still), `setStops` draws one frame at
+once at the kept phase with the new stops, and no fade. A fade's `u_mix` is `easeAt(fade.easing, elapsed /
+fade.durationMs)`, clamped to 1; a fade of 0 ms swaps at once.
+
+### 6.3 States
+
+| `data-flavor` | Holds when |
+|---|---|
+| `fallback` | `onFallback` has been called; `data-flavor-reason` is `no-webgl2` or `context-lost` |
+| `still` | Reduced motion (the option or the OS setting): one frame at phase 0, no loop |
+| `paused` | `setPaused(true)`, or after `drawAt`, or `autoplay: false` before any `drawAt` |
+| `hidden` | `document.visibilityState` is `hidden` |
+| `offscreen` | The `IntersectionObserver` reports the canvas outside the view |
+| `running` | None of the above: the loop draws |
+
+The first that holds wins, in the table's order. `data-flavor-stops` holds the target stops joined by commas, lowercase.
+`destroy()` removes all three attributes.
+
+### 6.4 The hosts' sentences
+
+`FLAVOR_LINES` (frozen, in `src/features/flavor/video.ts`, used by the hero and the Flavor dialog):
+
+| Key | Text |
+|---|---|
+| `no-webgl2` | This browser cannot draw the animated background, so a still gradient shows instead. |
+| `context-lost` | The animated background stopped, so a still gradient shows instead. |
+| `restart` | Restart the animation |
+| `still` | The background is still because this device asks for reduced motion. |
+| `pause` | Pause |
+
+A host shows the sentence of its state in one `role="status"` region under its controls; "Restart the animation" follows
+the `context-lost` sentence and remounts the canvas with a new `key`.
+
+### 6.5 The composition's layout
+
+`BrandIntro` is one `AbsoluteFill` with `backgroundColor` `colors.background`, padding 64 px, a flex column with a gap of
+32 px, and three parts in DOM order (which is also the drawing order):
+
+1. **Header.** The name (the display font, 64 px, weight 600, `colors.foreground`) and, 6 frames later, the one-liner
+   (the body font, 26 px, `colors.mutedForeground`), each entering on the `smooth` spring `s`: `opacity` `min(1, s)`,
+   `transform: translateY(<(1 − s) × 24>px)`. An empty one-liner draws nothing.
+2. **Body.** A row with a gap of 48 px. On the left, five palette rows (primary, secondary, accent, neutral, danger), each
+   a label (the body font, 16 px, `colors.mutedForeground`, 120 px wide) and 11 squares of 40 px with a radius of 6 px and
+   a gap of 6 px; square `i` of row `r` enters on the `snappy` spring from frame 30 + 12r + 2i with `opacity` `min(1, s)`
+   and `transform: scale(<0.6 + 0.4 × s>)`. On the right, from frame 96 on the `bouncy` spring, a card 360 px wide
+   (`colors.card`, `1px solid` `colors.border`, radius 16 px, padding 28 px) holding the name (the display font, 32 px,
+   `colors.cardForeground`), the one-liner or "Made with dyelot." (the body font, 18 px, `colors.mutedForeground`) and a
+   button "Get started" (`colors.primary`, text `colors.primaryForeground`, padding 12 px 20 px, radius 10 px).
+3. **Footer.** From frame 132, faded in over `motion.baseMs` with `Easing.bezier(...motion.standard)`: "<passed> of
+   <required> required checks pass" (the body font, 20 px, `colors.foreground`) and "LOT <lot>" (the body font, 16 px,
+   `colors.mutedForeground`, letter spacing 0.08em).
+
+`springAt(curve, frame, fps)` is 0 for a frame below 0 and 1 at or after `settleMs`; between, it interpolates the samples
+linearly, read as evenly spaced over `settleMs`. Every frame from 0 to 179 draws the same picture each time it is drawn.
+
+## 7. The landing page (Task 5.5)
+
+### 7.1 The hero
+
+`src/app/page.tsx` keeps `PageFrame active="home" statusLeft="dyelot ~/" statusRight="muizz-lab · MIT"`, the structured
+data, `<Prompt>dyelot</Prompt>` and the `h1` "dyelot — a palette becomes a design system your coding agent can build".
+Then, in this order:
+
+1. The hero (`Hero.tsx`, a client component given the six `HeroCard`s): a `TerminalWindow` titled `madder.flavor` (the
+   current card's name in lowercase, then `.flavor`), whose body is a 16:9 box holding `<Flavor>` with the card's
+   `stops`, `seed` and `fade`, `paused` from the Pause button and `reducedMotion` from `useOsReducedMotion()`. The wrapper
+   is `[data-hero]` with `data-hero-index` (1 to 6).
+2. The controls (`[data-hero-controls]`): the line "Palette 1 of 6: Madder." (`paletteLine`); the button "Next palette";
+   the button "Pause" with `aria-pressed`, rendered only while the shader can loop (no reduced motion and no fallback);
+   the link "Open this palette in the studio" (`href` the card's). Under them,
+   the `role="status"` region of 6.4.
+3. A `TerminalWindow` titled `start.log` holding, as direct children of one `div`: the links "open the studio"
+   (`/studio`), "open the explorer" (`/explore`) and "open the motion lab" (`/motion`), the repository link of M0, and the
+   cursor prompt; each link reads `$ open <target>` as M2's link does.
+4. The story (7.2).
+
+"Next palette" moves to `nextIndex(i, 6)`, updates the window's title, the line and the link, and calls `setStops` (a
+cross-fade, or a swap under reduced motion). Pause keeps its state across "Next palette".
+
+### 7.2 The story
+
+`Story.tsx` (a server component) renders `<section aria-labelledby="story-heading" data-story>` with the `h2` "One color,
+five steps" and an `ol` of five `li[data-story-step]` items, each an `h3`, one paragraph and one `figure[data-specimen]`
+holding its colors. With `S` = `storySteps(HERO)`:
+
+| `data-story-step` | `h3` | Paragraph | Specimen |
+|---|---|---|---|
+| `seed` | One seed | It starts with one color: `<hex>`, `<oklch>`. | One 96 px swatch of the seed |
+| `scale` | Eleven steps | dyelot solves eleven steps of that hue, each at a set contrast against the page. | The light primary scale: 11 swatches, each with its step number and its contrast to 2 decimals |
+| `roles` | Roles | The steps become the roles an interface uses: the page, its text, a primary action, a border and a focus ring. | A small card in the light roles `background`, `foreground`, `primary`, `primary-foreground`, `border` and `ring`, each named under its swatch |
+| `type` | Type and space | A type scale and a 4 px spacing scale come with the colors. | The display and body family names in Geist Mono, and the first 8 steps of `space.scale` as bars with their px values |
+| `receipt` | A receipt | Every export carries a receipt. This design passes `<passed>` of `<required>` required contrast checks. | The numbers `<passed> / <required>` with the label "required checks pass" |
+
+`<hex>` is `toHex(oklchToRgb(spec.color.params.primary, "srgb"))` and `<oklch>` `formatOklch` of the same seed; for
+`HERO` they read `#f66c6d` and `oklch(0.7000 0.1700 22.00)`. A family name is the catalog's `family`, or the id for a family
+outside the catalog. `<passed>` and `<required>` are `summarize(measureSpec(spec), lintSpec(spec),
+spec.color.params.gamut).contrast.requiredPass` and `.required`.
+
+`src/features/landing/story.css` holds exactly these animation rules; nothing else in it sets `opacity`, `translate`,
+`transform` or an animation:
+
+```css
+@keyframes story-rise {
+  from { opacity: 0; translate: 0 24px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    [data-story-step] {
+      animation: story-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 10% cover 30%;
+    }
+  }
+}
+```
+
+### 7.3 The nav and the sitemap
+
+`AppNav`'s links, in this order: "home" (`/`), "studio" (`/studio`), "explore" (`/explore`), "motion" (`/motion`) and
+"github" (the repository, a new tab as before). The link of the active page has `aria-current="page"` and the madder mark.
+Below 640 px the brand shows its tile alone (the word "dyelot" stays in the link's accessible name), and the gaps
+between the brand and the links and between links narrow from 24 and 20 px to 12 px, so at 360 px the five links fit one
+row with no horizontal scroll.
+`/sitemap.xml` lists `https://dyelot.vercel.app/`, `/studio`, `/explore` and `/motion`, in that order; `robots.txt` does
+not change.
+
+## 8. The explorer (Task 5.6)
+
+### 8.1 The page
+
+`src/app/explore/page.tsx`: `pageMetadata(SITE, "/explore", { title: "Explorer", description: "See a palette in OKLab:
+the sRGB, Display P3 and Rec. 2020 gamut solids, every step as a point, each scale as a tube, and a lightness slice." })`
+(140 characters); `PageFrame active="explore" statusLeft="dyelot ~/explore" statusRight="muizz-lab · MIT"`;
+`<Prompt>dyelot explore</Prompt>`; the `h1` "The palette in OKLab"; the paragraph "Every step of the design sits at its
+place in OKLab, lightness up and the two color axes across. A solid holds every color its gamut can show."; then
+`ExploreClient` given `defaultDesign()`. Its parts, in DOM and Tab order: the `role="status"` line (empty, or the bad-hash
+sentence); the controls; the 3D panel; the flat view; the link "Open in the studio". At 1024 px and wider the 3D panel and
+the flat view sit side by side; below, the flat view follows the 3D panel.
+
+### 8.2 The controls
+
+| Control | Kind | Values | Start | Shown value (`aria-valuetext` too) |
+|---|---|---|---|---|
+| Gamut solid | Radio group | sRGB, Display P3, Rec. 2020 | the design's gamut | |
+| Mode | Radio group | Light, Dark | Light | |
+| Lightness slice | Slider | 0 to 1, step 0.01 | 0.6 | `L 0.60` |
+| Turn | Slider | −180 to 180, step 1 | 35 | `35°` |
+| Tilt | Slider | 0 to 90, step 1 | 25 | `25°` |
+| Zoom | Slider | 0.5 to 2, step 0.05 | 1 | `1.00×` |
+| Reset view | Button | | | |
+
+Each control has a visible label and a hit area of at least 24 × 24 px. The camera sits at `cameraPosition(camera)`:
+distance `d = 3.2 / zoom`, position `d × (cos tilt × sin turn, sin tilt, cos tilt × cos turn)`, looking at the origin;
+`cameraOf` inverts it, rounding turn and tilt to whole degrees (turn wrapped into −180 to 180, tilt clamped to 0 to 90)
+and zoom to 0.05 (clamped to 0.5 to 2). `OrbitControls` takes the target (0, 0, 0), `minPolarAngle` 0, `maxPolarAngle`
+π / 2, `minDistance` 1.6, `maxDistance` 6.4, `enablePan` false, `enableDamping` unless the OS asks for reduced motion,
+`dampingFactor` 0.1; its `change` event writes `cameraOf(camera.position)` into the sliders and calls `invalidate()`.
+
+### 8.3 The 3D panel and the flat view
+
+The 3D panel is `[data-explorer]`, a 4:3 box with the attributes `data-explorer-state` (`loading`, `3d` or `flat`),
+`data-explorer-reason` (`no-webgl2` or `context-lost`, while `flat`), `data-gamut`, `data-mode`, `data-slice` (2
+decimals), `data-turn`, `data-tilt`, `data-zoom` (2 decimals), `data-points` (88), `data-tubes` (8) and
+`data-solid-vertices` (6 534 for 32 steps). `<Canvas frameloop="demand" dpr={[1, 1.5]} gl={{ antialias: true, alpha: true
+}} camera={{ fov: 40, near: 0.1, far: 20, position }}>` sits in an `aria-hidden="true"` wrapper; `onCreated` sets
+`gl.localClippingEnabled = true` and listens for `webglcontextlost`. Under the panel, the summary
+`sceneSummary(name, mode, gamut, l)`: "Madder: 88 steps of the light scales in OKLab, inside the sRGB gamut solid, cut at
+L 0.60." (the gamut named "sRGB", "Display P3" or "Rec. 2020").
+
+The flat view is `figure[data-flat-view]`: an `svg` of 320 × 320 (`role="img"`, `aria-labelledby` its caption) on the
+panel color, with the three outlines of `slicePath(gamutSlice(gamut, l), 320)` (sRGB a solid line in the foreground
+color, Display P3 dashed in the muted foreground, Rec. 2020 dotted in the border color: chrome stays achromatic) and one
+dot of radius 4 per step of `sliceSteps`, filled with its hex. The plot's center is (160, 160); chroma 0.4 sits at radius
+150; a hue `h` lies at the angle `h` from the right, counterclockwise: `x = 160 + r cos h`, `y = 160 − r sin h`, each to 2
+decimals; an achromatic step sits at the center. The caption reads "At L 0.60: how far each gamut reaches at every hue,
+and the <n> steps within 0.04 of that lightness." Below it, the legend list "sRGB: solid line", "Display P3: dashed
+line", "Rec. 2020: dotted line", and the list "Steps near this lightness" with one item per step, "<palette> <step> ·
+<hex> · L <l to 2 decimals> · C <c to 3 decimals> · H <h to whole degrees, or none>", or the one item "No step lies within
+0.04 of L 0.60.".
+
+### 8.4 The sentences
+
+`EXPLORE_LINES` (frozen, in `src/features/explore/scene.ts`):
+
+| Key | Text |
+|---|---|
+| `loading` | Loading the 3D view… |
+| `no-webgl2` | This browser cannot draw the 3D view, so the flat view below shows the same slice. |
+| `context-lost` | The 3D view stopped, so the flat view shows the same slice. |
+| `restart` | Restart the 3D view |
+| `bad-link` | The explorer shows the default design instead. |
+
+The bad-link line is `bannerFor({ kind: "link", reason, issues, fallback: "current" }).message` + " " +
+`EXPLORE_LINES["bad-link"]`.
+
+## 9. The motion lab and motion tokens (Task 5.7)
+
+### 9.1 The page
+
+`src/app/motion/page.tsx`: `pageMetadata(SITE, "/motion", { title: "Motion lab", description: "Edit a design's motion:
+durations, easing curves and springs, with live previews and files for CSS, Motion and GSAP." })` (116 characters);
+`PageFrame active="motion" statusLeft="dyelot ~/motion" statusRight="muizz-lab · MIT"`; `<Prompt>dyelot motion</Prompt>`;
+the `h1` "The motion lab"; the paragraph "Change a design's durations, curves and springs, watch them on five small previews,
+then take the files or open the design in the studio."; then `LabClient` given `defaultDesign()`. Its parts, in DOM and
+Tab order: the `role="status"` line (empty, or the bad-hash sentence with "The lab shows the default design instead.");
+Presets (9.2); Durations, Easings and Springs (9.3); Previews (9.4); Files (9.5); the link "Open in the studio"
+(`pageHref("studio", spec)`). The lab's state is `[data-lab]` with `data-preset` (an id or `custom`) and `data-lab-reduced`.
+
+### 9.2 Presets
+
+A group labeled "Presets" with the buttons "dyelot", "Productive", "Expressive", "Gentle" and "Snappy", each with
+`aria-pressed` (true for `motionPresetOf(tokens)`). Pressing one replaces all the tokens with the preset's in one edit.
+`presetLine(tokens)` gives "These tokens match the <label> preset. <note>" or "Custom tokens: no preset matches."
+
+### 9.3 Durations, easings and springs
+
+**Durations.** An `svg` ladder (`role="img"`, labeled "Durations: <name> <stored> ms, …" in name order) with one bar per
+duration, its width the exported value over 500 ms; then seven fields labeled "instant (ms)" to "slowest (ms)". When
+`durationBars` gives an exported value that differs from the stored one (the calm feel stretches each duration by 1.25
+and every value is capped at 500 ms, R2-08), the bar's label reads "<name> <stored> ms, exported as <exported> ms", and
+the note "The calm feel stretches each duration by a quarter, up to 500 ms, in the exported files." shows under the
+ladder.
+
+**Easings.** Four `figure`s, each a 200 × 200 `svg` (`role="img"`) of `curvePath(bezierPoints(easing, 64), { width: 200,
+height: 200, pad: 20, yMin: −1, yMax: 2 })` with the diagonal from (0, 0) to (1, 1) as a faint guide, captioned
+"<name>: cubic-bezier(<x1>, <y1>, <x2>, <y2>)", then the fields "<name> x1", "<name> y1", "<name> x2" and "<name> y2".
+
+**Springs.** Three `figure`s of `curvePath` over `springCurve(spring).samples` (x the sample's index over the last index,
+y the position; `yMin` −0.2, `yMax` 1.6), captioned "<name>: <visualDuration> s, bounce <bounce>, settles in <settleMs>
+ms", then the fields "<name> duration (s)" and "<name> bounce".
+
+`LAB_BOUNDS` and `readField`'s sentences:
+
+| Bound | Min | Max | Step | Sentence |
+|---|---|---|---|---|
+| `duration` | 0 | 500 | 1 | Enter a number of milliseconds from 0 to 500. |
+| `x` | 0 | 1 | 0.01 | Enter a number from 0 to 1. |
+| `y` | −1 | 2 | 0.01 | Enter a number from −1 to 2. |
+| `visualDuration` | 0.05 | 2 | 0.01 | Enter a number of seconds from 0.05 to 2. |
+| `bounce` | 0 | 1 | 0.01 | Enter a number from 0 to 1. |
+
+`readField` trims the text, reads U+2212 as a minus sign, and rejects an empty text, a text `Number` does not read as a
+finite number, and a value outside the bounds, each with its sentence; it rounds a valid value to its step
+(`Math.round(value / step) × step`, then to the step's decimals). `fieldText` writes a duration as a whole number and the
+rest with at most 2 decimals and no trailing zero (`0.2`, `0`, `0.05`).
+
+### 9.4 Previews
+
+A group labeled "Previews" inside `[data-specimen][data-lab-previews]`, painted with `canvasStyle(spec, "light")`. The
+switch "Reduced motion" (`role="switch"`) comes first, described by "Shows what the exported reduced-motion rules do.";
+it starts on when the OS asks for reduced motion. Then five `figure`s:
+
+| Preview | Caption | Tokens | Replay |
+|---|---|---|---|
+| Dialog | Dialog: slow and decelerate in, base and accelerate out | opacity and scale 0.96 to 1 | Replay the dialog |
+| Toast | Toast: the smooth spring | rises 24 px | Replay the toast |
+| Switch | Switch: the snappy spring | the thumb slides | Replay the switch |
+| Tab indicator | Tab indicator: the bouncy spring | the bar slides under the tabs "One", "Two" and "Three" | Replay the tab indicator |
+| Hover | Hover: fast and standard | lifts 2 px | Replay the hover |
+
+"Replay" remounts its preview with a new key (the switch and the tab indicator move to their next state). The switch
+inside the preview is labeled "Example switch" and the tabs form a tab list labeled "Example tabs". With "Reduced motion"
+on, the previews' `MotionConfig` is `reducedMotion="always"` and each spring transition becomes
+`reducedTransition(spec)`: `{ duration: fast / 1000, ease: "linear" }`.
+
+### 9.5 Files
+
+A list labeled "Files" with three items, `motion/motion.css`, `motion/motion.ts` and `motion/gsap.ts`, each with the
+buttons "Copy" (`aria-label` "Copy <path>"; it reads "Copied" for 2 s after a copy) and "Download" (`aria-label`
+"Download <path>"; the file's base name, `text/css` for the CSS and `text/plain` for the two `.ts` files), and a
+disclosure "Show <path>" holding the text in a `pre`. While `@/export` loads, both buttons are `aria-disabled` and
+described by "Preparing the files…"; if it fails to load, the list's `role="status"` line reads "This tool could not load.
+Reload the page to try again." A blocked copy opens the disclosure, selects the text and shows M3's sentence "Copy is
+blocked here. The text is selected: press Ctrl+C or ⌘C."
+
+### 9.6 The hash
+
+On load the lab reads `location.hash` (R5-40's rules). Each applied edit replaces the spec with `withMotion(spec,
+tokens)` at once (previews and files follow) and, 300 ms after the last edit, calls `history.replaceState(null, "",
+"#s=" + encodeSpec(spec))`; a `hashchange` loads the new design. Reloading the page shows the edited tokens.
+
+## 10. View transitions (Task 5.8)
+
+### 10.1 The template switch
+
+In `Canvas`:
+
+```tsx
+const template = useDeferredValue(view.template);
+const transition = templateTransition(view.reducedMotion);
+// … inside MotionScope, which renders no element:
+<ViewTransition key={template} name="dyelot-template" share={transition.share} enter={transition.enter}
+  exit={transition.exit} default="none">
+  <div data-template-root="">
+    <Template spec={spec} view={{ ...view, template }} />
+  </div>
+</ViewTransition>
+```
+
+`[data-canvas]`'s `data-template` reads `template`. `templateTransition(false)` is `{ share: "auto", enter: "auto",
+exit: "auto", default: "none" }` and `templateTransition(true)` the same with `"none"` for the first three; a non-boolean
+is a `TypeError` naming `templateTransition`.
+
+### 10.2 The token row
+
+`Scales` keeps one piece of local state, the open step `{ palette, step } | null`, set inside `startTransition`. A
+compact row is `<li data-step>` holding one `<button type="button" aria-expanded="false" aria-label="<palette> <step>,
+<hex>">` whose content is the step number, the swatch (inside `<ViewTransition name={swatchName(palette, step)}
+share="dyelot-morph" default="none">`), the hex and the ratio, as M2 draws them. The open row replaces it in the same
+`li`, which gains `data-token-row`:
+
+- the button `aria-expanded="true"` with the same name, which closes the row;
+- the swatch, at 24 px, inside the `ViewTransition` of the same name;
+- `<code>` with `--color-<palette>-<step>`;
+- the hex, `formatOklch` of the step, and the contrast "<ratio to 2 decimals>:1", each labeled "Hex", "OKLCH" and
+  "Contrast" in a description list;
+- "Roles: <names joined by ", ">" or "Roles: none in <mode> mode.";
+- "Copy" (`aria-label` "Copy --color-<palette>-<step>"), which writes the variable's name and reads "Copied" for 2 s; a
+  blocked copy selects the `code` text and shows "Copy is blocked here. The text is selected: press Ctrl+C or ⌘C."
+
+Escape with focus inside the row closes it. After it opens, focus is on its button; after it closes (button, Escape, or
+another row opening), focus is on the compact button of the step it showed. A design change that keeps the step keeps the
+row open with the new values; a mode toggle keeps it open in the new mode.
+
+### 10.3 The CSS
+
+`src/app/globals.css` gains, after its reduced-motion block:
+
+```css
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-group(.dyelot-morph) {
+  animation-duration: 250ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}
+```
+
+### 10.4 The motion scope
+
+`MotionScope` reads `useOsReducedMotion()` (a `matchMedia("(prefers-reduced-motion: reduce)")` subscription through
+`watchReducedMotion`, false on the server) and passes `reducedMotion={reduced || osReduced ? "always" : "never"}`;
+`useKitMotion` and `Entrance` read `useReducedMotionConfig()` as before, so the leaf remount and the sheet's settling rules
+of F-CANVAS-07 now run for an OS change too.
+
+## 11. Remotion and Mediabunny (Tasks 5.9 and 5.10)
+
+### 11.1 The Player
+
+`BrandPlayer.tsx` (`"use client"`) renders:
+
+```tsx
+<Player component={BrandIntro} inputProps={props} durationInFrames={180} fps={30} compositionWidth={1280}
+  compositionHeight={720} controls loop acknowledgeRemotionLicense autoPlay={!reduced} initialFrame={reduced ? 179 : 0}
+  style={{ width: "100%" }} renderLoading={() => <p>Loading the preview…</p>}
+  errorFallback={() => <p>The preview could not play here.</p>} />
+```
+
+`props` is `useMemo(() => brand.brandProps(spec, mode), [spec, mode])`, `brand` the loaded `@/export`; `reduced` is the OS
+setting or the canvas's "Reduce motion". The Player has no `audio`, so `muted` changes nothing; it autoplays only when
+`reduced` is false. The dialog loads `BrandPlayer` with `dynamic(() => import("./BrandPlayer"), { ssr: false, loading:
+() => <p>Loading the preview…</p> })`.
+
+### 11.2 The render
+
+The "Brand video" section's job runs these states, each shown by 13.3's lines:
+
+| State | Shows | Next |
+|---|---|---|
+| `idle` | "Render the brand video" (or the no-WebCodecs sentence in its place) | a click: `checking` |
+| `checking` | "Checking this browser…"; the button `aria-busy` | the renderer loads, `pickRenderTarget`: none gives `unsupported`, a target gives `confirm` on the page load's first render, else `rendering`; a failed load gives `load-failed` |
+| `unsupported` | "This browser cannot render the brand video." in the button's place | (final for the page load) |
+| `confirm` | The privacy note (13.4) in the button's place | "Render": `rendering`; "Cancel": `idle`, nothing sent |
+| `rendering` | "Rendering…", "Cancel", the progress bar and the live line | done: `done`; Cancel or the dialog closing: `canceled`; a throw: `failed` |
+| `done`, `canceled`, `failed`, `load-failed` | The button again, with the outcome's line under it | a click: `checking` (an earlier load is reused) |
+
+`pickRenderTarget` asks `canRenderMediaOnWeb` for `{ width: 1280, height: 720, container: "mp4", videoCodec: "h264",
+muted: true }` and then `{ …, container: "webm", videoCodec: "vp8" }`, and gives the first with `canRender` true, else
+null; a throw counts as false. `renderBrandVideo` passes R5-53's options, reads `progress` from `onProgress` (0 to 1),
+awaits `getBlob()`, and gives the bytes. The live line announces 10%, 20%, … 100% at most once each (`nextAnnounced`).
+
+### 11.3 The shader loop
+
+The "Shader loop" section runs the same states without `confirm`: `idle` ("Record the shader loop", or "This browser
+cannot record the shader loop." in its place without WebCodecs or WebGL2), `checking` (Mediabunny loads and `pickCodec`
+runs), `unsupported`, `recording` ("Recording…", "Cancel", the bar and the live line, progress `(i + 1) / 300`), and the
+outcomes. `recordLoop` creates the detached canvas, mounts the flavor with `{ stops, seed, size: { width: 1280, height:
+720 }, autoplay: false }` (the runtime asks for `preserveDrawingBuffer: true` when `autoplay` is false), runs R5-56's
+300 steps, destroys the handle in every outcome, and gives the bytes of `output.target.buffer`. A video job holds the
+other section's button `aria-disabled`, described by "Wait for the current video to finish."
+
+### 11.4 The license texts
+
+The README of the repository gains a section "Remotion" saying: dyelot renders its brand video with Remotion under
+Remotion's Free License, as an individual's project; Remotion is source-available, not open source; each in-browser render
+sends one usage event to remotion.pro; anyone who reuses the video code needs Remotion's license, and companies of four
+or more people need a Company License (`https://remotion.pro/license`). `flavor/remotion/README.md` (12.1) and the
+composition's header (R5-22) say the same to the export's reader.
+
+## 12. The flavor files and the security headers (Tasks 5.4 and 5.9)
+
+### 12.1 The flavor files
+
+With `<name>` the design's `meta.name`, `<lot>` its lot tag and `<link>` `editLink(spec, origin)`:
+
+**`flavor/README.md`**
+
+````md
+# Flavor: <name>
+
+The animated background of the dyelot design "<name>" (LOT <lot>), with its still CSS fallback and the Remotion source of
+its brand video. Edit this design: <link>
+
+## Files
+
+- `flavor.mjs`: the background as a WebGL2 module with no dependency.
+- `flavor-react.tsx`: a React component around it.
+- `flavor.css`: the still background, read from the color variables of `app/theme.css`.
+- `palette.json`: the five colors of each mode, the loop's length, the seed and the cross-fade.
+- `remotion/`: the brand video's composition, built with Remotion. Read `remotion/README.md` first.
+
+## Use it
+
+In React:
+
+```tsx
+import palette from "./flavor/palette.json";
+import { Flavor } from "./flavor/flavor-react";
+
+<Flavor stops={palette.light} seed={palette.seed} fade={palette.fade} className="h-80 w-full" />
+```
+
+Without React:
+
+```js
+import { mountFlavor } from "./flavor/flavor.mjs";
+
+const flavor = mountFlavor(document.querySelector("canvas"), { stops, seed });
+```
+
+Where WebGL2 is missing, the module paints the still gradient itself. To use the still background alone, give an element
+the class `dyelot-flavor` from `flavor.css`.
+
+## Motion
+
+The background loops every 10 seconds. It pauses off-screen and in a hidden tab, and it draws one still frame when the
+visitor's system asks for reduced motion. Show a Pause button wherever it moves.
+
+## Videos
+
+The brand video and a 10-second loop of this background are downloads from the Flavor dialog of dyelot's studio, not
+files of this folder: <link>
+
+## License
+
+The files outside `remotion/` are MIT, like the rest of this export. `flavor.mjs` holds simplex noise from webgl-noise
+(MIT), with its notice. The files of `remotion/` need Remotion, which is not open source: read `remotion/README.md`.
+````
+
+**`flavor/flavor.css`**: M3's three header comments (`cssComment`), then the comment `/* The still background: use it
+where WebGL2 is missing, or alone. It reads the color variables of app/theme.css. */`, then the rule:
+
+```css
+.dyelot-flavor {
+  background-color: var(--neutral-100);
+  background-image: <GRAIN_URL>, linear-gradient(in oklch 135deg, var(--neutral-100) 0%, var(--primary-200) 25%, var(--secondary-400) 50%, var(--accent-400) 75%, var(--primary-500) 100%);
+}
+```
+
+**`flavor/palette.json`**: `{ "name": <name>, "loopSeconds": 10, "seed": flavorSeed(specId), "fade": { "durationMs":
+motion.durations.base, "easing": motion.easings.standard }, "light": flavorStops(spec, "light"), "dark":
+flavorStops(spec, "dark") }`, in that key order, as R3-11 writes JSON.
+
+**`flavor/remotion/README.md`**
+
+````md
+# Brand video: <name>
+
+Built with Remotion (https://www.remotion.dev). Remotion is not open source. Read its license before you use these
+files: https://remotion.pro/license
+
+Under its Free License, individuals, non-profit organizations and companies of up to three people may use Remotion at no
+cost. Companies of four or more people need a Remotion Company License.
+
+## Files
+
+- `brand-intro.tsx`: the composition, 1280 × 720 at 30 frames a second, 6 seconds.
+- `root.tsx`: registers `brand-intro-light` and `brand-intro-dark`.
+- `brand.json`: the props of each, made from the design "<name>" (LOT <lot>).
+
+## Render it
+
+```sh
+npm install remotion@4.0.539 @remotion/cli@4.0.539 react react-dom
+npx remotion studio flavor/remotion/root.tsx
+npx remotion render flavor/remotion/root.tsx brand-intro-light out/brand-intro-light.mp4
+```
+
+dyelot renders the same composition in the browser from the Flavor dialog of its studio: <link>
+````
+
+**`flavor/remotion/brand.json`**: `{ "light": brandProps(spec, "light"), "dark": brandProps(spec, "dark") }`, as R3-11
+writes JSON.
+
+### 12.2 The CSP
+
+`cspHeader(nonce, { dev })` returns, for `dev: false`, exactly:
+
+```text
+default-src 'self'; base-uri 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-<nonce>' 'strict-dynamic'; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai https://www.remotion.pro; frame-ancestors 'none'; object-src 'none'; form-action 'self';
+```
+
+For `dev: true`, `script-src` ends `'strict-dynamic' 'unsafe-eval'` and `connect-src` ends `https://www.remotion.pro ws:
+http://localhost:*`. The nonce and `dev` rules of M4's 12.1 stand. The matcher, the other headers and robots do not
+change.
+
+### 12.3 The build configuration
+
+`next.config.ts`'s `turbopack.rules` hold `*.mjs`, `*.md` and `*.tsx`, each `{ condition: { query: /[?&]raw(?=&|$)/ },
+type: "raw" }`; no `experimental` key, `cacheComponents` stays off. `src/types/raw.d.ts` declares `"*.mjs?raw"`,
+`"*.md?raw"` and `"*.tsx?raw"`, each a default `string`. `tsconfig.json`'s `include` adds `src/flavor/*.mjs`.
+`.github/dependabot.yml` (created if absent) groups `remotion`, `@remotion/player` and `@remotion/web-renderer` as
+`remotion`, and `three`, `@types/three`, `@react-three/fiber` and `@react-three/drei` as `three`.
+
+## 13. The studio's new UI (Tasks 5.4 and 5.7 to 5.10)
+
+The new controls use the studio's chrome classes, a visible label, a focus ring and a hit area of at least 24 × 24 px.
+Every result line and failure sentence sits in one `role="status"` region per section.
+
+### 13.1 The toolbar and the dialog
+
+"Flavor" (`aria-haspopup="dialog"`) follows "Export" in the toolbar and in Tab order. The dialog (`role="dialog"`,
+`aria-modal="true"`, named by its heading "Flavor") holds, in order: the paragraph "This design's moving parts: an
+animated background, a brand video and a loop of the background, all made in this browser."; the sections "Background",
+"Brand video" and "Shader loop" (13.2, 13.3), each an `h3`; and "Close". While the dialog component loads, "Flavor" is
+`aria-busy`; if it fails to load, the toolbar's status line reads "This tool could not load. Reload the page to try
+again." and the next press tries again.
+
+### 13.2 Background
+
+`<Flavor>` in a 16:9 box (`[data-flavor-preview]`) with `flavorStops(spec, view.mode)`, `flavorSeed(specId(spec))`, the
+`base` and `standard` fade, `paused` from its Pause button and `reducedMotion` true when the canvas's "Reduce motion" is
+on (the runtime adds the OS setting). Under it: "Pause" (`aria-pressed`, only while it loops); the region of 6.4; and the
+line "To take this background as code, turn on Include flavor files in Export."
+
+### 13.3 Brand video and shader loop
+
+**Brand video.** The Player (11.1), then "Render the brand video", described by "Makes a 6-second video at 1280 × 720 in
+this browser." The lines (`VIDEO_LINES`):
+
+| Key | Text |
+|---|---|
+| `no-webcodecs` | This browser cannot make videos. Try a recent Chrome, Edge or Firefox. |
+| `checking` | Checking this browser… |
+| `render-unsupported` | This browser cannot render the brand video. |
+| `rendering` | Rendering… |
+| `render-failed` | The brand video could not be rendered in this browser. |
+| `canceled` | Canceled. Nothing was downloaded. |
+| `load-failed` | This tool could not load. Reload the page to try again. |
+| `wait` | Wait for the current video to finish. |
+| `record` | Record the shader loop |
+| `record-description` | Records one 10-second loop at 1280 × 720 in this browser. Nothing is sent anywhere. |
+| `record-unsupported` | This browser cannot record the shader loop. |
+| `recording` | Recording… |
+| `record-failed` | The shader loop could not be recorded in this browser. |
+| `cancel` | Cancel |
+
+`progressLine("render", 30)` is "Rendering: 30%." and `progressLine("record", 30)` "Recording: 30%."; `doneLine(name)` is
+"Downloaded <name>." The progress bars are `<progress max="100">` labeled "Brand video progress" and "Shader loop
+progress".
+
+**Shader loop.** "Record the shader loop", described by `record-description`, and the same pattern of lines.
+
+### 13.4 The privacy note
+
+In the render button's place: a group labeled by its heading "Before the first render" (an `h4` with `tabIndex={-1}`,
+which takes focus when the note opens), the paragraph "The video is made in this browser. Remotion, the video library
+dyelot uses, sends one usage event to remotion.pro for each render, with your IP address and this site's address. It
+never sends the video or the design. dyelot cannot turn this off.", and the buttons "Render" and "Cancel". "Cancel"
+returns focus to "Render the brand video"; "Render" starts the render and focus moves to its "Cancel".
+
+### 13.5 The export dialog
+
+After the summary list, the switch "Include flavor files" (`role="switch"`, off), described by "Adds the animated
+background, its CSS fallback and the Remotion source of the brand video: nine text files." Toggling it rebuilds the
+bundle (the dialog's loading state shows meanwhile); the file list, the lot line and the download follow, and focus stays
+on the switch.
+
+### 13.6 The inputs panel
+
+Under "Motion feel": `motionLine(spec)` ("Motion tokens: dyelot preset." or "Motion tokens: custom.") and the link "Edit
+in the motion lab" (`pageHref("motion", spec)`), which leaves the studio in the same tab; the draft keeps the design.
+
+### 13.7 The inspector
+
+The Scales section's step rows are the buttons of 10.2. After the palettes, the link "See these scales in the explorer"
+(`pageHref("explore", spec)`).
+
+### 13.8 Keyboard and focus order
+
+The toolbar's Tab order ends "Undo", "Redo", "Copy link", "Export", "Flavor". In the inputs panel, "Edit in the motion
+lab" follows "Motion feel" and precedes the Steer section. In the inspector, each Scales step button is a stop, in
+palette order, then "See these scales in the explorer"; an open token row's stops are its button, then "Copy". The Flavor
+dialog's order is the Background section's Pause (when shown) and "Restart the animation" (when shown), the Player's
+controls, the render button or the note's buttons, "Cancel" while busy, the record button, "Cancel" while busy, and
+"Close". Space, ← and → in the lab's and the explorer's fields type or move the slider as the control does; the studio's
+shortcuts do not run outside the studio.
