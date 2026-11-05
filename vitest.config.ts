@@ -125,7 +125,9 @@ const IMPORT_HELPERS = ["form"].map((name) => `src/features/import/${name}.ts`);
 
 /**
  * The AI feature's helpers (Task 4.5 on), held to `PURE_FLOORS` the same way: the steer chips, the
- * image protocol of Task 4.6b, and the browser providers and their router of Task 4.9.
+ * image protocol of Task 4.6b, the browser providers and their router of Task 4.9, and the step
+ * planner and the studio's AI activity that carry the router's planning (the final review's Minor 4).
+ * The image worker's client and the action hook stay with the flows (docs/specs/04-ai.md, section 15).
  */
 const AI_HELPERS = [
   "image-protocol",
@@ -135,6 +137,8 @@ const AI_HELPERS = [
   "connect",
   "on-device",
   "router",
+  "steps",
+  "activity",
 ].map((name) => `src/features/ai/${name}.ts`);
 
 /**

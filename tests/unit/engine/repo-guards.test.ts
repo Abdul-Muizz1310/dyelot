@@ -655,10 +655,19 @@ const SECTION_15_FILES: ReadonlyArray<readonly [file: string, floors: FloorSet]>
   ...["env", "clock", "cap", "guard", "cache", "transport", "trace", "smoke", "handle"].map(
     (name) => [`src/server/ai/${name}.ts`, floorsOf(90, 85)] as const,
   ),
-  // AI_HELPERS: the seven helpers of src/features/ai.
-  ...["shared", "visitor-key", "connect", "on-device", "router", "image-protocol", "steer"].map(
-    (name) => [`src/features/ai/${name}.ts`, floorsOf(95, 90)] as const,
-  ),
+  // AI_HELPERS: the nine helpers of src/features/ai, the step planner and the activity among them
+  // (the final review's Minor 4).
+  ...[
+    "shared",
+    "visitor-key",
+    "connect",
+    "on-device",
+    "router",
+    "image-protocol",
+    "steer",
+    "steps",
+    "activity",
+  ].map((name) => [`src/features/ai/${name}.ts`, floorsOf(95, 90)] as const),
 ];
 
 /** The parts of a Vitest config that C-GUARD4-10 reads. */
@@ -743,8 +752,8 @@ describe("C-GUARD4-10 the AI tests run in core, and section 15's include and flo
     expect(guard4Problems(config, inRepository)).toEqual([]);
   });
 
-  it("C-GUARD4-10 names each of section 15's files: nine server files and the seven AI helpers", () => {
-    expect(SECTION_15_FILES.map(([file]) => file)).toHaveLength(16);
+  it("C-GUARD4-10 names each of section 15's files: nine server files and the nine AI helpers", () => {
+    expect(SECTION_15_FILES.map(([file]) => file)).toHaveLength(18);
     for (const [file] of SECTION_15_FILES) expect(inRepository(file), file).toBe(true);
   });
 
