@@ -138,7 +138,11 @@ export function ConnectPanel() {
             onChange={(event) => setRemember(event.currentTarget.checked)}
             className="size-4 accent-current"
           />
-          <label htmlFor={boxId} className="text-foreground text-sm">
+          {/* 24 px tall: the box and its label are one target of at least 24 × 24 px (F-A11Y4-03). */}
+          <label
+            htmlFor={boxId}
+            className="inline-flex min-h-6 items-center text-foreground text-sm"
+          >
             Remember on this device
           </label>
         </div>
