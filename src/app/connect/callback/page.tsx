@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageFrame } from "@/components/terminal/PageFrame";
+import { CallbackPanel } from "@/features/ai/CallbackPanel";
 import { SITE } from "@/lib/site/config";
 import { pageMetadata } from "@/lib/site/metadata";
 
@@ -18,12 +19,13 @@ export const metadata: Metadata = {
   referrer: "no-referrer",
 };
 
-// The heading of section 13.6. Task 4.10a mounts the callback panel beneath it.
+// Section 13.6: the heading, then the callback panel, which finishes the sign-in in the browser.
 export default function ConnectCallbackPage() {
   return (
     <PageFrame statusLeft="dyelot ~/connect/callback">
-      <section className="mx-auto my-auto w-full max-w-xl space-y-4">
+      <section className="mx-auto my-auto w-full max-w-xl space-y-6">
         <h1 className="font-mono text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <CallbackPanel />
       </section>
     </PageFrame>
   );

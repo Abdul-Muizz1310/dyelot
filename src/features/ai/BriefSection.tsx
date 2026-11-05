@@ -4,6 +4,7 @@ import { useId, useState } from "react";
 import type { AiChange, BriefDraft, BriefInput, HueOrNull } from "@/ai";
 import { type DirectionParams, LOCKABLE, type Lockable, type Oklch } from "@/engine";
 import { ActionButton, ActionStatus } from "@/features/ai/ActionButton";
+import { AiSettings } from "@/features/ai/AiSettings";
 import type { AiActivity } from "@/features/ai/activity";
 import type { AiModule } from "@/features/ai/load";
 import { runProviders } from "@/features/ai/router";
@@ -146,6 +147,7 @@ export function BriefSection({ store, activity }: { store: StudioStore; activity
         }}
       />
       <ActionStatus lines={action.lines} />
+      <AiSettings store={store} activity={activity} />
     </>
   );
 }

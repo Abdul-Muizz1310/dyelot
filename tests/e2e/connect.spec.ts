@@ -1,0 +1,345 @@
+import { createHash } from "node:crypto";
+import AxeBuilder from "@axe-core/playwright";
+import { expect, type Page, test } from "@playwright/test";
+import { decodeSpec } from "@/spec";
+import {
+  ai,
+  aiSettings,
+  answerAuthorize,
+  answerExchange,
+  answerModels,
+  answerOpenRouter,
+  answerShared,
+  BRIEF_OUT,
+  chatReply,
+  expectBriefLines,
+  type OpenRouterCall,
+  openAiSettings,
+  openAt,
+  recordRequests,
+  runBrief,
+  sharedOk,
+  TEST_KEY,
+  TEXT_SLUGS,
+} from "./ai-support";
+import { button, inputsPanel } from "./studio-support";
+
+// The visitor key's flows of docs/specs/04-ai.md, section 14.11 (Task 4.10a): the PKCE sign-in from
+// the studio through /connect and /connect/callback (R4-33, 10.4, 13.6), the key's own calls to
+// OpenRouter (R4-34) and I-M4-05, the key never reaching dyelot's origin. OpenRouter's sign-in, its
+// code exchange and its chat calls are intercepted; nothing reaches the network.
+
+test.use({ viewport: { width: 1280, height: 800 } });
+
+const KEY_STORAGE = "dyelot:openrouter-key";
+const CONNECTED = "Your OpenRouter key is connected for this tab.";
+const REMEMBERED = "Your OpenRouter key is remembered on this device.";
+const DISCONNECTED = "Disconnected. The key is gone from this browser.";
+const WARNING =
+  "A remembered key stays in this browser until you disconnect, and anyone who uses this browser can use it. Without this, the key is gone when you close the tab.";
+const SENTENCES = {
+  "not-started":
+    "This sign-in did not start here, so dyelot did not use it. Start again from Connect.",
+  "state-mismatch":
+    "This sign-in does not match the one dyelot started, so dyelot did not use it. Start again from Connect.",
+  denied: "OpenRouter did not return a key. You can start again, or keep using dyelot without one.",
+  "exchange-failed": "OpenRouter did not accept the sign-in. Start again from Connect.",
+  "storage-refused":
+    "This browser would not keep the key. Allow this site to store data, or connect without Remember on this device.",
+} as const;
+const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
+
+const connectLink = (page: Page) =>
+  page.getByRole("link", { name: "Connect your OpenRouter key", exact: true });
+const rememberBox = (page: Page) =>
+  page.getByRole("checkbox", { name: "Remember on this device", exact: true });
+// Next.js keeps its own route announcer (role "alert") outside main.
+const callbackAlert = (page: Page) => page.getByRole("main").getByRole("alert");
+
+/** The two stores' copies of the key. */
+const storedKeys = (page: Page) =>
+  page.evaluate(
+    (name) => ({ session: sessionStorage.getItem(name), local: localStorage.getItem(name) }),
+    KEY_STORAGE,
+  );
+
+/** The studio's written hash. */
+async function studioHash(page: Page): Promise<string> {
+  await expect.poll(() => page.evaluate(() => window.location.hash)).toMatch(/^#s=/);
+  return page.evaluate(() => window.location.hash);
+}
+
+/** Opens the studio, then /connect from AI settings; returns the studio's hash. */
+async function connectFromStudio(page: Page): Promise<string> {
+  await openAt(page);
+  const hash = await studioHash(page);
+  await openAiSettings(page);
+  await expect(aiSettings(page)).toContainText("No OpenRouter key connected.");
+  await connectLink(page).click();
+  await expect(page).toHaveURL(/\/connect$/);
+  await expect(
+    page.getByRole("heading", { name: "Connect your OpenRouter key", exact: true }),
+  ).toBeVisible();
+  return hash;
+}
+
+/** The callback address OpenRouter returns to, with `state` (the authorize URL's own by default). */
+const callbackFor =
+  (page: Page, state?: string) =>
+  (authorize: URL): string =>
+    `${new URL(page.url()).origin}/connect/callback?code=C&state=${state ?? authorize.searchParams.get("state")}`;
+
+/** Signs in from the studio (F-KEY4-01's steps) and returns the calls it made. */
+async function signIn(page: Page, options: { remember: boolean }) {
+  const opened = await answerAuthorize(page, callbackFor(page));
+  const exchanges = await answerExchange(page, () => ({ status: 200, body: { key: TEST_KEY } }));
+  const hash = await connectFromStudio(page);
+  if (options.remember) await rememberBox(page).check();
+  await button(page, "Continue to OpenRouter").click();
+  await page.waitForURL((url) => url.pathname === "/studio" && url.hash === hash);
+  return { opened, exchanges, hash };
+}
+
+/** The base64url SHA-256 of a verifier: its S256 challenge. */
+const challengeOf = (verifier: string) => createHash("sha256").update(verifier).digest("base64url");
+
+/** Stores the visitor's key in session storage before the page's scripts run. */
+async function withKey(page: Page): Promise<void> {
+  await page.addInitScript(([name, key]) => sessionStorage.setItem(name, key), [
+    KEY_STORAGE,
+    TEST_KEY,
+  ] as const);
+}
+
+/** Polls the hash until its spec's `meta.createdWith` is `value`. */
+async function expectCreatedWith(page: Page, value: string): Promise<void> {
+  await expect
+    .poll(async () => {
+      const hash = await page.evaluate(() => window.location.hash);
+      return hash.startsWith("#s=") ? decodeSpec(hash.slice(3)).meta.createdWith : null;
+    })
+    .toBe(value);
+}
+
+test.describe("13.6 the connect pages", () => {
+  test("F-KEY4-01 the sign-in from the studio keeps the key for the tab and returns to the same design", async ({
+    page,
+  }) => {
+    const { opened, exchanges } = await signIn(page, { remember: false });
+    expect(opened).toHaveLength(1);
+    const [authorize] = opened;
+    if (authorize === undefined) throw new Error("F-KEY4-01: no sign-in opened");
+    expect(`${authorize.origin}${authorize.pathname}`).toBe("https://openrouter.ai/auth");
+    const origin = new URL(page.url()).origin;
+    expect(authorize.searchParams.get("callback_url")).toBe(`${origin}/connect/callback`);
+    expect(authorize.searchParams.get("code_challenge_method")).toBe("S256");
+    expect(authorize.searchParams.get("key_label")).toBe("dyelot");
+    expect(authorize.searchParams.get("state")).toMatch(/^[A-Za-z0-9_-]{22}$/);
+    expect(exchanges).toHaveLength(1);
+    const body = exchanges[0]?.body ?? {};
+    expect(body).toEqual({
+      code: "C",
+      code_verifier: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      code_challenge_method: "S256",
+    });
+    expect(challengeOf(String(body.code_verifier))).toBe(
+      authorize.searchParams.get("code_challenge"),
+    );
+    await openAiSettings(page);
+    await expect(aiSettings(page)).toContainText(CONNECTED);
+    await expect(inputsPanel(page).getByRole("button", { name: "Disconnect" })).toBeVisible();
+    expect(await storedKeys(page)).toEqual({ session: TEST_KEY, local: null });
+  });
+
+  test("F-KEY4-02 a callback with another state is refused with no exchange", async ({ page }) => {
+    const other = "A".repeat(22);
+    await answerAuthorize(page, callbackFor(page, other));
+    const exchanges = await answerExchange(page, () => ({ status: 200, body: { key: TEST_KEY } }));
+    await connectFromStudio(page);
+    await button(page, "Continue to OpenRouter").click();
+    await expect(callbackAlert(page)).toContainText(SENTENCES["state-mismatch"]);
+    expect(exchanges).toEqual([]);
+    expect(await storedKeys(page)).toEqual({ session: null, local: null });
+    // The query is gone from the address bar (R4-33).
+    expect(new URL(page.url()).search).toBe("");
+  });
+
+  test("F-KEY4-03 with a key, Read the brief goes to OpenRouter with it and not to the shared route", async ({
+    page,
+  }) => {
+    await withKey(page);
+    await answerModels(page);
+    const calls = await answerOpenRouter(page, () => chatReply(BRIEF_OUT));
+    const shared = await answerShared(page, "brief", sharedOk("brief", BRIEF_OUT));
+    await openAt(page);
+    await runBrief(page, "a key holder's tea room");
+    await expectBriefLines(page, ["Made with your OpenRouter key (test/text-1:free)."]);
+    await expectCreatedWith(page, "visitor-key");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]?.headers.authorization).toBe(`Bearer ${TEST_KEY}`);
+    expect(calls[0]?.body.model).toBe(TEXT_SLUGS[0]);
+    expect(shared).toEqual([]);
+  });
+
+  test("F-KEY4-04 no request to dyelot's origin carries the key, and the page never shows it", async ({
+    page,
+  }) => {
+    const requests = recordRequests(page);
+    await answerModels(page);
+    await answerOpenRouter(page, () => chatReply(BRIEF_OUT));
+    await signIn(page, { remember: false });
+    await expect(page.locator("body")).not.toContainText(TEST_KEY);
+    await runBrief(page, "a key that stays home");
+    await expectBriefLines(page, ["Made with your OpenRouter key (test/text-1:free)."]);
+    await openAiSettings(page);
+    await expect(page.locator("body")).not.toContainText(TEST_KEY);
+    const origin = new URL(page.url()).origin;
+    const own = requests.filter((request) => new URL(request.url()).origin === origin);
+    expect(own.length).toBeGreaterThan(0);
+    for (const request of own) {
+      const headers = JSON.stringify(await request.allHeaders());
+      const leak = [request.url(), headers, request.postData() ?? ""].some((part) =>
+        part.includes(TEST_KEY),
+      );
+      expect(leak, request.url()).toBe(false);
+    }
+    // The key did reach OpenRouter, so the check above looked for a value that was in play.
+    const toOpenRouter = requests.filter((request) =>
+      request.url().startsWith("https://openrouter.ai/api/v1/chat/completions"),
+    );
+    expect(toOpenRouter.length).toBeGreaterThan(0);
+  });
+
+  test("F-KEY4-05 a remembered key lives in local storage only, and Disconnect removes it", async ({
+    page,
+  }) => {
+    await answerAuthorize(page, callbackFor(page));
+    await answerExchange(page, () => ({ status: 200, body: { key: TEST_KEY } }));
+    const hash = await connectFromStudio(page);
+    await expect(rememberBox(page)).toHaveAccessibleDescription(WARNING);
+    await expect(page.getByText(WARNING, { exact: true })).toBeVisible();
+    await rememberBox(page).check();
+    await button(page, "Continue to OpenRouter").click();
+    await page.waitForURL((url) => url.pathname === "/studio" && url.hash === hash);
+    expect(await storedKeys(page)).toEqual({ session: null, local: TEST_KEY });
+    await openAiSettings(page);
+    await expect(aiSettings(page)).toContainText(REMEMBERED);
+    await inputsPanel(page).getByRole("button", { name: "Disconnect", exact: true }).click();
+    await expect(aiSettings(page)).toContainText(DISCONNECTED);
+    await expect(connectLink(page)).toBeVisible();
+    expect(await storedKeys(page)).toEqual({ session: null, local: null });
+  });
+
+  test("F-KEY4-06 a refused key stops after one call, and the shared quota answers", async ({
+    page,
+  }) => {
+    await withKey(page);
+    await answerModels(page);
+    const calls = await answerOpenRouter(page, () => ({
+      status: 401,
+      body: { error: { message: "No auth credentials found", code: 401 } },
+    }));
+    await answerShared(page, "brief", sharedOk("brief", BRIEF_OUT));
+    await openAt(page);
+    await runBrief(page, "a refused key at the harbor");
+    await expectBriefLines(page, [
+      ai.failureSentence({ provider: "visitor-key", reason: "refused" }, "brief", "shared"),
+      "Made with dyelot's shared AI (test/text-1:free).",
+    ]);
+    expect(calls).toHaveLength(1);
+    await expect(inputsPanel(page)).not.toContainText("No auth credentials found");
+  });
+
+  test("F-KEY4-07 a callback with no code says OpenRouter returned no key, with both links", async ({
+    page,
+  }) => {
+    await page.goto("/connect/callback");
+    await expect(
+      page.getByRole("heading", { name: "Connecting your OpenRouter key", exact: true }),
+    ).toBeVisible();
+    await expect(callbackAlert(page)).toContainText(SENTENCES.denied);
+    await expect(page.getByRole("link", { name: "Start again", exact: true })).toHaveAttribute(
+      "href",
+      "/connect",
+    );
+    await expect(
+      page.getByRole("link", { name: "Back to the studio", exact: true }),
+    ).toHaveAttribute("href", "/studio");
+    const result = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(result.violations).toEqual([]);
+  });
+
+  test("the connect page reads as 13.6 writes it, and names its two errors", async ({ page }) => {
+    await page.goto("/connect");
+    for (const text of [
+      "dyelot can send its model actions through your own OpenRouter account instead of its shared quota.",
+      "Your browser talks to OpenRouter directly. The key never reaches dyelot's server, its logs or its traces.",
+      "dyelot asks only for free models, whose names end in :free.",
+      "OpenRouter will ask you to sign in and to approve a key for dyelot.",
+    ]) {
+      await expect(page.getByText(text, { exact: true })).toBeVisible();
+    }
+    await expect(rememberBox(page)).not.toBeChecked();
+    await expect(
+      page.getByRole("link", { name: "Back to the studio", exact: true }),
+    ).toHaveAttribute("href", "/studio");
+    const result = await new AxeBuilder({ page }).withTags(AXE_TAGS).analyze();
+    expect(result.violations).toEqual([]);
+
+    // Session storage that refuses the record.
+    await page.evaluate(() => {
+      Storage.prototype.setItem = () => {
+        throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+      };
+    });
+    await button(page, "Continue to OpenRouter").click();
+    await expect(callbackAlert(page)).toHaveText(
+      "This browser blocks the storage the sign-in needs. Allow site data for dyelot and try again.",
+    );
+    // No Web Crypto, as on a page served over plain HTTP from another host.
+    await page.evaluate(() => {
+      Object.defineProperty(globalThis, "crypto", { value: undefined, configurable: true });
+    });
+    await button(page, "Continue to OpenRouter").click();
+    await expect(callbackAlert(page)).toHaveText(
+      "This browser cannot make a secure sign-in here. Open dyelot over HTTPS and try again.",
+    );
+    expect(new URL(page.url()).pathname).toBe("/connect");
+  });
+
+  test("each other failure of the callback shows its sentence with the two links", async ({
+    page,
+  }) => {
+    // not-started: a code with no sign-in begun in this tab.
+    await page.goto("/connect/callback?code=C&state=AAAAAAAAAAAAAAAAAAAAAA");
+    await expect(callbackAlert(page)).toContainText(SENTENCES["not-started"]);
+    await expect(page.getByRole("link", { name: "Start again", exact: true })).toBeVisible();
+
+    // exchange-failed: OpenRouter refuses the code.
+    await answerAuthorize(page, callbackFor(page));
+    let answer: () => { status: number; body: unknown } = () => ({ status: 403, body: {} });
+    const exchanges: OpenRouterCall[] = await answerExchange(page, () => answer());
+    await page.goto("/connect");
+    await button(page, "Continue to OpenRouter").click();
+    await expect(callbackAlert(page)).toContainText(SENTENCES["exchange-failed"]);
+    expect(exchanges).toHaveLength(1);
+
+    // storage-refused: the visitor chose Remember and local storage refuses the key.
+    answer = () => ({ status: 200, body: { key: TEST_KEY } });
+    await page.addInitScript((name) => {
+      const setItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function (this: Storage, key: string, value: string) {
+        if (this === window.localStorage && key === name) {
+          throw new DOMException("The quota has been exceeded.", "QuotaExceededError");
+        }
+        setItem.call(this, key, value);
+      };
+    }, KEY_STORAGE);
+    await page.goto("/connect");
+    await rememberBox(page).check();
+    await button(page, "Continue to OpenRouter").click();
+    await expect(callbackAlert(page)).toContainText(SENTENCES["storage-refused"]);
+    expect(await storedKeys(page)).toEqual({ session: null, local: null });
+    await expect(page.getByRole("link", { name: "Back to the studio", exact: true })).toBeVisible();
+  });
+});

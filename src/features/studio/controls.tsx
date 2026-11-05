@@ -140,19 +140,27 @@ export function Choice<T extends string>({
   );
 }
 
-/** A chrome switch (`role="switch"`): a neutral track, the label beside it. */
+/**
+ * A chrome switch (`role="switch"`): a neutral track, the label beside it. `describedBy` names its
+ * status text; `unavailable` keeps it focusable but `aria-disabled`, and a press changes nothing
+ * (the on-device switch, docs/specs/04-ai.md, 10.2).
+ */
 export function ChromeSwitch({
   label,
   checked,
   onToggle,
   keyShortcuts,
   className,
+  describedBy,
+  unavailable = false,
 }: {
   label: string;
   checked: boolean;
   onToggle(): void;
   keyShortcuts?: string;
   className: string;
+  describedBy?: string;
+  unavailable?: boolean;
 }) {
   return (
     <button
@@ -160,7 +168,11 @@ export function ChromeSwitch({
       role="switch"
       aria-checked={checked}
       aria-keyshortcuts={keyShortcuts}
-      onClick={onToggle}
+      aria-describedby={describedBy}
+      aria-disabled={unavailable ? "true" : undefined}
+      onClick={() => {
+        if (!unavailable) onToggle();
+      }}
       className={`${className} group`}
     >
       <span

@@ -920,9 +920,10 @@ test.describe("7.2 The inputs panel", () => {
     "text:Name",
     "text:One line",
     "button:Import…",
-    // The Brief section (docs/specs/04-ai.md, 13.1 and 13.7; section 16).
+    // The Brief section (docs/specs/04-ai.md, 13.1 and 13.7; section 16), AI settings closed.
     "textarea:Describe the product or mood",
     "button:Read the brief",
+    "button:AI settings",
     ...SEEDS.flatMap((slot) => [
       `text:${slot}`,
       `color:Pick ${slot.toLowerCase()}`,
@@ -977,6 +978,10 @@ test.describe("7.2 The inputs panel", () => {
     const read = panel.getByRole("button", { name: "Read the brief", exact: true });
     await expect(read).toHaveText("Read the brief");
     await expect(read).toHaveAccessibleDescription("Write a few words or a color first.");
+    await expect(panel.getByRole("button", { name: "AI settings", exact: true })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
     for (const slot of SEEDS) {
       await expect(panel.getByRole("textbox", { name: slot, exact: true })).toHaveCount(1);
       await expect(panel.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true })).toHaveCount(1);
@@ -1577,7 +1582,7 @@ test.describe("7.3 Keyboard", () => {
 
   /**
    * The Tab stops of the inputs panel, in the order of section 7.2, with the Brief section's stops
-   * after About (docs/specs/04-ai.md, 13.7; section 16).
+   * after About (docs/specs/04-ai.md, 13.7; section 16), AI settings closed.
    */
   function panelStops(page: Page) {
     return [
@@ -1586,6 +1591,7 @@ test.describe("7.3 Keyboard", () => {
       button(page, "Import…"),
       field(page, "Describe the product or mood"),
       button(page, "Read the brief"),
+      button(page, "AI settings"),
       ...(["Primary", "Secondary", "Accent"] as const).flatMap((slot) => [
         field(page, slot),
         page.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true }),

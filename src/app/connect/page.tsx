@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { PageFrame } from "@/components/terminal/PageFrame";
+import { ConnectPanel } from "@/features/ai/ConnectPanel";
 import { SITE } from "@/lib/site/config";
 import { pageMetadata } from "@/lib/site/metadata";
 
@@ -15,12 +16,13 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-// The heading of section 13.6. Task 4.10a mounts the connect panel beneath it.
+// Section 13.6: the heading, then the connect panel, which runs in the browser (R4-33).
 export default function ConnectPage() {
   return (
     <PageFrame statusLeft="dyelot ~/connect">
-      <section className="mx-auto my-auto w-full max-w-xl space-y-4">
+      <section className="mx-auto my-auto w-full max-w-xl space-y-6">
         <h1 className="font-mono text-xl font-semibold tracking-tight">{TITLE}</h1>
+        <ConnectPanel />
       </section>
     </PageFrame>
   );
