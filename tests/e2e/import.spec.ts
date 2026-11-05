@@ -85,7 +85,11 @@ function noticeText(result: ReturnType<typeof importShadcnCss>): string {
     `Imported a ${name}: ${count("light")} of 46 light roles and ${count("dark")} of 46 dark roles came from the file.`,
   ];
   if (report.adjusted.length > 0) {
-    parts.push(`${report.adjusted.length} colors were adjusted to fit sRGB or drop alpha.`);
+    parts.push(
+      report.adjusted.length === 1
+        ? "1 color was adjusted to fit sRGB or drop alpha."
+        : `${report.adjusted.length} colors were adjusted to fit sRGB or drop alpha.`,
+    );
   }
   if (report.inferred.customFonts) {
     parts.push("Its fonts are not in dyelot's catalog, so the canvas shows a fallback.");

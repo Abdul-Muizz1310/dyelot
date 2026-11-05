@@ -159,7 +159,11 @@ export function bannerFor(notice: Notice): { message: string; detail: string } {
       }
       const rest: string[] = [];
       if (notice.adjusted > 0) {
-        rest.push(`${notice.adjusted} colors were adjusted to fit sRGB or drop alpha.`);
+        rest.push(
+          notice.adjusted === 1
+            ? "1 color was adjusted to fit sRGB or drop alpha."
+            : `${notice.adjusted} colors were adjusted to fit sRGB or drop alpha.`,
+        );
       }
       if (notice.customFonts === true) {
         rest.push("Its fonts are not in dyelot's catalog, so the canvas shows a fallback.");

@@ -207,7 +207,7 @@ describe("the imported notice's words (section 9.3)", () => {
       "Imported a DESIGN.md: 3 of 46 light roles and 0 of 46 dark roles came from the file. 2 colors were adjusted to fit sRGB or drop alpha. Undo returns to the design before.",
     );
     expect(words({ ...NOTICE, adjusted: 1, customFonts: true })).toContain(
-      "1 colors were adjusted to fit sRGB or drop alpha. Its fonts are not in dyelot's catalog, so the canvas shows a fallback. Undo returns to the design before.",
+      "1 color was adjusted to fit sRGB or drop alpha. Its fonts are not in dyelot's catalog, so the canvas shows a fallback. Undo returns to the design before.",
     );
   });
 
