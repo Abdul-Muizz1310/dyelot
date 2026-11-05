@@ -12,6 +12,7 @@ import { builtinModules } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { isFreeSlug } from "@/ai";
 import config from "../../../vitest.config";
@@ -1932,5 +1933,170 @@ describe("C-GUARD4-06 every configured, fixed or mocked slug is free", () => {
     expect(isFreeSlug("openai/gpt-4o")).toBe(false);
     expect(isFreeSlug("x:free")).toBe(false);
     expect(isFreeSlug("vendor/model:free")).toBe(true);
+  });
+});
+
+// C-GUARD4-11 of docs/specs/04-ai.md, section 14.10 (R4-59, section 20): every case of section 14
+// carries its id in a test title, a C- id in a `describe` or `it` title under tests/unit and an F-
+// id in a `test` title under tests/e2e. The ids are read from section 14's rows, so the count is
+// the spec's, never a fixed number, and a case added to the spec without its test fails here.
+
+/** A case row of section 14: its id alone in the first cell. */
+const CASE_ROW = /^\| ([CF]-[A-Z0-9]+-[A-Z0-9]+) \|/gm;
+
+/** Section 14 of the M4 spec: from its heading to section 15's. */
+function section14(spec: string): string {
+  const start = spec.indexOf("\n## 14. ");
+  const end = spec.indexOf("\n## 15. ", start);
+  if (start === -1 || end === -1)
+    throw new Error("section14: docs/specs/04-ai.md lost section 14 or 15");
+  return spec.slice(start, end);
+}
+
+/** The ids of section 14's case rows, in the spec's order. */
+function caseIds(section: string): string[] {
+  return [...section.matchAll(CASE_ROW)].map((match) => match[1] ?? "");
+}
+
+/** The titles of the calls whose name `callee` matches, read from the source's syntax tree. */
+function testTitles(source: string, file: string, callee: RegExp): string[] {
+  const tree = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const titles: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const name = calleeName(node.expression);
+      const title = name !== null && callee.test(name) ? titleText(node.arguments[0]) : null;
+      if (title !== null) titles.push(title);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  return titles;
+}
+
+/** A call's name: `it`, `it.each` for `it.each(…)(…)`, `test.describe`; null for anything else. */
+function calleeName(node: ts.Expression): string | null {
+  if (ts.isIdentifier(node)) return node.text;
+  if (ts.isCallExpression(node)) return calleeName(node.expression);
+  if (ts.isPropertyAccessExpression(node)) {
+    const base = calleeName(node.expression);
+    return base === null ? null : `${base}.${node.name.text}`;
+  }
+  return null;
+}
+
+/** A title's text: a string or template literal, a template with `{}` for each value, or a `+` of them. */
+function titleText(node: ts.Expression | undefined): string | null {
+  if (node === undefined) return null;
+  if (ts.isStringLiteralLike(node)) return node.text;
+  if (ts.isTemplateExpression(node)) {
+    return node.head.text + node.templateSpans.map((span) => `{}${span.literal.text}`).join("");
+  }
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = titleText(node.left);
+    const right = titleText(node.right);
+    return left === null || right === null ? null : left + right;
+  }
+  return null;
+}
+
+/** The ids no title carries: a C- id in none of `unit`, an F- id in none of `e2e`. */
+function unnamedCases(
+  ids: readonly string[],
+  unit: readonly string[],
+  e2e: readonly string[],
+): string[] {
+  return ids.filter((id) => {
+    // The id whole: no letter, digit or hyphen right before or after it.
+    const pattern = new RegExp(`(?<![A-Z0-9-])${id}(?![A-Z0-9])`);
+    return !(id.startsWith("C-") ? unit : e2e).some((title) => pattern.test(title));
+  });
+}
+
+/** A unit title: `describe` or `it`, with Vitest's modifiers and `.each(…)`. */
+const UNIT_TITLE =
+  /^(?:describe|it)(?:\.(?:each|skip|only|concurrent|sequential|runIf|skipIf|todo|fails))*$/;
+/** An end-to-end title: Playwright's `test` and its modifiers, never `test.describe`. */
+const E2E_TITLE = /^test(?:\.(?:skip|only|fixme|fail|slow))*$/;
+
+/** Every file under `folder` whose name `pattern` matches. */
+function filesUnder(folder: string, pattern: RegExp): string[] {
+  return readdirSync(path.join(ROOT, folder), { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && pattern.test(entry.name))
+    .map((entry) => path.join(entry.parentPath, entry.name));
+}
+
+const titlesIn = (files: readonly string[], callee: RegExp): string[] =>
+  files.flatMap((file) => testTitles(readFileSync(file, "utf8"), file, callee));
+
+describe("C-GUARD4-11 every case of section 14 carries its id in a test title", () => {
+  const section = section14(readFileSync(path.join(ROOT, "docs/specs/04-ai.md"), "utf8"));
+  const ids = caseIds(section);
+  const unit = titlesIn(filesUnder("tests/unit", /\.test\.tsx?$/), UNIT_TITLE);
+  const e2e = titlesIn(filesUnder("tests/e2e", /\.spec\.ts$/), E2E_TITLE);
+
+  it("C-GUARD4-11 reads the ids from section 14's rows, one per case row, each once", () => {
+    const rows = section.split("\n").filter((line) => /^\| [CF]-/.test(line));
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids).toHaveLength(rows.length);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(expect.arrayContaining(["C-GEN4-01", "C-GUARD4-11", "F-RAT-01"]));
+    // Section 13's and 15's text is not section 14's.
+    expect(section.startsWith("\n## 14. Cases")).toBe(true);
+    expect(section).not.toContain("\n## 15. ");
+  });
+
+  it("C-GUARD4-11 finds each C- id in a unit title and each F- id in an end-to-end title", () => {
+    expect(unit.length).toBeGreaterThan(0);
+    expect(e2e.length).toBeGreaterThan(0);
+    expect(unnamedCases(ids, unit, e2e)).toEqual([]);
+  });
+
+  it("C-GUARD4-11 reports a probe list's ids that no title carries", () => {
+    const probe = [...ids, "C-PROBE4-01", "F-PROBE4-01"];
+    expect(unnamedCases(probe, unit, e2e)).toEqual(["C-PROBE4-01", "F-PROBE4-01"]);
+    // A C- id only in an end-to-end title, or an F- id only in a unit title, is not named.
+    expect(unnamedCases(["C-X-01", "F-X-01"], ["F-X-01 a"], ["C-X-01 a"])).toEqual([
+      "C-X-01",
+      "F-X-01",
+    ]);
+    // An id is matched whole: C-AI-1 is not in a title that names C-AI-19 or XC-AI-1.
+    expect(unnamedCases(["C-AI-1"], ["C-AI-19 a", "XC-AI-1 b"], [])).toEqual(["C-AI-1"]);
+    expect(unnamedCases(["C-AI-1"], ["a C-AI-1: b"], [])).toEqual([]);
+  });
+
+  it("C-GUARD4-11 reads titles in each form a test takes, and nothing else (a probe)", () => {
+    const source = [
+      'describe("C-A-01 plain", () => {});',
+      'it.each([1, 2])("C-A-02 %s each", () => {});',
+      "describe.each([[1]])(`C-A-03 template`, () => {});",
+      'it.runIf(true)("C-A-04 " + "joined", () => {});',
+      // A template with a value: "$" and "{" apart, so this string is not read as a template.
+      "it.skipIf(false)(`C-A-05 $" + "{1} spans`, () => {});",
+      'test("C-A-06 a test is not a unit title", () => {});',
+      'expect("C-A-07 not a title").toBe("x");',
+      "it(title, () => {});",
+    ].join("\n");
+    expect(testTitles(source, "probe.test.ts", UNIT_TITLE)).toEqual([
+      "C-A-01 plain",
+      "C-A-02 %s each",
+      "C-A-03 template",
+      "C-A-04 joined",
+      "C-A-05 {} spans",
+    ]);
+    const flows = [
+      'test.describe("F-B-01 a describe is not a test title", () => {',
+      '  test("F-B-02 plain", async () => {});',
+      '  test.fixme("F-B-03 fixme", async () => {});',
+      '  test.describe.configure({ mode: "serial" });',
+      "});",
+    ].join("\n");
+    expect(testTitles(flows, "probe.spec.ts", E2E_TITLE)).toEqual(["F-B-02 plain", "F-B-03 fixme"]);
   });
 });
