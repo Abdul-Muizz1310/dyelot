@@ -132,7 +132,11 @@ describe("C-SMOKE-02 the refusals", () => {
 
   it("C-SMOKE-02 fails the live file at once when DYELOT_LIVE_SMOKE and CI are both set", () => {
     const result = runLive({ DYELOT_LIVE_SMOKE: "1", CI: "true" });
+    const output = `${result.stdout}${result.stderr}`;
     expect(result.status).not.toBe(0);
-    expect(`${result.stdout}${result.stderr}`).toMatch(/CI/);
+    // The refusal's own message: the test titles say "CI" too, so /CI/ alone could not fail.
+    expect(output).toContain("the live smoke must not run when CI is set");
+    // It comes before any read of the environment, so the scrubbed one is never reported.
+    expect(output).not.toContain("the environment is invalid");
   });
 });
