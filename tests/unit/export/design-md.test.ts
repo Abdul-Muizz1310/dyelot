@@ -344,6 +344,9 @@ describe("designMd body", () => {
     expect(TEXT).toContain(
       "npm install @fontsource-variable/host-grotesk @fontsource/fragment-mono",
     );
+    expect(TEXT).toContain(
+      "because they would override this theme. If the template sets a `font-family` on `body`, remove it, so the theme's fonts apply.",
+    );
     expect(TEXT).toContain("`npx shadcn@latest add ./registry/untitled.json`");
     expect(TEXT).toContain(
       ", then `npx shadcn@latest add ./registry/font-<id>.json` for each font file",

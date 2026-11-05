@@ -1161,7 +1161,7 @@ sections in this order, with these exact headings:
 
 Two routes put this system into a Next.js app with Tailwind CSS v4. Pick one.
 
-**Route 1: the stylesheet.** Copy `app/theme.css` into your app's `app/` folder. In `app/globals.css`, keep `@import "tailwindcss";` and add `@import "./theme.css";` right after it. If shadcn/ui wrote `globals.css`, delete its `@custom-variant dark`, `:root`, `.dark` and `@theme inline` blocks, because they would override this theme. Install the fonts with `npm install <packages>` and import each once in `app/layout.tsx`: <one import line per package>. Put the class `dark` on `<html>` to show dark mode.
+**Route 1: the stylesheet.** Copy `app/theme.css` into your app's `app/` folder. In `app/globals.css`, keep `@import "tailwindcss";` and add `@import "./theme.css";` right after it. If shadcn/ui wrote `globals.css`, delete its `@custom-variant dark`, `:root`, `.dark` and `@theme inline` blocks, because they would override this theme. If the template sets a `font-family` on `body`, remove it, so the theme's fonts apply. Install the fonts with `npm install <packages>` and import each once in `app/layout.tsx`: <one import line per package>. Put the class `dark` on `<html>` to show dark mode.
 
 **Route 2: shadcn.** Run `npx shadcn@latest add ./registry/<slug>.json`, then `npx shadcn@latest add ./registry/font-<id>.json` for each font file. Do not also import `app/theme.css`. This route sets the colors, the radius and the fonts; the type steps, shadows and easings live only in `app/theme.css`, so copy its `@theme` block if you need them.
 
