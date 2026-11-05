@@ -139,6 +139,9 @@ export function imagePalette(raw: readonly RawCluster[]): ImagePalette {
     else kept.push({ ...entry });
   }
 
+  // A merge can make a later cluster the largest: sort again, then number (9.2 step 5).
+  kept.sort((a, b) => b.share - a.share || byHex(a.hex, b.hex));
+
   const clusters: ImageCluster[] = kept.map((entry, i) => {
     const base = {
       id: `c${i + 1}`,

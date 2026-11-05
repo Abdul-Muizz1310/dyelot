@@ -147,6 +147,22 @@ describe("imagePalette: merging", () => {
   });
 });
 
+describe("imagePalette: numbering after a merge", () => {
+  it("C-IMG-02 renumbers by merged share, so c1 holds the largest share", () => {
+    const [b, b2] = pairApart("#2f6f8f", 0.0195, 0.0205);
+    const a = "#b8422e";
+    const result = imagePalette([
+      { hex: a as Hex, share: 0.3 },
+      { hex: b as Hex, share: 0.25 },
+      { hex: b2 as Hex, share: 0.2 },
+    ]);
+    expect(result.clusters.map((c) => [c.id, c.hex, c.share])).toEqual([
+      ["c1", b, 0.45],
+      ["c2", a, 0.3],
+    ]);
+  });
+});
+
 describe("imagePalette: gray and the eligibility thresholds", () => {
   it("C-IMG-03 gives gray clusters no secondary or accent, a primary c1 and the tint none", () => {
     const result = imagePalette([
@@ -213,7 +229,10 @@ describe("imagePalette: hue distance", () => {
     const decoy = find((hex) => {
       const dp = hueDistance(hueOf(hex), hueOf(primary));
       const ds = hueDistance(hueOf(hex), hueOf(second));
-      return chromaOf(hex) >= 0.15 && dp >= 30 && ds < 30;
+      const apartInColor = [primary, second].every(
+        (other) => deltaEOK(oklchOf(hex), oklchOf(other)) >= 0.05,
+      );
+      return chromaOf(hex) >= 0.15 && dp >= 30 && ds < 30 && apartInColor;
     });
     const accent = find((hex) => {
       const dp = hueDistance(hueOf(hex), hueOf(primary));
@@ -227,6 +246,7 @@ describe("imagePalette: hue distance", () => {
       { hex: accent as Hex, share: 0.1 },
     ]);
     const idOf = (hex: string) => result.clusters.find((c) => c.hex === hex)?.id;
+    expect(result.clusters).toHaveLength(4);
     expect(result.roles).toStrictEqual({
       primary: "c1",
       secondary: idOf(second),
@@ -469,6 +489,8 @@ describe("imagePalette: properties", () => {
         expect(result.clusters.map((c) => c.id)).toEqual(
           Array.from({ length: n }, (_, i) => `c${i + 1}`),
         );
+        const shares = result.clusters.map((c) => c.share);
+        expect(shares).toEqual([...shares].sort((x, y) => y - x));
         const total = result.clusters.reduce((sum, c) => sum + c.share, 0);
         expect(Math.abs(total - raw.reduce((sum, c) => sum + c.share, 0))).toBeLessThan(1e-5);
         const ids = Object.values(result.roles);
