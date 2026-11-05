@@ -604,7 +604,7 @@ inside `startTransition` from an effect on `view.template`. `data-template` read
 the name and the reduced props drafter)**
 
 **R5-47 · A swatch becomes its token row.** In the inspector's Scales each step's row is a button named "<palette>
-<step>, <hex>" with `aria-expanded="false"`. Choosing it, inside `startTransition`, opens that step's token row in place
+<step>, <hex>" with `aria-expanded="false"`, and each palette's buttons are one Tab stop (10.2). Choosing it, inside `startTransition`, opens that step's token row in place
 (local React state; one open row at a time; opening another closes the first). The compact row unmounts as the token row
 mounts, and the two swatches share `<ViewTransition name="dyelot-swatch-<palette>-<step>" share="dyelot-morph"
 default="none">`, so the swatch morphs. The token row shows its button (`aria-expanded="true"`, which closes it), the
@@ -638,7 +638,7 @@ version the renderer depends on, so one copy ships. **(decision G1)**
 modal dialog named "Flavor" on R3-34's rules (an inert page, focus to the heading, Escape and "Close" shut it, focus
 returns to "Flavor"). The dialog component loads with `next/dynamic` on the first open, and on open it loads `@/export`
 for `brandProps` and `mediaName`. Its three sections, "Background", "Brand video" and "Shader loop", follow the canvas's
-mode, and its state (a running video job included) ends when it closes: closing aborts a render or a recording.
+mode, and its state ends when it closes (the privacy answer of R5-54 aside): closing aborts a render or a recording.
 **(decision A1, G3; the placement, the sections and the close rule drafter)**
 
 **R5-52 · The preview.** In "Brand video", `<Player>` (from `src/features/flavor/BrandPlayer.tsx`, loaded with
