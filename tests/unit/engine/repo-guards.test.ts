@@ -1133,6 +1133,7 @@ const SERVER_AI_FILES = [
   "transport",
   "trace",
   "smoke",
+  "langfuse",
   "handle",
   "deps",
 ].map((name) => path.join(SERVER_AI_DIR, `${name}.ts`));
@@ -1207,6 +1208,8 @@ describe("C-GUARD4-04 the server shell is reached only from the two routes and i
       ),
     );
     expect(bad).toEqual([]);
+    const langfuse = moduleSpecifiers(stripComments(readFileSync(LANGFUSE_FILE, "utf8")));
+    expect(langfuse.some((specifier) => TRACING_PACKAGES.includes(specifier))).toBe(true);
   });
 
   const HANDLE_FILE = path.join(SERVER_AI_DIR, "handle.ts");
