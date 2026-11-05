@@ -95,13 +95,17 @@ describe("encodeSpec and decodeSpec", () => {
     PROPERTY_TIMEOUT,
   );
 
-  it("C-URL-01 round-trips names and seeds in any script, lone surrogates included", () => {
+  it("C-URL-01 round-trips names in any plain script and seeds in any script, lone surrogates in seeds only", () => {
     for (const name of [
       "Caf\u00e9 \u2211 \u8272 \u{1f3a8}",
-      "lone \ud800 high",
+      "plain high",
       'quote " and \\ slash',
     ]) {
       const spec = as(withValue(defaultSpec(), ["meta", "name"], name));
+      expect(decodeSpec(encodeSpec(spec))).toEqual(spec);
+    }
+    for (const seed of ["seed \ud800 lone high", "seed \udc00 lone low", "\u8272 \u{1f3a8}"]) {
+      const spec = as(withValue(defaultSpec(), ["meta", "seed"], seed));
       expect(decodeSpec(encodeSpec(spec))).toEqual(spec);
     }
   });

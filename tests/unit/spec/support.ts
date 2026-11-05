@@ -8,6 +8,7 @@ import { seededRandom } from "@/engine/random";
 import { round6, roundHue } from "@/engine/round";
 import { fnv1a64 } from "@/spec/hash";
 import type { DesignSpec, DirectionParams } from "@/spec/schema";
+import { toPlainText } from "@/spec/text";
 import { SpecDecodeError } from "@/spec/url-codec";
 
 // Shared fixtures for the Task 1.8 cases of docs/specs/01-color-engine.md, section 6.7. They are
@@ -245,6 +246,13 @@ export const edgeOrAnySeedColor: fc.Arbitrary<Oklch> = fc.oneof(
   anySeedColor,
 );
 
+/** A name that passes `isPlainText` (R3-02): the strings of M1 mapped through `toPlainText`, the non-null ones. */
+const plainName: fc.Arbitrary<string> = fc
+  .string({ minLength: 1, maxLength: 80 })
+  .map((raw) => toPlainText(raw, 80))
+  .filter((result) => result !== null)
+  .map((result) => result.text);
+
 /** Valid `DirectionParams` with locked seeds drawn from `seedColor`. */
 function directionWith(seedColor: fc.Arbitrary<Oklch>): fc.Arbitrary<DirectionParams> {
   return fc.record(
@@ -265,7 +273,7 @@ function directionWith(seedColor: fc.Arbitrary<Oklch>): fc.Arbitrary<DirectionPa
       radius: fc.constantFrom(...RADII),
       depth: fc.constantFrom(...DEPTHS),
       motion: fc.constantFrom(...FEELS),
-      name: fc.string({ minLength: 1, maxLength: 80 }),
+      name: plainName,
     },
     {
       requiredKeys: [

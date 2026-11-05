@@ -87,13 +87,13 @@ describe("boardFit (section 6.14, F-TPL-32)", () => {
 });
 
 describe("canvasStyle (section 7.4, R2-12, F-CANVAS-01, F-CANVAS-06)", () => {
-  it("is themeVars with cqi units and the density's two properties: 206 in all", () => {
+  it("is themeVars with cqi units and the density's two properties: 209 in all", () => {
     const style = canvasStyle(SPEC, "dark", { vision: "none", density: "compact" });
     expect(style).toEqual({
       ...themeVars(SPEC, "dark", { units: "cqi" }),
       ...densityVars("compact"),
     });
-    expect(Object.keys(style)).toHaveLength(206);
+    expect(Object.keys(style)).toHaveLength(209);
   });
 
   it("recomputes the colors through simulate for a color-vision view", () => {

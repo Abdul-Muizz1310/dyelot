@@ -6,7 +6,7 @@
 .kit-records {
   display: none;
 }
-@container frame (max-width: 479px) {
+@container frame (width < 480px) {
   .kit-readings .kit-table {
     display: none;
   }
@@ -55,6 +55,10 @@
   text-align: end;
   white-space: nowrap;
   overflow-wrap: normal;
+}
+/* A column head in the mono face: Fragment Mono holds only 400, so the head takes 500 (R3-06). */
+.kit-readings th.kit-num {
+  font-weight: 500;
 }
 
 .kit-table tr:is([data-state="hover"], :hover:not([data-state="empty"])) td {

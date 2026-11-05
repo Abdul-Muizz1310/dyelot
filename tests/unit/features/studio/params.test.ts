@@ -290,7 +290,7 @@ it("every pairing has its own three families, so paramsOfSpec finds at most one"
 });
 
 describe("DIRECTION_PARAM_KEYS (I2)", () => {
-  it("lists the 15 keys of DirectionParams, frozen", () => {
+  it("lists the 18 keys of DirectionParams, frozen (R3-03 adds three)", () => {
     expect([...DIRECTION_PARAM_KEYS].sort()).toEqual(
       [
         "primary",
@@ -308,6 +308,9 @@ describe("DIRECTION_PARAM_KEYS (I2)", () => {
         "motion",
         "pairing",
         "name",
+        "oneLiner",
+        "direction",
+        "rules",
       ].sort(),
     );
     expect(Object.isFrozen(DIRECTION_PARAM_KEYS)).toBe(true);

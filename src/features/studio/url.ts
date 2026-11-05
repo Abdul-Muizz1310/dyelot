@@ -22,7 +22,18 @@ export type Notice =
   | { readonly kind: "generation"; readonly message: string }
   | { readonly kind: "custom-fonts" }
   | { readonly kind: "draft-restored" }
-  | { readonly kind: "copy-blocked" };
+  | { readonly kind: "copy-blocked" }
+  | {
+      /** An import's notice (R3-33): the roles the file set in each mode and the colors adjusted. */
+      readonly kind: "imported";
+      readonly format: "design-md" | "shadcn-css";
+      readonly exact: boolean;
+      readonly light: number;
+      readonly dark: number;
+      readonly adjusted: number;
+      /** Present, and true, when the file's fonts are outside the catalog. */
+      readonly customFonts?: true;
+    };
 
 export type HashResult =
   | { readonly kind: "none" }
@@ -30,7 +41,15 @@ export type HashResult =
   | { readonly kind: "error"; readonly reason: LinkReason; readonly issues?: readonly string[] };
 
 const PREFIX = "#s=";
-const NOTICE_KINDS = ["link", "generation", "custom-fonts", "draft-restored", "copy-blocked"];
+const NOTICE_KINDS = [
+  "link",
+  "generation",
+  "custom-fonts",
+  "draft-restored",
+  "copy-blocked",
+  "imported",
+];
+const FORMAT_NAMES = { "design-md": "DESIGN.md", "shadcn-css": "shadcn theme" } as const;
 const REASONS: readonly LinkReason[] = ["corrupt", "version", "schema"];
 const FALLBACKS = ["draft", "fresh", "current"] as const;
 
@@ -132,5 +151,28 @@ export function bannerFor(notice: Notice): { message: string; detail: string } {
       return { message: "Restored your last draft.", detail: "" };
     case "copy-blocked":
       return { message: "Copy blocked. Select the link below.", detail: "" };
+    case "imported": {
+      assertOneOf(notice.format, Object.keys(FORMAT_NAMES), "bannerFor: notice.format");
+      const undo = "Undo returns to the design before.";
+      if (notice.exact) {
+        return { message: "Imported the DESIGN.md exactly, from its edit link.", detail: undo };
+      }
+      const rest: string[] = [];
+      if (notice.adjusted > 0) {
+        rest.push(
+          notice.adjusted === 1
+            ? "1 color was adjusted to fit sRGB or drop alpha."
+            : `${notice.adjusted} colors were adjusted to fit sRGB or drop alpha.`,
+        );
+      }
+      if (notice.customFonts === true) {
+        rest.push("Its fonts are not in dyelot's catalog, so the canvas shows a fallback.");
+      }
+      rest.push(undo);
+      return {
+        message: `Imported a ${FORMAT_NAMES[notice.format]}: ${notice.light} of 46 light roles and ${notice.dark} of 46 dark roles came from the file.`,
+        detail: rest.join(" "),
+      };
+    }
   }
 }

@@ -2,11 +2,21 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page, test } from "@playwright/test";
-import { fontStack, hexToRgb, PAIRINGS, simulate, toHex } from "@/engine";
+import {
+  applyPreset,
+  FONT_CATALOG,
+  fontStack,
+  hexToRgb,
+  PAIRINGS,
+  simulate,
+  toHex,
+  typeWeights,
+} from "@/engine";
+import { MODES } from "@/engine/color/guards";
 import { COPY, SAMPLE_PLACES } from "@/features/preview/copy";
 import { frameFit } from "@/features/preview/frame";
 import { writeHash } from "@/features/studio/url";
-import type { TemplateId } from "@/features/studio/view";
+import { TEMPLATE_IDS } from "@/features/studio/view";
 import { normalizeSpec } from "@/spec";
 import { themeVars } from "@/theme/vars";
 import {
@@ -17,18 +27,22 @@ import {
   designFor,
   expectedVars,
   FRESH,
+  first,
   focusBody,
   lotId,
   lotOf,
+  modeSwitch,
   openStudio,
   seedCalls,
   seedOf,
   settled,
   stubSeeds,
+  toolbarRadio,
 } from "./studio-support";
 import {
   brokenWords,
   eachTab,
+  elsewhere,
   figureLines,
   frameSwitch,
   installColorResolver,
@@ -36,11 +50,13 @@ import {
   mountMotion,
   openSheet,
   overflow,
+  reduceMotion,
   restoreCanvas,
   screenOf,
   setFrame,
   showTemplate,
   templateRoot,
+  templateSelect,
 } from "./template-support";
 
 // The canvas flows of docs/specs/02-studio.md, section 7.4 (Task 2.7): F-CANVAS-01 to 10 and 12 to
@@ -52,27 +68,12 @@ import {
 test.use({ viewport: { width: 1280, height: 800 } });
 
 const PHONE = { width: 360, height: 740 };
-const MODES = ["light", "dark"] as const;
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
-/** The design of the first load when `stubSeeds` draws the seeds. */
-const first = () => designFor(FRESH, seedOf(1));
-
 const toolbar = (page: Page) => page.getByRole("region", { name: "Canvas toolbar" });
-const toolbarRadio = (page: Page, group: string, name: string) =>
-  toolbar(page)
-    .getByRole("group", { name: group, exact: true })
-    .getByRole("radio", { name, exact: true });
-const templateSelect = (page: Page) =>
-  toolbar(page).getByRole("combobox", { name: "Template", exact: true });
-const reduceMotion = (page: Page) =>
-  page.getByRole("switch", { name: "Reduce motion", exact: true });
-const modeSwitch = (page: Page) => page.getByRole("switch", { name: "Dark mode", exact: true });
 
 /** The page templates of sections 7.6 and 7.7 (Tasks 2.8 and 2.9): they follow the frame switcher. */
 const PAGES = ["landing", "editorial", "dashboard", "settings"] as const;
-/** A template other than `id`, shown first so that `id` mounts afresh. */
-const elsewhere = (id: TemplateId): TemplateId => (id === "landing" ? "editorial" : "landing");
 
 /** Opens the studio on the first stubbed design and shows the kitchen sink. */
 async function openSink(page: Page): Promise<void> {
@@ -247,7 +248,7 @@ test.describe("7.4 The canvas on the kitchen sink", () => {
   test("F-CANVAS-01 the frame and each pane carry exactly their variables", async () => {
     const spec = first();
     expect(await canvasVars(page)).toEqual(expectedVars(spec, "light"));
-    expect(Object.keys(await canvasVars(page))).toHaveLength(206);
+    expect(Object.keys(await canvasVars(page))).toHaveLength(209);
     for (const mode of MODES) {
       expect(await canvasVars(page, canvasPane(page, mode)), mode).toEqual(
         expectedVars(spec, mode),
@@ -863,7 +864,7 @@ function toolbarRows(page: Page) {
 }
 
 /** The toolbar's visible targets narrower than 24 px or shorter than 28 px. */
-function smallTargets(page: Page) {
+function smallToolbarTargets(page: Page) {
   return toolbar(page).evaluate((bar) =>
     [...bar.querySelectorAll("button, select, input, summary")]
       .map((target) => ({ target, box: target.getBoundingClientRect() }))
@@ -889,11 +890,11 @@ test("F-CANVAS-17 at 1280 × 800 the toolbar takes at most 3 rows and 150 px, an
 
 test("F-CANVAS-18 every toolbar target is at least 28 px tall and 24 px wide", async ({ page }) => {
   await openStudio(page);
-  expect(await smallTargets(page), "1280 × 800").toEqual([]);
+  expect(await smallToolbarTargets(page), "1280 × 800").toEqual([]);
   await page.setViewportSize(PHONE);
   await page.getByRole("button", { name: "View", exact: true }).click();
   await expect(modeSwitch(page)).toBeVisible();
-  expect(await smallTargets(page), "360 × 740, View open").toEqual([]);
+  expect(await smallToolbarTargets(page), "360 × 740, View open").toEqual([]);
 });
 
 test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", async ({ page }) => {
@@ -912,7 +913,7 @@ test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", asyn
   await focusBody(page);
   await page.keyboard.press("Alt+KeyT");
   await expect(canvasFrame(page)).toHaveAttribute("data-mode", "dark");
-  // The Tab order: Inputs, Inspector, frame, template, View, then Undo, Redo, Copy link.
+  // The Tab order: Inputs, Inspector, frame, template, View, then Undo, Redo, Copy link, Export.
   await focusBody(page);
   const closed = [
     page.getByRole("button", { name: "Inputs", exact: true }),
@@ -938,7 +939,7 @@ test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", asyn
   await expect(view).toBeFocused();
   await page.keyboard.press("Space");
   await expect(view).toHaveAttribute("aria-expanded", "true");
-  // Open: the five view controls follow the button, then Undo, Redo and Copy link.
+  // Open: the five view controls follow the button, then Undo, Redo, Copy link and Export.
   for (const stop of [
     modeSwitch(page),
     toolbarRadio(page, "Density", "comfortable"),
@@ -948,6 +949,7 @@ test("F-CANVAS-19 below 640 px the view controls sit in a View disclosure", asyn
     page.getByRole("button", { name: "Undo", exact: true }),
     page.getByRole("button", { name: "Redo", exact: true }),
     page.getByRole("button", { name: "Copy link", exact: true }),
+    page.getByRole("button", { name: "Export", exact: true }),
   ]) {
     await page.keyboard.press("Tab");
     await expect(stop).toBeFocused();
@@ -1396,5 +1398,61 @@ test("F-CANVAS-09 edge-case copy fills the page templates' slots, and nothing br
     const root = await showTemplate(page, id);
     expect(await root.locator("[data-list-item]").count(), id).toBeGreaterThan(1);
     await expect(root.locator("[data-copy-label]").first(), id).not.toHaveText(edge.label);
+  }
+});
+
+/** The designs F-WGT-01 walks: three presets, a static display pairing and the default pairing. */
+const WEIGHT_DESIGNS = [
+  ["maximalism", applyPreset(FRESH, "maximalism")],
+  ["organic", applyPreset(FRESH, "organic")],
+  ["dithering-pixel", applyPreset(FRESH, "dithering-pixel")],
+  ["redaction-redhat", { ...FRESH, pairing: "redaction-redhat" }],
+  ["host-grotesk", { ...FRESH, pairing: "host-grotesk" }],
+] as const;
+
+test.describe("F-WGT-01 weights on the canvas (R3-06)", () => {
+  for (const [name, params] of WEIGHT_DESIGNS) {
+    test(`F-WGT-01 no element asks ${name}'s faces for a weight they lack`, async ({ page }) => {
+      const spec = designFor(params, seedOf(1));
+      await openStudio(page, writeHash(spec));
+      await page.evaluate(() => document.fonts.ready);
+      const weights = typeWeights(spec);
+      expect(await canvasVars(page)).toMatchObject({
+        "--weight-heading": String(weights.heading),
+        "--weight-label": String(weights.label),
+        "--weight-body": String(weights.body),
+      });
+      const heaviest = Object.fromEntries(
+        FONT_CATALOG.map((font) => [font.family, Math.max(...font.weights)]),
+      );
+      const failures: string[] = [];
+      let checked = 0;
+      for (const id of TEMPLATE_IDS) {
+        const root = await showTemplate(page, id);
+        const found = await root.evaluate((element, limits) => {
+          const out: string[] = [];
+          let count = 0;
+          for (const node of [element, ...element.querySelectorAll("*")]) {
+            const style = getComputedStyle(node);
+            const family = (style.fontFamily.split(",")[0] ?? "")
+              .trim()
+              .replaceAll(/^["']|["']$/g, "");
+            const limit = limits[family];
+            if (limit === undefined) continue;
+            count += 1;
+            const weight = Number.parseInt(style.fontWeight, 10);
+            if (weight >= 600 && limit < 600) {
+              const label = `${node.tagName.toLowerCase()}.${[...node.classList].join(".")}`;
+              out.push(`${label} is ${weight} in ${family} (heaviest ${limit})`);
+            }
+          }
+          return { count, out: [...new Set(out)] };
+        }, heaviest);
+        checked += found.count;
+        failures.push(...found.out.map((line) => `${id}: ${line}`));
+      }
+      expect(checked).toBeGreaterThan(1000);
+      expect(failures).toEqual([]);
+    });
   }
 });

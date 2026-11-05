@@ -16,7 +16,7 @@ import {
   TextLink,
   TideCurve,
 } from "../kit";
-import { clock, TIDE_EVENTS, type TideEvent } from "../tide";
+import { clock, NOW, TIDE_EVENTS, type TideEvent } from "../tide";
 
 // The landing page (spec section 7.6): Saltmarsh, a fictional tide-reading app, as a specimen of the
 // design. An asymmetric hero (the headline large on the left, one product moment on the right on a
@@ -28,7 +28,6 @@ import { clock, TIDE_EVENTS, type TideEvent } from "../tide";
 const target = (to: LandingTarget) => `saltmarsh-${to}`;
 
 /** "Now" on the sample day's curve: 09:30. */
-const NOW = 9.5;
 
 export function Landing({ view }: { view: View }) {
   const copy = copyOf("landing", view.copy);

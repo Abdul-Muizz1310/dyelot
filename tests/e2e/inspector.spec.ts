@@ -24,15 +24,17 @@ import {
 import type { TemplateId } from "@/features/studio/view";
 import { type DesignSpec, encodeSpec, normalizeSpec } from "@/spec";
 import {
+  button,
   canvasFrame,
   canvasRegion,
   designFor,
   FRESH,
+  first,
   inspectorAside,
   lotId,
+  modeSwitch,
   openStudio,
   seedCalls,
-  seedOf,
   settled,
   stubSeeds,
 } from "./studio-support";
@@ -69,9 +71,6 @@ const TEMPLATES: readonly TemplateId[] = [
 /** A name the bestof list holds: it marks the list's chunk by its content. */
 const LIST_MARK = "20000 Leagues Under the Sea";
 
-/** The design of the first load when `stubSeeds` draws the seeds. */
-const first = () => designFor(FRESH, seedOf(1));
-
 const inspector = (page: Page) => page.locator("aside#studio-inspector");
 const region = (page: Page, name: string) =>
   inspector(page).getByRole("region", { name, exact: true });
@@ -79,8 +78,6 @@ const scrollArea = (page: Page) => inspector(page).locator("[data-scroll-area]")
 const findingItem = (page: Page, key: string) => inspector(page).locator(`[data-finding="${key}"]`);
 const showMeButton = (page: Page, key: string) =>
   findingItem(page, key).getByRole("button", { name: "Show me", exact: true });
-const button = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
-const modeSwitch = (page: Page) => page.getByRole("switch", { name: "Dark mode", exact: true });
 
 /** A deep copy of `value` with `next` at `path`. */
 function withValue<T>(value: T, path: readonly (string | number)[], next: unknown): T {
@@ -908,6 +905,82 @@ test.describe("7.8 Show me", () => {
     expect(report.shown).toBe(0);
   });
 
+  test("F-CANVAS-11 the outline of a part at a clip edge shows whole", async ({ page }) => {
+    await stubSeeds(page);
+    await openStudio(page);
+    await canvasAtRest(page);
+    // The attribute is what the inspector sets; the check is the geometry of the clip boxes.
+    await canvasRegion(page).evaluate((region) => {
+      region.setAttribute(
+        "data-show-me",
+        "background foreground border sidebar sidebar-foreground sidebar-border",
+      );
+    });
+    // The settings page keeps `overflow: hidden`: `overflow: clip` there leaves axe's contrast checks
+    // undecided (F-TPL-27), so its top and save bars are not in this list.
+    const parts = [
+      ["mobile", ".kit-status"],
+      ["mobile", ".kit-tabbar"],
+      ["dashboard", "[data-sidebar]"],
+    ] as const;
+    for (const [template, selector] of parts) {
+      const root = await showTemplate(page, template);
+      const report = await root
+        .locator(selector)
+        .first()
+        .evaluate((part) => {
+          const frame = part.closest<HTMLElement>("[data-canvas][data-frame]");
+          if (frame === null) throw new Error("no frame");
+          const fit = frame.getBoundingClientRect().width / frame.offsetWidth;
+          const style = getComputedStyle(part);
+          const reach =
+            (Number.parseFloat(style.outlineOffset) + Number.parseFloat(style.outlineWidth)) * fit;
+          const box = part.getBoundingClientRect();
+          const outline = {
+            l: box.left - reach,
+            t: box.top - reach,
+            r: box.right + reach,
+            b: box.bottom + reach,
+          };
+          const misses: string[] = [];
+          for (let node = part.parentElement; node !== null; node = node.parentElement) {
+            const clip = getComputedStyle(node);
+            if (clip.overflowX !== "clip" && clip.overflowX !== "hidden") continue;
+            const margin =
+              clip.overflowX === "clip"
+                ? Number.parseFloat(/[\d.]+px/.exec(clip.overflowClipMargin)?.[0] ?? "0") * fit
+                : 0;
+            const edge = node.getBoundingClientRect();
+            const inner = {
+              l: edge.left + node.clientLeft * fit - margin,
+              t: edge.top + node.clientTop * fit - margin,
+              r:
+                edge.right - (node.offsetWidth - node.clientWidth - node.clientLeft) * fit + margin,
+              b:
+                edge.bottom -
+                (node.offsetHeight - node.clientHeight - node.clientTop) * fit +
+                margin,
+            };
+            const slack = 0.5;
+            if (
+              outline.l < inner.l - slack ||
+              outline.t < inner.t - slack ||
+              outline.r > inner.r + slack ||
+              outline.b > inner.b + slack
+            ) {
+              misses.push(`${node.tagName.toLowerCase()}.${[...node.classList].join(".")}`);
+            }
+          }
+          return { dashed: style.outlineStyle === "dashed", reach, misses };
+        });
+      expect(report.dashed, `${template} ${selector} is outlined`).toBe(true);
+      expect(report.reach, `${template} ${selector} outline reach`).toBeGreaterThan(0);
+      expect(report.misses, `${template} ${selector} outline lies inside its clip boxes`).toEqual(
+        [],
+      );
+    }
+  });
+
   test("F-INSP-07 a step finding outlines its scale cells and scrolls them into view", async ({
     page,
   }) => {
@@ -1091,6 +1164,23 @@ test.describe("7.8 Fixes", () => {
     await expect(findingsStatus(page)).toBeEmpty();
   });
 
+  test("F-INSP-09 the regenerated design is the studio's own: its Receipt follows it and offers no rebuild", async ({
+    page,
+  }) => {
+    const spec = ringFixture();
+    await openStudio(page, linkOf(spec));
+    const rebuild = inspector(page).getByRole("button", { name: "Rebuild from the parameters" });
+    await expect(rebuild).toBeVisible();
+    await expect(region(page, "Receipt")).toContainText(/This design fails \d+ required checks?\./);
+    await findingItem(page, keyOf(spec, "F1", "light", "ring/background"))
+      .getByRole("button", { name: "Raise contrast to AAA", exact: true })
+      .click();
+    await settled(page);
+    await expect(rebuild).toHaveCount(0);
+    await expect(region(page, "Receipt")).not.toContainText("This design fails");
+    await expect(region(page, "Receipt").getByRole("listitem")).toHaveCount(4);
+  });
+
   test("F-INSP-09 in the 360 px drawer a fix keeps focus inside the inspector", async ({
     page,
   }) => {
@@ -1182,6 +1272,10 @@ test.describe("7.8 Fixes", () => {
     await expect(item).toContainText("Contrast is already AAA.");
     await expect(item.getByRole("button", { name: /^Raise contrast/ })).toHaveCount(0);
     await expect(item.getByRole("button", { name: "Show me", exact: true })).toBeVisible();
+    // The link is a loaded design whose rebuild passes, so the section also offers the rebuild (R3-42).
+    await expect(
+      inspector(page).getByRole("button", { name: "Rebuild from the parameters", exact: true }),
+    ).toBeVisible();
   });
 });
 
@@ -1311,6 +1405,13 @@ test.describe("7.8 Keyboard and motion", () => {
       await page.keyboard.press("Tab");
       await expect(stop).toBeFocused();
     }
+    // The ring fixture is a loaded design whose rebuild passes: Tab then reaches "Rebuild from the
+    // parameters", after the findings, and the Receipt section follows it (R3-36, R3-42).
+    await page.keyboard.press("Tab");
+    await expect(
+      inspector(page).getByRole("button", { name: "Rebuild from the parameters", exact: true }),
+    ).toBeFocused();
+    await expect(region(page, "Receipt")).toBeVisible();
   });
 
   test("F-INSP-16 under reduced motion show me, a fix and the drawer start no motion in the canvas", async ({

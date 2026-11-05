@@ -20,10 +20,16 @@ export type KeyPress = {
 
 export type Shortcut =
   | { readonly kind: "close-drawer" | "copy-link" | "toggle-mode" | "regenerate" | "undo" | "redo" }
-  | { readonly kind: "toggle-lock"; readonly slot: Lockable };
+  | { readonly kind: "toggle-lock"; readonly slot: Lockable }
+  /** Mod+E: open the export dialog (R3-35). */
+  | { readonly kind: "open-export" }
+  /** A chord the page keeps from the browser and does nothing with (R3-35). */
+  | { readonly kind: "swallow" };
 
 /** The canvas region, `<main aria-label="Canvas">`: it and everything in it keep their keys. */
-export const CANVAS_REGION = "[data-canvas-region]";
+export const CANVAS_REGION_ATTR = "data-canvas-region";
+/** The selector of that attribute. */
+export const CANVAS_REGION = `[${CANVAS_REGION_ATTR}]`;
 /** On each seed row's native color input and lock toggle: the slot that L locks. */
 export const SEED_SLOT = "data-seed-slot";
 /** On the inspector's scroll area, which takes focus so Space and the arrows scroll it (R2-15 item 2). */
@@ -92,6 +98,21 @@ export function isSaveChord(
   );
 }
 
+/**
+ * Mod+E: Ctrl or Meta with the key "e" or the code `KeyE` (a Cyrillic layout types another letter),
+ * without Alt or Shift (R3-35).
+ */
+function isExportChord(
+  press: Pick<KeyPress, "key" | "code" | "ctrlKey" | "metaKey" | "altKey" | "shiftKey">,
+): boolean {
+  return (
+    (press.ctrlKey || press.metaKey) &&
+    !press.altKey &&
+    !press.shiftKey &&
+    (press.key.toLowerCase() === "e" || press.code === "KeyE")
+  );
+}
+
 function checkPress(press: KeyPress): void {
   assertRecord(press, "shortcutFor: press");
   assertString(press.key, "shortcutFor: press.key");
@@ -114,12 +135,13 @@ const PAGE_KEYS: ReadonlyMap<string, Shortcut> = new Map<string, Shortcut>([
 /**
  * The shortcut a press means, or null when the browser or the focused control keeps the key
  * (R2-15). `target` is the focused element (null reads as the page); `drawerOpen` says whether a
- * modal drawer holds focus.
+ * modal drawer holds focus; `dialogOpen` (absent reads false) whether a modal dialog is open: then
+ * Mod+S and Mod+E are swallowed anywhere and every other key is the dialog's own (R3-35).
  */
 export function shortcutFor(
   press: KeyPress,
   target: Element | null,
-  context: { readonly drawerOpen: boolean },
+  context: { readonly drawerOpen: boolean; readonly dialogOpen?: boolean },
 ): Shortcut | null {
   checkPress(press);
   if (target !== null && !(target instanceof Element)) {
@@ -128,7 +150,16 @@ export function shortcutFor(
     );
   }
   assertRecord(context, "shortcutFor: context");
+  const { dialogOpen = false } = context;
+  if (typeof dialogOpen !== "boolean") {
+    throw new TypeError(
+      `shortcutFor: context.dialogOpen must be a boolean, got ${describeType(dialogOpen)}`,
+    );
+  }
   if (press.isComposing) return null;
+  // A modal dialog keeps its own keys, Escape included; the page only holds the chords that would
+  // open the browser's save dialog or its address bar (R3-35).
+  if (dialogOpen) return isSaveChord(press) || isExportChord(press) ? { kind: "swallow" } : null;
   const { key, code, ctrlKey, metaKey, altKey, shiftKey, repeat } = press;
   // Escape is exempt from the text-field rule: a modal drawer closes from every control in it.
   if (key === "Escape") return context.drawerOpen ? { kind: "close-drawer" } : null;
@@ -136,8 +167,12 @@ export function shortcutFor(
   if (target?.closest(CANVAS_REGION)) return null;
   const inText = target !== null && isTextField(target);
   if (ctrlKey || metaKey) {
+    if (inText) return null;
     // A repeat copies again, so a held chord never opens the save dialog (item 7).
-    return isSaveChord(press) && !inText ? { kind: "copy-link" } : null;
+    if (isSaveChord(press)) return { kind: "copy-link" };
+    // A held Mod+E must not open the address bar's search either: a repeat is swallowed (R3-35).
+    if (isExportChord(press)) return repeat ? { kind: "swallow" } : { kind: "open-export" };
+    return null;
   }
   if (altKey) {
     // Matched on the code: Alt changes the character on some layouts (item 3). A held toggle

@@ -17,7 +17,11 @@
   flex-direction: column;
   width: 360px;
   min-height: 45rem;
-  overflow: hidden;
+  /* "Show me" outlines a part 2 px wide, 2 px out, and the canvas region grows the outline as the
+   * frame scales down (`--show-me-scale`). The margin keeps a part at this edge whole down to a fit
+   * of one third; `overflow-clip-margin` takes no calc(), so it is a plain length. */
+  overflow: clip;
+  overflow-clip-margin: 12px;
   border-radius: var(--radius-2xl);
   background-color: var(--background);
   color: var(--foreground);
@@ -85,13 +89,13 @@
 /* `[data-canvas]` keeps the density's control height in `--kit-density-control` (kit/base.css); a
  * touch surface raises `--control-height` to at least 44 px from it, so a button, a field, a tab or a
  * row of a choice is a phone's touch target in every density (F-TPL-33). */
-[data-touch] {
+[data-canvas] [data-touch] {
   --control-height: max(44px, var(--kit-density-control));
 }
-[data-touch] :is(.kit-check, .kit-switch) {
+[data-canvas] [data-touch] :is(.kit-check, .kit-switch) {
   min-height: var(--control-height);
 }
 /* A list of choices on a touch surface: rows of the control height, one under the next. */
-[data-touch] .kit-choice-list {
+[data-canvas] [data-touch] .kit-choice-list {
   gap: 0;
 }

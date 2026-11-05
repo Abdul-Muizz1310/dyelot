@@ -3,6 +3,8 @@
 > M1 sync (2026-11-01): where the M1 spec, `docs/specs/01-color-engine.md`, refines this document, the sentence carries a note in italics that starts "Refined in M1". Its refinement table (section 1) lists each change with the reason. The rest of the text is unchanged.
 >
 > M2 sync (2026-11-03): where the M2 spec, `docs/specs/02-studio.md`, refines this document, the sentence carries a note in italics that starts "Refined in M2". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
+>
+> M3 sync (2026-11-05): where the M3 spec, `docs/specs/03-export.md`, refines this document, the sentence carries a note in italics that starts "Refined in M3". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 
 # dyelot — a palette becomes a design system your coding agent can build
 
@@ -21,17 +23,17 @@ dyelot is the portfolio's ninth product and its frontend showcase. A visitor, wi
    depth and motion, all computed, all accessible by construction.
 3. **See it live** on six realistic pages that share one state, at phone, tablet and desktop widths.
 4. **Hand it to a coding agent**: one download holds a DESIGN.md brief, an always-on AGENTS.md block,
-   `theme.css`, DTCG tokens, a shadcn install file, a TOON view and a ready prompt.
+   `theme.css`, DTCG tokens, a shadcn install file, a TOON view and a ready prompt. *Refined in M3: the download holds 18 to 21 files in a fixed order, those plus Figma token files, three motion files, an agent skill, the checker and the receipt, and `flavor/` waits for M5 (R3-12).*
 5. **Take the flavor home**: a palette-driven animated background, a brand video rendered in the browser,
    and motion tokens for CSS, Motion and GSAP.
 
 A dye lot is a batch dyed together so every piece matches. dyelot makes every screen of a product match.
 
 **The receipt.** Every export carries `receipt.json` (`dyelot.check/1`): the measured contrast of every
-role pair in both modes, color-blind distinguishability of the status and chart colors, gamut membership
+role pair in both modes *(refined in M3: the 40 checks of `CONTRAST_CHECKS` in each mode, 80 in all, of which 78 are required, and `summary.pass` means the linter found no error, R3-08 and R3-23)*, color-blind distinguishability of the status and chart colors, gamut membership
 of every emitted value, and the linter's findings. It also carries `dyelot-check.mjs`, a zero-dependency
 script the agent runs before it finishes: it re-measures `theme.css` and fails on raw color literals or
-off-token classes in the codebase. The brand spine holds: tools that hand you a receipt.
+off-token classes in the codebase. *Refined in M3: a line may carry `dyelot-check-ignore: <reason>`, and the checker also compares every role with the receipt and reports shadowed definitions (D3, R3-24, R3-25).* The brand spine holds: tools that hand you a receipt.
 
 ## 2. Look: the house style, one new idea
 
@@ -58,7 +60,7 @@ in the URL hash and, as a draft, in the visitor's own browser storage.
 |---|---|---|---|
 | Engine | `src/engine/` | Color math, scale solver, roles, harmony and generators, image extraction, type/space/shape/depth/motion token generation, linter | Pure TypeScript. No DOM, no React, no I/O. Seeded PRNG only. Property-tested. |
 | Spec | `src/spec/` | The `dyelot.spec/1` model (zod), parse, canonical serialize, hash, URL codec | Parse, don't validate. Version mismatch fails loudly. |
-| Export | `src/export/` | Pure generators for every bundle file, the receipt, the zip | Same spec in, byte-identical files out. |
+| Export | `src/export/` | Pure generators for every bundle file, the receipt, the zip | Same spec in, byte-identical files out. *Refined in M3: pure except the checker's `nodeIo` adapter, and a new pure layer, `src/import/`, reads DESIGN.md and shadcn CSS (R3-39).* |
 | AI | `src/ai/` | Schemas, prompt files, the lexicon, the router, three providers | The model never emits a final color value. |
 | Features | `src/features/` | Studio, previews, export panel, gallery, explorer, motion lab, video | UI only; calls engine and export, never reimplements them. |
 | Shell | `src/app/`, `src/lib/site/` | Routes, route handlers, site metadata (copied per `knowledge/conventions/convention-site-metadata.md`) | Side effects live here. |
@@ -74,7 +76,7 @@ byte-identical exports, and a golden-file test enforces it.
 deflated with `fflate` and base64url-encoded (`/studio#s=…`). The hash never reaches the server. Drafts
 persist in `localStorage` inside try/catch; a design never depends on it. *Refined in M1: the link also carries an
 8-byte integrity trailer, the FNV-1a 64 of the deflate bytes, and size guards. Raw deflate cannot detect tampering.
-A valid payload that is not in canonical form opens normalized, with an unchanged spec id.*
+A valid payload that is not in canonical form opens normalized, with an unchanged spec id.* *Refined in M3: a snapshot also records whether the studio generated it or loaded it, so the export block knows which designs it can rebuild (R3-42).*
 
 ## 4. The spec: `dyelot.spec/1`
 
@@ -83,9 +85,9 @@ A zod schema, versioned, exported as JSON Schema for the docs. Top-level fields:
 | Field | Holds |
 |---|---|
 | `version`, `meta` | `"dyelot.spec/1"`; name, one-liner, seed, engine version, created-with (`controls` · `lexicon` · `model:<slug>` · `on-device` · `visitor-key` · `import`) |
-| `direction` | Thesis, 3–5 adjectives, style preset id, like/unlike references, density |
+| `direction` | Thesis, 3–5 adjectives, style preset id, like/unlike references, density. *Refined in M3: `meta.oneLiner` and `direction` (thesis, adjectives, like, unlike) are optional plain text; the preset is derived by `presetOf` and density stays a view setting (R3-01, R3-02, R3-04, R3-07).* |
 | `color` | Seeds (OKLCH, with lock flags), hue anchors per palette (primary, secondary, accent, neutral, success, warning, danger, info, chart 1–5), contrast level (`AA` · `AA+` · `AAA`), gamut (`srgb` · `p3`), scale mode (`standard` · `even`), solved scales (11 steps × light and dark), role map (shadcn roles plus surfaces, light and dark) |
-| `type` | Display, body and mono families (catalog ids with license), scale context, ratio, steps with size, line height, tracking and weight; fluid display steps |
+| `type` | Display, body and mono families (catalog ids with license), scale context, ratio, steps with size, line height, tracking and weight; fluid display steps. *Refined in M3: weights are derived by `typeWeights` and never stored (R3-04, R3-05).* |
 | `space`, `shape`, `depth` | Base unit and scale; radius scale and nesting rule; shadow layers per elevation and dark-mode surface ladder |
 | `motion` | Durations, cubic-bezier easings, springs (visual duration, bounce), budget, reduced-motion policy |
 | `components` | Policies: card use, button emphasis, input style, icon library and stroke |
@@ -199,7 +201,7 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
 - **Left: inputs.** Seed colors with locks; brief box (AI); image drop; import (DESIGN.md, shadcn CSS);
   harmony, contrast level, gamut, scale mode; preset; type pairing and context; space, radius, depth,
   density; motion feel. *Refined in M2: the M2 studio shows no brief box, image drop or import. They wait for M4 and
-  later milestones.*
+  later milestones.* *Refined in M3: the inputs panel gains About and Import (R3-33).*
 - **Center: the canvas.** Six P0 templates on one shared spec: landing page, SaaS dashboard, settings and
   forms, three mobile screens, editorial article, and a kitchen sink with specimens. Templates use
   shadcn-style components themed only by the spec's role variables, scoped to the canvas, so what you see
@@ -207,13 +209,13 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
   dark, density, reduced motion, increased contrast, real or edge-case copy. *Refined in M2: the M2 canvas has no
   increased-contrast toggle, and none is scheduled.*
 - **Right: inspector.** Scales with step contrast, the role table with WCAG and advisory scores, color
-  names, the color-blindness view, the linter with one-click fixes, the receipt. *Refined in M2: the color-vision
+  names, the color-blindness view, the linter with one-click fixes, the receipt. *Refined in M3: the inspector gains a Receipt section (R3-36).* *Refined in M2: the color-vision
   view is a canvas toggle (none, protan, deutan or tritan) that recomputes every canvas color through `simulate`.*
   *Refined in M2: fixes exist for C1, C5, N1 and F1. Each regenerates the design at a higher contrast level: `AA+` for
   C1, `AAA` for the others. The M1 linter has no K3, so K3 has no fix (R2-10).* *Refined in M2: the receipt comes with
   the export bundle in M3.*
 - **Keyboard.** Space regenerates unlocked colors; `L` locks the focused swatch; ← and → undo and redo;
-  `Alt+T` flips the mode; `Mod+S` copies a share link; `Mod+E` opens export. Every control has a visible
+  `Alt+T` flips the mode; `Mod+S` copies a share link; `Mod+E` opens export *(refined in M3: it opens the export dialog, R3-35)*. Every control has a visible
   label, a focus ring and a 24 px minimum target. *Refined in M2: `Mod+E` is not bound, because export comes in M3.*
 - **Transitions.** React `<ViewTransition>` morphs a swatch into its token row and between templates;
   every transition has a reduced-motion variant. *Refined in M2: the M2 studio has no view transitions. They come in
@@ -238,7 +240,9 @@ One zip, assembled in the browser with `fflate`, plus copy buttons for each file
 | `motion/` | Motion tokens as CSS (including `linear()` springs), Motion objects and GSAP-compatible strings (text only). |
 | `flavor/` (on request) | The background shader as a React component, a vanilla module and a CSS fallback; the brand video; the Remotion composition source with a "Built with Remotion" header and the license link. |
 
-**Import** reads DESIGN.md (tokens and prose) and shadcn CSS variables into a spec, then lints them.
+*Refined in M3: each file's format is fixed in section 6 of the M3 spec; `registry/` holds one theme item and one font item per family next/font can load, and `skills/` is always included (R3-16).*
+
+**Import** reads DESIGN.md (tokens and prose) and shadcn CSS variables into a spec, then lints them. *Refined in M3: import never throws for a string, reads at most 262,144 bytes, and lays the imported colors over a generated base (R3-29 to R3-32).*
 
 ## 10. AI (RR-0026, DR-0039, DR-0040)
 
@@ -304,7 +308,7 @@ next 16.4, react 19.3, typescript 5 strict, tailwind 4.3, zod 4, zustand 5, moti
 Dev: Biome 2.5, Vitest 4, fast-check, Playwright 1.62 with @axe-core/playwright, msw, ajv (DTCG and shadcn
 schemas), @google/design.md (pinned, CI lint), colorjs.io (test oracle only). pnpm 10, Node 22 (*refined in M1:
 Node `^22.22.2 || ^24.15.0 || >=26`, the range jsdom 30 needs. CI runs Node 24*). License:
-MIT; the README states Remotion's own license for anyone reusing the video code.
+MIT; the README states Remotion's own license for anyone reusing the video code. *Refined in M3: exact pins `yaml` 2.9.1, `@csstools/css-color-parser` 4.2.7, `fflate` 0.8.3 and `@toon-format/toon` 4.4.0; dev `@google/design.md` 0.4.0, `ajv` 8.20.0 and `ajv-formats` 3.0.1; `motion` stays 14.3.0; no GSAP, shadcn CLI, Style Dictionary or Terrazzo enters the repo (R3-37).*
 
 ## 13. Testing
 
@@ -316,7 +320,7 @@ export ≥ 90%.
 |---|---|
 | Engine | sRGB ↔ OKLCH round trip within 1/510; gamut mapping idempotent and in gamut; WCAG matches the spec's worked examples and never rounds; the perceptual score matches the published test vectors; every solved step hits its target within 0.01 with monotonic lightness (*refined in M1: within `max(0.05, 0.01 × target)`. Threshold steps meet 3.0, 4.5 or 7.0 and overshoot by at most 0.12, because one 8-bit code moves a high step's ratio by up to about 0.1*); an impossible target throws with step and hue; CVD outputs match the DaltonLens reference values; every text role pair ≥ 4.5 in both modes for every preset (property test over random seeds); achromatic hues are `none`; each linter rule has a passing and a failing fixture |
 | Spec | Rejects unknown versions, out-of-range values and missing roles; canonical serialization is stable; URL codec round-trips; a tampered or truncated hash fails with a message, never a blank studio |
-| Export | Golden files per preset; byte-identical output for the same spec; DTCG validates against the 2025.10 schemas; DESIGN.md lints with 0 errors; TOON round-trips; the registry item validates against shadcn's schema; `dyelot-check.mjs` passes on a clean fixture app and fails on raw hex, `bg-blue-500` and a tampered `theme.css` |
+| Export | Golden files per preset; byte-identical output for the same spec; DTCG validates against the 2025.10 schemas; DESIGN.md lints with 0 errors; TOON round-trips; the registry item validates against shadcn's schema; `dyelot-check.mjs` passes on a clean fixture app and fails on raw hex, `bg-blue-500` and a tampered `theme.css`. *Refined in M3: goldens for the 14 presets and one import, and the validators run on vendored schemas with no network (R3-27, R3-28).* |
 | AI | Out-of-range model output is rejected; provider order; labeled fallback on every failure; the guard refuses below the reserve; a schema failure never retries; PKCE state mismatch is rejected; the visitor key never appears in a request to our origin; on-device unavailable falls through |
 | UI and flows (Playwright) | Color → system → export zip; brief (model mocked at the route) → system; image → palette; import DESIGN.md → preview → export; share link restores the exact spec; undo and redo; locks survive regenerate; reduced motion stops every animation; axe finds no violations on every route |
 | Motion and 3D | WebGL missing shows the fallback; context loss swaps in the poster; video export is hidden where `canRenderMediaOnWeb()` fails |
@@ -344,7 +348,7 @@ export; a custom MCP server; publishing `dyelot` to npm (possible later, with th
 
 ## 16. Risks
 
-- **DESIGN.md is alpha.** Pin the CLI; keep extension sections at the end; re-check on upgrades.
+- **DESIGN.md is alpha.** Pin the CLI; keep extension sections at the end; re-check on upgrades. *Refined in M3: the pinned linter runs in a unit test on every golden (R3-21).*
 - **Free models churn.** The product never depends on them; the guard and fallbacks keep it usable.
 - **The on-device model reaches few visitors.** It is opt-in, and every path falls through.
 - **The perceptual-score license is ambiguous.** It is advisory, generically labeled and removable in one

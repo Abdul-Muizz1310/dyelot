@@ -210,9 +210,43 @@ describe("DesignSpecSchema", () => {
       expectRejected(withValue(spec, path, low), path);
       expectRejected(withValue(spec, path, high));
     }
+    // R3-01: the new bounds, each with the path its issue names.
+    const text = (count: number, length = 1) => Array(count).fill("a".repeat(length));
+    const added: ReadonlyArray<readonly [Path, unknown, Path]> = [
+      [["meta", "oneLiner"], "", ["meta", "oneLiner"]],
+      [["meta", "oneLiner"], "o".repeat(141), ["meta", "oneLiner"]],
+      [["direction"], {}, ["direction"]],
+      [["direction"], { thesis: "t".repeat(281) }, ["direction", "thesis"]],
+      [["direction"], { adjectives: [] }, ["direction", "adjectives"]],
+      [["direction"], { adjectives: text(6) }, ["direction", "adjectives"]],
+      [["direction"], { adjectives: text(1, 25) }, ["direction", "adjectives", 0]],
+      [["direction"], { like: text(6) }, ["direction", "like"]],
+      [["direction"], { like: text(1, 81) }, ["direction", "like", 0]],
+      [["direction"], { unlike: text(6) }, ["direction", "unlike"]],
+      [["direction"], { unlike: text(1, 81) }, ["direction", "unlike", 0]],
+      [["rules", "do"], [""], ["rules", "do", 0]],
+    ];
+    for (const [path, value, at] of added) expectRejected(withValue(spec, path, value), at);
+    // R3-02: a text field or a policy that is not plain text fails; the bounds above stay.
+    const notPlain = [" lead", "a\u0007b", "a\u202eb", "e\u0301"];
+    const fields: ReadonlyArray<Path> = [
+      ["meta", "name"],
+      ["meta", "oneLiner"],
+      ["components", "cards"],
+      ["components", "emphasis"],
+      ["components", "inputs"],
+      ["components", "icons", "library"],
+    ];
+    for (const text of notPlain) {
+      for (const path of fields) expectRejected(withValue(spec, path, text), path);
+      expectRejected(withValue(spec, ["rules", "do"], [text]), ["rules", "do", 0]);
+      expectRejected(withValue(spec, ["direction"], { thesis: text }), ["direction", "thesis"]);
+    }
     const edges: ReadonlyArray<readonly [Path, unknown]> = [
       [["meta", "name"], "n".repeat(80)],
       [["meta", "name"], "n"],
+      [["meta", "oneLiner"], "o".repeat(140)],
+      [["direction"], { thesis: "t".repeat(280) }],
       [["meta", "seed"], "s".repeat(128)],
       [["rules", "do"], Array(20).fill("r".repeat(200))],
       [["rules", "dont"], ["Keep one filled button per region."]],

@@ -13,6 +13,7 @@ import { STEPS, type Step } from "../engine/color/scale";
 import type { PairingId } from "../engine/fonts/pairings";
 import { RADIUS_SET_NAMES, type RadiusSet } from "../engine/tokens/shape";
 import { TYPE_CONTEXTS, type TypeContext, type TypeStepName } from "../engine/tokens/type";
+import { isPlainText } from "./text";
 import { z } from "./zod";
 
 /** The version this schema reads and writes. Any other version fails loudly. */
@@ -32,15 +33,33 @@ export type DirectionParams = ColorParams & {
   /** A font pairing of `PAIRINGS`; absent means M1's default pairing, so every M1 golden holds (R2-05). */
   readonly pairing?: PairingId;
   readonly name?: string;
+  /** One line about the design (R3-01); plain text of 1 to `ONE_LINER_MAX` characters. */
+  readonly oneLiner?: string;
+  readonly direction?: Direction;
+  readonly rules?: { readonly do: readonly string[]; readonly dont: readonly string[] };
+};
+
+/** The direction of a design (R3-01): a strict object with at least one key. */
+export type Direction = {
+  readonly thesis?: string;
+  readonly adjectives?: readonly string[];
+  readonly like?: readonly string[];
+  readonly unlike?: readonly string[];
 };
 
 // Bounds of R-20.
 /** The longest `meta.name` and `meta.seed`: the generator checks its input against the same bounds. */
 export const NAME_MAX = 80;
 export const SEED_MAX = 128;
+/** The R3-01 bounds of `direction` and `rules`, and the longest `meta.oneLiner`; the generator reads the same ones. */
+export const ONE_LINER_MAX = 140;
+export const THESIS_MAX = 280;
+export const ADJECTIVE_MAX = 24;
+export const LIKE_MAX = 80;
+export const LIST_MAX = 5;
 const POLICY_MAX = 64;
-const RULES_MAX = 20;
-const RULE_MAX = 200;
+export const RULES_MAX = 20;
+export const RULE_MAX = 200;
 const ENGINE_VERSION_MAX = 64;
 const MODEL_SLUG = /^[\w.:/@+-]{1,120}$/;
 const FAMILY_ID = /^[a-z0-9-]{1,64}$/;
@@ -180,8 +199,22 @@ const SpringSchema = z.strictObject({
   bounce: z.number().min(0).max(1),
 });
 
-const PolicySchema = z.string().min(1).max(POLICY_MAX);
-const RulesSchema = z.array(z.string().max(RULE_MAX)).max(RULES_MAX);
+/** Plain text (R3-02) of 1 to `max` characters. */
+const plainText = (max: number) =>
+  z.string().min(1).max(max).refine(isPlainText, "must be plain text");
+const textList = (max: number) => z.array(plainText(max)).min(1).max(LIST_MAX);
+
+const PolicySchema = plainText(POLICY_MAX);
+const RulesSchema = z.array(plainText(RULE_MAX)).max(RULES_MAX);
+
+const DirectionSchema = z
+  .strictObject({
+    thesis: plainText(THESIS_MAX).exactOptional(),
+    adjectives: textList(ADJECTIVE_MAX).exactOptional(),
+    like: textList(LIKE_MAX).exactOptional(),
+    unlike: textList(LIKE_MAX).exactOptional(),
+  })
+  .refine((direction) => Object.keys(direction).length > 0, "must have at least one key");
 
 const CreatedWithSchema = z.union([
   z.enum(["controls", "lexicon", "on-device", "visitor-key", "import"]),
@@ -196,11 +229,13 @@ const CreatedWithSchema = z.union([
 export const DesignSpecSchema = z.strictObject({
   version: z.literal(SPEC_VERSION),
   meta: z.strictObject({
-    name: z.string().min(1).max(NAME_MAX),
+    name: plainText(NAME_MAX),
+    oneLiner: plainText(ONE_LINER_MAX).exactOptional(),
     seed: z.string().min(1).max(SEED_MAX),
     engineVersion: z.string().min(1).max(ENGINE_VERSION_MAX),
     createdWith: CreatedWithSchema,
   }),
+  direction: DirectionSchema.exactOptional(),
   color: ColorSchema,
   type: TypeSchema,
   space: z.strictObject({ basePx: z.literal(4), scale: z.array(LengthSchema).length(12) }),

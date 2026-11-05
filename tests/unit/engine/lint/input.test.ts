@@ -13,6 +13,7 @@ describe("lintSpec input checks", () => {
       expect(() => lintSpec(bad as never)).toThrow(TypeError);
       expect(() => lintSpec(bad as never)).toThrow(/^lintSpec:/);
     }
+    expect(() => lintSpec([] as never)).toThrow("lintSpec: spec must be an object, got array");
     expect(() => lintSpec({} as never)).toThrow(/^lintSpec: spec\.color/);
     expect(() => lintSpec({ color: null } as never)).toThrow(TypeError);
   });

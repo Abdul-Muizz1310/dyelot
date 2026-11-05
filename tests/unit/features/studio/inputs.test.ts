@@ -12,7 +12,7 @@ import {
   autoPairingLabel,
   GAMUT_LABELS,
   SEED_FIELD_MESSAGE,
-  seedHex,
+  seedRowHex,
 } from "@/features/studio/inputs";
 import { lockSeed } from "@/features/studio/params";
 import { FRESH_PARAMS, freshSpec } from "./support";
@@ -26,33 +26,37 @@ vi.mock("@/engine", async (importOriginal) => {
   return { ...engine, choosePairing: vi.fn(engine.choosePairing) };
 });
 
-describe("seedHex", () => {
+describe("seedRowHex", () => {
   it.each(LOCKABLE)("C-INPUTS-01 shows the color a lock would hold for an unlocked %s", (slot) => {
     const spec = freshSpec();
-    expect(seedHex(spec, FRESH_PARAMS, slot)).toBe(toHex(gamutMap(lockSeed(spec, slot), "srgb")));
+    expect(seedRowHex(spec, FRESH_PARAMS, slot)).toBe(
+      toHex(gamutMap(lockSeed(spec, slot), "srgb")),
+    );
   });
 
   it("C-INPUTS-02 shows a locked seed mapped into sRGB, and #1f6f5b reads back", () => {
     const seed = normalizeSeed(parseColor("#1f6f5b"));
     const params = { ...FRESH_PARAMS, primary: seed };
-    expect(seedHex(freshSpec(), params, "primary")).toBe("#1f6f5b");
+    expect(seedRowHex(freshSpec(), params, "primary")).toBe("#1f6f5b");
     const vivid = normalizeSeed({ l: 0.7, c: 0.3, h: 150 });
-    expect(seedHex(freshSpec(), { ...FRESH_PARAMS, accent: vivid }, "accent")).toBe(
+    expect(seedRowHex(freshSpec(), { ...FRESH_PARAMS, accent: vivid }, "accent")).toBe(
       toHex(gamutMap(vivid, "srgb")),
     );
   });
 
   it("C-INPUTS-03 throws RangeError for a slot outside LOCKABLE", () => {
-    expect(() => seedHex(freshSpec(), FRESH_PARAMS, "neutral" as never)).toThrow(RangeError);
-    expect(() => seedHex(freshSpec(), FRESH_PARAMS, "neutral" as never)).toThrow(/^seedHex: /);
+    expect(() => seedRowHex(freshSpec(), FRESH_PARAMS, "neutral" as never)).toThrow(RangeError);
+    expect(() => seedRowHex(freshSpec(), FRESH_PARAMS, "neutral" as never)).toThrow(
+      /^seedRowHex: /,
+    );
   });
 
   it("C-INPUTS-03 throws TypeError for a spec or params that are not objects", () => {
-    expect(() => seedHex(null as never, FRESH_PARAMS, "primary")).toThrow(
-      "seedHex: spec must be an object, got null",
+    expect(() => seedRowHex(null as never, FRESH_PARAMS, "primary")).toThrow(
+      "seedRowHex: spec must be an object, got null",
     );
-    expect(() => seedHex(freshSpec(), [] as never, "primary")).toThrow(
-      "seedHex: params must be an object, got array",
+    expect(() => seedRowHex(freshSpec(), [] as never, "primary")).toThrow(
+      "seedRowHex: params must be an object, got array",
     );
   });
 });

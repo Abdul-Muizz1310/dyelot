@@ -162,7 +162,7 @@
   gap: 2px;
 }
 .lp-card-title > span:first-child {
-  font-weight: 650;
+  font-weight: min(650, var(--weight-heading));
 }
 .lp-today-head {
   display: flex;
@@ -261,7 +261,7 @@
   border-top: 1px solid var(--border);
 }
 .lp-feature-list h3 {
-  font-weight: 650;
+  font-weight: min(650, var(--weight-heading));
 }
 .lp-feature-list p {
   max-width: 34rem;

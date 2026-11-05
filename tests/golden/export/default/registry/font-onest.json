@@ -1,0 +1,15 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "font-onest",
+  "type": "registry:font",
+  "title": "Onest",
+  "font": {
+    "family": "Onest",
+    "provider": "google",
+    "import": "Onest",
+    "variable": "--font-sans",
+    "subsets": [
+      "latin"
+    ]
+  }
+}

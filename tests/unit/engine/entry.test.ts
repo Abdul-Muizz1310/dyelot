@@ -24,7 +24,7 @@ import {
   SCALE_MODES,
 } from "@/engine/color/palette";
 import { parseColor } from "@/engine/color/parse";
-import { ROLE_NAMES, resolveRoles } from "@/engine/color/roles";
+import { onFill, ROLE_NAMES, resolveRoles } from "@/engine/color/roles";
 import { STEPS, UnsatisfiableTargetError } from "@/engine/color/scale";
 import {
   FONT_CATALOG,
@@ -37,17 +37,24 @@ import { choosePairing, PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
 import { ENGINE_VERSION, generateSystem } from "@/engine/generate";
 import { lintSpec } from "@/engine/lint";
 import { RULE_IDS } from "@/engine/lint/types";
-import { applyPreset, PRESET_IDS, PRESETS } from "@/engine/presets";
+import { CONTRAST_CHECKS, measureSpec, summarize } from "@/engine/measure";
+import { freshParams, paramsOfSpec, resolveParams } from "@/engine/params";
+import { applyPreset, PRESET_IDS, PRESETS, presetOf } from "@/engine/presets";
+import { round6, roundHue } from "@/engine/round";
 import { shadows } from "@/engine/tokens/depth";
 import { motionTokens } from "@/engine/tokens/motion";
 import { nestedRadius, RADIUS_SET_NAMES, radiusScale } from "@/engine/tokens/shape";
 import { spaceScale } from "@/engine/tokens/space";
+import { springCurve } from "@/engine/tokens/spring";
 import { TYPE_CONTEXTS, typeScale } from "@/engine/tokens/type";
+import { typeWeights } from "@/engine/tokens/weights";
 import type { DesignSpec } from "@/spec";
 import * as spec from "@/spec";
 import { canonicalize } from "@/spec/canonical";
 import { specId } from "@/spec/hash";
+import { lotTag } from "@/spec/lot";
 import { DEPTH_STYLES, MOTION_FEELS } from "@/spec/schema";
+import { isPlainText, toPlainText } from "@/spec/text";
 import { decodeSpec, encodeSpec } from "@/spec/url-codec";
 import { DEFAULT_PARAMS, defaultSpec } from "../spec/support";
 
@@ -59,6 +66,7 @@ const ROOT = path.resolve(import.meta.dirname, "../../..");
 
 /** The runtime keys of src/engine/index.ts, section 6.1 (R2-02): the whole set, once every task has landed. */
 const ENGINE_KEYS = [
+  "CONTRAST_CHECKS",
   "ColorParseError",
   "DEFICIENCIES",
   "DEPTH_STYLES",
@@ -90,27 +98,38 @@ const ENGINE_KEYS = [
   "fontFiles",
   "fontStack",
   "formatOklch",
+  "freshParams",
   "gamutMap",
   "generateSystem",
   "genericness",
   "hexToRgb",
   "indexNames",
   "lintSpec",
+  "measureSpec",
   "meets",
   "motionTokens",
   "nearestName",
   "nestedRadius",
   "normalizeSeed",
   "oklchToRgb",
+  "onFill",
+  "paramsOfSpec",
   "parseColor",
   "perceptualLc",
+  "presetOf",
   "radiusScale",
+  "resolveParams",
   "rgbToOklch",
+  "round6",
+  "roundHue",
   "shadows",
   "simulate",
   "spaceScale",
+  "springCurve",
+  "summarize",
   "toHex",
   "typeScale",
+  "typeWeights",
   "wcagRatio",
 ];
 
@@ -127,14 +146,17 @@ const SPEC_KEYS = [
   "canonicalize",
   "decodeSpec",
   "encodeSpec",
+  "isPlainText",
+  "lotTag",
   "normalizeSpec",
   "specId",
+  "toPlainText",
 ];
 
 const sorted = (keys: readonly string[]): string[] => [...keys].sort();
 
 describe("the engine entry", () => {
-  it("C-ENTRY-01 exports the section 6.1 set and nothing else, bar the keys a later task adds", () => {
+  it("C-ENTRY-01 and C-ENTRY3-01 export the section 6.1 set and nothing else, bar the keys a later task adds", () => {
     expect(sorted(Object.keys(engine))).toEqual(
       sorted(ENGINE_KEYS.filter((key) => !PENDING_KEYS.includes(key))),
     );
@@ -144,6 +166,7 @@ describe("the engine entry", () => {
   it("C-ENTRY-01 exports, for every key, the very object its home module exports", () => {
     const exported: Record<string, unknown> = { ...engine };
     const homes: Record<string, unknown> = {
+      CONTRAST_CHECKS,
       ColorParseError,
       DEFICIENCIES,
       DEPTH_STYLES,
@@ -175,27 +198,38 @@ describe("the engine entry", () => {
       fontFiles,
       fontStack,
       formatOklch,
+      freshParams,
       gamutMap,
       generateSystem,
       genericness,
       hexToRgb,
       indexNames,
       lintSpec,
+      measureSpec,
       meets,
       motionTokens,
       nearestName,
       nestedRadius,
       normalizeSeed,
       oklchToRgb,
+      onFill,
+      paramsOfSpec,
       parseColor,
       perceptualLc,
+      presetOf,
       radiusScale,
+      resolveParams,
       rgbToOklch,
+      round6,
+      roundHue,
       shadows,
       simulate,
       spaceScale,
+      springCurve,
+      summarize,
       toHex,
       typeScale,
+      typeWeights,
       wcagRatio,
     };
     // Every present key has a home entry here, and the pending keys have none until their task lands.
@@ -221,7 +255,7 @@ describe("the engine entry", () => {
 });
 
 describe("the spec entry", () => {
-  it("C-ENTRY-03 exports the section 6.1 set and nothing else", () => {
+  it("C-ENTRY-03 and C-ENTRY3-01 export the section 6.1 set and nothing else", () => {
     expect(sorted(Object.keys(spec))).toEqual(sorted(SPEC_KEYS));
   });
 
@@ -234,6 +268,9 @@ describe("the spec entry", () => {
     expect(spec.specId).toBe(specId);
     expect(spec.encodeSpec).toBe(encodeSpec);
     expect(spec.decodeSpec).toBe(decodeSpec);
+    expect(spec.lotTag).toBe(lotTag);
+    expect(spec.isPlainText).toBe(isPlainText);
+    expect(spec.toPlainText).toBe(toPlainText);
   });
 });
 

@@ -9,7 +9,7 @@ import { useState } from "react";
 // items are the accordion's own state (R2-20), kept here, the parent of every item, so a view toggle
 // never resets them. Only the chevron moves, by a CSS transition the reduced-motion rules stop.
 
-export type AccordionItem = { readonly question: string; readonly answer: string };
+type AccordionItem = { readonly question: string; readonly answer: string };
 
 /** An accordion whose first item starts open; `idPrefix` makes its ids unique in the template. */
 export function Accordion({

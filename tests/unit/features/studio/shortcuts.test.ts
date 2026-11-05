@@ -249,7 +249,7 @@ describe("Mod+S copies the link (R2-15 items 3 and 7)", () => {
     });
   });
 
-  it("C-KEYS-07 Mod+S with Alt or Shift, and any other Mod chord, gives null", () => {
+  it("C-KEYS-07 Mod+S with Alt or Shift, and any other Mod chord but Mod+E, gives null", () => {
     expect(shortcutFor({ ...CTRL_S, altKey: true }, null, NO_DRAWER)).toBeNull();
     expect(shortcutFor({ ...META_S, shiftKey: true }, null, NO_DRAWER)).toBeNull();
     for (const [key, code] of [
@@ -389,5 +389,89 @@ describe("shortcutFor checks its input (R-05)", () => {
     expect(() => shortcutFor(SPACE, null, null as never)).toThrow(
       "shortcutFor: context must be an object, got null",
     );
+  });
+});
+
+const CTRL_E = press("e", "KeyE", { ctrlKey: true });
+const META_E = press("e", "KeyE", { metaKey: true });
+const DIALOG = { drawerOpen: false, dialogOpen: true };
+
+describe("Mod+E opens the export dialog (R3-35)", () => {
+  it("C-KEYS3-01 Ctrl+E and Meta+E outside a text field give open-export, on the key or the code", () => {
+    expect(shortcutFor(CTRL_E, null, NO_DRAWER)).toEqual({ kind: "open-export" });
+    expect(shortcutFor(META_E, build("<button>b</button>"), NO_DRAWER)).toEqual({
+      kind: "open-export",
+    });
+    expect(shortcutFor(press("E", "KeyE", { ctrlKey: true }), null, NO_DRAWER)).toEqual({
+      kind: "open-export",
+    });
+    // A Cyrillic layout types у on the E key.
+    expect(shortcutFor(press("у", "KeyE", { ctrlKey: true }), null, NO_DRAWER)).toEqual({
+      kind: "open-export",
+    });
+    // The key alone is enough on a layout whose code differs.
+    expect(shortcutFor(press("e", "KeyK", { metaKey: true }), null, NO_DRAWER)).toEqual({
+      kind: "open-export",
+    });
+    expect(shortcutFor(CTRL_E, null, { drawerOpen: false, dialogOpen: false })).toEqual({
+      kind: "open-export",
+    });
+  });
+
+  it("C-KEYS3-01 a repeat gives swallow; Alt, Shift or a text field give null", () => {
+    expect(shortcutFor({ ...CTRL_E, repeat: true }, null, NO_DRAWER)).toEqual({ kind: "swallow" });
+    expect(shortcutFor({ ...META_E, repeat: true }, null, NO_DRAWER)).toEqual({ kind: "swallow" });
+    expect(shortcutFor({ ...CTRL_E, altKey: true }, null, NO_DRAWER)).toBeNull();
+    expect(shortcutFor({ ...META_E, shiftKey: true }, null, NO_DRAWER)).toBeNull();
+    expect(shortcutFor(CTRL_E, build("<input>"), NO_DRAWER)).toBeNull();
+    expect(
+      shortcutFor({ ...CTRL_E, repeat: true }, build("<textarea></textarea>"), NO_DRAWER),
+    ).toBeNull();
+  });
+
+  it("C-KEYS3-01 the canvas region keeps its keys, so Mod+E there does nothing", () => {
+    const target = build(
+      `<main ${CANVAS_REGION.slice(1, -1)}><button data-target>b</button></main>`,
+    );
+    expect(shortcutFor(CTRL_E, target, NO_DRAWER)).toBeNull();
+  });
+
+  it("C-KEYS3-02 with a dialog open Mod+S and Mod+E give swallow, in a text field or not, held or not", () => {
+    const field = build("<input>");
+    for (const chord of [CTRL_S, META_S, CTRL_E, META_E]) {
+      for (const repeat of [false, true]) {
+        const held = { ...chord, repeat };
+        expect(shortcutFor(held, null, DIALOG)).toEqual({ kind: "swallow" });
+        expect(shortcutFor(held, field, DIALOG)).toEqual({ kind: "swallow" });
+      }
+    }
+  });
+
+  it("C-KEYS3-03 with a dialog open every other key gives null", () => {
+    const seed = build(`<button ${SEED_SLOT}="primary"></button>`);
+    expect(shortcutFor(SPACE, null, DIALOG)).toBeNull();
+    expect(shortcutFor(LEFT, null, DIALOG)).toBeNull();
+    expect(shortcutFor(RIGHT, null, DIALOG)).toBeNull();
+    expect(shortcutFor(L, seed, DIALOG)).toBeNull();
+    expect(shortcutFor(ALT_T, null, DIALOG)).toBeNull();
+    expect(shortcutFor(ESCAPE, null, DIALOG)).toBeNull();
+    expect(shortcutFor(press("z", "KeyZ", { ctrlKey: true }), null, DIALOG)).toBeNull();
+  });
+
+  it("C-KEYS3-03 with dialogOpen absent or false the M2 answers stand", () => {
+    expect(shortcutFor(SPACE, null, NO_DRAWER)).toEqual({ kind: "regenerate" });
+    expect(shortcutFor(CTRL_S, null, NO_DRAWER)).toEqual({ kind: "copy-link" });
+    expect(shortcutFor(ESCAPE, null, DRAWER)).toEqual({ kind: "close-drawer" });
+    expect(shortcutFor(ALT_T, null, { drawerOpen: false, dialogOpen: false })).toEqual({
+      kind: "toggle-mode",
+    });
+  });
+
+  it("C-KEYS3-04 a dialogOpen that is present and not a boolean is a TypeError naming shortcutFor", () => {
+    for (const bad of ["yes", 1, null]) {
+      const context = { drawerOpen: false, dialogOpen: bad } as never;
+      expect(() => shortcutFor(CTRL_E, null, context)).toThrow(TypeError);
+      expect(() => shortcutFor(CTRL_E, null, context)).toThrow(/shortcutFor/);
+    }
   });
 });

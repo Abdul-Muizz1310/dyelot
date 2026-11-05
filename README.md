@@ -1,9 +1,9 @@
 # 🎨 `dyelot`
 
 > 🧾 **A palette becomes a design system your coding agent can build.**
-> M0, M1 and M2 are done: the shell, a tested color engine and spec model, and the studio. The export bundle comes next.
+> M0 to M3 are done: the shell, a tested color engine and spec model, the studio, and the export bundle with its receipt, checker and import. The AI layers come next.
 
-📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🎛️ [Studio spec](docs/specs/02-studio.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
+📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🎛️ [Studio spec](docs/specs/02-studio.md) · 📦 [Export spec](docs/specs/03-export.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
 
 ![next](https://img.shields.io/badge/Next.js-16.4-black?style=flat-square&logo=next.js)
 ![react](https://img.shields.io/badge/React-19.3-149eca?style=flat-square&logo=react&logoColor=white)
@@ -35,8 +35,8 @@ the full reasoning.
 ## 🎯 What it will do
 
 The goal comes from the [design spec](docs/specs/00-design.md). M1 built the engine underneath the second and fifth
-bullets. M2 built the studio, which puts the second and third in front of a visitor. The next two sections say what each
-does today.
+bullets. M2 built the studio, which puts the second and third in front of a visitor. M3 built the fourth and fifth bullets
+and the import of an existing DESIGN.md. The next sections say what each does today.
 
 - 🎨 **Start from anything** — a color, a few words, an image, a curated system or an existing DESIGN.md
 - 🧮 **Computed, accessible systems** — color roles and scales for light and dark mode, plus type, space, shape, depth and motion, solved for WCAG 2.2 contrast
@@ -44,6 +44,38 @@ does today.
 - 📦 **Agent handoff** — one download with DESIGN.md, an AGENTS.md block, `theme.css`, DTCG tokens, a shadcn install file and a ready prompt
 - 🧾 **A receipt for every color** — `receipt.json` records measured contrast, color-blind distinguishability and gamut membership
 - 🎬 **Flavor** — a palette-driven animated background, a brand video rendered in the browser and motion tokens
+
+---
+
+## 📦 The export today (M3)
+
+The studio's Export button (Mod+E) turns the design on screen into one zip of plain text files, and Import takes a DESIGN.md or
+a shadcn theme in. The [export spec](docs/specs/03-export.md) has every rule and case.
+
+- 📁 **The bundle** — 18 to 21 files in a fixed order, UTF-8 with LF line ends: `DESIGN.md`, `AGENTS.md.snippet`, `prompt.md`, a Tailwind v4 `app/theme.css`, a shadcn registry theme with one font item per family that `next/font/google` can load (0 to 3), four DTCG token files, two Figma token files, a TOON view, three motion files, an agent skill, the checker and `receipt.json` last. The zip is byte-for-byte the same on every run: the same bytes in every time zone the tests try
+- 🧾 **The receipt** — `receipt.json` (`dyelot.check/1`) records the design's spec id, its 80 measured contrast pairs, 16 color-vision separations, gamut membership, the 46 role colors of each mode, every lint finding and the SHA-256 of every other file. Ratios are cut, never rounded up, so 4.49999 prints as 4.4999 and never reads as passing
+- ✅ **The checker** — `node scripts/dyelot-check.mjs` runs in a Next.js app with no dependency beyond Node. It compares the theme with the receipt, measures the 78 required pairs again, finds a role defined a second time after the theme, and scans the source for raw colors and Tailwind palette classes. It exits 0 on `PASS`, 1 on findings and 2 on an error, and `--json` prints one object
+- 🚧 **A blocked export** — a design that fails a required check never leaves the studio: the dialog lists the failing checks, disables Download and every Copy, and the Findings section offers "Rebuild from the parameters" for a design that came from a link or a file
+- 📥 **Import** — a DESIGN.md or a shadcn theme CSS file of at most 256 KiB, pasted or chosen, lays its colors over a generated base. A DESIGN.md that dyelot wrote re-imports unchanged from its edit link. A value the importer cannot read is listed in its report and skipped
+- 🏷️ **About** — a name and a one-line description, kept as plain text. The name shows in the export dialog's lot line and gives the zip its file name
+
+The tests check the bundle against outside tools: the DTCG and shadcn JSON schemas, the pinned `@google/design.md` linter, Tailwind's own
+`compile`, a TOON round trip and the checker on a fixture app.
+
+### Hand smoke
+
+The M3 hand smoke installed the `default` golden's bundle (LOT 4177·a34c) into a fresh Next.js app by each route, with node 24.19.0,
+next 16.4.3, react 19.3.0, tailwindcss 4.3.4 and shadcn 4.23.0. The first run of Route 2 found a defect: the registry route
+writes the palette scale into `globals.css`, and the checker counted those 176 lines as raw colors. The fix changed the checker and
+the Install text, and the rerun on commit `5ee5bfe` used fresh apps. Both routes pass, and the checker as it ships after the
+final review's fixes passes both apps too.
+
+| Route | Commands | Result |
+|---|---|---|
+| 1, the stylesheet | `npx create-next-app@16.4.3 route1b --ts --tailwind --app --no-src-dir --eslint --import-alias "@/*" --use-npm --yes --disable-git`; copy `app/theme.css`, `scripts/dyelot-check.mjs` and `receipt.json`; `globals.css` keeps `@import "tailwindcss";` and adds `@import "./theme.css";`; `npm install @fontsource/young-serif @fontsource-variable/onest @fontsource/fragment-mono` and import each in `app/layout.tsx`; `npx next build`; `node scripts/dyelot-check.mjs` | Build succeeded. The checker exited 0: `92 roles · 78 pairs · 6 files scanned`, `PASS`. With `bg-blue-500` and `style={{color:"#ff0000"}}` added, it exited 1 with a `palette-class` and a `raw-color` finding, `FAIL (2 findings)`. With both removed, `PASS` again |
+| 2, shadcn | `npx create-next-app@16.4.3 route2b` (same flags); `npx shadcn@4.23.0 init --defaults --yes`; copy `registry/`, `scripts/dyelot-check.mjs` and `receipt.json`, but not `app/theme.css`; `npx shadcn@4.23.0 add ./registry/default.json --yes`, then `add ./registry/font-young-serif.json`, `font-onest.json` and `font-fragment-mono.json`; `npx next build`; `node scripts/dyelot-check.mjs` | Build succeeded. The checker exited 0: `92 roles · 78 pairs · 8 files scanned`, `PASS`. With `bg-blue-500` added, it exited 1 with one `palette-class` finding, `FAIL (1 finding)`. With it removed, `PASS` again |
+
+The smoke rendered nothing in a browser: it checked the build and the checker, not how the pages look.
 
 ---
 
@@ -60,7 +92,7 @@ Web Worker, the design lives in the URL hash, and a draft stays in the visitor's
 - 🔗 **Links and drafts** — a share link carries the whole design with an integrity check. A damaged, cut or future-version link opens the studio with a banner that names the reason
 - ⌨️ **Keyboard** — Space regenerates, L locks the focused seed, ← and → undo and redo, Alt+T flips the mode and Mod+S copies the link
 
-The canvas fonts are copied from Fontsource packages at build time, so no request goes to Google.
+The canvas fonts are copied from Fontsource packages at build time, so no request goes to Google. Since M3 the inputs panel opens with an About section (a name, a one-line description and Import…), and the toolbar gains Export.
 
 ---
 
@@ -81,8 +113,8 @@ its first UI. The [engine spec](docs/specs/01-color-engine.md) has every rule an
 ## 🔧 Architecture
 
 The planned layers and their rules are in the [design spec](docs/specs/00-design.md#3-architecture).
-The shell, the pure core and the studio exist today: `generateSystem`, `lintSpec`, `themeVars` and the live previews in
-the diagram below. The receipt and the export bundle come in later milestones.
+The shell, the pure core, the studio and the export exist today: `generateSystem`, `lintSpec`, `themeVars`, the live previews,
+`measureSpec`, `buildBundle` and the importers in the diagram below. The AI layers come in M4.
 
 ```mermaid
 flowchart LR
@@ -90,10 +122,15 @@ flowchart LR
     Params --> Engine["generateSystem(params, seed)"]
     Engine --> Spec[DesignSpec]
     Spec --> Lint["lintSpec(spec)"]
+    Spec --> Measure["measureSpec(spec)"]
     Lint --> Receipt[receipt.json]
+    Measure --> Receipt
     Spec --> Bridge["themeVars(spec, mode)"]
     Bridge --> Preview[live previews]
-    Spec --> Export[export bundle]
+    Spec --> Export["buildBundle({ spec, origin })"]
+    Receipt --> Export
+    Import["DESIGN.md · shadcn CSS"] --> Importers["importDesignMd · importShadcnCss"]
+    Importers --> Spec
 ```
 
 ---
@@ -110,21 +147,28 @@ src/
 │   ├── tokens/             type, space, shape, depth and motion
 │   └── lint/               the 20 color rules and the 4 taste rules
 ├── spec/                   the dyelot.spec/1 schema, canonical form, spec id and share-link codec
+├── export/                 buildBundle and one writer per file, the receipt, the zip and the checker's source
+│   └── checker/            dyelot-check.mjs, the zero-dependency script that the bundle carries
+├── import/                 importDesignMd and importShadcnCss, loaded only through import()
 ├── theme/                  themeVars: a spec as CSS custom properties for the canvas
 ├── features/
 │   ├── studio/             the studio: store, worker, links, drafts, inputs, toolbar and inspector
 │   ├── preview/            the canvas, the preview kit and the six templates
+│   ├── export/             the export dialog: file list, preview, copy and download
+│   ├── import/             the import dialog: the form, the file picker and the notices
 │   └── fonts/              the FontFace loader for the canvas fonts
 └── lib/
     ├── site/               the validated site config and the metadata modules
     └── links.ts            the repository address
 tests/
 ├── unit/                   Vitest: plain Node for the pure core, jsdom for the rest
+├── golden/export/          the 15 golden bundles' manifest and the default bundle's files
 └── e2e/                    Playwright on Chromium, with axe
 docs/specs/
 ├── 00-design.md            the design spec (the umbrella)
 ├── 01-color-engine.md      the M1 spec: the engine, the spec model and the linter
-└── 02-studio.md            the M2 spec: the studio, its templates and its gates
+├── 02-studio.md            the M2 spec: the studio, its templates and its gates
+└── 03-export.md            the M3 spec: the bundle, the receipt, the checker and import
 scripts/
 ├── copy-fonts.mjs          copies the canvas fonts into public/fonts/ before dev and build
 └── render-icons.mjs        renders the raster icons from src/app/icon.svg
@@ -173,8 +217,9 @@ directory to the icon script to write the files there instead of in place.
 | App | Next.js 16.4 App Router, React 19.3, TypeScript strict |
 | Style | Tailwind 4.3, the portfolio's dark terminal tokens, Geist and Geist Mono, one madder accent |
 | Color | OKLCH and WCAG 2.2 contrast, in a pure TypeScript engine |
-| Spec | zod 4 in jitless mode (no `eval` under the CSP), fflate for the share link |
-| Quality | Biome, Vitest with jsdom, fast-check, Playwright with axe |
+| Spec | zod 4 in jitless mode (no `eval` under the CSP), fflate for the share link and the zip |
+| Export and import | `@toon-format/toon` for the TOON view, `yaml` for DESIGN.md, `@csstools/css-color-parser` for imported colors |
+| Quality | Biome, Vitest with jsdom, fast-check, Playwright with axe; dev-only `@google/design.md` (the DESIGN.md linter) and ajv (the JSON schemas) |
 | Tooling | pnpm 10, Node `^22.22.2 \|\| ^24.15.0 \|\| >=26` (CI runs 24) |
 | CI | GitHub Actions: lint, typecheck, unit tests with coverage and the build, then Playwright on Chromium |
 
@@ -184,16 +229,20 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | 1,895 Vitest tests in 100 files, in `tests/unit/`, with 1 skipped: an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`. The pure core runs in plain Node, the rest in jsdom with Testing Library |
-| Slow set | 22 of those files, listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. `pnpm gate` leaves them to `pnpm gate:full` and CI |
-| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md) and [`02-studio.md`](docs/specs/02-studio.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, and 467 of 467 at the M2 close (322 unit cases and 145 flows) |
+| Unit | 2,719 Vitest tests in 159 files, in `tests/unit/`, with 1 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
+| Slow set | 37 of those files, listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. 25 run in the two slow projects and 12 in the `scan` project. `pnpm gate` leaves them to `pnpm gate:full` and CI |
+| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) and [`03-export.md`](docs/specs/03-export.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), and 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows) |
+| Goldens | 15 golden bundles (the 14 presets and the import of `shadcn-neutral.css`), pinned by `tests/golden/export/manifest.json` with each file's path, byte length and SHA-256. The `default` bundle holds 21 files and 409,581 bytes |
+| The generated-design grid | Before any export code existed, a test grid measured 3,808 designs from five fixed grids against the required checks: none threw and none raised a lint error. Its ten test files took 434.9 s in total when each ran alone on a 16-core machine |
 | Property tests | fast-check over arbitrary color strings, every parameter, random seeds, share-link tampering and the studio store's actions |
-| End to end | 211 Playwright flows on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route and checks on the security headers |
+| End to end | 286 Playwright flows in 10 files on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
 | Measured findings | The fix scan generates 576 designs (288 in sRGB and 288 in Display P3) and finds no C1, C5, N1 or F1 finding at AA. The preset sweep fits all 14 presets into the landing, editorial, dashboard and settings templates at 360 and 768 px and into the three mobile screens: 252 views, none with an overflow or a broken word |
-| Coverage scope | `src/engine/`, `src/spec/`, `src/theme/`, `src/lib/site/`, the canvas font loader and the 20 pure helper files of the studio and the preview. The end-to-end tier covers the components and routes |
-| Coverage floors | 80% lines and statements, 75% functions and 70% branches over that scope. `src/engine/`, `src/spec/`, `src/theme/`, the font loader and each pure helper hold 95% lines, statements and functions and 90% branches |
+| Coverage scope | `src/engine/`, `src/spec/`, `src/theme/`, `src/export/`, `src/import/`, `src/lib/site/`, the canvas font loader and the 23 pure helper files of the studio, the preview, the export dialog and the import dialog. The end-to-end tier covers the components and routes |
+| Coverage floors | 80% lines and statements, 75% functions and 70% branches over that scope. `src/engine/`, `src/spec/`, `src/theme/`, the font loader and each pure helper hold 95% lines, statements and functions and 90% branches. `src/export/` and `src/import/` hold 90% and 85% |
 | Coverage at the M2 close | 99.64% statements, 98.65% branches, 100% functions and 99.68% lines over that scope |
-| Gate times | `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine at the M2 close |
+| Coverage at the M3 close | 98.57% statements, 95.8% branches, 99.69% functions and 98.76% lines over the larger scope, measured on a 16-core machine |
+| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows) |
+| Not done in M3 | The templates still load eagerly (M2 final review M-12), and the settings template's top and save bars keep `overflow: hidden` without the clip margin. Both wait for M6 |
 | Static checks | Biome, and `tsc` in strict mode |
 
 ```bash
@@ -208,7 +257,7 @@ pnpm test:e2e                    # builds, serves and drives Chromium
 
 | Principle | How it shows up |
 |---|---|
-| 🔴 **Spec-TDD** | Each milestone spec, such as `docs/specs/02-studio.md`, lists every case, pass and failure, before the code. Every spec case has a test that carries its id. Tests come first. |
+| 🔴 **Spec-TDD** | Each milestone spec, such as `docs/specs/03-export.md`, lists every case, pass and failure, before the code. Every spec case has a test that carries its id. Tests come first. |
 | 🚫 **Negative-space programming** | Public functions check their input, and the spec's failure cases test the checks. A wrong type throws `TypeError` and a value outside its domain `RangeError`. Color parsing, scale solving and link decoding have their own error types. A property over random parameters finds no NaN or Infinity in a generated spec. One internal kernel, the 3 by 3 matrix product, checks nothing. Its callers check first, and its comment says so. |
 | 🔒 **Typed everything** | TypeScript strict with no `any`. A `Hex` is a branded string. In the core only `toHex` and the schema make one, and a guard test fails on any other cast. The schema is where a decoded link becomes a typed spec. |
 | 🧊 **Pure core, imperative shell** | `src/engine/` and `src/spec/` use no DOM, no Node API, no `Date` and no `Math.random`. A grep test enforces it, and their tests run in plain Node, where a DOM call fails. Randomness comes only from a seeded generator. The same seed gives the same spec on every run in Node, and a golden spec id pins it. Browsers are not measured yet: the engine uses `Math.cbrt`, `Math.exp` and other functions whose last bits ECMAScript leaves to each engine. |
@@ -233,8 +282,11 @@ rest.
   built to the [engine spec](docs/specs/01-color-engine.md).
 - **M2, done.** The studio at `/studio`: the inputs, a live canvas with six templates, the inspector,
   share links and drafts, built to the [studio spec](docs/specs/02-studio.md).
-- **Next.** M3 the export bundle and the receipt, M4 the AI layers, M5 motion and 3D, M6 the gallery and
-  the launch. The milestone table in the spec has the details.
+- **M3, done.** The export bundle, the receipt, the checker and import, with their studio UI, built to the
+  [export spec](docs/specs/03-export.md). The hand smoke installed the bundle into fresh Next.js apps by both routes, and
+  the checker printed `PASS` in each.
+- **Next.** M4 the AI layers, M5 motion and 3D, M6 the gallery and the launch. The milestone table in the spec
+  has the details.
 
 `main` deploys to [dyelot.vercel.app](https://dyelot.vercel.app).
 

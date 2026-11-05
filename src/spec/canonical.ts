@@ -97,8 +97,7 @@ export function pathsOf(
  */
 export function canonicalizeFor(spec: DesignSpec, caller: string): string {
   if (typeof spec !== "object" || spec === null || Array.isArray(spec)) {
-    const got = Array.isArray(spec) ? "array" : describeType(spec);
-    throw new TypeError(`${caller}: spec must be an object, got ${got}`);
+    throw new TypeError(`${caller}: spec must be an object, got ${describeType(spec)}`);
   }
   return canonicalJson(spec, "spec", caller);
 }

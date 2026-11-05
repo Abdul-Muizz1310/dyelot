@@ -4,6 +4,8 @@ import "./studio.css";
 import "./highlight.css";
 import Link from "next/link";
 import { type RefObject, useEffect, useRef, useState } from "react";
+import { ExportDialog } from "@/features/export/ExportDialog";
+import { ImportDialog } from "@/features/import/ImportDialog";
 import { createFitStore, FitContext } from "@/features/preview/useFrameFit";
 import { CanvasArea } from "./CanvasArea";
 import { createStudioClient } from "./client";
@@ -63,6 +65,12 @@ function StudioShell({ store }: { store: StudioStore }) {
   const { open, isDrawer, headings, openDrawer, closeDrawer, panelState } = useDrawers();
   const canvas = useRef<HTMLElement>(null);
   const copyButton = useRef<HTMLButtonElement>(null);
+  const exportButton = useRef<HTMLButtonElement>(null);
+  const exportOpener = useRef<HTMLElement | null>(null);
+  const importButton = useRef<HTMLButtonElement>(null);
+  const importOpener = useRef<HTMLElement | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
   // The canvas area measures the frame's fit and the toolbar's frame switcher shows it (M-8).
   const [fitStore] = useState(createFitStore);
@@ -81,17 +89,100 @@ function StudioShell({ store }: { store: StudioStore }) {
     }
   }
 
+  /**
+   * Opens the export dialog; `opener` is where focus returns (R3-34). With a drawer open, the drawer
+   * closes first and focus returns to its toggle button, since the focused control inside it is gone.
+   */
+  function openExport(opener: HTMLElement | null): void {
+    if (exportOpen) return;
+    let returnTo = opener;
+    if (open !== null) {
+      returnTo = document.querySelector<HTMLElement>(`[aria-controls="studio-${open}"]`);
+      closeDrawer();
+    }
+    exportOpener.current = returnTo;
+    setExportOpen(true);
+  }
+
+  /** Opens the import dialog on the same rules as the export one (R3-34, section 9.3). */
+  function openImport(opener: HTMLElement | null): void {
+    if (importOpen || exportOpen) return;
+    let returnTo = opener;
+    if (open !== null) {
+      returnTo = document.querySelector<HTMLElement>(`[aria-controls="studio-${open}"]`);
+      closeDrawer();
+    }
+    importOpener.current = returnTo;
+    setImportOpen(true);
+  }
+
+  // A successful import sends focus to the canvas region, not back to "Import…" (section 9.3).
+  const focusAfterImport = useRef(false);
+  const wasImportOpen = useRef(false);
+  useEffect(() => {
+    if (wasImportOpen.current && !importOpen) {
+      if (focusAfterImport.current) {
+        canvas.current?.focus();
+      } else {
+        const opener = importOpener.current;
+        const target = opener?.isConnected === true && opener !== document.body ? opener : null;
+        (target ?? importButton.current)?.focus();
+      }
+      focusAfterImport.current = false;
+    }
+    wasImportOpen.current = importOpen;
+  }, [importOpen]);
+
+  // Closing gives focus back to the element that opened the dialog, once the page is no longer inert.
+  const wasExportOpen = useRef(false);
+  useEffect(() => {
+    if (wasExportOpen.current && !exportOpen) {
+      const opener = exportOpener.current;
+      const target = opener?.isConnected === true && opener !== document.body ? opener : null;
+      (target ?? exportButton.current)?.focus();
+    }
+    wasExportOpen.current = exportOpen;
+  }, [exportOpen]);
+
+  // "Fix in the inspector" and "Show the findings" (R3-42): the dialog closes and focus goes to the
+  // Findings heading, in the open inspector drawer below 1280 px.
+  const wantFindings = useRef(false);
+  function showFindings(): void {
+    wantFindings.current = true;
+    setExportOpen(false);
+    const button = exportButton.current;
+    if (isDrawer.inspector && button !== null) openDrawer("inspector", button);
+  }
+  // After the dialog's own focus return above, so the heading is the last to take focus.
+  useEffect(() => {
+    if (!wantFindings.current || exportOpen) return;
+    if (isDrawer.inspector && open !== "inspector") return;
+    wantFindings.current = false;
+    const heading = [...document.querySelectorAll<HTMLElement>("#studio-inspector h3")].find(
+      (each) => each.textContent === "Findings",
+    );
+    heading?.focus();
+  }, [exportOpen, open, isDrawer.inspector]);
+
   useStudioKeys(store, {
     drawerOpen: open !== null,
+    dialogOpen: exportOpen || importOpen,
     closeDrawer,
     copyLink: () => void copyLink(),
+    openExport: () =>
+      openExport(document.activeElement instanceof HTMLElement ? document.activeElement : null),
   });
 
   /** After a notice action removes the focused button, focus goes to the canvas (F-STUDIO-23). */
   const focusCanvas = () => canvas.current?.focus();
 
-  /** The rest of the page while a drawer is open: inert (R2-16 item 2). */
-  const blocked = open !== null;
+  /** The rest of the page while a drawer or the export dialog is open: inert (R2-16 item 2, R3-34). */
+  const blocked = open !== null || exportOpen || importOpen;
+  /** A panel's state, inert too while the dialog is open. */
+  const panel = (name: "inputs" | "inspector") => {
+    const state = panelState(name);
+    return { ...state, inert: state.inert || exportOpen || importOpen };
+  };
 
   return (
     <FitContext value={fitStore}>
@@ -133,7 +224,7 @@ function StudioShell({ store }: { store: StudioStore }) {
           id="studio-inputs"
           aria-label="Inputs"
           className="studio-panel studio-inputs"
-          {...panelState("inputs")}
+          {...panel("inputs")}
         >
           <PanelHead
             title="Inputs"
@@ -142,7 +233,11 @@ function StudioShell({ store }: { store: StudioStore }) {
             canClose={isDrawer.inputs}
             onClose={closeDrawer}
           />
-          <InputsPanel store={store} />
+          <InputsPanel
+            store={store}
+            importButton={importButton}
+            onImport={(opener) => openImport(opener)}
+          />
         </aside>
         <Toolbar
           store={store}
@@ -151,14 +246,16 @@ function StudioShell({ store }: { store: StudioStore }) {
           open={open}
           onOpen={openDrawer}
           onCopyLink={() => void copyLink()}
+          onExport={openExport}
           copyButton={copyButton}
+          exportButton={exportButton}
         />
         <CanvasArea store={store} regionRef={canvas} inert={blocked} />
         <aside
           id="studio-inspector"
           aria-label="Inspector"
           className="studio-panel studio-inspector"
-          {...panelState("inspector")}
+          {...panel("inspector")}
         >
           <PanelHead
             title="Inspector"
@@ -178,6 +275,21 @@ function StudioShell({ store }: { store: StudioStore }) {
         {open !== null && (
           <div aria-hidden="true" className="studio-backdrop" onClick={closeDrawer} />
         )}
+        <ExportDialog
+          store={store}
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          onShowFindings={showFindings}
+        />
+        <ImportDialog
+          store={store}
+          open={importOpen}
+          onClose={() => setImportOpen(false)}
+          onImported={() => {
+            focusAfterImport.current = true;
+            setImportOpen(false);
+          }}
+        />
         <Toast state={toast} onClose={() => setToast(null)} fallbackFocus={copyButton} />
         <DraftsAnnouncer store={store} />
       </div>

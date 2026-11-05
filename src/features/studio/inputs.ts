@@ -30,10 +30,10 @@ export const GAMUT_LABELS: Readonly<Record<Gamut, string>> = Object.freeze({
  * hold (`lockSeed`, R2-17). Either is mapped into sRGB, because the hex field and the native color
  * input hold sRGB hex only.
  */
-export function seedHex(spec: DesignSpec, params: DirectionParams, slot: Lockable): Hex {
-  assertRecord(spec, "seedHex: spec");
-  assertRecord(params, "seedHex: params");
-  assertOneOf(slot, LOCKABLE, "seedHex: slot");
+export function seedRowHex(spec: DesignSpec, params: DirectionParams, slot: Lockable): Hex {
+  assertRecord(spec, "seedRowHex: spec");
+  assertRecord(params, "seedRowHex: params");
+  assertOneOf(slot, LOCKABLE, "seedRowHex: slot");
   return toHex(gamutMap(params[slot] ?? lockSeed(spec, slot), "srgb"));
 }
 

@@ -36,7 +36,7 @@
 }
 .kit-card-title {
   font-family: var(--font-display);
-  font-weight: 600;
+  font-weight: min(600, var(--weight-heading));
 }
 .kit-card:is(:hover:not(:disabled), [data-state="hover"]) {
   box-shadow: var(--shadow-2);
@@ -202,7 +202,7 @@
 }
 .kit-dialog-title {
   font-family: var(--font-display);
-  font-weight: 650;
+  font-weight: min(650, var(--weight-heading));
 }
 .kit-actions {
   display: flex;

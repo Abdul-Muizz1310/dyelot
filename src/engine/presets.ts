@@ -1,9 +1,9 @@
-import type { DepthStyle, DirectionParams, MotionFeel } from "../spec/schema";
+import type { DepthStyle, DesignSpec, DirectionParams, MotionFeel } from "../spec/schema";
 import { assertOneOf, describeType } from "./color/guards";
 import type { Harmony } from "./color/harmony";
 import { CONTRAST_LEVELS, type ColorParams, type ContrastLevel } from "./color/palette";
 import type { Mode } from "./color/types";
-import type { PairingId } from "./fonts/pairings";
+import { choosePairing, PAIRINGS, type PairingId } from "./fonts/pairings";
 import type { RadiusSet } from "./tokens/shape";
 import type { TypeContext } from "./tokens/type";
 
@@ -411,4 +411,71 @@ export function applyPreset(params: DirectionParams, id: PresetId): DirectionPar
     type: { context: patch.type.context },
     contrastLevel: RANK[user] > RANK[patch.contrastLevel] ? user : patch.contrastLevel,
   };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** A section of a spec that `presetOf` reads, checked before it is read (R-05). */
+function section(
+  parent: Record<string, unknown>,
+  key: string,
+  path: string,
+): Record<string, unknown> {
+  const value = parent[key];
+  if (!isRecord(value)) {
+    throw new TypeError(`presetOf: ${path} must be an object, got ${describeType(value)}`);
+  }
+  return value;
+}
+
+/**
+ * The first preset in `PRESET_IDS` whose values the spec holds, or `null` (R3-07). An imported spec
+ * never matches. The contrast level may sit above the preset's, since `applyPreset` never lowers it;
+ * the gamut and the seeds are not compared. A preset with no pairing takes the pairing
+ * `choosePairing(meta.seed)` picks.
+ */
+export function presetOf(spec: DesignSpec): PresetId | null {
+  if (!isRecord(spec)) {
+    throw new TypeError(`presetOf: spec must be an object, got ${describeType(spec)}`);
+  }
+  const meta = section(spec, "meta", "spec.meta");
+  const color = section(spec, "color", "spec.color");
+  const params = section(color, "params", "spec.color.params");
+  const type = section(spec, "type", "spec.type");
+  const families = section(type, "families", "spec.type.families");
+  const shape = section(spec, "shape", "spec.shape");
+  const depth = section(spec, "depth", "spec.depth");
+  const motion = section(spec, "motion", "spec.motion");
+  if (typeof meta.seed !== "string") {
+    throw new TypeError(
+      `presetOf: spec.meta.seed must be a string, got ${describeType(meta.seed)}`,
+    );
+  }
+  if (meta.createdWith === "import") return null;
+  const level = RANK[params.contrastLevel as ContrastLevel];
+  if (level === undefined) return null;
+  const auto = choosePairing(meta.seed);
+  return (
+    PRESET_IDS.find((id) => {
+      const preset = PRESETS[id].params;
+      const pairing = PAIRINGS.find((item) => item.id === (preset.pairing ?? auto));
+      return (
+        params.harmony === preset.harmony &&
+        params.chroma === preset.chroma &&
+        params.neutralTint === preset.neutralTint &&
+        params.scaleMode === preset.scaleMode &&
+        level >= RANK[preset.contrastLevel] &&
+        type.context === preset.type.context &&
+        shape.radiusSet === preset.radius &&
+        depth.style === preset.depth &&
+        motion.feel === preset.motion &&
+        pairing !== undefined &&
+        families.display === pairing.display &&
+        families.body === pairing.body &&
+        families.mono === pairing.mono
+      );
+    }) ?? null
+  );
 }

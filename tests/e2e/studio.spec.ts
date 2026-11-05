@@ -10,14 +10,16 @@ import {
   PRESETS,
   parseColor,
   ROLE_NAMES,
+  wcagRatio,
 } from "@/engine";
-import { autoPairingLabel, seedHex } from "@/features/studio/inputs";
+import { autoPairingLabel, seedRowHex } from "@/features/studio/inputs";
 import { findingKey } from "@/features/studio/inspect";
 import { lockSeed } from "@/features/studio/params";
 import { linkUrl, writeHash } from "@/features/studio/url";
 import { encodeSpec, normalizeSpec } from "@/spec";
 import { SITE } from "../../src/lib/site/config";
 import {
+  button,
   canvasFrame,
   canvasPane,
   canvasRegion,
@@ -26,6 +28,7 @@ import {
   expectedVars,
   FRESH,
   failingWorker,
+  first,
   focusBody,
   inputsAside,
   inputsPanel,
@@ -33,6 +36,7 @@ import {
   linkOfValue,
   lotId,
   lotOf,
+  modeSwitch,
   nearHex,
   openStudio,
   pickColor,
@@ -44,8 +48,9 @@ import {
   settled,
   stubSeeds,
   tampered,
+  toolbarRadio,
 } from "./studio-support";
-import { canvasAtRest, installColorResolver } from "./template-support";
+import { canvasAtRest, installColorResolver, resolveColors } from "./template-support";
 
 // The flows of docs/specs/02-studio.md assigned to Task 2.6: F-STUDIO-01 to 22 (section 7.1),
 // F-INPUT-01 to 15 (7.2), F-KEY-01 to 13 (7.3) and the accessibility flows of 7.9 for /studio.
@@ -56,10 +61,6 @@ test.use({ viewport: { width: 1280, height: 800 } });
 const PHONE = { width: 360, height: 740 };
 const MADDER = "rgb(246, 108, 109)";
 
-/** The design of the first load when `stubSeeds` draws the seeds. */
-const first = () => designFor(FRESH, seedOf(1));
-
-const button = (page: Page, name: string) => page.getByRole("button", { name, exact: true });
 const group = (page: Page, name: string) => page.getByRole("group", { name, exact: true });
 const radio = (page: Page, groupName: string, name: string) =>
   group(page, groupName).getByRole("radio", { name, exact: true });
@@ -68,15 +69,8 @@ const panelRadio = (page: Page, groupName: string, name: string) =>
   inputsPanel(page)
     .getByRole("group", { name: groupName, exact: true })
     .getByRole("radio", { name, exact: true });
-/** A radio of the canvas toolbar (section 7.4). */
-const toolbarRadio = (page: Page, groupName: string, name: string) =>
-  page
-    .getByRole("region", { name: "Canvas toolbar" })
-    .getByRole("group", { name: groupName, exact: true })
-    .getByRole("radio", { name, exact: true });
 const select = (page: Page, name: string) => page.getByRole("combobox", { name, exact: true });
 const field = (page: Page, name: string) => page.getByRole("textbox", { name, exact: true });
-const modeSwitch = (page: Page) => page.getByRole("switch", { name: "Dark mode", exact: true });
 /** The studio's alert banner, in the header (Next.js keeps its own route announcer as an alert). */
 const banner = (page: Page) => page.locator("header").getByRole("alert");
 
@@ -323,7 +317,7 @@ test.describe("7.1 Layout and the shell", () => {
     await expect(alert.getByRole("button", { name: "Start fresh", exact: true })).toBeVisible();
     await expect(alert.getByRole("button", { name: "Dismiss", exact: true })).toBeVisible();
     // Never blank: the canvas holds a whole design.
-    expect(Object.keys(await canvasVars(page))).toHaveLength(206);
+    expect(Object.keys(await canvasVars(page))).toHaveLength(209);
     const frame = await canvasFrame(page).boundingBox();
     expect(frame?.height ?? 0).toBeGreaterThan(100);
   });
@@ -872,6 +866,7 @@ test("F-INPUT-16 Regenerate stays in view at 1280 × 800 and every shortcut is n
   await expect(regenerate).toHaveAttribute("aria-keyshortcuts", "Space");
   await expect(modeSwitch(page)).toHaveAttribute("aria-keyshortcuts", "Alt+T");
   await expect(button(page, "Copy link")).toHaveAttribute("aria-keyshortcuts", "Control+S Meta+S");
+  await expect(button(page, "Export")).toHaveAttribute("aria-keyshortcuts", "Control+E Meta+E");
   const hint = inputsPanel(page).locator("[data-shortcut-hint]");
   await expect(hint).toContainText("Alt+T");
   await expect(hint).toContainText("Ctrl+S");
@@ -917,6 +912,9 @@ function panelControls(page: Page): Promise<string[]> {
 test.describe("7.2 The inputs panel", () => {
   const SEEDS = ["Primary", "Secondary", "Accent"] as const;
   const CONTROLS = [
+    "text:Name",
+    "text:One line",
+    "button:Import…",
     ...SEEDS.flatMap((slot) => [
       `text:${slot}`,
       `color:Pick ${slot.toLowerCase()}`,
@@ -945,12 +943,20 @@ test.describe("7.2 The inputs panel", () => {
     expect(await panelControls(page)).toEqual(CONTROLS);
     const panel = inputsPanel(page);
     await expect(panel.locator("textarea, input[type='file']")).toHaveCount(0);
-    await expect(panel).not.toContainText(/brief|image|import/i);
+    // No brief or image control; the About section's "Import…" is the panel's one import control (R3-33).
+    await expect(panel).not.toContainText(/brief|image/i);
+    await expect(panel.getByText(/import/i)).toHaveCount(1);
+    await expect(panel.getByRole("button", { name: "Import…", exact: true })).toHaveCount(1);
   });
 
   test("F-INPUT-02 every control has an accessible name equal to its label", async ({ page }) => {
     await openStudio(page);
     const panel = inputsPanel(page);
+    for (const name of ["Name", "One line"]) {
+      await expect(panel.getByRole("textbox", { name, exact: true })).toHaveCount(1);
+      await expect(panel.locator("label", { hasText: new RegExp(`^${name}$`) })).toBeVisible();
+    }
+    await expect(panel.getByRole("button", { name: "Import…", exact: true })).toHaveText("Import…");
     for (const slot of SEEDS) {
       await expect(panel.getByRole("textbox", { name: slot, exact: true })).toHaveCount(1);
       await expect(panel.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true })).toHaveCount(1);
@@ -1215,7 +1221,7 @@ test.describe("7.2 The inputs panel", () => {
     await expect(lotId(page)).toHaveText(lotOf(designFor({ ...FRESH, primary: held }, seedOf(2))));
     await expect(button(page, "Lock primary")).toHaveAttribute("aria-pressed", "true");
     await expect(field(page, "Primary")).toHaveValue(
-      seedHex(first(), { ...FRESH, primary: held }, "primary"),
+      seedRowHex(first(), { ...FRESH, primary: held }, "primary"),
     );
   });
 
@@ -1248,7 +1254,10 @@ test.describe("7.2 The inputs panel", () => {
     for (const slot of ["primary", "secondary", "accent"] as const) {
       const name = `${slot[0]?.toUpperCase()}${slot.slice(1)}`;
       await expect(field(page, name)).toHaveValue("");
-      await expect(field(page, name)).toHaveAttribute("placeholder", seedHex(first(), FRESH, slot));
+      await expect(field(page, name)).toHaveAttribute(
+        "placeholder",
+        seedRowHex(first(), FRESH, slot),
+      );
       await expect(
         page.locator(`[data-seed-row="${slot}"]`).getByText("Auto", { exact: true }),
       ).toBeVisible();
@@ -1271,7 +1280,7 @@ test.describe("7.2 The inputs panel", () => {
     await expect(field(page, "Accent")).toHaveValue(accent);
     await expect(field(page, "Primary")).not.toHaveAttribute(
       "placeholder",
-      seedHex(first(), FRESH, "primary"),
+      seedRowHex(first(), FRESH, "primary"),
     );
   });
 
@@ -1549,6 +1558,9 @@ test.describe("7.3 Keyboard", () => {
   /** The Tab stops of the inputs panel, in the order of section 7.2. */
   function panelStops(page: Page) {
     return [
+      field(page, "Name"),
+      field(page, "One line"),
+      button(page, "Import…"),
       ...(["Primary", "Secondary", "Accent"] as const).flatMap((slot) => [
         field(page, slot),
         page.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true }),
@@ -1584,6 +1596,7 @@ test.describe("7.3 Keyboard", () => {
       button(page, "Undo"),
       button(page, "Redo"),
       button(page, "Copy link"),
+      button(page, "Export"),
     ];
   }
 
@@ -1645,6 +1658,7 @@ test.describe("7.3 Keyboard", () => {
       button(page, "Undo"),
       button(page, "Redo"),
       button(page, "Copy link"),
+      button(page, "Export"),
       canvasRegion(page),
     ];
     await focusBody(page);
@@ -2025,27 +2039,27 @@ test.describe("7.9 Accessibility", () => {
     });
   }
 
-  /** The WCAG contrast of two `rgb()` colors. */
-  function contrast(a: string, b: string): number {
-    const luminance = (color: string) => {
-      const [r = 0, g = 0, bl = 0] = (color.match(/[\d.]+/g) ?? []).map(Number);
-      const [lr, lg, lb] = [r, g, bl].map((v) => {
-        const c = v / 255;
-        return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-      }) as [number, number, number];
-      return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
-    };
-    const [x, y] = [luminance(a), luminance(b)].sort((p, q) => q - p) as [number, number];
-    return (x + 0.05) / (y + 0.05);
+  /** The WCAG contrast of two computed colors, resolved in the page and measured by the engine. */
+  async function contrast(page: Page, a: string, b: string): Promise<number> {
+    const [x, y] = await resolveColors(page, [a, b]);
+    if (x === null || y === null) throw new Error(`contrast: unreadable ${a} or ${b}`);
+    const rgb = (color: readonly number[]) =>
+      [(color[0] ?? 0) / 255, (color[1] ?? 0) / 255, (color[2] ?? 0) / 255] as const;
+    return wcagRatio(rgb(x), rgb(y));
   }
 
   test("F-A11Y-09 every form control's edge meets 3:1 against what it sits on", async ({
     page,
   }) => {
-    const weak = async () =>
-      (await controlEdges(page))
-        .map((item) => ({ ...item, ratio: contrast(item.edge, item.backdrop) }))
-        .filter((item) => item.width <= 0 || item.ratio < 3);
+    const weak = async () => {
+      const rated = await Promise.all(
+        (await controlEdges(page)).map(async (item) => ({
+          ...item,
+          ratio: await contrast(page, item.edge, item.backdrop),
+        })),
+      );
+      return rated.filter((item) => item.width <= 0 || item.ratio < 3);
+    };
     await openStudio(page);
     const wide = await controlEdges(page);
     // Three seed rows of three, four selects, nine groups and the switch's track.

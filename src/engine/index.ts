@@ -31,7 +31,7 @@ export {
   SCALE_MODES,
 } from "./color/palette";
 export { parseColor } from "./color/parse";
-export { ROLE_NAMES, type RoleName } from "./color/roles";
+export { onFill, ROLE_NAMES, type RoleName } from "./color/roles";
 export { STEPS, type Step, UnsatisfiableTargetError } from "./color/scale";
 export type { Gamut, Hex, Mode, Oklch, Rgb } from "./color/types";
 export {
@@ -54,6 +54,9 @@ export { ENGINE_VERSION, generateSystem } from "./generate";
 export { lintSpec } from "./lint";
 export type { Finding, LintedSpec, LintOptions, RuleId, Severity } from "./lint/types";
 export { RULE_IDS } from "./lint/types";
+export type { ContrastCheck, ContrastKind, Measurements, Summary } from "./measure";
+export { CONTRAST_CHECKS, measureSpec, summarize } from "./measure";
+export { freshParams, paramsOfSpec, resolveParams } from "./params";
 export {
   applyPreset,
   type Density,
@@ -62,7 +65,9 @@ export {
   type Preset,
   type PresetId,
   type PresetParams,
+  presetOf,
 } from "./presets";
+export { round6, roundHue } from "./round";
 export { type ShadowLayer, shadows } from "./tokens/depth";
 export { type MotionTokens, motionTokens } from "./tokens/motion";
 export {
@@ -73,6 +78,7 @@ export {
   radiusScale,
 } from "./tokens/shape";
 export { spaceScale } from "./tokens/space";
+export { springCurve } from "./tokens/spring";
 export {
   TYPE_CONTEXTS,
   type TypeContext,
@@ -80,3 +86,4 @@ export {
   type TypeStepName,
   typeScale,
 } from "./tokens/type";
+export { type TypeWeights, typeWeights } from "./tokens/weights";

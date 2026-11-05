@@ -1,0 +1,536 @@
+{
+  "SPEC": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.3200019731546366,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3192877958831597,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "default": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.3200019731546366,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3192877958831597,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "minimal-swiss": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.320083534140116,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3192803748342816,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "editorial": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.317431837925265,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3203831815515157,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "neo-brutalism": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.320083534140116,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3192803748342816,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "glass": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.3217133196264206,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.32090834073337,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "dark-dev-tool": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.3200019731546366,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3192877958831597,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "bento": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.3200019731546366,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3192877958831597,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "aurora": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.3217133196264206,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.32090834073337,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "retro-futurism": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.3217133196264206,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.32090834073337,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "tactile": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.317431837925265,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3203831815515157,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "maximalism": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.320083534140116,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3192803748342816,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "light",
+      "subject": "accent-600",
+      "measured": 0.565926,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "light",
+      "subject": "accent-700",
+      "measured": 0.462986,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "light",
+      "subject": "accent-800",
+      "measured": 0.392517,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "light",
+      "subject": "accent-900",
+      "measured": 0.324134,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "light",
+      "subject": "accent-950",
+      "measured": 0.261168,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "accent-100",
+      "measured": 0.24224,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "accent-200",
+      "measured": 0.286862,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "accent-300",
+      "measured": 0.347377,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "accent-400",
+      "measured": 0.417018,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "accent-500",
+      "measured": 0.490882,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    },
+    {
+      "id": "P1",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "accent-600",
+      "measured": 0.58691,
+      "threshold": 0.65,
+      "source": "Palmer and Schloss, via Material Color Utilities"
+    }
+  ],
+  "organic": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.317431837925265,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3203831815515157,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "dithering-pixel": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.320083534140116,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3192803748342816,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ],
+  "m3-expressive": [
+    {
+      "id": "T2",
+      "severity": "warn",
+      "mode": "light",
+      "subject": "primary",
+      "measured": 289,
+      "threshold": 300,
+      "source": "research D4: purple on white"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "light",
+      "subject": "border/background",
+      "measured": 1.3200019731546366,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    },
+    {
+      "id": "N3",
+      "severity": "info",
+      "mode": "dark",
+      "subject": "border/background",
+      "measured": 1.3192877958831597,
+      "threshold": 3,
+      "source": "WCAG 2.2 SC 1.4.11 (decorative dividers are exempt)"
+    }
+  ]
+}

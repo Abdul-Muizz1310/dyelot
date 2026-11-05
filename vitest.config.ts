@@ -8,6 +8,10 @@ const PURE_CORE_TESTS = [
   "tests/unit/engine/**/*.test.{ts,tsx}",
   "tests/unit/spec/**/*.test.{ts,tsx}",
   "tests/unit/theme/**/*.test.{ts,tsx}",
+  // The export layer (M3) is pure too: its sha256 is checked against node:crypto in Node.
+  "tests/unit/export/**/*.test.{ts,tsx}",
+  // The import layer (M3) is pure too.
+  "tests/unit/import/**/*.test.{ts,tsx}",
   // The build scripts and the gate guard run under Node and spawn it; they have no DOM.
   "tests/unit/scripts/**/*.test.{ts,tsx}",
 ];
@@ -32,9 +36,14 @@ const SLOW_CORE_TESTS = [
   "tests/unit/engine/lint/t3-defaults-2.test.ts", // 13.9 s: C-TASTE-13
   "tests/unit/engine/generate-idempotence.test.ts", // 13.7 s: C-GEN-13
   "tests/unit/engine/lint/t3-defaults-3.test.ts", // 12.1 s: C-TASTE-13
+  "tests/unit/export/dtcg-property.test.ts", // 195 s: C-DTCG-14, 1,000 generateSystem runs
   "tests/unit/engine/color/chart.test.ts", // 12.1 s: C-CHART-03
   "tests/unit/engine/lint/t3-defaults-1.test.ts", // 12.1 s: C-TASTE-13
   "tests/unit/engine/presets-lint-5.test.ts", // 11.7 s
+  "tests/unit/engine/presets-match-change.test.ts", // 40.6 s: C-PMATCH-03
+  "tests/unit/export/prompt.test.ts", // 22 s: C-PRM-02 (200 runs of generateSystem and themeCss)
+  "tests/unit/import/fuzz-md.test.ts", // 11.5 s: C-IMP-03, 300 runs of importDesignMd
+  "tests/unit/export/zip.test.ts", // 11.2 s: C-ZIP-03, one zip per time zone
 ];
 
 /** The slow set's files that run in jsdom, beside the studio's other tests. */
@@ -57,6 +66,17 @@ export const SLOW_TESTS: readonly string[] = [...SLOW_CORE_TESTS, ...SLOW_WEB_TE
 export const SCAN_TESTS: readonly string[] = [
   "tests/unit/features/studio/fix-scan-srgb.test.ts", // 29.7 s
   "tests/unit/features/studio/fix-scan-p3.test.ts", // 30.2 s
+  // R3-41 (Task 3.0): the 3,808 designs of the five grids, measured against the required checks.
+  "tests/unit/engine/measure-grid-1.test.ts", // 38.5 s
+  "tests/unit/engine/measure-grid-2.test.ts", // 40.2 s
+  "tests/unit/engine/measure-grid-3.test.ts", // 46.6 s
+  "tests/unit/engine/measure-grid-4.test.ts", // 47.7 s
+  "tests/unit/engine/measure-grid-5.test.ts", // 46.0 s
+  "tests/unit/engine/measure-grid-6.test.ts", // 52.9 s
+  "tests/unit/engine/measure-grid-7.test.ts", // 48.3 s
+  "tests/unit/engine/measure-grid-8.test.ts", // 39.1 s
+  "tests/unit/engine/measure-grid-9.test.ts", // 54.5 s
+  "tests/unit/engine/measure-grid-10.test.ts", // 21.1 s
 ];
 
 /** The floor of the pure core, held by every pure helper too (spec R2-22). */
@@ -76,6 +96,7 @@ const STUDIO_HELPERS = [
   "view",
   "shortcuts",
   "inputs",
+  "rebuild",
 ].map((name) => `src/features/studio/${name}.ts`);
 
 /** The preview's pure helpers (Tasks 2.7 to 2.10a), held to `PURE_FLOORS` the same way. */
@@ -89,6 +110,12 @@ const PREVIEW_HELPERS = [
   "bars",
   "format",
 ].map((name) => `src/features/preview/${name}.ts`);
+
+/** The export dialog's pure helpers (Task 3.14), held to `PURE_FLOORS` the same way. */
+const EXPORT_HELPERS = ["files"].map((name) => `src/features/export/${name}.ts`);
+
+/** The import dialog's pure helpers (Task 3.16), held to `PURE_FLOORS` the same way. */
+const IMPORT_HELPERS = ["form"].map((name) => `src/features/import/${name}.ts`);
 
 export default defineConfig({
   plugins: [react()],
@@ -113,7 +140,7 @@ export default defineConfig({
           name: "core",
           environment: "node",
           include: PURE_CORE_TESTS,
-          exclude: [...configDefaults.exclude, ...SLOW_CORE_TESTS],
+          exclude: [...configDefaults.exclude, ...SLOW_CORE_TESTS, ...SCAN_TESTS],
         },
       },
       {
@@ -165,12 +192,17 @@ export default defineConfig({
         "src/engine/**",
         "src/spec/**",
         "src/theme/**",
+        // The export and import layers of M3 (pure, held to a floor of their own).
+        "src/export/**",
+        "src/import/**",
         "src/lib/site/**",
         "src/features/fonts/load.ts",
         // The studio's pure helpers (spec R2-22). The store, the worker shell and the UI are
         // covered by the flows; inspect.ts holds the inspector's helpers (Task 2.10b).
         ...STUDIO_HELPERS,
         ...PREVIEW_HELPERS,
+        ...EXPORT_HELPERS,
+        ...IMPORT_HELPERS,
       ],
       thresholds: {
         lines: 80,
@@ -181,9 +213,14 @@ export default defineConfig({
         "src/engine/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/spec/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/theme/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
+        "src/export/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
+        // The import layer (M3): 90 lines, statements and functions, 85 branches.
+        "src/import/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
         "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
         ...Object.fromEntries(
-          [...STUDIO_HELPERS, ...PREVIEW_HELPERS].map((file) => [file, PURE_FLOORS]),
+          [...STUDIO_HELPERS, ...PREVIEW_HELPERS, ...EXPORT_HELPERS, ...IMPORT_HELPERS].map(
+            (file) => [file, PURE_FLOORS],
+          ),
         ),
       },
     },

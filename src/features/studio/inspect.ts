@@ -22,8 +22,15 @@ import {
   wcagRatio,
 } from "@/engine";
 import type { DesignSpec } from "@/spec";
-import { assertOneOf, assertRecord, assertString, describeType, isOneOf } from "./guards";
-import type { Highlight } from "./view";
+import {
+  assertFinite,
+  assertOneOf,
+  assertRecord,
+  assertString,
+  describeType,
+  isOneOf,
+} from "./guards";
+import { type Highlight, MODES, VISIONS } from "./view";
 
 // The inspector's pure helpers (spec sections 5.8 and 6.9): the role table, the pass levels, the
 // signed advisory score, the findings' groups, titles, keys and measures, what "show me" highlights,
@@ -31,9 +38,9 @@ import type { Highlight } from "./view";
 // render what these return.
 
 /** A text pair's WCAG level. */
-export type PassLevel = "AAA" | "AA" | "AA large" | "fail";
+type PassLevel = "AAA" | "AA" | "AA large" | "fail";
 /** A non-text pair's WCAG 1.4.11 level. */
-export type UiLevel = "pass 3:1" | "fail";
+type UiLevel = "pass 3:1" | "fail";
 /** One mode of a role pair: its hexes, the WCAG ratio and level, and the signed advisory score. */
 export type ModeCell = {
   readonly foreground: Hex;
@@ -53,13 +60,12 @@ export type RoleRow = {
   readonly dark: ModeCell;
 };
 /** A color the Names section names. */
-export type NameTarget = { readonly label: string; readonly hex: Hex; readonly color: Oklch };
+type NameTarget = { readonly label: string; readonly hex: Hex; readonly color: Oklch };
 /** What a fix button asked for: the finding it fixes and the level it raised the design to. */
 export type FixRequest = { readonly key: string; readonly level: ContrastLevel };
 
 type Pair = readonly [foreground: RoleName, fill: RoleName];
 
-const MODES: readonly Mode[] = ["light", "dark"];
 const SEVERITIES = ["error", "warn", "info"] as const;
 const HEX = /^#[0-9a-f]{6}$/;
 /** U+2212, the minus sign, for a negative number on screen. */
@@ -109,7 +115,6 @@ const SETS: Readonly<Record<string, readonly RoleName[]>> = Object.freeze({
   status: ["success", "warning", "destructive", "info"],
   chart: CHARTS,
 });
-const VIEWS: readonly ("none" | Deficiency)[] = ["none", "protan", "deutan", "tritan"];
 
 /** The plain-language title of each rule (C-INSPECT-14). */
 const TITLES: Readonly<Record<RuleId, string>> = Object.freeze({
@@ -145,14 +150,6 @@ const RATIO_RULES: ReadonlySet<RuleId> = new Set(["C1", "C2", "C5", "N1", "N2", 
 const MODELESS: ReadonlySet<RuleId> = new Set(["T1", "T4"]);
 
 const EMPTY: Highlight = Object.freeze({ roles: Object.freeze([]), cells: Object.freeze([]) });
-
-/** A finite number, or a TypeError (another type) or RangeError (NaN, ±Infinity) naming `name`. */
-function assertFiniteNumber(value: unknown, name: string): asserts value is number {
-  if (typeof value !== "number") {
-    throw new TypeError(`${name} must be a number, got ${describeType(value)}`);
-  }
-  if (!Number.isFinite(value)) throw new RangeError(`${name} must be finite, got ${value}`);
-}
 
 /** The finding's id, checked: a record with a rule id. */
 function checkFinding(finding: Finding, caller: string): void {
@@ -224,7 +221,7 @@ export function roleRows(spec: DesignSpec): readonly RoleRow[] {
  * (WCAG 1.4.3, 1.4.6); for a non-text part 3 passes (WCAG 1.4.11). Below that it fails.
  */
 export function passLevel(ratio: number, kind: "text" | "ui"): PassLevel | UiLevel {
-  assertFiniteNumber(ratio, "passLevel: ratio");
+  assertFinite(ratio, "passLevel: ratio");
   if (ratio < 1 || ratio > 21) {
     throw new RangeError(`passLevel: ratio must be within 1 to 21, got ${ratio}`);
   }
@@ -237,8 +234,8 @@ export function passLevel(ratio: number, kind: "text" | "ui"): PassLevel | UiLev
 
 /** The advisory score rounded, with its sign: "+76", "−33" (U+2212), and "0" with no sign. */
 export function formatLc(lc: number): string {
-  assertFiniteNumber(lc, "formatLc: lc");
-  const rounded = Math.round(lc);
+  assertFinite(lc, "formatLc: lc");
+  const rounded = Math.sign(lc) * Math.round(Math.abs(lc));
   if (rounded === 0) return "0";
   return rounded > 0 ? `+${rounded}` : `${MINUS}${-rounded}`;
 }
@@ -334,7 +331,7 @@ export function showMe(finding: Finding): Highlight {
     case "S1": {
       const [set, view, ...rest] = subject.split("/");
       const members = set === undefined ? undefined : SETS[set];
-      const known = members !== undefined && isOneOf(view, VIEWS) && rest.length === 0;
+      const known = members !== undefined && isOneOf(view, VISIONS) && rest.length === 0;
       return known ? roles(members) : EMPTY;
     }
     case "S2":
@@ -391,7 +388,7 @@ export function showMeVision(finding: Finding): "none" | Deficiency | null {
   if (finding.id !== "S1") return null;
   const [set, view, ...rest] = finding.subject.split("/");
   if (set === undefined || SETS[set] === undefined || rest.length > 0) return null;
-  return isOneOf(view, VIEWS) ? view : null;
+  return isOneOf(view, VISIONS) ? view : null;
 }
 
 /** A number to at most three decimals, trailing zeros dropped, with U+2212 for a minus. */
@@ -404,8 +401,8 @@ function decimals(value: number): string {
 export function findingMeasure(finding: Finding): string {
   checkFinding(finding, "findingMeasure");
   const { id, measured, threshold } = finding;
-  assertFiniteNumber(measured, "findingMeasure: finding.measured");
-  assertFiniteNumber(threshold, "findingMeasure: finding.threshold");
+  assertFinite(measured, "findingMeasure: finding.measured");
+  assertFinite(threshold, "findingMeasure: finding.threshold");
   if (RATIO_RULES.has(id)) return `${measured.toFixed(2)}:1 against ${decimals(threshold)}:1`;
   switch (id) {
     case "C4":

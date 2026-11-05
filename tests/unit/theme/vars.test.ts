@@ -16,6 +16,7 @@ import {
   STEPS,
   simulate,
   toHex,
+  typeWeights,
 } from "@/engine";
 import type { DesignSpec } from "@/spec";
 import { densityVars, feelSpring, themeVars } from "@/theme/vars";
@@ -70,7 +71,7 @@ const DURATIONS = ["instant", "fast", "quick", "base", "slow", "slower", "slowes
 const EASINGS = ["standard", "decelerate", "accelerate", "emphasized"] as const;
 const HEX = /^#[0-9a-f]{6}$/;
 
-/** The 204 names of section 5.6, in order. */
+/** The 207 names of section 5.6 and R3-06, in order. */
 const NAMES: readonly string[] = [
   ...ROLE_NAMES.map((role) => `--${role}`),
   ...PALETTE_NAMES.flatMap((palette) => STEPS.map((step) => `--${palette}-${step}`)),
@@ -78,6 +79,9 @@ const NAMES: readonly string[] = [
   "--font-display",
   "--font-body",
   "--font-mono",
+  "--weight-heading",
+  "--weight-label",
+  "--weight-body",
   ...UNITS.map((unit) => `--space-${unit}`),
   ...RADII.map((name) => `--radius-${name}`),
   "--radius-full",
@@ -97,10 +101,10 @@ function clone(value: DesignSpec): DesignSpec {
 const SHADOW =
   /^0 \d+(\.\d+)?px \d+(\.\d+)?px 0 oklch\(\d\.\d{4} \d\.\d{4} (\d+\.\d{2}|none) \/ \d(\.\d+)?\), 0 \d+(\.\d+)?px \d+(\.\d+)?px 0 oklch\(\d\.\d{4} \d\.\d{4} (\d+\.\d{2}|none) \/ \d(\.\d+)?\)$/;
 
-describe("C-THEME-01 the 204 properties", () => {
+describe("C-THEME-01 the 207 properties", () => {
   it.each(["light", "dark"] as const)("lists the names of section 5.6 in order for %s", (mode) => {
     const vars = themeVars(SOFT(), mode);
-    expect(NAMES).toHaveLength(204);
+    expect(NAMES).toHaveLength(207);
     expect(Object.keys(vars)).toEqual(NAMES);
   });
 });
@@ -189,6 +193,22 @@ describe("C-THEME-06 and C-THEME-28 the fluid display step", () => {
     expect(clamp).toContain("vw");
     expect(value).toBe(clamp.replaceAll("vw", "cqi"));
     expect(value).not.toContain("vw");
+  });
+});
+
+describe("R3-06 type weights", () => {
+  it("writes the integers of typeWeights, whatever the mode or vision", () => {
+    const s = SOFT();
+    const { heading, label, body } = typeWeights(s);
+    for (const vars of [
+      themeVars(s, "light"),
+      themeVars(s, "dark"),
+      themeVars(s, "light", { vision: "protan" }),
+    ]) {
+      expect(vars["--weight-heading"]).toBe(String(heading));
+      expect(vars["--weight-label"]).toBe(String(label));
+      expect(vars["--weight-body"]).toBe(String(body));
+    }
   });
 });
 
@@ -363,8 +383,8 @@ describe("C-THEME-21 and C-THEME-22 frozen, pure and distinct", () => {
     expect(themeVars(s, "light")).toEqual(first);
   });
 
-  it("has 204 distinct names", () => {
-    expect(new Set(Object.keys(themeVars(SOFT(), "light"))).size).toBe(204);
+  it("has 207 distinct names", () => {
+    expect(new Set(Object.keys(themeVars(SOFT(), "light"))).size).toBe(207);
   });
 });
 

@@ -16,7 +16,11 @@
 /* The fit box's edge is chrome: studio.css draws it. */
 .canvas-fit {
   margin-inline: auto;
+  /* "Show me" outlines a part 2 px wide, 2 px out, and the canvas region grows the outline as the
+   * frame scales down (`--show-me-scale`). The margin keeps a part at this edge whole down to a fit
+   * of one third; `overflow-clip-margin` takes no calc(), so it is a plain length. */
   overflow: clip;
+  overflow-clip-margin: 12px;
   border-radius: 12px;
 }
 
@@ -41,7 +45,7 @@
 }
 
 /* The frame answers container queries and the `cqi` of the fluid display size (R2-12). */
-[data-frame] {
+[data-canvas][data-frame] {
   container: frame / inline-size;
 }
 

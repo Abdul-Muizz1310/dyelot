@@ -4,7 +4,8 @@ import "./surfaces.css";
 import "./sheet.css";
 import { useReducedMotionConfig } from "motion/react";
 import { type ReactNode, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
-import { containKeys, tabStops } from "./contain";
+import { tabStops } from "@/features/a11y/tabStops";
+import { containKeys } from "./contain";
 
 // The kit's bottom sheet (spec section 7.7, F-TPL-34): a contained `dialog` at the bottom of the
 // screen that holds it, over a scrim, never `showModal()` or the top layer. The caller makes the rest

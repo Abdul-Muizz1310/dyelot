@@ -19,9 +19,10 @@ export const STORED_GAMUT_TOLERANCE = 2e-4;
  */
 export const CHROMA_CEILING = 0.5;
 
-/** The type of `value` as an error message names it: `null` is not "object". */
+/** The type of `value` as an error message names it: `null` and an array are not "object". */
 export function describeType(value: unknown): string {
-  return value === null ? "null" : typeof value;
+  if (value === null) return "null";
+  return Array.isArray(value) ? "array" : typeof value;
 }
 
 /** A number that is not finite is outside every domain here (spec I-03). */
@@ -56,7 +57,7 @@ export function assertOklch(color: Oklch, name: string): void {
 
 /** The two gamuts and the two modes, as lists for `assertOneOf`. */
 export const GAMUTS = Object.freeze(["srgb", "p3"] as const);
-export const MODES = ["light", "dark"] as const;
+export const MODES = Object.freeze(["light", "dark"] as const);
 
 /** A gamut is the string "srgb" or "p3": another type is a TypeError, another string a RangeError. */
 export function assertGamut(gamut: Gamut, name: string): void {

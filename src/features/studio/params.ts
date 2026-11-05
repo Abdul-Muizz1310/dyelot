@@ -14,104 +14,31 @@ import {
   normalizeSeed,
   type Oklch,
   PAIRING_IDS,
-  PAIRINGS,
-  type Pairing,
-  PRESETS,
+  paramsOfSpec,
   RADIUS_SET_NAMES,
+  resolveParams,
   rgbToOklch,
   SCALE_MODES,
   TYPE_CONTEXTS,
 } from "@/engine";
-import type { DesignSpec } from "@/spec";
-import { assertOneOf, assertRecord, assertString, describeType, isOneOf, isRecord } from "./guards";
+import { type DesignSpec, DesignSpecSchema } from "@/spec";
+import { assertOneOf, assertRecord, describeType, isOneOf, isRecord } from "./guards";
 
-// The studio's parameters (spec section 5.7): the fresh design, the automatic pairing (R2-05), the
-// parameters a spec records (`paramsOfSpec`), the check a draft's parameters pass (R2-14 item 2),
+// The studio's parameters (spec section 5.7): the check a draft's parameters pass (R2-14 item 2),
 // the seed a lock takes (R2-17) and the fields a preset owns (R2-28). Pure.
 
+// `freshParams`, `resolveParams` and `paramsOfSpec` moved to the engine (R3-03); the names stay here.
+export { freshParams, paramsOfSpec, resolveParams } from "@/engine";
+
 /** Every field optional, at every level (spec section 5.7). */
-export type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
+type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 /** A change of parameters: `type` merges by key, and a key set to undefined is removed (`pairing: undefined` means auto). */
-export type ParamsPatch = DeepPartial<DirectionParams>;
-
-/**
- * The name `generateSystem` writes when `params.name` is absent. `paramsOfSpec` leaves it out, so
- * a design made without a name reads back without one; a test pins it to the generator's output.
- */
-const UNNAMED = "untitled";
-
-/** The gamut of a fresh design; the `default` preset does not set one. */
-const FRESH_GAMUT = "srgb";
-
-/** The `default` preset's parameters with sRGB and no pairing, which means auto (R2-05). */
-export function freshParams(): DirectionParams {
-  const { pairing: _auto, type, ...rest } = PRESETS.default.params;
-  return { ...rest, type: { context: type.context }, gamut: FRESH_GAMUT };
-}
-
-/** The parameters with an absent pairing filled by `choosePairing(seed)` (R2-05). */
-export function resolveParams(params: DirectionParams, seed: string): DirectionParams {
-  assertRecord(params, "resolveParams: params");
-  assertString(seed, "resolveParams: seed");
-  return params.pairing === undefined ? { ...params, pairing: choosePairing(seed) } : params;
-}
-
-/** The pairing whose three families are these, if one is. */
-function pairingWith(families: DesignSpec["type"]["families"]): Pairing | undefined {
-  return PAIRINGS.find(
-    (item) =>
-      item.display === families.display &&
-      item.body === families.body &&
-      item.mono === families.mono,
-  );
-}
-
-/** A spec's sections that `paramsOfSpec` reads, checked before they are read (R-05). */
-function checkSpec(spec: DesignSpec, caller: string): void {
-  assertRecord(spec, `${caller}: spec`);
-  const sections = {
-    meta: spec.meta,
-    color: spec.color,
-    type: spec.type,
-    shape: spec.shape,
-    depth: spec.depth,
-    motion: spec.motion,
-  };
-  for (const [key, value] of Object.entries(sections))
-    assertRecord(value, `${caller}: spec.${key}`);
-  assertRecord(spec.color.params, `${caller}: spec.color.params`);
-  assertRecord(spec.type.families, `${caller}: spec.type.families`);
-  assertString(spec.meta.seed, `${caller}: spec.meta.seed`);
-}
-
-/**
- * The parameters a spec records (section 5.7): `color.params`, the type context and ratio, the
- * radius set, the depth style, the motion feel and the name (left out when it is the generator's
- * default), and the pairing whose families equal `type.families`. That pairing stays absent (auto)
- * when it is the one `choosePairing(meta.seed)` picks (R2-05). Families that match no pairing
- * leave `pairing` absent and set `customFonts` (R2-14 item 4).
- */
-export function paramsOfSpec(spec: DesignSpec): { params: DirectionParams; customFonts: boolean } {
-  checkSpec(spec, "paramsOfSpec");
-  const { primary, secondary, accent, ...choices } = spec.color.params;
-  const { context, ratio, families } = spec.type;
-  const match = pairingWith(families);
-  const explicit = match !== undefined && match.id !== choosePairing(spec.meta.seed);
-  const params: DirectionParams = {
-    ...(primary === undefined ? {} : { primary }),
-    ...(secondary === undefined ? {} : { secondary }),
-    ...(accent === undefined ? {} : { accent }),
-    ...choices,
-    type: ratio === undefined ? { context } : { context, ratio },
-    radius: spec.shape.radiusSet,
-    depth: spec.depth.style,
-    motion: spec.motion.feel,
-    ...(spec.meta.name === UNNAMED ? {} : { name: spec.meta.name }),
-    ...(explicit ? { pairing: match.id } : {}),
-  };
-  return { params, customFonts: match === undefined };
-}
+export type ParamsPatch = DeepPartial<Omit<DirectionParams, "direction" | "rules">> & {
+  /** Like `name`: a value sets the field, `undefined` removes it (R3-03). */
+  readonly direction?: DirectionParams["direction"] | undefined;
+  readonly rules?: DirectionParams["rules"] | undefined;
+};
 
 /**
  * The keys of `DirectionParams`: the one list that `parseParams` and `mergeParams` (the store's
@@ -131,6 +58,9 @@ export const DIRECTION_PARAM_KEYS: readonly (keyof DirectionParams)[] = Object.f
   "motion",
   "pairing",
   "name",
+  "oneLiner",
+  "direction",
+  "rules",
 ]);
 
 const PARAM_KEYS: ReadonlySet<string> = new Set(DIRECTION_PARAM_KEYS);
@@ -172,6 +102,34 @@ function parseType(value: unknown): DirectionParams["type"] | null {
   return { context, ratio };
 }
 
+const SPEC_SHAPE = DesignSpecSchema.shape;
+
+/**
+ * Rules with no entry in either list are no rules (R3-03): `paramsOfSpec` leaves them out, so a
+ * draft or a patch that holds them must too, or the params would never match their own spec.
+ */
+function isEmptyRules(rules: unknown): boolean {
+  return (
+    isRecord(rules) &&
+    Array.isArray(rules.do) &&
+    Array.isArray(rules.dont) &&
+    rules.do.length === 0 &&
+    rules.dont.length === 0
+  );
+}
+
+/**
+ * Whether the text parameters stored in a draft fit R3-01's bounds, the very schema a spec of
+ * theirs would pass: `oneLiner`, `direction` and `rules`, each absent or valid.
+ */
+function textFieldsFit(oneLiner: unknown, direction: unknown, rules: unknown): boolean {
+  return (
+    (oneLiner === undefined || SPEC_SHAPE.meta.shape.oneLiner.safeParse(oneLiner).success) &&
+    (direction === undefined || SPEC_SHAPE.direction.safeParse(direction).success) &&
+    (rules === undefined || SPEC_SHAPE.rules.safeParse(rules).success)
+  );
+}
+
 /**
  * Stored parameters, parsed (R2-14 item 2): every enum in its set, every seed and ratio in its
  * domain, a known pairing id, a non-empty name, and no other key. Anything else gives null. The
@@ -180,7 +138,7 @@ function parseType(value: unknown): DirectionParams["type"] | null {
 export function parseParams(value: unknown): DirectionParams | null {
   if (!isRecord(value) || !hasOnly(value, PARAM_KEYS)) return null;
   const { harmony, chroma, neutralTint, gamut, scaleMode, contrastLevel } = value;
-  const { radius, depth, motion, pairing, name } = value;
+  const { radius, depth, motion, pairing, name, oneLiner, direction, rules } = value;
   if (
     !isOneOf(harmony, HARMONIES) ||
     !isOneOf(chroma, CHROMA_LEVELS) ||
@@ -196,6 +154,7 @@ export function parseParams(value: unknown): DirectionParams | null {
   }
   if (pairing !== undefined && !isOneOf(pairing, PAIRING_IDS)) return null;
   if (name !== undefined && (typeof name !== "string" || name.length === 0)) return null;
+  if (!textFieldsFit(oneLiner, direction, rules)) return null;
   const type = parseType(value.type);
   if (type === null) return null;
   const seeds: Partial<Record<Lockable, Oklch>> = {};
@@ -219,12 +178,17 @@ export function parseParams(value: unknown): DirectionParams | null {
     motion,
     ...(pairing === undefined ? {} : { pairing }),
     ...(name === undefined ? {} : { name }),
+    ...(oneLiner === undefined ? {} : { oneLiner: oneLiner as string }),
+    ...(direction === undefined ? {} : { direction: direction as DirectionParams["direction"] }),
+    ...(rules === undefined || isEmptyRules(rules)
+      ? {}
+      : { rules: rules as DirectionParams["rules"] }),
   };
 }
 
 /** JSON with sorted keys and undefined left out: equal text means equal plain data. */
 function stableJson(value: unknown): string {
-  // Parameters hold no arrays; JSON.stringify writes any other value deterministically.
+  // Arrays (the text lists) hold strings only; JSON.stringify writes them deterministically.
   if (isRecord(value)) {
     const members = Object.keys(value)
       .filter((key) => value[key] !== undefined)
@@ -247,12 +211,15 @@ export function sameParams(a: DirectionParams, b: DirectionParams): boolean {
  */
 export function paramsMatchSpec(params: DirectionParams, spec: DesignSpec): boolean {
   assertRecord(params, "paramsMatchSpec: params");
-  checkSpec(spec, "paramsMatchSpec");
+  assertRecord(spec, "paramsMatchSpec: spec");
   const { pairing: _ours, ...rest } = params;
-  const { pairing: _theirs, ...expected } = paramsOfSpec(spec).params;
-  if (stableJson(rest) !== stableJson(expected)) return false;
-  const resolved = resolveParams(params, spec.meta.seed).pairing;
-  return resolved !== undefined && pairingWith(spec.type.families)?.id === resolved;
+  const { params: recorded, customFonts } = paramsOfSpec(spec);
+  const { pairing: explicit, ...expected } = recorded;
+  if (customFonts || stableJson(rest) !== stableJson(expected)) return false;
+  // The spec's families are a pairing: the explicit one, or else the pick for its seed.
+  return (
+    resolveParams(params, spec.meta.seed).pairing === (explicit ?? choosePairing(spec.meta.seed))
+  );
 }
 
 /**
@@ -346,7 +313,18 @@ export function mergeParams(
       throw new RangeError(`${caller}: patch.${key} is not a direction parameter`);
     }
   }
-  const { primary, secondary, accent, pairing, name, type, ...choices } = patch;
+  const {
+    primary,
+    secondary,
+    accent,
+    pairing,
+    name,
+    oneLiner,
+    direction,
+    rules,
+    type,
+    ...choices
+  } = patch;
   for (const [key, value] of Object.entries(choices)) {
     if (value === undefined) throw new TypeError(`${caller}: patch.${key} cannot be removed`);
   }
@@ -371,9 +349,16 @@ export function mergeParams(
     const { pairing: _old, ...rest } = next;
     next = pairing === undefined ? rest : { ...rest, pairing };
   }
-  if (Object.hasOwn(patch, "name")) {
-    const { name: _old, ...rest } = next;
-    next = name === undefined ? rest : { ...rest, name };
+  for (const [key, value] of [
+    ["name", name],
+    ["oneLiner", oneLiner],
+    ["direction", direction],
+    ["rules", rules],
+  ] as const) {
+    if (!Object.hasOwn(patch, key)) continue;
+    const { [key]: _old, ...rest } = next;
+    const absent = value === undefined || (key === "rules" && isEmptyRules(value));
+    next = absent ? rest : { ...rest, [key]: value };
   }
   return next;
 }

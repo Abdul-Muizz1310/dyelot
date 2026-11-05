@@ -17,8 +17,10 @@ import {
 } from "./inspect";
 import { NamesSection } from "./Names";
 import { PanelSection } from "./PanelSection";
+import { ReceiptSection } from "./ReceiptSection";
 import { RoleTable } from "./RoleTable";
 import { Scales } from "./Scales";
+import { SCROLL_AREA } from "./shortcuts";
 import { type StudioStore, useStudio } from "./store";
 import { useFontFailures } from "./useFontFailures";
 import type { Highlight } from "./view";
@@ -57,6 +59,8 @@ export function Inspector({
   const mode = useStudio(store, (studio) => studio.view.mode);
   const cells = useStudio(store, (studio) => studio.view.highlight?.cells);
   const failed = useStudio(store, (studio) => studio.status.phase === "failed");
+  const provenance = useStudio(store, (studio) => studio.provenance);
+  const rebuilt = useStudio(store, (studio) => studio.outcome);
   const findings = useMemo(() => lintSpec(spec), [spec]);
   const rows = useMemo(() => roleRows(spec), [spec]);
   const failures = useFontFailures(spec.type.families);
@@ -126,11 +130,16 @@ export function Inspector({
     store.getState().setParams(patch);
   }
 
+  // Fixable (R3-42): a loaded design with a required-check error whose rebuild passes.
+  const fixable =
+    provenance === "loaded" &&
+    rebuilt === "passes" &&
+    findings.some((finding) => finding.severity === "error");
   const notes = preset === null ? null : presetNotes(PRESETS[preset]);
   return (
     <section
       ref={area}
-      data-scroll-area=""
+      {...{ [SCROLL_AREA]: "" }}
       // biome-ignore lint/a11y/noNoninteractiveTabindex: the inspector's body scrolls, so it takes focus for keyboard scrolling (F-INSP-14, R2-15 item 2).
       tabIndex={0}
       aria-label="Inspector contents"
@@ -158,7 +167,9 @@ export function Inspector({
             outcome={outcome !== null && outcome.spec === spec ? outcome.text : ""}
             onShowMe={toggleShowMe}
             onFix={fix}
+            onRebuild={fixable ? () => store.getState().rebuild() : undefined}
           />
+          <ReceiptSection store={store} />
           {notes !== null && (
             <PanelSection
               title="Preset notes"

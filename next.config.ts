@@ -25,6 +25,13 @@ const policy = [
 const contentSecurityPolicy = `${policy.join("; ")};`;
 
 const nextConfig: NextConfig = {
+  // `import text from "./file.mjs?raw"` is the file's text: the export layer ships the checker script
+  // byte for byte and reads it through `CHECKER_SOURCE` (spec R3-39). Vitest handles `?raw` itself.
+  turbopack: {
+    rules: {
+      "*.mjs": { condition: { query: /[?&]raw(?=&|$)/ }, type: "raw" },
+    },
+  },
   async headers() {
     return [
       {

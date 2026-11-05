@@ -11,10 +11,10 @@ import { type KitState, withRing } from "./states";
 // control's own state (R2-20): typing changes the field and nothing else.
 
 /** What a field says when it is invalid and when it is saved, in its own words (M-3). */
-export type FieldMessages = { readonly invalid: string; readonly success: string };
+type FieldMessages = { readonly invalid: string; readonly success: string };
 
 /** The input types a text field takes (section 7.7): the text-like ones and the date. */
-export type FieldType = "text" | "email" | "password" | "number" | "date";
+type FieldType = "text" | "email" | "password" | "number" | "date";
 
 type FieldProps = {
   label: string;

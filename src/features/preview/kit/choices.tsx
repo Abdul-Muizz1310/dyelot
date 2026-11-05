@@ -39,7 +39,7 @@ export function Checkbox({ label, state }: { label: string; state: KitState }) {
 }
 
 /** The surface a choice sits on: the page, or a popover (a sheet), whose text role it takes. */
-export type ChoiceSurface = "page" | "popover";
+type ChoiceSurface = "page" | "popover";
 
 /** The roles of a choice's label and of its radio, by the surface it sits on. */
 const SURFACE_ROLES: Readonly<Record<ChoiceSurface, { label: string; radio: string }>> = {

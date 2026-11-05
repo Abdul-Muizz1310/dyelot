@@ -1,0 +1,18 @@
+{
+  "$schema": "https://ui.shadcn.com/schema/registry-item.json",
+  "name": "font-fragment-mono",
+  "type": "registry:font",
+  "title": "Fragment Mono",
+  "font": {
+    "family": "Fragment Mono",
+    "provider": "google",
+    "import": "Fragment_Mono",
+    "variable": "--font-mono",
+    "weight": [
+      "400"
+    ],
+    "subsets": [
+      "latin"
+    ]
+  }
+}

@@ -1,7 +1,15 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.4/schema.json",
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-  "files": { "includes": ["src/**/*.{ts,tsx}", "tests/**/*.{ts,tsx}", "*.ts", "scripts/*.mjs"] },
+  "files": {
+    "includes": [
+      "src/**/*.{ts,tsx}",
+      "tests/**/*.{ts,tsx}",
+      "*.ts",
+      "scripts/*.mjs",
+      "src/export/checker/*.mjs"
+    ]
+  },
   "formatter": { "enabled": true, "indentStyle": "space", "indentWidth": 2, "lineWidth": 100 },
   "linter": {
     "enabled": true,
@@ -36,6 +44,10 @@
                   {
                     "group": ["@/engine/**", "@/spec/**", "**/engine/**", "**/spec/**"],
                     "message": "Import the engine from @/engine and the spec from @/spec, never from a file inside them."
+                  },
+                  {
+                    "group": ["@/export/**", "@/import/**", "../**/export/**", "../**/import/**"],
+                    "message": "Load the export and import cores only through import(\"@/export\") or import(\"@/import\"), never from a file inside them."
                   }
                 ]
               }

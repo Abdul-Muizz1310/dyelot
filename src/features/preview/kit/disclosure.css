@@ -23,7 +23,7 @@
   border-radius: var(--radius-md);
   background-color: transparent;
   color: var(--foreground);
-  font-weight: 600;
+  font-weight: min(600, var(--weight-heading));
   text-align: start;
   cursor: pointer;
   transition: background-color var(--duration-fast) var(--ease-standard);

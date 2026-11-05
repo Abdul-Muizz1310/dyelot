@@ -3,7 +3,7 @@
 import "./kitchen-sink.css";
 import { useId, useMemo } from "react";
 import type { Mode } from "@/engine";
-import type { View } from "@/features/studio/view";
+import { MODES, type View } from "@/features/studio/view";
 import type { DesignSpec } from "@/spec";
 import { themeVars } from "@/theme/vars";
 import { type CanvasCopy, COPY } from "../copy";
@@ -19,8 +19,6 @@ import { TypeSteps } from "./sink/TypeSteps";
 // `[data-canvas]` with that mode's variables, holding every role with its hex and measured ratio,
 // every type step, radius, shadow and motion token, and every kit component in every state it
 // supports. Sample content is fictional: a tide-reading app called Saltmarsh.
-
-const MODES: readonly Mode[] = ["light", "dark"];
 
 export function KitchenSink({ spec, view }: { spec: DesignSpec; view: View }) {
   const copy = COPY[view.copy];
