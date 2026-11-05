@@ -4,8 +4,18 @@
 
 export type { AiChange, AiPatch } from "./apply";
 export { rationaleChange, refineChange } from "./apply";
+export { cacheKey } from "./cache-key";
 export type { Tier, TierName } from "./cascade";
 export { cascadePlan, isFreeSlug } from "./cascade";
+export type {
+  ChatPart,
+  ChatRequest,
+  ChatResponse,
+  FailureKind,
+  TierOutcome,
+  Usage,
+} from "./chat";
+export { buildChatRequest, chatMessages, OPENROUTER_ORIGIN, readReply } from "./chat";
 export type { CapCookie } from "./cookie";
 export {
   CAP_COOKIE,

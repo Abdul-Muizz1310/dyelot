@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { FAILURE_KINDS } from "@/ai/chat";
 import type { AiFeature } from "@/ai/features";
 import { ROUTE_CODES, readRouteReply } from "@/ai/route-reply";
 import { BRIEF_OUT, TEXT_SLUGS, VIBE_OUT, VISION_SLUGS } from "./fixtures";
@@ -108,6 +109,21 @@ describe("C-AI-15 readRouteReply reads each row of section 11.1", () => {
         failures: all,
       }),
     ).toEqual({ ok: false, code: "all-tiers-failed", remaining: 0 });
+  });
+
+  it("C-AI-15 reads a failure of each of the six kinds FailureKind lists (R4-11)", () => {
+    for (const kind of FAILURE_KINDS) {
+      const failure = kind === "http" ? { kind, status: 0 } : { kind };
+      expect(
+        readRouteReply("brief", 502, {
+          ok: false,
+          code: "all-tiers-failed",
+          remaining: 2,
+          failures: [{ tier: "primary", slug: TEXT_SLUGS[0], ...failure }],
+        }),
+        kind,
+      ).toEqual({ ok: false, code: "all-tiers-failed", remaining: 2 });
+    }
   });
 });
 

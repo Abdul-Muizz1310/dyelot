@@ -1,0 +1,164 @@
+{
+  "type": "object",
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 40
+    },
+    "oneLiner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 140
+    },
+    "adjectives": {
+      "minItems": 1,
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 24
+      }
+    },
+    "hues": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 359
+        },
+        "secondary": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 359
+        },
+        "accent": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 359
+        }
+      },
+      "additionalProperties": false
+    },
+    "chroma": {
+      "type": "string",
+      "enum": [
+        "muted",
+        "balanced",
+        "vivid"
+      ]
+    },
+    "neutralTint": {
+      "type": "string",
+      "enum": [
+        "none",
+        "warm",
+        "cool",
+        "brand"
+      ]
+    },
+    "harmony": {
+      "type": "string",
+      "enum": [
+        "monochrome",
+        "analogous",
+        "complementary",
+        "split",
+        "triadic",
+        "tetradic"
+      ]
+    },
+    "contrastLevel": {
+      "type": "string",
+      "enum": [
+        "AA",
+        "AA+",
+        "AAA"
+      ]
+    },
+    "preset": {
+      "type": "string",
+      "enum": [
+        "default",
+        "minimal-swiss",
+        "editorial",
+        "neo-brutalism",
+        "glass",
+        "dark-dev-tool",
+        "bento",
+        "aurora",
+        "retro-futurism",
+        "tactile",
+        "maximalism",
+        "organic",
+        "dithering-pixel",
+        "m3-expressive"
+      ]
+    },
+    "pairing": {
+      "type": "string",
+      "enum": [
+        "host-grotesk",
+        "schibsted-serif",
+        "gloock-albert",
+        "young-onest",
+        "bodoni-familjen",
+        "literata-spline",
+        "hubot-mona",
+        "funnel",
+        "zalando",
+        "unbounded-golos",
+        "archivo-courier",
+        "shoulders-redhat",
+        "tiny5-spline",
+        "doto-redhat",
+        "redaction-redhat",
+        "commissioner",
+        "atkinson",
+        "google-flex",
+        "anybody-albert",
+        "science-hanken"
+      ]
+    },
+    "typeContext": {
+      "type": "string",
+      "enum": [
+        "dense",
+        "product",
+        "marketing",
+        "editorial",
+        "poster"
+      ]
+    },
+    "radius": {
+      "type": "string",
+      "enum": [
+        "sharp",
+        "soft",
+        "round"
+      ]
+    },
+    "depth": {
+      "type": "string",
+      "enum": [
+        "flat",
+        "soft",
+        "layered"
+      ]
+    },
+    "motion": {
+      "type": "string",
+      "enum": [
+        "calm",
+        "brisk",
+        "playful"
+      ]
+    }
+  },
+  "required": [
+    "name"
+  ],
+  "additionalProperties": false
+}

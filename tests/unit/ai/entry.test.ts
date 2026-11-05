@@ -4,7 +4,9 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import type * as types from "@/ai";
 import * as ai from "@/ai";
 import { type MOOD_TAGS, rationaleChange, refineChange, type TYPE_VIBES } from "@/ai/apply";
+import { cacheKey } from "@/ai/cache-key";
 import { cascadePlan, isFreeSlug } from "@/ai/cascade";
+import { buildChatRequest, chatMessages, OPENROUTER_ORIGIN, readReply } from "@/ai/chat";
 import {
   CAP_COOKIE,
   capMacInput,
@@ -82,11 +84,6 @@ const AI_KEYS = [
  * lines and deletes its keys here; the entry holds exactly the rest.
  */
 const PENDING_KEYS: readonly string[] = [
-  "OPENROUTER_ORIGIN",
-  "buildChatRequest",
-  "cacheKey",
-  "chatMessages",
-  "readReply",
   "briefChange",
   "briefColors",
   "matchLexicon",
@@ -119,13 +116,17 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
     const homes: Record<string, unknown> = {
       AI_FEATURES,
       CAP_COOKIE,
+      OPENROUTER_ORIGIN,
       PROMPTS,
       ROUTE_CODES,
       VISITOR_CAP,
       briefInput,
+      buildChatRequest,
+      cacheKey,
       capMacInput,
       capSetCookie,
       cascadePlan,
+      chatMessages,
       critiqueInput,
       failureSentence,
       formatCapCookie,
@@ -141,6 +142,7 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
       rationaleChange,
       rationaleInput,
       readKeyRemaining,
+      readReply,
       readRouteReply,
       refineChange,
       refineInput,
@@ -210,5 +212,22 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
     expectTypeOf<types.CritiqueInput["findings"][number]>().toHaveProperty("threshold");
     expectTypeOf<types.RefineInput["current"]>().toHaveProperty("hues");
     expectTypeOf<types.RefineOutput>().toHaveProperty("summary");
+    expectTypeOf<types.ChatRequest>().toEqualTypeOf<{
+      readonly url: string;
+      readonly headers: Readonly<Record<string, string>>;
+      readonly body: string;
+    }>();
+    expectTypeOf<types.ChatPart["type"]>().toEqualTypeOf<"text" | "image_url">();
+    expectTypeOf<types.ChatResponse>().toEqualTypeOf<
+      { readonly status: number; readonly text: string } | { readonly kind: "timeout" | "network" }
+    >();
+    expectTypeOf<types.FailureKind>().toEqualTypeOf<
+      "http" | "timeout" | "empty" | "json" | "schema" | "range"
+    >();
+    expectTypeOf<types.Usage>().toHaveProperty("reasoning");
+    expectTypeOf<types.TierOutcome<"brief">>().toHaveProperty("usage");
+    expectTypeOf<
+      Extract<types.TierOutcome<"vibe">, { ok: true }>["output"]
+    >().toEqualTypeOf<types.VibeOutput>();
   });
 });

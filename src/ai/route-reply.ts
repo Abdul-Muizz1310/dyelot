@@ -1,5 +1,6 @@
 import { assertOneOf, isRecord } from "./assert";
 import { isFreeSlug, TEXT_TIERS, type TierName, VISION_TIERS } from "./cascade";
+import { FAILURE_KINDS } from "./chat";
 import { VISITOR_CAP } from "./cookie";
 import { AI_FEATURES, type AiFeature } from "./features";
 
@@ -50,7 +51,6 @@ const UNREACHABLE: RouteReply = Object.freeze({ ok: false, code: "unreachable", 
 /** The most attempts of one cascade: one per tier. */
 const MAX_ATTEMPTS = 3;
 const MAX_STATUS = 599;
-const FAILURE_KINDS: readonly string[] = ["http", "timeout", "empty", "json", "schema", "range"];
 
 /**
  * Each code's row of 11.1: its status, whether it carries `remaining` (`0` when it must be 0), and
@@ -118,7 +118,7 @@ function isFailure(value: unknown, feature: AiFeature): boolean {
     isTierOf(feature, tier) &&
     typeof slug === "string" &&
     typeof kind === "string" &&
-    FAILURE_KINDS.includes(kind) &&
+    (FAILURE_KINDS as readonly string[]).includes(kind) &&
     (kind !== "http" || isIntegerIn(status, 0, MAX_STATUS))
   );
 }

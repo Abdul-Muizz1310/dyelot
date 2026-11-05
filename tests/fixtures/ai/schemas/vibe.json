@@ -1,0 +1,114 @@
+{
+  "type": "object",
+  "properties": {
+    "roleMap": {
+      "type": "object",
+      "properties": {
+        "primary": {
+          "type": "string",
+          "enum": [
+            "c1",
+            "c2",
+            "c3",
+            "c4"
+          ]
+        },
+        "secondary": {
+          "type": "string",
+          "enum": [
+            "c1",
+            "c2",
+            "c3",
+            "c4"
+          ]
+        },
+        "accent": {
+          "type": "string",
+          "enum": [
+            "c1",
+            "c2",
+            "c3",
+            "c4"
+          ]
+        }
+      },
+      "required": [
+        "primary"
+      ],
+      "additionalProperties": false
+    },
+    "neutralTint": {
+      "type": "string",
+      "enum": [
+        "none",
+        "warm",
+        "cool",
+        "brand"
+      ]
+    },
+    "moodTags": {
+      "minItems": 1,
+      "maxItems": 5,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "calm",
+          "warm",
+          "cool",
+          "bold",
+          "playful",
+          "serious",
+          "earthy",
+          "airy",
+          "moody",
+          "bright",
+          "soft",
+          "luxurious",
+          "technical",
+          "organic",
+          "retro",
+          "minimal"
+        ]
+      }
+    },
+    "typeVibe": {
+      "type": "string",
+      "enum": [
+        "geometric",
+        "humanist",
+        "grotesk",
+        "editorial-serif",
+        "mono-tech",
+        "display"
+      ]
+    },
+    "preset": {
+      "type": "string",
+      "enum": [
+        "default",
+        "minimal-swiss",
+        "editorial",
+        "neo-brutalism",
+        "glass",
+        "dark-dev-tool",
+        "bento",
+        "aurora",
+        "retro-futurism",
+        "tactile",
+        "maximalism",
+        "organic",
+        "dithering-pixel",
+        "m3-expressive"
+      ]
+    }
+  },
+  "required": [
+    "roleMap",
+    "neutralTint",
+    "moodTags",
+    "typeVibe",
+    "preset"
+  ],
+  "additionalProperties": false
+}
