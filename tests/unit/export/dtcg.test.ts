@@ -166,7 +166,7 @@ describe("C-DTCG-06 typography", () => {
       });
       expect(value.lineHeight).toBe(round6(step.lineHeightPx / step.sizePx));
       if (step.name === "display" && step.clamp !== undefined) {
-        expect(token.$description).toContain(step.clamp);
+        expect(token.$description).toBe(`Fluid size: ${step.clamp}`);
       } else {
         expect(token.$description).toBeUndefined();
       }
@@ -178,6 +178,19 @@ describe("C-DTCG-06 typography", () => {
       model.weights.label,
       model.weights.body,
     ]);
+  });
+
+  it("names a fluid display step's clamp in its description (R3-17)", () => {
+    let fluid = 0;
+    for (const { id, spec } of GOLDENS) {
+      const display = spec.type.steps.find((step) => step.name === "display");
+      if (display?.clamp === undefined) continue;
+      fluid += 1;
+      const token = group(parsed(spec)["tokens/base.tokens.json"] as Json, "type", "display");
+      expect(token.$description, id).toBe(`Fluid size: ${display.clamp}`);
+      expect((token.$value as Json).fontSize, id).toEqual({ value: display.sizePx, unit: "px" });
+    }
+    expect(fluid).toBeGreaterThan(0);
   });
 });
 
