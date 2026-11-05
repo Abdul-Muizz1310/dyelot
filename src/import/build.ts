@@ -59,7 +59,10 @@ export type ImportDraft = {
   readonly text: {
     name?: string;
     oneLiner?: string;
+    /** A thesis read from prose (R3-30); never together with `direction`. */
     thesis?: string;
+    /** A decoded spec's whole direction (R3-32), kept as it is; never together with `thesis`. */
+    direction?: NonNullable<DirectionParams["direction"]>;
     do?: string[];
     dont?: string[];
   };
@@ -194,6 +197,16 @@ function checkDraft(draft: unknown): asserts draft is ImportDraft {
   for (const key of ["do", "dont"] as const) {
     if (text[key] !== undefined) checkList(text[key], `draft.text.${key}`);
   }
+  if (text.direction !== undefined) {
+    if (text.thesis !== undefined) {
+      throw new RangeError("buildImport: draft.text holds both thesis and direction");
+    }
+    const direction = record(text.direction, "draft.text.direction");
+    checkStrings(direction, "draft.text.direction", ["thesis"]);
+    for (const key of ["adjectives", "like", "unlike"] as const) {
+      if (direction[key] !== undefined) checkList(direction[key], `draft.text.direction.${key}`);
+    }
+  }
   const report = record(input.report, "draft.report");
   for (const key of ["ignored", "truncated", "notes"] as const) {
     checkList(report[key], `draft.report.${key}`);
@@ -264,7 +277,7 @@ function idsOf(families: ImportDraft["families"]): FamilyIds {
 type Text = {
   name: string;
   oneLiner?: string;
-  thesis?: string;
+  direction?: NonNullable<DirectionParams["direction"]>;
   rules?: { do: string[]; dont: string[] };
   truncated: string[];
 };
@@ -296,12 +309,14 @@ function readText(text: ImportDraft["text"]): Text {
   const name = cut(text.name, NAME_MAX, "name", truncated) ?? DEFAULT_NAME;
   const oneLiner = cut(text.oneLiner, ONE_LINER_MAX, "oneLiner", truncated);
   const thesis = cut(text.thesis, THESIS_MAX, "thesis", truncated);
+  // A decoded spec's direction is already within R3-01's bounds; generateSystem checks it again.
+  const direction = text.direction ?? (thesis === undefined ? undefined : { thesis });
   const doList = cutList(text.do, "do", truncated);
   const dontList = cutList(text.dont, "dont", truncated);
   return {
     name,
     ...(oneLiner === undefined ? {} : { oneLiner }),
-    ...(thesis === undefined ? {} : { thesis }),
+    ...(direction === undefined ? {} : { direction }),
     ...(doList.length === 0 && dontList.length === 0
       ? {}
       : { rules: { do: doList, dont: dontList } }),
@@ -412,7 +427,7 @@ export function buildImport(draft: ImportDraft): ImportResult {
     radius,
     name: text.name,
     ...(text.oneLiner === undefined ? {} : { oneLiner: text.oneLiner }),
-    ...(text.thesis === undefined ? {} : { direction: { thesis: text.thesis } }),
+    ...(text.direction === undefined ? {} : { direction: text.direction }),
     ...(text.rules === undefined ? {} : { rules: text.rules }),
     ...(pairing === undefined ? {} : { pairing: pairing.id }),
   };

@@ -192,6 +192,35 @@ function structure(normalized: string): Structure {
   };
 }
 
+// Text (R3-30, R3-32) -----------------------------------------------------------------------------
+
+/** A foreign file's text (R3-30): the front matter's name and description, the Overview, the rules. */
+function proseText(groups: Json, parts: Structure): ImportDraft["text"] {
+  const name = str(own(groups, "name")) ?? parts.name;
+  const description = str(own(groups, "description"));
+  return {
+    ...(name === undefined ? {} : { name }),
+    ...(description === undefined ? {} : { oneLiner: description }),
+    ...(parts.thesis === undefined ? {} : { thesis: parts.thesis }),
+    ...(parts.rules.do.length === 0 ? {} : { do: parts.rules.do }),
+    ...(parts.rules.dont.length === 0 ? {} : { dont: parts.rules.dont }),
+  };
+}
+
+/**
+ * The text of the spec an edited file's link decodes (R3-32): its own fields, never the prose dyelot
+ * wrote from them (the describeDesign sentence, the fixed Do and Don't lines, mdText's escapes).
+ */
+function specText(spec: DesignSpec): ImportDraft["text"] {
+  return {
+    name: spec.meta.name,
+    ...(spec.meta.oneLiner === undefined ? {} : { oneLiner: spec.meta.oneLiner }),
+    ...(spec.direction === undefined ? {} : { direction: spec.direction }),
+    ...(spec.rules.do.length === 0 ? {} : { do: [...spec.rules.do] }),
+    ...(spec.rules.dont.length === 0 ? {} : { dont: [...spec.rules.dont] }),
+  };
+}
+
 // YAML (R3-30, section 8) -------------------------------------------------------------------------
 
 function fail(error: ImportError): { readonly ok: false; readonly error: ImportError } {
@@ -520,8 +549,6 @@ export function importDesignMd(text: string): ImportResult {
         : undefined;
 
   const tint = colors.light.muted ?? colors.light.background;
-  const name = str(own(groups, "name")) ?? parts.name;
-  const description = str(own(groups, "description"));
 
   const draft: ImportDraft = {
     source: "design-md",
@@ -535,13 +562,7 @@ export function importDesignMd(text: string): ImportResult {
     ...(displayPx === undefined ? {} : { displayPx }),
     ...(Object.keys(families).length === 0 ? {} : { families }),
     roles: { light: colors.light, dark: {} },
-    text: {
-      ...(name === undefined ? {} : { name }),
-      ...(description === undefined ? {} : { oneLiner: description }),
-      ...(parts.thesis === undefined ? {} : { thesis: parts.thesis }),
-      ...(parts.rules.do.length === 0 ? {} : { do: parts.rules.do }),
-      ...(parts.rules.dont.length === 0 ? {} : { dont: parts.rules.dont }),
-    },
+    text: link.spec === null ? proseText(groups, parts) : specText(link.spec),
     report: { ignored, truncated: [], notes: [...notes, ...colors.notes] },
   };
   return buildImport(draft);

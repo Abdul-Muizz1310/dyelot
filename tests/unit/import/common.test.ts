@@ -364,6 +364,19 @@ describe("C-IMP-13 buildImport rejects a bad draft", () => {
     expect(() => buildImport(draft({ source: "pdf" as never }))).toThrow(RangeError);
     expect(() => buildImport(draft({ report: null as never }))).toThrow(TypeError);
   });
+
+  it("throws for a direction that is not one, or that comes with a thesis", () => {
+    const bad: [unknown, ErrorConstructor][] = [
+      [{ direction: 5 }, TypeError],
+      [{ direction: { thesis: 5 } }, TypeError],
+      [{ direction: { like: [1] } }, TypeError],
+      [{ thesis: "a", direction: { thesis: "b" } }, RangeError],
+    ];
+    for (const [text, kind] of bad) {
+      expect(() => buildImport(draft({ text: text as never }))).toThrow(kind);
+      expect(() => buildImport(draft({ text: text as never }))).toThrow(/buildImport/);
+    }
+  });
 });
 
 describe("buildImport text", () => {
@@ -388,6 +401,18 @@ describe("buildImport text", () => {
     expect(result.spec.rules.do).toHaveLength(20);
     expect(result.spec.rules.dont[0]).toHaveLength(200);
     expect(result.report.truncated).toEqual(["name", "oneLiner", "thesis", "do", "dont"]);
+  });
+
+  it("keeps a decoded spec's whole direction as it is (R3-32)", () => {
+    const direction = {
+      thesis: "Calm surfaces.",
+      adjectives: ["calm", "salt-worn"],
+      like: ["harbor charts"],
+      unlike: ["neon"],
+    };
+    const result = okOf(buildImport(draft({ text: { direction } })));
+    expect(result.spec.direction).toEqual(direction);
+    expect(result.report.truncated).toEqual([]);
   });
 
   it("names an unnamed design Imported design", () => {

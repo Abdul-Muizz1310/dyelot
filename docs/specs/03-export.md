@@ -508,7 +508,9 @@ time. Colors map to roles by this alias table, then by name: every dyelot role n
 `primary-foreground`; `error` to `destructive`; `on-error` to `destructive-foreground`; `outline` to `border`. The body size
 is the first of `typography.body`, `typography.body-md` and the first key starting `body`; the display size the first of
 `display`, `display-lg` and the first key starting `display` or `headline`. Families come from those tokens'
-`fontFamily`, and the mono family from the first token whose name holds `mono` or `code`. The name is the front matter's
+`fontFamily`, and the mono family from the first token whose name holds `mono` or `code`. The text below is the prose path, for a
+file with no edit link that `decodeSpec` reads; an edited file that dyelot wrote takes its text from the decoded spec
+(R3-32). The name is the front matter's
 `name`, else the first `#` heading, else "Imported design". The front matter's `description`, through `toPlainText(…, 140)`, becomes `meta.oneLiner`. The first paragraph of
 `## Overview` becomes `direction.thesis`.
 Bullet lines under `## Do's and Don'ts` that start "Do " or "Don't " become `rules.do` and `rules.dont`: each list keeps
@@ -534,8 +536,13 @@ error `no-roles`. **(plan; the selector list rebuilt)**
 **R3-32 · Exact re-import.** A DESIGN.md that dyelot wrote carries its edit link. When the importer finds a link of the form
 `<…/studio#s=…>` that `decodeSpec` reads, and `designMdTokens(decoded)` deep-equals the file's parsed front matter, the result
 is the decoded spec itself, unchanged, with `report.exact` true. When the tokens differ (someone edited the file), the
-import takes the token path of R3-30, and the report says the link was ignored because the tokens changed. A link that `decodeSpec` cannot read takes the token
-path too, with the note "The edit link could not be read.". **(plan)**
+import takes the token path of R3-30 for the colors, the type and the radius, and the report says the link was ignored because the tokens changed. Its text comes from the decoded
+spec, not from the file: `meta.name`, `meta.oneLiner`, the whole `direction` and `rules`, each as the decoded spec holds it,
+and a field the decoded spec lacks stays absent. The file's prose is dyelot's own writing about that spec (the
+`describeDesign` sentence in the Overview and in `description`, the fixed Do and Don't lines and the exported guards, and
+`mdText`'s escapes), so reading it back would turn the writer's words into the visitor's, and each round trip would add
+the fixed lines again and double each backslash. A link that `decodeSpec` cannot read, and a file with no link, take R3-30's
+token and prose paths, with the note "The edit link could not be read." for the first. **(plan; the text source added after the final review)**
 
 ### The studio (Tasks 3.13 to 3.16)
 
@@ -909,7 +916,8 @@ type ImportDraft = {
     readonly light: Partial<Record<RoleName, ParsedColor>>;
     readonly dark: Partial<Record<RoleName, ParsedColor>>;
   };
-  readonly text: { name?: string; oneLiner?: string; thesis?: string; do?: string[]; dont?: string[] };
+  // `thesis` comes from prose (R3-30), `direction` whole from a decoded spec (R3-32); a draft with both is a RangeError
+  readonly text: { name?: string; oneLiner?: string; thesis?: string; direction?: Direction; do?: string[]; dont?: string[] };
   readonly report: ReportDraft; // the importer's half of ImportReport
 };
 function buildImport(draft: ImportDraft): ImportResult;
@@ -1714,7 +1722,7 @@ the `core` project. The `importDesignMd` halves of C-IMP-01, 02, 04 and 05, C-IM
 | C-IMP-10 | pass | A result has `meta.createdWith` `"import"`, contrast level `AA` and `presetOf(spec)` `null`; `report.generated.light` is 46 minus the light roles mapped; `mapped`, `adjusted` and `ignored` follow input order; with 60 ignored names, `ignored` holds the first 50 and `ignoredMore` is 10 | plan, ruling R3-07, R3-29 |
 | C-IMP-11 | pass | `importShadcnCss` of `shadcn-neutral.css` returns `ok: true` even though the result has `summary.lint.error` above 0; the measured count is recorded in section 15 | plan, ruling R3-29 |
 | C-IMP-12 | pass | `detectImport`: `"x.md"` with CSS text gives `design-md`; `"theme.css"` with markdown gives `shadcn-css`; `"x.markdown"` gives `design-md`. Without a file name: a first non-empty line `---` or a line starting `## Colors` gives `design-md`; `:root {`, `.dark{` or a declaration of `--primary:` gives `shadcn-css`; `"hello"` gives `null` | plan, section 8 |
-| C-IMP-13 | failure | `buildImport(null)` throws `TypeError` naming `buildImport`; a draft whose `primary` has `l` 1.5 or a `roles.light` that is not an object throws `RangeError` or `TypeError` naming it. `buildImport` is internal, so a bad draft is a bug in an importer, never a visitor's input | added, R-05 |
+| C-IMP-13 | failure | `buildImport(null)` throws `TypeError` naming `buildImport`; a draft whose `primary` has `l` 1.5 or a `roles.light` that is not an object throws `RangeError` or `TypeError` naming it; a `text.direction` of `5`, `{ thesis: 5 }` or `{ like: [1] }` throws `TypeError`, and one given with a `text.thesis` throws `RangeError`, each naming `buildImport`. A draft's `text.direction` `{ thesis, adjectives, like, unlike }` reaches the spec unchanged, with nothing in `truncated`. `buildImport` is internal, so a bad draft is a bug in an importer, never a visitor's input | added, R-05 |
 | C-CSSI-01 | pass | `shadcn-neutral.css`: `ok: true`; each of shadcn's 31 role variables in `:root` and in `.dark` is mapped, its hex the sRGB conversion of the fixture's value (±1 per channel); `destructive-foreground` gets `onFill` with reason `foreground` in both modes; the radius `0.625rem` (10 px) gives `soft`; the name is `Imported theme` | plan, ruling R3-31 |
 | C-CSSI-02 | pass | `shadcn-v3-hsl.css`: its blocks inside `@layer base` count; each bare triple such as `0 0% 100%` is read as `hsl(0 0% 100%)`; `destructive-foreground` is mapped; the sidebar roles, which the file lacks, keep the generated values; `--radius: 0.5rem` (8 px, equal distance to `sharp`'s 4 and `soft`'s 12) gives `soft` | plan, ruling R3-31 |
 | C-CSSI-03 | pass | Selectors: declarations under `:root, .light`, `html`, `[data-theme="light"]` and `:root:not(.dark)` are light; under `.dark`, `:root.dark`, `html.dark`, `[data-theme="dark"]` and `:root` inside `@media (prefers-color-scheme: dark)` dark; `--primary` under `.card` is ignored | plan, ruling R3-31 |
@@ -1735,7 +1743,7 @@ the `core` project. The `importDesignMd` halves of C-IMP-01, 02, 04 and 05, C-IM
 | C-DMI-08 | failure | An anchor (`&a`) or an alias (`*a`) on a map, a scalar or a key gives `yaml-alias` with its line; a `<<` key is read as a plain key and ignored | plan, ruling R3-30 |
 | C-DMI-09 | failure | `colors` in the front matter and again in a ` ```yaml ` block gives `yaml-group-twice` with `colors` in the message; YAML of 65,537 bytes in all gives `yaml-too-large`; 65,536 bytes does not | plan, ruling R3-30 |
 | C-DMI-10 | pass | Exact re-import: for each of the 14 preset goldens, `importDesignMd(designMd(spec, ORIGIN))` returns `ok: true` with a spec that deep-equals `normalizeSpec(spec)` and `report.exact` true | plan, ruling R3-32 |
-| C-DMI-11 | pass | An edited file: with one color of a golden's front matter changed, the import takes the token path, `report.exact` is false, `notes` holds `The edit link was ignored because the tokens changed.`, and the changed role holds the new hex | plan, ruling R3-32 |
+| C-DMI-11 | pass | An edited file: with one color of a golden's front matter changed, the import takes the token path, `report.exact` is false, `notes` holds `The edit link was ignored because the tokens changed.`, and the changed role holds the new hex. For that golden with `oneLiner`, a full `direction` (thesis, adjectives, like, unlike) and `rules` in words that `mdText` escapes (`*`, `_`, `` ` ``, `#`, `[`, `<`), the edited file imports with the decoded spec's name, `oneLiner`, `direction` and `rules` exactly and an empty `truncated`; the golden itself, with no text, imports with no `oneLiner`, no `direction` and empty `rules`. Exporting and re-importing the result twice, with the primary edited each time, keeps the same `oneLiner`, `direction` and `rules`: the rules never grow and no text gains a backslash. With the link removed, the file takes R3-30's prose path (its Do bullets become `rules.do`) | plan, ruling R3-32, final review I-2 and minor 51 |
 | C-DMI-12 | failure | A DESIGN.md with no front matter and no YAML block, and one whose colors map nothing to `primary`, each give `no-primary`; a front matter with only `colors.primary` gives `ok: true` with every other role generated | plan, section 8 |
 
 ### 10.11 Studio units (Tasks 3.13 to 3.16)

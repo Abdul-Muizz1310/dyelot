@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { generateSystem, ROLE_NAMES, resolveParams } from "@/engine";
+import { generateSystem, paramsOfSpec, ROLE_NAMES, resolveParams } from "@/engine";
 import { designMd } from "@/export/design-md";
-import { designMdTokens } from "@/export/design-md-tokens";
 import { importDesignMd } from "@/import/design-md";
 import { detectImport } from "@/import/detect";
 import { IMPORT_MAX_BYTES } from "@/import/report";
-import { normalizeSpec } from "@/spec";
+import { type DesignSpec, normalizeSpec } from "@/spec";
 import { GOLDENS, ORIGIN } from "../export/golden-support";
 import { DEFAULT_PARAMS } from "../spec/support";
 import { errorOf, hexNear, okOf, readFixture } from "./helpers";
@@ -465,15 +464,74 @@ describe("C-DMI-11 an edited file", () => {
     expect(okOf(importDesignMd(bare)).report.exact).toBe(true);
   });
 
-  it("has no link note when the file has no link", () => {
+  it("has no link note when the file has no link, and reads its prose (R3-30)", () => {
     const stripped = text.replace(/studio#s=[A-Za-z0-9_-]+/g, "studio");
     const result = okOf(importDesignMd(stripped));
     expect(result.report.exact).toBe(false);
     expect(result.report.notes).toEqual([]);
+    // With no link to decode, the Do's and Don'ts bullets are the rules, as for any foreign file.
+    expect(result.spec.rules.do).toContain("pair every fill with its foreground role.");
   });
 
-  it("matches the tokens it compares", () => {
-    expect(designMdTokens(spec).colors).toBeDefined();
+  // A design with every text field set, in words that mdText escapes (R3-32).
+  const TEXTED: DesignSpec = generateSystem(
+    resolveParams(
+      {
+        ...paramsOfSpec(spec).params,
+        oneLiner: "Reads the *tide* at_dawn, #1 [draft]",
+        direction: {
+          thesis: "Calm surfaces; one *bold* accent_x.",
+          adjectives: ["calm", "salt-worn"],
+          like: ["harbor charts"],
+          unlike: ["neon <glow>"],
+        },
+        rules: {
+          do: ["use *bold* sparingly_x", "keep `code` in mono"],
+          dont: ["stack [two] shadows"],
+        },
+      },
+      spec.meta.seed,
+    ),
+    spec.meta.seed,
+  );
+  const withPrimary = (file: string, from: DesignSpec, hex: string): string => {
+    const line = `  primary: "${from.color.roles.light.primary}"`;
+    expect(file).toContain(line);
+    return file.replace(line, `  primary: "${hex}"`);
+  };
+
+  it("takes the decoded spec's name, one line, direction and rules, never dyelot's prose", () => {
+    const result = okOf(importDesignMd(withPrimary(designMd(TEXTED, ORIGIN), TEXTED, "#aa3355")));
+    expect(result.report.exact).toBe(false);
+    expect(result.report.notes).toContain("The edit link was ignored because the tokens changed.");
+    expect(hexNear(result.spec.color.roles.light.primary, "#aa3355", 1)).toBe(true);
+    expect(result.spec.meta.name).toBe(TEXTED.meta.name);
+    expect(result.spec.meta.oneLiner).toBe(TEXTED.meta.oneLiner);
+    expect(result.spec.direction).toEqual(TEXTED.direction);
+    expect(result.spec.rules).toEqual(TEXTED.rules);
+    expect(result.report.truncated).toEqual([]);
+    // A design with no text gets none: not the describeDesign sentence, nor the fixed bullets.
+    const plain = okOf(importDesignMd(withPrimary(text, spec, "#aa3355")));
+    expect(plain.report.exact).toBe(false);
+    expect(plain.spec.meta.name).toBe(spec.meta.name);
+    expect(plain.spec.meta.oneLiner).toBeUndefined();
+    expect(plain.spec.direction).toBeUndefined();
+    expect(plain.spec.rules).toEqual({ do: [], dont: [] });
+    expect(plain.report.truncated).toEqual([]);
+  });
+
+  it("neither grows the rules nor adds backslashes over two export and import rounds", () => {
+    let current = TEXTED;
+    for (const hex of ["#aa3355", "#335599"]) {
+      const next = okOf(importDesignMd(withPrimary(designMd(current, ORIGIN), current, hex)));
+      expect(next.report.exact).toBe(false);
+      expect(next.spec.meta.oneLiner).toBe(TEXTED.meta.oneLiner);
+      expect(next.spec.direction).toEqual(TEXTED.direction);
+      expect(next.spec.rules).toEqual(TEXTED.rules);
+      current = next.spec;
+    }
+    const words = JSON.stringify([current.meta.oneLiner, current.direction, current.rules]);
+    expect(words).not.toContain("\\\\");
   });
 });
 
