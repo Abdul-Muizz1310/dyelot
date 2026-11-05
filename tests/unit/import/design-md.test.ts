@@ -520,6 +520,25 @@ describe("C-DMI-11 an edited file", () => {
     expect(plain.report.truncated).toEqual([]);
   });
 
+  it("takes an edited front matter name, and the decoded spec's name when it is not plain text", () => {
+    const file = withPrimary(designMd(TEXTED, ORIGIN), TEXTED, "#aa3355");
+    const nameLine = `name: "${TEXTED.meta.name}"`;
+    expect(file).toContain(nameLine);
+    const renamed = okOf(importDesignMd(file.replace(nameLine, 'name: "Harbor *Lights* #2"')));
+    expect(renamed.report.exact).toBe(false);
+    expect(renamed.spec.meta.name).toBe("Harbor *Lights* #2");
+    expect(renamed.spec.meta.oneLiner).toBe(TEXTED.meta.oneLiner);
+    expect(renamed.spec.direction).toEqual(TEXTED.direction);
+    expect(renamed.spec.rules).toEqual(TEXTED.rules);
+    expect(renamed.report.truncated).toEqual([]);
+    // A name that is not valid plain text, or is too long, or is gone, falls back to the decoded one.
+    for (const line of ['name: " padded"', `name: "${"n".repeat(81)}"`, "name: 5", ""]) {
+      const fallback = okOf(importDesignMd(file.replace(nameLine, line)));
+      expect(fallback.spec.meta.name, line).toBe(TEXTED.meta.name);
+      expect(fallback.report.truncated, line).toEqual([]);
+    }
+  });
+
   it("neither grows the rules nor adds backslashes over two export and import rounds", () => {
     let current = TEXTED;
     for (const hex of ["#aa3355", "#335599"]) {

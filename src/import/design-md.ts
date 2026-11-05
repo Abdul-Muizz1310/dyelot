@@ -16,7 +16,7 @@ import {
 import type { RoleName } from "@/engine";
 import { PAIRINGS, ROLE_NAMES } from "@/engine";
 import { designMdTokens } from "@/export/design-md-tokens";
-import { type DesignSpec, decodeSpec } from "@/spec";
+import { type DesignSpec, DesignSpecSchema, decodeSpec } from "@/spec";
 import { buildImport, type ImportDraft } from "./build";
 import { type ParsedColor, parseCssColor } from "./color";
 import { seedOf } from "./css";
@@ -207,13 +207,19 @@ function proseText(groups: Json, parts: Structure): ImportDraft["text"] {
   };
 }
 
+/** The rule a spec's `meta.name` passes: plain text of 1 to 80 characters (R3-01, R3-02). */
+const NAME_RULE = DesignSpecSchema.shape.meta.shape.name;
+
 /**
  * The text of the spec an edited file's link decodes (R3-32): its own fields, never the prose dyelot
  * wrote from them (the describeDesign sentence, the fixed Do and Don't lines, mdText's escapes).
+ * The name is the exception: the front matter's `name` round-trips exactly, so an edit to it wins
+ * when the schema would accept it as `meta.name`.
  */
-function specText(spec: DesignSpec): ImportDraft["text"] {
+function specText(spec: DesignSpec, front: Json | null): ImportDraft["text"] {
+  const edited = front === null ? undefined : own(front, "name");
   return {
-    name: spec.meta.name,
+    name: NAME_RULE.safeParse(edited).success ? (edited as string) : spec.meta.name,
     ...(spec.meta.oneLiner === undefined ? {} : { oneLiner: spec.meta.oneLiner }),
     ...(spec.direction === undefined ? {} : { direction: spec.direction }),
     ...(spec.rules.do.length === 0 ? {} : { do: [...spec.rules.do] }),
@@ -562,7 +568,7 @@ export function importDesignMd(text: string): ImportResult {
     ...(displayPx === undefined ? {} : { displayPx }),
     ...(Object.keys(families).length === 0 ? {} : { families }),
     roles: { light: colors.light, dark: {} },
-    text: link.spec === null ? proseText(groups, parts) : specText(link.spec),
+    text: link.spec === null ? proseText(groups, parts) : specText(link.spec, frontTokens),
     report: { ignored, truncated: [], notes: [...notes, ...colors.notes] },
   };
   return buildImport(draft);
