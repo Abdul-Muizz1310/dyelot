@@ -402,7 +402,53 @@ test.describe("13.6 the connect pages", () => {
     expect(new URL(page.url()).search).toBe("");
   });
 
-  test("Continue to OpenRouter works again when the sign-in page does not open", async ({
+  test("a second press while the sign-in page opens starts nothing", async ({ page }) => {
+    // The second press comes from inside the page as soon as the browser starts the navigation
+    // to OpenRouter (the Navigation API's `navigate` event): Playwright's own actions wait for a
+    // pending navigation to finish.
+    await page.addInitScript(() => {
+      const host = window as unknown as {
+        navigation?: EventTarget;
+        __secondPress?: boolean;
+      };
+      host.navigation?.addEventListener("navigate", (event) => {
+        const to = (event as unknown as { destination: { url: string } }).destination.url;
+        if (!to.startsWith("https://openrouter.ai/auth") || host.__secondPress !== undefined)
+          return;
+        host.__secondPress = false;
+        setTimeout(() => {
+          pressContinue();
+          host.__secondPress = true;
+        }, 50);
+      });
+      function pressContinue() {
+        [...document.querySelectorAll("button")]
+          .find((each) => each.textContent === "Continue to OpenRouter")
+          ?.click();
+      }
+    });
+    const opened: URL[] = [];
+    // The sign-in page takes a second to answer, then answers 204 and the page stays.
+    await page.route("https://openrouter.ai/auth?**", async (route) => {
+      opened.push(new URL(route.request().url()));
+      await new Promise((resolve) => setTimeout(resolve, 1_000));
+      await route.fulfill({ status: 204 }).catch(() => {});
+    });
+    await page.goto("/connect");
+    await button(page, "Continue to OpenRouter").click();
+    await expect
+      .poll(() =>
+        page.evaluate(() => (window as unknown as { __secondPress?: boolean }).__secondPress),
+      )
+      .toBe(true);
+    await page.waitForTimeout(1_500);
+    // One sign-in opened, and the stored record is still the one its address carries.
+    expect(opened).toHaveLength(1);
+    const record = await page.evaluate((name) => sessionStorage.getItem(name), CONNECT_STORAGE);
+    expect(JSON.parse(record ?? "{}").state).toBe(opened[0]?.searchParams.get("state"));
+  });
+
+  test("Continue to OpenRouter works again 5 s after a sign-in page that does not open", async ({
     page,
   }) => {
     const opened: string[] = [];
@@ -415,13 +461,28 @@ test.describe("13.6 the connect pages", () => {
     await button(page, "Continue to OpenRouter").click();
     await expect.poll(() => opened.length).toBe(1);
     // Playwright's locators wait for that navigation to finish, which a 204 never does; the page
-    // itself is idle, so the second press goes through the page.
-    await page.evaluate(() => {
-      const go = [...document.querySelectorAll("button")].find(
-        (each) => each.textContent === "Continue to OpenRouter",
+    // itself is idle, so it is read and pressed through the page.
+    const disabled = () =>
+      page.evaluate(
+        () =>
+          [...document.querySelectorAll("button")]
+            .find((each) => each.textContent === "Continue to OpenRouter")
+            ?.getAttribute("aria-disabled") ?? null,
       );
-      go?.click();
-    });
+    const press = () =>
+      page.evaluate(() => {
+        [...document.querySelectorAll("button")]
+          .find((each) => each.textContent === "Continue to OpenRouter")
+          ?.click();
+      });
+    // Until 5 s have passed the navigation may still be on its way: a press starts nothing.
+    expect(await disabled()).toBe("true");
+    await press();
+    await page.waitForTimeout(500);
+    expect(opened).toHaveLength(1);
+    // The page is still here after 5 s, so the button works again.
+    await expect.poll(disabled, { timeout: 10_000 }).toBeNull();
+    await press();
     await expect.poll(() => opened.length).toBe(2);
     expect(new URL(page.url()).pathname).toBe("/connect");
   });

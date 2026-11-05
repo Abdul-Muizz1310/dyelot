@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { startConnect } from "@/features/ai/connect";
 import { type AiModule, loadAi } from "@/features/ai/load";
 import { LOAD_FAILED_LINE } from "@/features/ai/useAiAction";
@@ -28,6 +28,13 @@ const NO_STORAGE =
 const LINK =
   "inline-flex min-h-6 items-center font-mono text-sm text-foreground underline underline-offset-4 hover:text-fg-muted";
 
+/**
+ * How long the page waits after sending the browser to OpenRouter. A page still here then did not
+ * navigate (blocked, or answered 204), so the button works again (controller ruling on Task
+ * 4.10a's review, round 2).
+ */
+const NAVIGATION_WAIT_MS = 5_000;
+
 /** Web Crypto with the two calls the sign-in makes, or null (an insecure context has none). */
 function webCrypto(): Crypto | null {
   const crypto: Crypto | undefined = globalThis.crypto;
@@ -50,12 +57,29 @@ function sessionStore(): Storage | null {
 export function ConnectPanel() {
   const [remember, setRemember] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // While a sign-in starts or its navigation is pending, a second press starts nothing: another
+  // sign-in would replace the stored verifier and state, and the first callback would fail its
+  // state check. The ref guards presses that come before the next render.
   const [starting, setStarting] = useState(false);
+  const pending = useRef(false);
+  const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boxId = useId();
   const warningId = `${boxId}-warning`;
 
+  useEffect(
+    () => () => {
+      if (waiting.current !== null) clearTimeout(waiting.current);
+    },
+    [],
+  );
+
+  function release(): void {
+    pending.current = false;
+    setStarting(false);
+  }
+
   async function start(): Promise<void> {
-    if (starting) return;
+    if (pending.current) return;
     setError(null);
     const crypto = webCrypto();
     if (crypto === null) {
@@ -67,13 +91,14 @@ export function ConnectPanel() {
       setError(NO_STORAGE);
       return;
     }
+    pending.current = true;
     setStarting(true);
     let ai: AiModule;
     try {
       ai = await loadAi();
     } catch {
       setError(LOAD_FAILED_LINE);
-      setStarting(false);
+      release();
       return;
     }
     let url: string;
@@ -82,17 +107,18 @@ export function ConnectPanel() {
     } catch {
       // Web Crypto was checked above, so what refused is the storage the record needs.
       setError(NO_STORAGE);
-      setStarting(false);
+      release();
       return;
     }
     try {
       window.location.assign(url);
     } catch {
-      // The browser refused the address; the page stays, as below.
+      // The browser refused the address: nothing is on its way.
+      release();
+      return;
     }
-    // A navigation that is blocked or fails (a 204, a refused address) leaves this page where it
-    // is, and one that goes ahead unloads it: either way the button works again.
-    setStarting(false);
+    // A navigation that goes ahead unloads this page before the wait ends.
+    waiting.current = setTimeout(release, NAVIGATION_WAIT_MS);
   }
 
   return (
@@ -129,8 +155,9 @@ export function ConnectPanel() {
         <button
           type="button"
           data-primary=""
+          aria-disabled={starting ? "true" : undefined}
           onClick={() => void start()}
-          className={`${PRIMARY_BUTTON} min-h-9 px-4`}
+          className={`${PRIMARY_BUTTON} min-h-9 px-4 aria-disabled:cursor-wait aria-disabled:opacity-70`}
         >
           Continue to OpenRouter
         </button>
