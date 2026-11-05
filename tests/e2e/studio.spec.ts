@@ -924,6 +924,9 @@ test.describe("7.2 The inputs panel", () => {
     "textarea:Describe the product or mood",
     "button:Read the brief",
     "button:AI settings",
+    // The Image section (13.3; section 16).
+    "file:Choose an image",
+    "button:Read the vibe",
     ...SEEDS.flatMap((slot) => [
       `text:${slot}`,
       `color:Pick ${slot.toLowerCase()}`,
@@ -951,11 +954,11 @@ test.describe("7.2 The inputs panel", () => {
     await openStudio(page);
     expect(await panelControls(page)).toEqual(CONTROLS);
     const panel = inputsPanel(page);
-    // The brief's textarea is the panel's one; no image control yet (M4, section 16: Task 4.10b
-    // adds the Image section). The About section's "Import…" is the panel's one import control (R3-33).
+    // The brief's textarea is the panel's one, and the Image section's file input its one file
+    // control (docs/specs/04-ai.md, section 16). The About section's "Import…" is the panel's one
+    // import control (R3-33).
     await expect(panel.locator("textarea")).toHaveCount(1);
-    await expect(panel.locator("input[type='file']")).toHaveCount(0);
-    await expect(panel).not.toContainText(/image/i);
+    await expect(panel.locator("input[type='file']")).toHaveCount(1);
     await expect(panel.getByText(/import/i)).toHaveCount(1);
     await expect(panel.getByRole("button", { name: "Import…", exact: true })).toHaveCount(1);
   });
@@ -982,6 +985,12 @@ test.describe("7.2 The inputs panel", () => {
       "aria-expanded",
       "false",
     );
+    // The Image section's controls (13.3).
+    const image = panel.getByLabel("Choose an image", { exact: true });
+    await expect(image).toHaveAttribute("type", "file");
+    const vibe = panel.getByRole("button", { name: "Read the vibe", exact: true });
+    await expect(vibe).toHaveText("Read the vibe");
+    await expect(vibe).toHaveAccessibleDescription("Choose an image first.");
     for (const slot of SEEDS) {
       await expect(panel.getByRole("textbox", { name: slot, exact: true })).toHaveCount(1);
       await expect(panel.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true })).toHaveCount(1);
@@ -1581,8 +1590,8 @@ test.describe("7.3 Keyboard", () => {
   }
 
   /**
-   * The Tab stops of the inputs panel, in the order of section 7.2, with the Brief section's stops
-   * after About (docs/specs/04-ai.md, 13.7; section 16), AI settings closed.
+   * The Tab stops of the inputs panel, in the order of section 7.2, with the Brief and Image
+   * sections' stops after About (docs/specs/04-ai.md, 13.7; section 16), AI settings closed.
    */
   function panelStops(page: Page) {
     return [
@@ -1592,6 +1601,8 @@ test.describe("7.3 Keyboard", () => {
       field(page, "Describe the product or mood"),
       button(page, "Read the brief"),
       button(page, "AI settings"),
+      inputsPanel(page).getByLabel("Choose an image", { exact: true }),
+      button(page, "Read the vibe"),
       ...(["Primary", "Secondary", "Accent"] as const).flatMap((slot) => [
         field(page, slot),
         page.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true }),

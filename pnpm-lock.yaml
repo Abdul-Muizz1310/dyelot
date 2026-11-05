@@ -44,6 +44,9 @@ importers:
       color-name-list:
         specifier: ^14.85.1
         version: 14.85.1
+      colorthief:
+        specifier: 3.5.0
+        version: 3.5.0(sharp@0.35.5(@types/node@22.20.5))
       fflate:
         specifier: 0.8.3
         version: 0.8.3
@@ -1300,6 +1303,15 @@ packages:
 
   colorjs.io@0.7.1:
     resolution: {integrity: sha512-LY7OHnJZxHwT5UlzNa9bbhHHDbzB6yE5+3MIPwJEQKRvSCt/T4G7epsj+9j2BExUIIfXFIJGsIXUKdfrK9Q5tA==}
+
+  colorthief@3.5.0:
+    resolution: {integrity: sha512-wV/6Rnkqdx07CAuv8O3WYKBU/j5QdSXbYUfGp26seMIqze5Q40C9ovBSZB9PeVV6XkGe3VWb4zUEtQCYzCfyEA==}
+    hasBin: true
+    peerDependencies:
+      sharp: '>=0.33.0'
+    peerDependenciesMeta:
+      sharp:
+        optional: true
 
   consola@3.4.2:
     resolution: {integrity: sha512-5IKcdX0nnYavi6G7TtOhwkYzyjfJlatbjMjuLSfE2kYT5pMDOilZ4OvMhi637CcDICTmz3wARPoyhqyX1Y+XvA==}
@@ -3014,6 +3026,10 @@ snapshots:
   color-name-list@14.85.1: {}
 
   colorjs.io@0.7.1: {}
+
+  colorthief@3.5.0(sharp@0.35.5(@types/node@22.20.5)):
+    optionalDependencies:
+      sharp: 0.35.5(@types/node@22.20.5)
 
   consola@3.4.2: {}
 

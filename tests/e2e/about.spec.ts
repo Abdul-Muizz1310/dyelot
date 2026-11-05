@@ -55,8 +55,8 @@ test.describe("9.1 About", () => {
     await openStudio(page);
     const panel = inputsPanel(page);
     const titles = await panel.locator("section > h3").allTextContents();
-    // docs/specs/04-ai.md, section 16: About first, then Brief (R4-53); Task 4.10b adds Image.
-    expect(titles.slice(0, 3)).toEqual(["About", "Brief", "Seeds"]);
+    // docs/specs/04-ai.md, section 16: About first, then Brief and Image, before Seeds (R4-53).
+    expect(titles.slice(0, 4)).toEqual(["About", "Brief", "Image", "Seeds"]);
     const about = panel.getByRole("region", { name: "About", exact: true });
     await expect(nameField(page)).toHaveAttribute("placeholder", "untitled");
     await expect(nameField(page)).toHaveAccessibleDescription("Up to 80 characters");

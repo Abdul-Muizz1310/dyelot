@@ -2,9 +2,19 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, type Locator, type Page, type Request, type Route } from "@playwright/test";
 import type { AiFeature, FeatureOutput, RouteCode } from "@/ai";
+import type { ImagePalette } from "@/engine";
 import type { OnDeviceState } from "@/features/ai/on-device";
-import { encodeSpec } from "@/spec";
-import { designFor, FRESH, inputsPanel, openStudio, seedOf } from "./studio-support";
+import { decodeSpec, encodeSpec } from "@/spec";
+import {
+  designFor,
+  FRESH,
+  inputsPanel,
+  lotId,
+  lotOf,
+  openStudio,
+  seedOf,
+  settled,
+} from "./studio-support";
 
 // Shared helpers for the AI flows of docs/specs/04-ai.md, section 14.11 (Tasks 4.10 to 4.12). A flow
 // that needs the shared step answers `/api/ai/<feature>` itself through `page.route` ("via
@@ -405,3 +415,121 @@ export const explanation = (page: Page): Locator =>
   findingsSection(page).getByRole("region", { name: "Explanation", exact: true });
 /** The Findings section's one status region: the critique's lines, then a fix's outcome (13). */
 export const findingsLines = (page: Page): Locator => findingsSection(page).getByRole("status");
+
+// ——— The Image and Steer sections (Task 4.10b) ———
+
+/** The image fixtures of section 4. */
+export const imageFixture = (name: string): string =>
+  path.join(import.meta.dirname, "../fixtures/ai", name);
+
+/** The written hash of the page. */
+export const hashOf = (page: Page): Promise<string> => page.evaluate(() => window.location.hash);
+
+/** The spec the hash holds once the debounced write has run. */
+export async function specInHash(page: Page) {
+  await expect.poll(() => hashOf(page)).toMatch(/^#s=/);
+  return decodeSpec((await hashOf(page)).slice(3));
+}
+
+/** Polls the hash until its spec's `meta.createdWith` is `value`. */
+export async function expectCreatedWithIs(page: Page, value: string): Promise<void> {
+  await expect
+    .poll(async () => {
+      const hash = await hashOf(page);
+      return hash.startsWith("#s=") ? decodeSpec(hash.slice(3)).meta.createdWith : null;
+    })
+    .toBe(value);
+}
+
+/**
+ * The lot tag and the written hash once the canvas settles and the debounced hash write has caught
+ * up with the design shown: a change that does nothing keeps both.
+ */
+export async function heldDesign(page: Page): Promise<[string | null, string]> {
+  await settled(page);
+  const lot = await lotId(page).textContent();
+  await expect
+    .poll(async () => {
+      const hash = await hashOf(page);
+      return hash.startsWith("#s=") ? lotOf(decodeSpec(hash.slice(3))) : null;
+    })
+    .toBe(lot);
+  return [lot, await hashOf(page)];
+}
+
+/** Whether two hexes differ by at most `tolerance` in each channel. */
+export function hexWithin(a: string, b: string, tolerance: number): boolean {
+  const channels = (hex: string) => [1, 3, 5].map((i) => Number.parseInt(hex.slice(i, i + 2), 16));
+  const [x, y] = [channels(a), channels(b)];
+  return x.every((value, i) => Math.abs(value - (y[i] ?? Number.NaN)) <= tolerance);
+}
+
+/** A seed row's hex field. */
+export const seedField = (page: Page, slot: "Primary" | "Secondary" | "Accent"): Locator =>
+  inputsPanel(page).getByRole("textbox", { name: slot, exact: true });
+/** A seed row's lock toggle. */
+export const lockToggle = (page: Page, slot: "primary" | "secondary" | "accent"): Locator =>
+  inputsPanel(page).getByRole("button", { name: `Lock ${slot}`, exact: true });
+/** A radio of the inputs panel's group `group`. */
+export const panelChoice = (page: Page, group: string, name: string): Locator =>
+  inputsPanel(page)
+    .getByRole("group", { name: group, exact: true })
+    .getByRole("radio", { name, exact: true });
+
+/** The inputs panel's Image section (13.3). */
+export const imageSection = (page: Page): Locator =>
+  inputsPanel(page).getByRole("region", { name: "Image", exact: true });
+/** The file input, labeled "Choose an image". */
+export const imageInput = (page: Page): Locator =>
+  imageSection(page).getByLabel("Choose an image", { exact: true });
+/** The Image section's one status region. */
+export const imageLines = (page: Page): Locator => imageSection(page).locator("[data-ai-lines]");
+/** The items of the list "Colors in the image". */
+export const swatchItems = (page: Page): Locator =>
+  imageSection(page)
+    .getByRole("list", { name: "Colors in the image", exact: true })
+    .getByRole("listitem");
+export const readVibe = (page: Page): Locator =>
+  inputsPanel(page).getByRole("button", { name: "Read the vibe", exact: true });
+
+/** Chooses a fixture with the file input. */
+export async function chooseImage(page: Page, name: string): Promise<void> {
+  await imageInput(page).setInputFiles(imageFixture(name));
+}
+
+/** Drops a fixture on the drop zone, as a drag from the desktop does. */
+export async function dropImage(page: Page, name: string, type: string): Promise<void> {
+  const base64 = readFileSync(imageFixture(name)).toString("base64");
+  const dataTransfer = await page.evaluateHandle(
+    ({ base64, name, type }) => {
+      const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+      const transfer = new DataTransfer();
+      transfer.items.add(new File([bytes], name, { type }));
+      return transfer;
+    },
+    { base64, name: path.basename(name), type },
+  );
+  const zone = imageSection(page).locator("[data-drop-zone]");
+  for (const event of ["dragenter", "dragover", "drop"]) {
+    await zone.dispatchEvent(event, { dataTransfer });
+  }
+}
+
+/** Waits until the Image section shows exactly `lines`. */
+export async function expectImageLines(
+  page: Page,
+  lines: readonly string[],
+  options: { timeout?: number } = {},
+): Promise<void> {
+  await expect(imageLines(page).locator("p")).toHaveText([...lines], options);
+}
+
+/** 13.3's lines after an extraction: the role seeds present, then the rule's result. */
+export function extractionLines(palette: ImagePalette): string[] {
+  const hexOf = (id: string | undefined) => palette.clusters.find((c) => c.id === id)?.hex;
+  const parts = (["primary", "secondary", "accent"] as const)
+    .map((role) => [role, hexOf(palette.roles[role])] as const)
+    .filter(([, hex]) => hex !== undefined)
+    .map(([role, hex]) => `${role} ${hex}`);
+  return [`Seeds: ${parts.join(", ")}.`, "Made with the image's colors (no model)."];
+}

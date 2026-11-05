@@ -1380,6 +1380,87 @@ describe("C-GUARD4-09 the visitor key's name lives in visitor-key.ts, and src/fe
   });
 });
 
+// C-GUARD4-05 of docs/specs/04-ai.md, section 14.10 (R4-02, R4-08, R4-60): no AI SDK, mock server,
+// color utility, in-browser model runtime or embedding package enters the repo; colorthief is pinned
+// to exactly 3.5.0, and every Langfuse or OpenTelemetry package to an exact version.
+
+/** The packages R4-60 keeps out of the repo. */
+const EXCLUDED_PACKAGES = [
+  "ai",
+  "@openrouter/ai-sdk-provider",
+  "msw",
+  "@material/material-color-utilities",
+  "@huggingface/transformers",
+  "@mlc-ai/web-llm",
+] as const;
+/** An exact version: no range, tag, tilde, caret, wildcard or protocol. */
+const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
+/** The tracing packages R4-60 pins. */
+const isTracingPackage = (name: string): boolean =>
+  name.startsWith("@langfuse/") || name.startsWith("@opentelemetry/");
+
+/** Every dependency of a package.json, by name, from each of its dependency fields. */
+function declaredPackages(manifest: Record<string, unknown>): Map<string, string> {
+  const fields = [
+    "dependencies",
+    "devDependencies",
+    "optionalDependencies",
+    "peerDependencies",
+  ] as const;
+  const found = new Map<string, string>();
+  for (const field of fields) {
+    const entries = manifest[field];
+    if (entries === undefined) continue;
+    for (const [name, version] of Object.entries(entries as Record<string, string>)) {
+      found.set(name, version);
+    }
+  }
+  return found;
+}
+
+describe("C-GUARD4-05 package.json pins colorthief and the tracing packages and holds no excluded package", () => {
+  const manifest = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8"));
+  const packages = declaredPackages(manifest);
+
+  it("C-GUARD4-05 holds none of ai, @openrouter/ai-sdk-provider, msw, Material Color Utilities, @huggingface/transformers or @mlc-ai/web-llm", () => {
+    expect(EXCLUDED_PACKAGES.filter((name) => packages.has(name))).toEqual([]);
+  });
+
+  it("C-GUARD4-05 pins colorthief to exactly 3.5.0", () => {
+    expect(packages.get("colorthief")).toBe("3.5.0");
+  });
+
+  it("C-GUARD4-05 pins every Langfuse or OpenTelemetry package to an exact version", () => {
+    const loose = [...packages]
+      .filter(([name, version]) => isTracingPackage(name) && !EXACT_VERSION.test(version))
+      .map(([name, version]) => `${name}@${version}`);
+    expect(loose).toEqual([]);
+  });
+
+  it("C-GUARD4-05 reads every dependency field and tells an exact version from a range (a probe)", () => {
+    const probe = declaredPackages({
+      dependencies: { ai: "^5.0.0", colorthief: "3.5.0" },
+      devDependencies: { msw: "2.0.0", "@langfuse/otel": "~6.1.1" },
+      optionalDependencies: { "@mlc-ai/web-llm": "0.2.0" },
+      peerDependencies: { "@opentelemetry/api": "1.9.1" },
+    });
+    expect(EXCLUDED_PACKAGES.filter((name) => probe.has(name))).toEqual([
+      "ai",
+      "msw",
+      "@mlc-ai/web-llm",
+    ]);
+    for (const version of ["3.5.0", "6.1.1", "0.223.0", "1.0.0-rc.1"]) {
+      expect(EXACT_VERSION.test(version), version).toBe(true);
+    }
+    for (const version of ["^3.5.0", "~6.1.1", "3.x", "*", "latest", ">=1.0.0", "npm:x@1.0.0"]) {
+      expect(EXACT_VERSION.test(version), version).toBe(false);
+    }
+    expect(isTracingPackage("@langfuse/tracing")).toBe(true);
+    expect(isTracingPackage("@opentelemetry/sdk-trace-base")).toBe(true);
+    expect(isTracingPackage("langfuse")).toBe(false);
+  });
+});
+
 describe("the guards' file walks skip the Biome probe folder", () => {
   it("lists no file under a __entry-probe__ folder, which entry.test.ts writes and removes", () => {
     expect(inProbe(path.join(ROOT, "src", "components", PROBE_DIR, "probe.ts"))).toBe(true);

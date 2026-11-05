@@ -21,6 +21,7 @@ import {
 } from "@/engine";
 import type { AiActivity } from "@/features/ai/activity";
 import { BriefSection } from "@/features/ai/BriefSection";
+import { ImageSection } from "@/features/ai/ImageSection";
 import { AboutFields } from "./AboutFields";
 import { BUTTON, PRESSED, PRIMARY_BUTTON } from "./chrome";
 import { Choice, LABEL, Picker, same } from "./controls";
@@ -32,7 +33,8 @@ import { DENSITIES } from "./view";
 
 // The inputs panel (spec section 7.2): the controls of the table, in its order. A set of at most
 // four options is a radio group, a larger one a native select; "Regenerate" is the panel's one
-// madder fill. About comes first, then Brief (docs/specs/04-ai.md, R4-53), whose colors set seeds.
+// madder fill. About comes first, then Brief and Image (docs/specs/04-ai.md, R4-53), which set
+// seeds.
 
 /** The pairing select's value for "Auto": a pairing absent from the params (R2-05). */
 const AUTO = "auto";
@@ -80,6 +82,10 @@ export function InputsPanel({
 
         <Section title="Brief">
           <BriefSection store={store} activity={activity} />
+        </Section>
+
+        <Section title="Image">
+          <ImageSection store={store} activity={activity} />
         </Section>
 
         <Section title="Seeds">

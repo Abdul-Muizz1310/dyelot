@@ -37,6 +37,7 @@
     "@opentelemetry/sdk-trace-base": "2.12.0",
     "@toon-format/toon": "4.4.0",
     "color-name-list": "^14.85.1",
+    "colorthief": "3.5.0",
     "fflate": "0.8.3",
     "lucide-react": "1.59.0",
     "motion": "14.3.0",
