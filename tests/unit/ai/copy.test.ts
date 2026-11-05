@@ -129,6 +129,9 @@ const TEXT_FEATURES: readonly AiFeature[] = ["brief", "refine", "rationale", "cr
 const featuresOf = (failure: ProviderFailure) =>
   failure.provider === "on-device" ? TEXT_FEATURES : AI_FEATURES;
 
+/** Every value `next` can take: the providers of AiPath, on-device included. */
+const ALL_NEXT: readonly AiPath["provider"][] = ["on-device", "visitor-key", "shared", "rules"];
+
 describe("C-AI-14 the provider labels", () => {
   it.each(AI_FEATURES)(
     "C-AI-14 providerLabel and madeWith give R4-57's labels for %s",
@@ -181,15 +184,28 @@ describe("C-AI-14 the failure sentences", () => {
     expect(shared).toEqual(expect.arrayContaining([...ROUTE_CODES, "unreachable", "invalid"]));
   });
 
+  // 10.3's domain: `next` is a provider after the failing one in R4-30's order, and the on-device
+  // model never fails vibe, which it never runs (R4-31). Every other combination is a RangeError.
   for (const [failure, nexts, sentence] of ROWS) {
-    it(`C-AI-14 gives the row ${failure.provider} ${failure.reason} for each feature and next`, () => {
-      for (const feature of featuresOf(failure)) {
-        for (const next of nexts) {
-          expect(failureSentence(failure, feature, next)).toBe(
-            sentence(VERBS[feature]).replace("<next>", nextWords(next, feature)),
-          );
+    it(`C-AI-14 gives the row ${failure.provider} ${failure.reason} for each feature and each next that may follow it, and refuses every other`, () => {
+      let written = 0;
+      for (const feature of AI_FEATURES) {
+        for (const next of ALL_NEXT) {
+          const allowed =
+            featuresOf(failure).includes(feature) && (nexts as readonly string[]).includes(next);
+          if (allowed) {
+            written += 1;
+            expect(failureSentence(failure, feature, next as Next), `${feature} ${next}`).toBe(
+              sentence(VERBS[feature]).replace("<next>", nextWords(next as Next, feature)),
+            );
+          } else {
+            const call = () => failureSentence(failure, feature, next);
+            expect(call, `${feature} ${next}`).toThrow(RangeError);
+            expect(call).toThrow(/^failureSentence: /);
+          }
         }
       }
+      expect(written).toBe(featuresOf(failure).length * nexts.length);
     });
   }
 

@@ -551,8 +551,10 @@ function issueKind(feature: AiFeature, issue: z.core.$ZodIssue, root: unknown): 
     const listed = issue.values.some((allowed) => typeof allowed === typeof value);
     return isOp || !listed ? "schema" : "range";
   }
+  // An integer beyond its bounds or beyond the safe integers (origin "int") is a number outside
+  // its bounds too.
   if (issue.code === "too_big" || issue.code === "too_small") {
-    return issue.origin === "number" ? "range" : "schema";
+    return issue.origin === "number" || issue.origin === "int" ? "range" : "schema";
   }
   return "schema";
 }

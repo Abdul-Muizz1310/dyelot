@@ -100,6 +100,9 @@ const PENDING_KEYS: readonly string[] = [
 
 const sorted = (keys: readonly string[]): string[] => [...keys].sort();
 
+/** One `export … from` statement of the entry, from a module inside src/ai (a nested path included). */
+const EXPORT_LINE = /^export\s+(?:type\s+)?\{[^}]*\}\s+from\s+"\.\/[\w-]+(?:\/[\w-]+)*"$/;
+
 describe("C-ENTRY4-02 the @/ai entry", () => {
   it("C-ENTRY4-02 lists 41 names, of which the pending ones are a part", () => {
     expect(AI_KEYS).toHaveLength(41);
@@ -158,8 +161,21 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
       .map((statement) => statement.trim())
       .filter(Boolean);
     expect(statements.length).toBeGreaterThan(0);
-    for (const statement of statements) {
-      expect(statement).toMatch(/^export\s+(?:type\s+)?\{[^}]*\}\s+from\s+"\.\/[\w-]+"$/);
+    for (const statement of statements) expect(statement).toMatch(EXPORT_LINE);
+  });
+
+  it("C-ENTRY4-02 reads an export line from a nested module and refuses any other statement", () => {
+    expect('export { words } from "./lexicon/match"').toMatch(EXPORT_LINE);
+    expect('export type { LexiconEntry } from "./lexicon/match"').toMatch(EXPORT_LINE);
+    expect('export { parseOutput } from "./features"').toMatch(EXPORT_LINE);
+    for (const statement of [
+      "export const x = 1",
+      'import { a } from "./a"',
+      'export { a } from "@/engine"',
+      'export { a } from "../engine/a"',
+      'export * from "./features"',
+    ]) {
+      expect(statement).not.toMatch(EXPORT_LINE);
     }
   });
 

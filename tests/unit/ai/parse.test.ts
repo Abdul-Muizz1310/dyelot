@@ -232,6 +232,8 @@ describe("C-AI-06 the range failures", () => {
   it.each([
     ["brief", "a hue of 360", brief({ hues: { primary: 360 } })],
     ["brief", "a hue of -1", brief({ hues: { secondary: -1 } })],
+    ["brief", "a hue of 1e20", brief({ hues: { primary: 1e20 } })],
+    ["brief", "a hue of -1e20", brief({ hues: { accent: -1e20 } })],
     ["brief", 'a preset "vaporwave"', brief({ preset: "vaporwave" })],
     ["brief", "a pairing auto", brief({ pairing: "auto" })],
     [

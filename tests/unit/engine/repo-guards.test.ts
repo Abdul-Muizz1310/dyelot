@@ -1057,7 +1057,9 @@ describe("C-GUARD4-03 app code reaches @/ai only through import()", () => {
     staticCoreImports(file, source).filter((specifier) => {
       if (/^@\/ai(?:\/|$)/.test(specifier)) return true;
       const resolved = path.resolve(path.dirname(file), specifier);
-      return specifier.startsWith(".") && resolved.startsWith(AI_DIR + path.sep);
+      return (
+        specifier.startsWith(".") && (resolved === AI_DIR || resolved.startsWith(AI_DIR + path.sep))
+      );
     });
 
   it("C-GUARD4-03 finds no static import of @/ai or a path under it in src/features, app, components or lib", () => {
@@ -1073,6 +1075,7 @@ describe("C-GUARD4-03 app code reaches @/ai only through import()", () => {
     expect(staticAiImports(PROBE_FILE, 'import { parseOutput } from "@/ai";')).toEqual(["@/ai"]);
     expect(staticAiImports(PROBE_FILE, 'import { x } from "@/ai/chat";')).toEqual(["@/ai/chat"]);
     expect(staticAiImports(PROBE_FILE, 'import { x } from "../ai/chat";')).toEqual(["../ai/chat"]);
+    expect(staticAiImports(PROBE_FILE, 'import { x } from "../ai";')).toEqual(["../ai"]);
     expect(staticAiImports(PROBE_FILE, 'import type { AiChange } from "@/ai";')).toEqual([]);
     expect(staticAiImports(PROBE_FILE, 'import { chipChange } from "./ai/steer";')).toEqual([]);
   });

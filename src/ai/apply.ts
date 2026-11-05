@@ -94,7 +94,9 @@ export const TYPE_VIBE_PAIRING: Readonly<Record<(typeof TYPE_VIBES)[number], Pai
     display: "unbounded-golos",
   });
 
-// The bounds of RationaleOutput (R4-49), within the spec's own bounds of R3-01.
+// The bounds of RationaleOutput (R4-49), within the spec's own bounds of R3-01. They repeat
+// features.ts's because features.ts imports this module's tables at run time; importing back would
+// make a cycle.
 const ONE_LINER_MAX = 140;
 const THESIS_MAX = 280;
 const RULE_MAX = 160;

@@ -23,6 +23,7 @@ import {
   RADIUS_SET_NAMES,
   TYPE_CONTEXTS,
 } from "@/engine";
+import { z } from "@/spec/zod";
 import {
   BRIEF_IN,
   CRITIQUE_IN,
@@ -374,10 +375,19 @@ describe("C-AI-03 each output's JSON Schema", () => {
     expect(p.thesis).toMatchObject({ minLength: 1, maxLength: 280 });
   });
 
-  it("C-AI-03 outputSchema is the schema outputJsonSchema converts", () => {
+  it("C-AI-03 outputSchema is the schema outputJsonSchema converts, with R4-10's options", () => {
+    const options = {
+      target: "draft-07",
+      unrepresentable: "throw",
+      io: "output",
+      reused: "inline",
+      cycles: "throw",
+    } as const;
     for (const feature of AI_FEATURES) {
       const input = INPUTS[feature] as never;
-      expect(outputSchema(feature, input).safeParse(null).success).toBe(false);
+      const { $schema, ...converted } = z.toJSONSchema(outputSchema(feature, input), options);
+      expect($schema, feature).toBe("http://json-schema.org/draft-07/schema#");
+      expect(outputJsonSchema(feature, input), feature).toEqual(converted);
     }
   });
 

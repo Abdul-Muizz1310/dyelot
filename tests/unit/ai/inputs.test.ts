@@ -209,6 +209,17 @@ describe("C-AI-16 the input builders", () => {
     expect(outside.families.display).toBe("my brand sans");
   });
 
+  it('C-AI-16 rationaleInput makes a family name plain: an id "foo-" gives "foo", never a throw', () => {
+    const custom = (display: string): DesignSpec => ({
+      ...SPEC,
+      type: { ...SPEC.type, families: { ...SPEC.type.families, display } },
+    });
+    expect(rationaleInput(custom("foo-"), null).families.display).toBe("foo");
+    expect(rationaleInput(custom("-foo--bar-"), null).families.display).toBe("foo bar");
+    expect(rationaleInput(custom("---"), null).families.display).toBe("---");
+    expect(rationaleInput(custom("a".repeat(64)), null).families.display).toBe("a".repeat(64));
+  });
+
   it("C-AI-16 rationaleInput names the pairing a spec generated with it uses", () => {
     const spec = generateSystem({ ...DEFAULT_PARAMS, pairing: "gloock-albert" }, "seed-1");
     expect(rationaleInput(spec, null).pairing).toBe("Gloock over Albert Sans");

@@ -12,7 +12,7 @@ import {
   PAIRINGS,
   type PresetId,
 } from "@/engine";
-import { type DesignSpec, DesignSpecSchema } from "@/spec";
+import { type DesignSpec, DesignSpecSchema, toPlainText } from "@/spec";
 import type { z } from "@/spec/zod";
 import { assertRecord, assertString, describeType, valueAt } from "./assert";
 import {
@@ -31,6 +31,8 @@ import {
 // (R4-16). A wrong type is a TypeError and any other rejection a RangeError, each naming the builder.
 
 const MAX_FINDINGS = 40;
+/** The longest family id of the spec schema, and so the longest family name. */
+const FAMILY_NAME_MAX = 64;
 const C1_IDS: readonly string[] = CONTRAST_CHECKS.filter((check) => check.rule === "C1").map(
   (check) => check.id,
 );
@@ -153,9 +155,13 @@ export function vibeInput(
   return checked("vibe", "vibeInput", { clusters, image });
 }
 
-/** A family's name: the catalog's, or the id with each `-` read as a space (as the export writes it). */
+/**
+ * A family's name: the catalog's, or the id with each `-` read as a space (as the export writes it),
+ * made plain, so an id such as "foo-" gives "foo"; an id of dashes alone stays itself.
+ */
 function familyName(id: string): string {
-  return FONT_CATALOG.find((font) => font.id === id)?.family ?? id.replaceAll("-", " ");
+  const name = FONT_CATALOG.find((font) => font.id === id)?.family ?? id.replaceAll("-", " ");
+  return toPlainText(name, FAMILY_NAME_MAX)?.text ?? id;
 }
 
 /** A ratio cut (not rounded) to 2 decimals, read through 6 decimals first so 4.57 stays 4.57. */
