@@ -23,6 +23,7 @@ import {
 } from "@/ai/features";
 import { guardVerdict, readKeyRemaining } from "@/ai/guard";
 import { briefInput, critiqueInput, rationaleInput, refineInput, vibeInput } from "@/ai/inputs";
+import { PROMPTS } from "@/ai/prompts";
 import { ROUTE_CODES, readRouteReply } from "@/ai/route-reply";
 import type { CHROMA_LEVELS, NEUTRAL_TINTS } from "@/engine";
 
@@ -86,7 +87,6 @@ const PENDING_KEYS: readonly string[] = [
   "cacheKey",
   "chatMessages",
   "readReply",
-  "PROMPTS",
   "briefChange",
   "briefColors",
   "matchLexicon",
@@ -120,6 +120,7 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
     const homes: Record<string, unknown> = {
       AI_FEATURES,
       CAP_COOKIE,
+      PROMPTS,
       ROUTE_CODES,
       VISITOR_CAP,
       briefInput,

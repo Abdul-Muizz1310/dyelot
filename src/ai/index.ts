@@ -50,5 +50,7 @@ export {
 } from "./features";
 export { guardVerdict, readKeyRemaining } from "./guard";
 export { briefInput, critiqueInput, rationaleInput, refineInput, vibeInput } from "./inputs";
+export type { PromptFile } from "./prompts";
+export { PROMPTS } from "./prompts";
 export type { AiPath, RouteCode, RouteReply } from "./route-reply";
 export { ROUTE_CODES, readRouteReply } from "./route-reply";
