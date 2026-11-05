@@ -57,6 +57,38 @@ describe("C-PROXY-01 the proxy puts one fresh nonce on the request and the respo
     const nonce = forwarded(response, "x-nonce") as string;
     expect(response.headers.get("content-security-policy")).toBe(cspHeader(nonce, { dev: true }));
   });
+
+  /** R4-24's policy, written out: what the proxy sends for every path under `/api/`. */
+  const API_POLICY = "default-src 'none'; frame-ancestors 'none';";
+
+  it.each(["/api/ai/brief", "/api/ai/models", "/api/nope", "/api/"])(
+    "C-PROXY-01 sends R4-24's policy for %s and forwards no nonce",
+    (path) => {
+      const response = run(path);
+      expect(response.headers.get("content-security-policy")).toBe(API_POLICY);
+      expect(response.headers.get("x-middleware-override-headers")).toBeNull();
+      expect(forwarded(response, "x-nonce")).toBeNull();
+      expect(forwarded(response, "content-security-policy")).toBeNull();
+      expect(response.headers.get("x-middleware-next")).toBe("1");
+    },
+  );
+
+  it("C-PROXY-01 sends R4-24's policy under /api/ in development too", () => {
+    vi.stubEnv("NODE_ENV", "development");
+    expect(run("/api/ai/brief").headers.get("content-security-policy")).toBe(API_POLICY);
+  });
+
+  it.each(["/studio", "/robots.txtx", "/api", "/apix", "/x/api/y"])(
+    "C-PROXY-01 sends the nonce page policy for %s, which is not under /api/",
+    (path) => {
+      const response = run(path);
+      const nonce = forwarded(response, "x-nonce");
+      expect(nonce).toMatch(NONCE);
+      const policy = cspHeader(nonce as string, { dev: false });
+      expect(forwarded(response, "content-security-policy")).toBe(policy);
+      expect(response.headers.get("content-security-policy")).toBe(policy);
+    },
+  );
 });
 
 describe("C-PROXY-02 the matcher skips only Next's static files, its image optimizer and prefetches", () => {

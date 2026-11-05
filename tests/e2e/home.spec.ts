@@ -148,20 +148,22 @@ test("the nav marks no link as current on the 404 page", async ({ page }) => {
 });
 
 // Breaks when the proxy stops sending the policy (docs/specs/04-ai.md, R4-25), when its matcher
-// stops covering a response (section 12.2: a 404 under any path is HTML and needs the policy), when
-// the proxy stops passing a file through, when next.config.ts drops one of the other headers or the
-// callback's no-referrer (R4-27, R4-33), or when the policy loosens: another origin in
-// `connect-src`, an inline script without the nonce, a framable page, a plugin object, a form
-// posting elsewhere or `unsafe-eval` in a production build. Section 16 amends M0's test to
-// F-SEC4-01's values.
+// stops covering a response (section 12.2: a 404 under any path is HTML and needs a policy), when
+// a path under /api/ stops getting R4-24's policy, which runs nothing, when the proxy stops passing
+// a file through, when next.config.ts drops one of the other headers or the callback's
+// no-referrer (R4-27, R4-33), or when the page policy loosens: another origin in `connect-src`, an
+// inline script without the nonce, a framable page, a plugin object, a form posting elsewhere or
+// `unsafe-eval` in a production build. Section 16 amends M0's test to F-SEC4-01's values.
 test("every page is served with the security headers and a same-origin policy", async ({
   request,
 }) => {
   const STRICT = "strict-origin-when-cross-origin";
+  const API_POLICY = "default-src 'none'; frame-ancestors 'none';";
   const responses: ReadonlyArray<
     [path: string, status: number, type: RegExp, referrer: string, body?: string]
   > = [
     ["/", 200, /^text\/html/, STRICT],
+    ["/studio", 200, /^text\/html/, STRICT],
     ["/connect/callback", 200, /^text\/html/, "no-referrer"],
     ["/no-such-page", 404, /^text\/html/, STRICT],
     ["/api/nope", 404, /^text\/html/, STRICT],
@@ -182,6 +184,10 @@ test("every page is served with the security headers and a same-origin policy", 
     expect(headers["permissions-policy"], path).toBe(
       "language-model=(self), camera=(), microphone=(), geolocation=()",
     );
+    if (path.startsWith("/api/")) {
+      expect(headers["content-security-policy"], path).toBe(API_POLICY);
+      continue;
+    }
     const policy = directives(headers["content-security-policy"] ?? "");
     expect(policy["default-src"], path).toEqual(["'self'"]);
     expect(policy["base-uri"], path).toEqual(["'self'"]);

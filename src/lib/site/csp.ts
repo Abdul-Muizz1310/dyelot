@@ -8,6 +8,12 @@
  * and the hot-reload WebSocket; a production build allows neither.
  */
 
+/**
+ * The API's policy (R4-24): a reply under `/api/` runs nothing and loads nothing, so it needs no
+ * nonce. The proxy sends it for every path under `/api/`, a 404 page there included.
+ */
+export const API_CSP = "default-src 'none'; frame-ancestors 'none';";
+
 /** Base64 of at least 16 characters, so a nonce cannot close its quote or start a directive. */
 const NONCE = /^[A-Za-z0-9+/]{16,}={0,2}$/;
 
