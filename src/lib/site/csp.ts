@@ -18,13 +18,9 @@ function typeName(value: unknown): string {
 }
 
 export function cspHeader(nonce: string, options: CspOptions): string {
+  // Every argument's type before any value's domain (R-05), so a wrong type is always a TypeError.
   if (typeof nonce !== "string") {
     throw new TypeError(`cspHeader: nonce must be a string, got ${typeName(nonce)}`);
-  }
-  if (!NONCE.test(nonce)) {
-    throw new RangeError(
-      `cspHeader: nonce must be base64 of at least 16 characters, got ${JSON.stringify(nonce)}`,
-    );
   }
   if (typeof options !== "object" || options === null) {
     throw new TypeError(`cspHeader: options must be an object, got ${typeName(options)}`);
@@ -32,6 +28,11 @@ export function cspHeader(nonce: string, options: CspOptions): string {
   const { dev } = options;
   if (typeof dev !== "boolean") {
     throw new TypeError(`cspHeader: options.dev must be a boolean, got ${typeName(dev)}`);
+  }
+  if (!NONCE.test(nonce)) {
+    throw new RangeError(
+      `cspHeader: nonce must be base64 of at least 16 characters, got ${JSON.stringify(nonce)}`,
+    );
   }
 
   const policy = [

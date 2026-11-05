@@ -59,23 +59,23 @@ describe("C-PROXY-01 the proxy puts one fresh nonce on the request and the respo
   });
 });
 
-describe("C-PROXY-02 the matcher skips the API, static files, metadata files and prefetches", () => {
+describe("C-PROXY-02 the matcher skips only Next's static files, its image optimizer and prefetches", () => {
   const [matcher] = config.matcher;
   const pattern = new RegExp(`^${matcher.source}$`);
 
-  it.each(["/", "/studio", "/connect", "/connect/callback", "/no-such-page"])(
-    "C-PROXY-02 matches the page %s",
-    (path) => {
-      expect(pattern.test(path)).toBe(true);
-    },
-  );
-
+  // Every HTML response carries the policy, a 404 under any path included (section 12.2). The
+  // API's replies, the fonts and the metadata files carry it too, where it does no harm.
   it.each([
+    "/",
+    "/studio",
+    "/connect",
+    "/connect/callback",
+    "/no-such-page",
     "/api/ai/brief",
     "/api/ai/models",
-    "/_next/static/a.js",
-    "/_next/image",
+    "/api/nope",
     "/fonts/x.woff2",
+    "/fonts/nope",
     "/favicon.ico",
     "/icon.svg",
     "/apple-icon.png",
@@ -83,19 +83,27 @@ describe("C-PROXY-02 the matcher skips the API, static files, metadata files and
     "/icon-512.png",
     "/icon-maskable-512.png",
     "/opengraph-image",
+    "/opengraph-image-abc",
     "/robots.txt",
+    "/robots.txtx",
     "/sitemap.xml",
     "/manifest.webmanifest",
-  ])("C-PROXY-02 skips %s", (path) => {
-    expect(pattern.test(path)).toBe(false);
+  ])("C-PROXY-02 matches %s", (path) => {
+    expect(pattern.test(path)).toBe(true);
   });
+
+  it.each(["/_next/static/a.js", "/_next/static/chunks/x.css", "/_next/image"])(
+    "C-PROXY-02 skips %s",
+    (path) => {
+      expect(pattern.test(path)).toBe(false);
+    },
+  );
 
   it("C-PROXY-02 is section 12.2's matcher, missing both prefetch headers", () => {
     expect(config).toEqual({
       matcher: [
         {
-          source:
-            "/((?!api/|_next/static/|_next/image|fonts/|favicon\\.ico|icon\\.svg|apple-icon\\.png|icon-192\\.png|icon-512\\.png|icon-maskable-512\\.png|opengraph-image|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest).*)",
+          source: "/((?!_next/static/|_next/image).*)",
           missing: [
             { type: "header", key: "next-router-prefetch" },
             { type: "header", key: "purpose", value: "prefetch" },

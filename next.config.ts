@@ -8,11 +8,11 @@ const nextConfig: NextConfig = {
       "*.mjs": { condition: { query: /[?&]raw(?=&|$)/ }, type: "raw" },
     },
   },
-  // The headers every route shares, the house pattern from inkthread-frontend. The page policy is
-  // not here: the proxy (src/proxy.ts) sends it with a fresh nonce per request
-  // (docs/specs/04-ai.md, R4-25), and the AI routes, which the proxy skips, set their own (R4-24).
-  // Permissions-Policy lets dyelot's pages use the browser's language model and denies the camera,
-  // the microphone and geolocation (R4-27).
+  // The headers every route shares, the house pattern from inkthread-frontend. The policy is not
+  // here: the proxy (src/proxy.ts) sends it, with a fresh nonce per request, on every response but
+  // Next's static files (docs/specs/04-ai.md, R4-25 and section 12.2). Permissions-Policy lets
+  // dyelot's pages use the browser's language model and denies the camera, the microphone and
+  // geolocation (R4-27).
   async headers() {
     return [
       {
@@ -26,6 +26,13 @@ const nextConfig: NextConfig = {
             value: "language-model=(self), camera=(), microphone=(), geolocation=()",
           },
         ],
+      },
+      // The callback's address holds the sign-in's code and state, so no request it starts, not
+      // even one the browser makes before it reads the page's meta tag, sends a Referer (R4-33).
+      // When two rules set one header, the last wins (headers.md, "Header Overriding Behavior").
+      {
+        source: "/connect/callback",
+        headers: [{ key: "Referrer-Policy", value: "no-referrer" }],
       },
     ];
   },

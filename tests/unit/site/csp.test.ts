@@ -56,6 +56,9 @@ describe("C-CSP-02 cspHeader rejects a bad nonce or option", () => {
     ["options of null", NONCE, null],
     ["options of a string", NONCE, "dev"],
     ["a nonce that is not a string", 42, { dev: false }],
+    // R-05: a wrong type is a TypeError even beside an out-of-domain value, so types come first.
+    ["options of null beside a nonce that is too short", "abc", null],
+    ['dev of "yes" beside a nonce with a space', "a b", { dev: "yes" }],
   ])("C-CSP-02 throws TypeError naming cspHeader for %s", (_, nonce, options) => {
     expect(() => cspHeader(nonce as never, options as never)).toThrow(TypeError);
     expect(() => cspHeader(nonce as never, options as never)).toThrow(/^cspHeader\b/);

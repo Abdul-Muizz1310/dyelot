@@ -5,8 +5,9 @@ import { pageMetadata } from "@/lib/site/metadata";
 
 const TITLE = "Connecting your OpenRouter key";
 
-// Section 12.4: out of search results and out of robots.txt (R4-22), and the address, which holds
-// the sign-in's code and state, never leaves in a Referer header.
+// Section 12.4: out of search results and out of robots.txt (R4-22). The address holds the
+// sign-in's code and state, so this meta tag and the response's own Referrer-Policy
+// (next.config.ts) keep it out of every Referer header (R4-33).
 export const metadata: Metadata = {
   ...pageMetadata(SITE, "/connect/callback", {
     title: TITLE,

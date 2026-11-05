@@ -21,14 +21,15 @@ export function proxy(request: NextRequest): NextResponse {
   return response;
 }
 
-// Section 12.2. The proxy skips the API (its routes send their own policy, R4-24), static files,
-// fonts, the metadata files and prefetches. Next.js reads the matcher at build time, so it stays
-// a literal.
+// Section 12.2. The proxy skips only Next's static files, its image optimizer and prefetches, so
+// every HTML response carries the policy, a 404 under any other path included; the API's replies,
+// the fonts and the metadata files carry it too, where it does no harm. A 404 under
+// `/_next/static/` is the one HTML response left without it. Next.js reads the matcher at build
+// time, so it stays a literal.
 export const config = {
   matcher: [
     {
-      source:
-        "/((?!api/|_next/static/|_next/image|fonts/|favicon\\.ico|icon\\.svg|apple-icon\\.png|icon-192\\.png|icon-512\\.png|icon-maskable-512\\.png|opengraph-image|robots\\.txt|sitemap\\.xml|manifest\\.webmanifest).*)",
+      source: "/((?!_next/static/|_next/image).*)",
       missing: [
         { type: "header", key: "next-router-prefetch" },
         { type: "header", key: "purpose", value: "prefetch" },
