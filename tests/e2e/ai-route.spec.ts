@@ -546,7 +546,7 @@ test.describe("14.11 the image, steer and inspector actions on the shared route"
     await expect.poll(() => heldDesign(page)).toEqual(before);
   });
 
-  test("F-RAT-01 Write the rationale stores the model's text, shown as text, and DESIGN.md carries the thesis", async ({
+  test("F-RAT-01 Write the rationale stores the model's text, shown as text, and DESIGN.md carries the thesis and plain Do and Don't rules", async ({
     page,
     request,
   }) => {
@@ -578,6 +578,17 @@ test.describe("14.11 the image, steer and inspector actions on the shared route"
     await openReady(page);
     const designMd = bundleOf(spec).files.find((file) => file.path === "DESIGN.md")?.text;
     expect(designMd).toContain(mdText(RATIONALE_OUT.thesis));
+    // The rules read on after "Do" and "Don't", with no double negative (R4-49, 6.2).
+    const ruleLines = (designMd ?? "").split("\n").filter((line) => /^- Do(?:n't)? /.test(line));
+    expect(ruleLines).toEqual(
+      expect.arrayContaining([
+        "- Do keep body text at 16 px or more.",
+        "- Don't set saturated text on a saturated fill.",
+      ]),
+    );
+    expect(
+      ruleLines.filter((line) => /^- Do(?:n't)? (?:do|don't|never|avoid)\b/i.test(line)),
+    ).toEqual([]);
     expect(await rawText(previewOf(page, "DESIGN.md"))).toBe(designMd);
     await expect(previewOf(page, "DESIGN.md").locator("b")).toHaveCount(0);
   });

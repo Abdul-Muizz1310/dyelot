@@ -28,8 +28,8 @@
   "rationale": {
     "oneLiner": "A calm system for long reading.",
     "thesis": "<b>Calm</b> and exact",
-    "do": ["Keep body text at 16 px or more."],
-    "dont": ["Do not set saturated text on a saturated fill."]
+    "do": ["keep body text at 16 px or more."],
+    "dont": ["set saturated text on a saturated fill."]
   },
   "critique": {
     "top": [{ "findingIndex": 0, "why": "Low contrast makes the main text hard to read." }],

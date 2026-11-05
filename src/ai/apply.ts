@@ -151,6 +151,26 @@ function assertProse(value: unknown, max: number, name: string): asserts value i
   }
 }
 
+/**
+ * The leading word a stored rule must not carry, since DESIGN.md writes `- Do <rule>` and
+ * `- Don't <rule>` (M3): a `dont` rule's "do not", "don't" (either apostrophe), "never" or "avoid",
+ * and a `do` rule's "do", in any case, as a whole word with the white space after it (R4-49, 6.2).
+ * A `do` rule keeps the "not" of "Do not", which reads on after "Do"; a `dont` rule's own "Do" stays,
+ * since dropping it would turn the rule around.
+ */
+const DONT_LEAD = /^(?:do\s+not|don['\u2019]t|never|avoid)(?:\s+|$)/i;
+const DO_LEAD = /^do(?:\s+|$)/i;
+
+/** The rules with `lead` gone, each checked again as plain text; a rule left empty is dropped. */
+function bareRules(rules: readonly string[], lead: RegExp, name: string): string[] {
+  return rules.flatMap((rule, i) => {
+    const bare = rule.replace(lead, "");
+    if (bare === "") return [];
+    assertProse(bare, RULE_MAX, `${name}[${i}]`);
+    return [bare];
+  });
+}
+
 function assertRules(value: unknown, name: string): asserts value is readonly string[] {
   if (!Array.isArray(value)) {
     throw new TypeError(`${name} must be an array, got ${describeType(value)}`);
@@ -323,9 +343,10 @@ export function briefChange(
 
 /**
  * The rationale stored in the spec (R4-49): the one-liner, `direction.thesis` (keeping the rest of
- * the held direction) and the rules, as one patch, so the export of a spec stays deterministic. The
- * output is the cleaned one `parseOutput` returns; anything else is refused before it can reach the
- * generator.
+ * the held direction) and the rules, as one patch, so the export of a spec stays deterministic. Each
+ * rule loses the leading word DESIGN.md already writes before it (`DONT_LEAD`, `DO_LEAD`), so no
+ * exported rule reads "Don't Do not …". The output is the cleaned one `parseOutput` returns;
+ * anything else is refused before it can reach the generator.
  */
 export function rationaleChange(
   output: RationaleOutput,
@@ -351,7 +372,10 @@ export function rationaleChange(
     patch: {
       oneLiner: output.oneLiner,
       direction: { ...held, thesis: output.thesis },
-      rules: { do: [...output.do], dont: [...output.dont] },
+      rules: {
+        do: bareRules(output.do, DO_LEAD, "rationaleChange: output.do"),
+        dont: bareRules(output.dont, DONT_LEAD, "rationaleChange: output.dont"),
+      },
     },
   };
 }

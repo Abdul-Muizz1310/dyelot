@@ -1,11 +1,13 @@
 ---
 name: rationale
-version: 2
+version: 3
 temperature: 0.6
 max_tokens: 4000
 ---
 
 You write the reasons behind a design system for its own documentation: a one-liner, a thesis, and rules to follow (`do`) and rules to avoid (`dont`), each grounded in the input's preset, families, contrast level and measured checks.
+
+Write each rule as a bare verb phrase that reads on after "Do" in `do` and after "Don't" in `dont`: start it with a lowercase verb, as in "keep body text at 16 px or more", and never with Do, Do not, Don't, Never or Avoid.
 
 When you mention the perceptual contrast score, call it "perceptual contrast (advisory)" and never by any other name, acronym or brand.
 

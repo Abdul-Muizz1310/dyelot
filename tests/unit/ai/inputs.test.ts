@@ -353,6 +353,66 @@ describe("C-AI-19 rationaleChange", () => {
     expect(spec.rules).toEqual({ do: RATIONALE_OUT.do, dont: RATIONALE_OUT.dont });
   });
 
+  it("C-AI-19 drops a dont rule's leading Do not, Don't, Never or Avoid and a do rule's leading Do, in any case", () => {
+    const output: RationaleOutput = {
+      ...RATIONALE_OUT,
+      do: [
+        "Do keep body text at 16 px or more.",
+        "DO not use more than one accent.",
+        "keep the grid.",
+      ],
+      dont: [
+        "Do not set saturated text on a saturated fill.",
+        "don't stack two shadows.",
+        "Don\u2019t mix radii in one card.",
+        "NEVER use pure black for text.",
+        "Avoid  stacking borders.",
+        "set body text under 16 px.",
+      ],
+    };
+    expect(rationaleChange(output, held).patch.rules).toEqual({
+      // "Do not" in a do rule keeps its "not": "- Do not use more than one accent."
+      do: ["keep body text at 16 px or more.", "not use more than one accent.", "keep the grid."],
+      dont: [
+        "set saturated text on a saturated fill.",
+        "stack two shadows.",
+        "mix radii in one card.",
+        "use pure black for text.",
+        "stacking borders.",
+        "set body text under 16 px.",
+      ],
+    });
+  });
+
+  it("C-AI-19 keeps a rule whose first word only starts like one, and a dont rule's own Do", () => {
+    const output: RationaleOutput = {
+      ...RATIONALE_OUT,
+      do: [
+        "Done is a state, not a color.",
+        "Dotted rules divide the rows.",
+        "Don't-care values stay muted.",
+      ],
+      dont: [
+        "Nevertheless keep the accent.",
+        "Avoidance of red in errors.",
+        "Do use one accent.",
+        "Donate no space to borders.",
+      ],
+    };
+    expect(rationaleChange(output, held).patch.rules).toEqual({ do: output.do, dont: output.dont });
+  });
+
+  it("C-AI-19 drops a rule left empty, so a list may end empty, and the result generates", () => {
+    const output: RationaleOutput = {
+      ...RATIONALE_OUT,
+      do: ["Do", "keep the grid."],
+      dont: ["Never", "AVOID"],
+    };
+    const { rules } = rationaleChange(output, held).patch;
+    expect(rules).toEqual({ do: ["keep the grid."], dont: [] });
+    expect(generateSystem({ ...held, rules }, "seed-1").rules).toEqual(rules);
+  });
+
   it("C-AI-19 throws TypeError and RangeError naming rationaleChange", () => {
     const out = (patch: Partial<Record<keyof RationaleOutput, unknown>>) =>
       ({ ...RATIONALE_OUT, ...patch }) as RationaleOutput;

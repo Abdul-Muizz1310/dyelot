@@ -15,12 +15,15 @@ const file = (feature: AiFeature): string =>
   readFileSync(path.join(ROOT, "src/ai/prompts", `${feature}.md`), "utf8");
 
 // Section 6.1's table.
-const TABLE: Readonly<Record<AiFeature, { temperature: number; maxTokens: number }>> = {
-  brief: { temperature: 0.4, maxTokens: 4000 },
-  refine: { temperature: 0.2, maxTokens: 4000 },
-  vibe: { temperature: 0.3, maxTokens: 4000 },
-  rationale: { temperature: 0.6, maxTokens: 4000 },
-  critique: { temperature: 0.2, maxTokens: 4000 },
+const TABLE: Readonly<
+  Record<AiFeature, { version: number; temperature: number; maxTokens: number }>
+> = {
+  brief: { version: 2, temperature: 0.4, maxTokens: 4000 },
+  refine: { version: 2, temperature: 0.2, maxTokens: 4000 },
+  vibe: { version: 2, temperature: 0.3, maxTokens: 4000 },
+  // Version 3: the rules as bare verb phrases (the final review's finding 2).
+  rationale: { version: 3, temperature: 0.6, maxTokens: 4000 },
+  critique: { version: 2, temperature: 0.2, maxTokens: 4000 },
 };
 
 /** The text after the second `---` line, less its leading blank lines (section 6.1). */
@@ -43,7 +46,7 @@ describe("C-PROMPT-01 PROMPTS", () => {
   it.each(AI_FEATURES)("C-PROMPT-01 %s: the table's values and the file's body", (feature) => {
     const prompt = PROMPTS[feature];
     expect(prompt.name).toBe(feature);
-    expect(prompt.version).toBe(2);
+    expect(prompt.version).toBe(TABLE[feature].version);
     expect(prompt.temperature).toBe(TABLE[feature].temperature);
     expect(prompt.maxTokens).toBe(TABLE[feature].maxTokens);
     expect(prompt.body).toBe(bodyOf(file(feature)));
@@ -94,6 +97,7 @@ const OWN: Readonly<Record<AiFeature, readonly string[]>> = {
     "You write the reasons behind a design system for its own documentation:",
     "rules to follow (`do`) and rules to avoid (`dont`)",
     'call it "perceptual contrast (advisory)" and never by any other name, acronym or brand.',
+    'Write each rule as a bare verb phrase that reads on after "Do" in `do` and after "Don\'t" in `dont`: start it with a lowercase verb, as in "keep body text at 16 px or more", and never with Do, Do not, Don\'t, Never or Avoid.',
   ],
   critique: [
     "You rank up to three of the given findings by how much they hurt the people who use the product,",

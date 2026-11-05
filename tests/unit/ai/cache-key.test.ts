@@ -45,7 +45,8 @@ describe("C-AI-18 cacheKey", () => {
   it.each(AI_FEATURES)("C-AI-18 the %s key is <feature>:v<version>:<64 hex>", (feature) => {
     const key = keyOf(feature, INPUTS[feature], PROMPTS[feature].version);
     expect(key).toMatch(new RegExp(`^${feature}:v${PROMPTS[feature].version}:[0-9a-f]{64}$`));
-    expect(PROMPTS[feature].version).toBe(2);
+    // Section 6.1's versions: the rationale's is 3 since its rules became bare verb phrases.
+    expect(PROMPTS[feature].version).toBe(feature === "rationale" ? 3 : 2);
   });
 
   it("C-AI-18 hashes stableJson of the input with SHA-256", () => {
