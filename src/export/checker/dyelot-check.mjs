@@ -329,6 +329,30 @@ function masked(text, spans) {
 }
 
 /**
+ * The color call that starts at `from`: the whole call when its closing parenthesis is on the
+ * line, else the function's name and its opening parenthesis. `named` is what a message prints.
+ * @param {string} line
+ * @param {number} from
+ * @returns {{ text: string, named: string }}
+ */
+function callAt(line, from) {
+  const open = line.indexOf("(", from);
+  let depth = 0;
+  for (let at = open; at < line.length; at += 1) {
+    if (line[at] === "(") depth += 1;
+    else if (line[at] === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        const text = line.slice(from, at + 1);
+        return { text, named: text };
+      }
+    }
+  }
+  const head = line.slice(from, open + 1);
+  return { text: head, named: `${head})` };
+}
+
+/**
  * Scans one line of source, whose judged declarations are already masked.
  * @param {string} line
  * @returns {{ findings: { code: string, column: number, text: string, message: string }[], ignored: string | null }}
@@ -345,10 +369,10 @@ export function scanLine(line) {
   }
   /** @type {[number, number][]} */
   const taken = [];
-  /** @param {string} code @param {RegExpMatchArray} match @param {string} message */
-  const add = (code, match, message) => {
-    findings.push({ code, column: start(match) + 1, text: match[0], message });
-    taken.push([start(match), start(match) + match[0].length]);
+  /** @param {string} code @param {RegExpMatchArray} match @param {string} message @param {string} [text] */
+  const add = (code, match, message, text = match[0]) => {
+    findings.push({ code, column: start(match) + 1, text, message });
+    taken.push([start(match), start(match) + text.length]);
   };
   for (const match of line.matchAll(ARBITRARY)) {
     add(
@@ -369,10 +393,12 @@ export function scanLine(line) {
   }
   for (const match of line.matchAll(RAW_CALL)) {
     if (free(match)) {
+      const call = callAt(line, start(match));
       add(
         "raw-color",
         match,
-        `The color function ${match[0]}) skips the theme. Use a role such as var(--primary).`,
+        `The color function ${call.named} skips the theme. Use a role such as var(--primary).`,
+        call.text,
       );
     }
   }
@@ -663,7 +689,7 @@ export function main(argv, io) {
       if (ratio < entry.threshold) {
         report(
           "contrast-fails",
-          `${entry.check}:${entry.foreground}/${entry.background} in ${entry.mode} mode is ${trunc4(ratio)}, below ${entry.threshold}.`,
+          `${entry.check} in ${entry.mode} mode is ${trunc4(ratio)}, below ${entry.threshold}.`,
         );
       }
     }

@@ -10,7 +10,7 @@ import { lotTag, specId } from "@/spec";
 import { APP, type AppFiles, cleanFolders, SHADCN_APP, STUB_FILES } from "./checker-support";
 import { ORIGIN, SPEC } from "./golden-support";
 
-// C-CHK-01 to 23, 27 to 30, 34 to 36 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
+// C-CHK-01 to 23, 27 to 30, 34 to 37 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
 // through `main(argv, io)`. C-CHK-24 and 26 spawn node: tests/unit/export/checker-entry.test.ts.
 
 afterAll(cleanFolders);
@@ -279,16 +279,13 @@ describe("the theme against the receipt", () => {
         ),
       ),
     );
-    const found = r.json.findings.filter((f: { code: string }) => f.code === "contrast-fails");
-    for (const bg of ["muted", "background"]) {
-      const finding = found.find((f: { message: string }) =>
-        f.message.includes(`C1:muted-foreground/${bg}`),
-      );
-      expect(finding.message).toContain("light");
-      expect(finding.message).toContain(
-        trunc4(wcagRatio(rgb("#9a9a9a"), rgb(light[bg as "muted"]))),
-      );
-      expect(finding.message).toContain("4.5");
+    const messages = r.json.findings
+      .filter((f: { code: string }) => f.code === "contrast-fails")
+      .map((f: { message: string }) => f.message);
+    for (const bg of ["muted", "background"] as const) {
+      const ratio = trunc4(wcagRatio(rgb("#9a9a9a"), rgb(light[bg])));
+      // The receipt's check id already names the pair, so the message names it once.
+      expect(messages).toContain(`C1:muted-foreground/${bg} in light mode is ${ratio}, below 4.5.`);
     }
     expect(codes(r)).toContain("role-mismatch");
   });
@@ -392,6 +389,35 @@ describe("the scan", () => {
     const found = scanOf(scan({ "src/a.css": lines.join("\n") }));
     expect(found.map((f) => f.line)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(new Set(found.map((f) => f.code))).toEqual(new Set(["raw-color"]));
+  });
+
+  it("C-CHK-37: a color function's text is the whole call, or its name when the call runs on", () => {
+    const r = scan({
+      "src/a.css": [
+        "a { color: rgb(255 0 0); }",
+        "a { color: color(display-p3 1 0 0); background: oklch(0.5 calc(0.1 + 0.05) 20); }",
+        "a { color: rgb(255 0",
+        "  0); }",
+      ].join("\n"),
+    });
+    const found = r.json.findings as {
+      line: number;
+      column: number;
+      text: string;
+      message: string;
+    }[];
+    const use = "skips the theme. Use a role such as var(--primary).";
+    expect(found.map((f) => [f.line, f.column, f.text, f.message])).toEqual([
+      [1, 12, "rgb(255 0 0)", `The color function rgb(255 0 0) ${use}`],
+      [2, 12, "color(display-p3 1 0 0)", `The color function color(display-p3 1 0 0) ${use}`],
+      [
+        2,
+        49,
+        "oklch(0.5 calc(0.1 + 0.05) 20)",
+        `The color function oklch(0.5 calc(0.1 + 0.05) 20) ${use}`,
+      ],
+      [3, 12, "rgb(", `The color function rgb() ${use}`],
+    ]);
   });
 
   it("C-CHK-18: Tailwind default palette classes", () => {
