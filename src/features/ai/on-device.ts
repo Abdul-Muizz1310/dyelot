@@ -63,10 +63,14 @@ function isSession(value: unknown): value is Session {
   return isHost(value) && typeof value.prompt === "function" && typeof value.destroy === "function";
 }
 
-/** Ends a session; a destroy that throws changes nothing the action already has. */
-function end(session: Session): void {
+/**
+ * Ends whatever `create` gave that has a `destroy`, a malformed session included (controller ruling
+ * on Task 4.9's review); a destroy that throws changes nothing the action already has.
+ */
+function end(created: unknown): void {
+  if (!isHost(created) || typeof created.destroy !== "function") return;
   try {
-    session.destroy();
+    created.destroy();
   } catch {
     // The session is gone either way.
   }
@@ -111,9 +115,10 @@ export async function onDeviceState(lm: unknown): Promise<OnDeviceState> {
  * `LanguageModel`, a canceled action, a `create` or `prompt` that throws, the 60,000 ms timeout, or
  * a reply that is not text. The session holds `chatMessages(feature, input).system`; the prompt is
  * the user message with `outputJsonSchema` as its constraint, left out of the context
- * (`omitResponseConstraintInput`) because the system message already holds it. The session is
- * destroyed on every path once made, one that arrives after the timeout included. `askOnDevice`
- * and the dev eval page use it.
+ * (`omitResponseConstraintInput`) because the system message already holds it. The 60,000 ms
+ * run from before `create`. Whatever `create` gives is destroyed on every path, a malformed
+ * session and one that arrives after the timeout included. `askOnDevice` and the dev eval page use
+ * it.
  */
 export async function promptOnDevice<F extends AiFeature>(
   ai: AiModule,
@@ -156,11 +161,12 @@ export async function promptOnDevice<F extends AiFeature>(
       lm.create({ ...options(), initialPrompts: [{ role: "system", content: system }], signal }),
     );
   });
-  let session: Session | null = null;
+  let created: unknown;
+  let arrived = false;
   try {
-    const created = await Promise.race([creating, stopped]);
+    created = await Promise.race([creating, stopped]);
+    arrived = true;
     if (!isSession(created)) throw new TypeError("promptOnDevice: create gave no session");
-    session = created;
     const prompting = Promise.resolve(
       created.prompt(user, {
         responseConstraint,
@@ -176,12 +182,9 @@ export async function promptOnDevice<F extends AiFeature>(
   } finally {
     clearTimeout(timer);
     action.removeEventListener("abort", cancel);
-    if (session !== null) end(session);
-    else
-      creating.then(
-        (late) => (isSession(late) ? end(late) : undefined),
-        () => {},
-      );
+    // What arrived in time is ended now; what arrives after the stop is ended when it lands.
+    if (arrived) end(created);
+    else creating.then(end, () => {});
   }
 }
 
@@ -255,8 +258,7 @@ export async function downloadModel(
     });
   };
   try {
-    const session: unknown = await lm.create({ ...options(), monitor, signal });
-    if (isSession(session)) end(session);
+    end(await lm.create({ ...options(), monitor, signal }));
     return true;
   } catch {
     return false;

@@ -116,7 +116,8 @@ export async function runProviders<O>(
       }
       failures.push(result.failure);
     }
-    return { kind: "rules", failures };
+    // With no step left, or none at all, a cancel still wins over the rules.
+    return signal.aborted ? CANCELED : { kind: "rules", failures };
   } finally {
     signal.removeEventListener("abort", stop);
   }

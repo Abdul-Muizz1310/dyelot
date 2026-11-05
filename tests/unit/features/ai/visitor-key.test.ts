@@ -193,6 +193,7 @@ describe("C-KEY4-05 askWithKey calls OpenRouter from the browser", () => {
     expect((call.init.headers as Record<string, string>).Authorization).toBe(`Bearer ${TEST_KEY}`);
     expect(call.init.body).toBe(expected.body);
     expect(call.init.credentials).toBe("omit");
+    expect(call.init.redirect).toBe("error");
     expect(result).toEqual({
       ok: true,
       output: BRIEF_PARSED,

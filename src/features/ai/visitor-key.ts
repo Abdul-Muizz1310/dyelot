@@ -214,9 +214,10 @@ function planFor(ai: AiModule, feature: AiFeature, models: Models): readonly Tie
 
 /**
  * At most `REPLY_MAX_BYTES` of the body, decoded as UTF-8. A body past the cap is not read further
- * and gives "", which readReply reads as `empty` (R4-11). An abort cancels the read.
+ * and gives "", which readReply reads as `empty` (R4-11) and the code exchange as no key (10.4).
+ * An abort cancels the read. The chat calls and the code exchange both read their replies here.
  */
-async function readCapped(response: Response, signal: AbortSignal): Promise<string> {
+export async function readCapped(response: Response, signal: AbortSignal): Promise<string> {
   const { body } = response;
   if (!body) return "";
   const reader = body.getReader();
@@ -253,8 +254,8 @@ async function readCapped(response: Response, signal: AbortSignal): Promise<stri
  * One tier's call from the browser to OpenRouter under its 20,000 ms deadline: the status and the
  * capped body text, `{ kind: "timeout" }` when the deadline passes first (the call is aborted and
  * the answer does not wait for a fetch that ignores it), or `{ kind: "network" }` for a fetch that
- * rejects, a cancel, a body that fails mid-read or a status outside 100 to 599, which readReply
- * must never see (controller ruling). No cookie goes with it.
+ * rejects (a redirect among them), a cancel, a body that fails mid-read or a status outside 100 to
+ * 599, which readReply must never see (controller ruling). No cookie goes with it.
  */
 async function sendChat(
   send: typeof fetch,
@@ -282,6 +283,8 @@ async function sendChat(
         signal,
         credentials: "omit",
         cache: "no-store",
+        // The key never follows a redirect, as on the server (R4-11).
+        redirect: "error",
       });
       const { status } = response;
       if (!Number.isInteger(status) || status < MIN_STATUS || status > MAX_STATUS) return NETWORK;

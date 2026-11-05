@@ -80,6 +80,12 @@ describe("C-ROUTER-01 runProviders", () => {
     });
   });
 
+  it("C-ROUTER-01 gives canceled, not rules, for a canceled action even with no step", async () => {
+    const action = new AbortController();
+    action.abort();
+    expect(await runProviders([], action.signal)).toEqual({ kind: "canceled" });
+  });
+
   it("C-ROUTER-01 gives canceled and runs no step for an action canceled before it starts", async () => {
     const action = new AbortController();
     action.abort();

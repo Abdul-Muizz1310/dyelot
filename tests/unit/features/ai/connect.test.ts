@@ -1,5 +1,5 @@
 import { createHash, webcrypto } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import * as ai from "@/ai";
 import {
   CONNECT_STORAGE,
@@ -46,6 +46,10 @@ function started(over: Record<string, unknown> = {}, hash: string | null = "#s=a
 }
 
 const keyReply = (key: unknown = TEST_KEY) => jsonResponse(200, { key, user_id: "user_1" });
+
+afterEach(() => {
+  vi.useRealTimers();
+});
 
 describe("C-KEY4-01 startConnect and saveReturn", () => {
   it("C-KEY4-01 stores { v: 1, verifier, state, remember } under dyelot:connect from the injected bytes", async () => {
@@ -165,6 +169,8 @@ describe("C-KEY4-02 finishConnect exchanges the code once and keeps the key in t
     );
     expect(call.init.credentials).toBe("omit");
     expect(call.init.referrerPolicy).toBe("no-referrer");
+    expect(call.init.redirect).toBe("error");
+    expect(call.init.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("C-KEY4-02 stores the key in session storage, removes both records and returns to the saved hash", async () => {
@@ -267,6 +273,26 @@ describe("C-KEY4-03 finishConnect refuses every other callback and stores nothin
     expectClean(stores);
   });
 
+  it("C-KEY4-03 gives not-started when the record cannot be removed, so no code is exchanged with it still stored", async () => {
+    const stores = started();
+    const session = {
+      getItem: stores.session.getItem.bind(stores.session),
+      setItem: stores.session.setItem.bind(stores.session),
+      removeItem: () => {
+        throw new DOMException("", "SecurityError");
+      },
+    };
+    const { fetch, calls } = fakeFetch([keyReply()]);
+    const result = await finishConnect(ai, {
+      search: `?code=C&state=${STATE}`,
+      stores: { session, local: stores.local },
+      fetch,
+    });
+    expect(result).toEqual({ ok: false, reason: "not-started" });
+    expect(calls).toEqual([]);
+    expect(stores.session.getItem(KEY_STORAGE)).toBeNull();
+  });
+
   it("C-KEY4-03 gives not-started when session storage cannot be read, with no fetch", async () => {
     const { fetch, calls } = fakeFetch([keyReply()]);
     const result = await finishConnect(ai, {
@@ -318,18 +344,95 @@ describe("C-KEY4-03 finishConnect refuses every other callback and stores nothin
     expect(stores.session.getItem(RETURN_STORAGE)).toBe("#s=abc");
   });
 
-  it("C-KEY4-03 gives exchange-failed when the store the key needs refuses it", async () => {
-    const stores = started({ remember: true });
-    const { fetch } = fakeFetch([keyReply()]);
-    const result = await finishConnect(ai, {
-      search: `?code=C&state=${STATE}`,
-      stores: { session: stores.session, local: null },
-      fetch,
+  it("C-KEY4-03 gives exchange-failed for a reply body over 262,144 bytes", async () => {
+    const stores = started();
+    const { fetch } = fakeFetch([jsonResponse(200, { key: TEST_KEY, pad: "x".repeat(262_144) })]);
+    expect(await finishConnect(ai, { search: `?code=C&state=${STATE}`, stores, fetch })).toEqual({
+      ok: false,
+      reason: "exchange-failed",
     });
-    expect(result).toEqual({ ok: false, reason: "exchange-failed" });
-    expect(stores.session.getItem(KEY_STORAGE)).toBeNull();
-    expect(stores.session.getItem(CONNECT_STORAGE)).toBeNull();
+    expectClean(stores);
   });
+
+  it("C-KEY4-03 gives exchange-failed when the exchange has not answered at 15,000 ms, and aborts it", async () => {
+    vi.useFakeTimers();
+    const stores = started();
+    let seen: AbortSignal | undefined;
+    const { fetch } = fakeFetch([
+      (call) => {
+        seen = call.init.signal ?? undefined;
+        return new Promise<Response>(() => {});
+      },
+    ]);
+    let settled = false;
+    const pending = finishConnect(ai, { search: `?code=C&state=${STATE}`, stores, fetch }).then(
+      (result) => {
+        settled = true;
+        return result;
+      },
+    );
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(settled).toBe(false);
+    expect(seen?.aborted).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(await pending).toEqual({ ok: false, reason: "exchange-failed" });
+    expect(seen?.aborted).toBe(true);
+    expectClean(stores);
+  });
+
+  it("C-KEY4-03 gives exchange-failed for a reply whose body has not ended at 15,000 ms", async () => {
+    vi.useFakeTimers();
+    const stores = started();
+    const endless = new Response(
+      new ReadableStream({
+        start(controller) {
+          controller.enqueue(new TextEncoder().encode(`{"key":"${TEST_KEY}"`));
+        },
+      }),
+    );
+    const { fetch } = fakeFetch([endless]);
+    const pending = finishConnect(ai, { search: `?code=C&state=${STATE}`, stores, fetch });
+    await vi.advanceTimersByTimeAsync(15_000);
+    expect(await pending).toEqual({ ok: false, reason: "exchange-failed" });
+    expectClean(stores);
+  });
+
+  it.each([
+    [
+      "local storage is missing and the visitor chose to remember the key",
+      { remember: true },
+      null,
+    ],
+    ["local storage refuses the key", { remember: true }, "local"],
+    ["session storage refuses the key", { remember: false }, "session"],
+  ] as const)(
+    "C-KEY4-03 gives storage-refused when %s, and keeps the key nowhere",
+    async (_, over, refusing) => {
+      const stores = started(over);
+      const refuse = (store: MemoryStorage) => ({
+        getItem: store.getItem.bind(store),
+        removeItem: store.removeItem.bind(store),
+        setItem: (key: string, value: string) => {
+          if (key === KEY_STORAGE) throw new DOMException("", "QuotaExceededError");
+          store.setItem(key, value);
+        },
+      });
+      const { fetch, calls } = fakeFetch([keyReply()]);
+      const result = await finishConnect(ai, {
+        search: `?code=C&state=${STATE}`,
+        stores: {
+          session: refusing === "session" ? refuse(stores.session) : stores.session,
+          local:
+            refusing === null ? null : refusing === "local" ? refuse(stores.local) : stores.local,
+        },
+        fetch,
+      });
+      expect(result).toEqual({ ok: false, reason: "storage-refused" });
+      expect(calls).toHaveLength(1);
+      expectClean(stores);
+      expect(stores.session.getItem(RETURN_STORAGE)).toBe("#s=abc");
+    },
+  );
 
   it("C-KEY4-03 never exchanges a code twice: a second callback with the same query is not-started", async () => {
     const stores = started();

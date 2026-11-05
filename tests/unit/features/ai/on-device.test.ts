@@ -278,6 +278,31 @@ describe("C-DEV-02 askOnDevice", () => {
     expect(late.prompt).not.toHaveBeenCalled();
   });
 
+  it("C-DEV-02 destroys whatever create gave, a session without prompt included, on time or late", async () => {
+    const malformed = { destroy: vi.fn() };
+    const fake = fakeLm({ create: async () => malformed });
+    expect(await askOnDevice(ai, "brief", BRIEF_IN, { lm: fake.lm, signal: signal() })).toEqual(
+      FAILED,
+    );
+    expect(malformed.destroy).toHaveBeenCalledTimes(1);
+
+    vi.useFakeTimers();
+    let resolveCreate: (session: unknown) => void = () => {};
+    const slow = fakeLm({
+      create: () =>
+        new Promise((resolve) => {
+          resolveCreate = resolve;
+        }),
+    });
+    const pending = askOnDevice(ai, "brief", BRIEF_IN, { lm: slow.lm, signal: signal() });
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(await pending).toEqual(FAILED);
+    const late = { destroy: vi.fn() };
+    resolveCreate(late);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(late.destroy).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["is not JSON", "nope"],
     ["fails the schema", "{}"],
@@ -384,6 +409,13 @@ describe("C-DEV-03 downloadModel", () => {
       signal: signal(),
     });
     expect(onProgress.mock.calls).toEqual([[0.25]]);
+  });
+
+  it("C-DEV-03 destroys what create gave even when it is no full session", async () => {
+    const malformed = { destroy: vi.fn() };
+    const lm = { create: vi.fn(async () => malformed) };
+    expect(await downloadModel(lm, { onProgress: vi.fn(), signal: signal() })).toBe(true);
+    expect(malformed.destroy).toHaveBeenCalledTimes(1);
   });
 
   it("C-DEV-03 resolves false for a create that throws or rejects, or no LanguageModel", async () => {
