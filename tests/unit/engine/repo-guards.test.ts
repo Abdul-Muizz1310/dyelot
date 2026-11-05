@@ -1113,6 +1113,156 @@ describe("C-GUARD4-03 app code reaches @/ai only through import()", () => {
   });
 });
 
+// C-GUARD4-04 of docs/specs/04-ai.md, section 14.10 (R4-05): the server shell is reached only from
+// the two route files, and imports only what R4-05 lists; the Langfuse and OpenTelemetry packages of
+// R4-60 only in langfuse.ts, so no other server file pulls in a tracing SDK.
+
+const SERVER_DIR = path.join(ROOT, "src/server");
+const SERVER_AI_DIR = path.join(SERVER_DIR, "ai");
+const LANGFUSE_FILE = path.join(SERVER_AI_DIR, "langfuse.ts");
+const ROUTE_FILES = ["src/app/api/ai/[feature]/route.ts", "src/app/api/ai/models/route.ts"].map(
+  (file) => path.join(ROOT, file),
+);
+/** The files of R4-05, src/server/ai/ in full. */
+const SERVER_AI_FILES = [
+  "env",
+  "clock",
+  "cap",
+  "guard",
+  "cache",
+  "transport",
+  "trace",
+  "smoke",
+  "handle",
+  "deps",
+].map((name) => path.join(SERVER_AI_DIR, `${name}.ts`));
+/** What R4-05 lets a src/server file import, beside its own files. */
+const SERVER_ALLOWED = ["@/ai", "@/engine", "@/spec", "next/server"];
+/** The tracing packages of R4-60, for langfuse.ts alone. */
+const TRACING_PACKAGES = [
+  "@langfuse/tracing",
+  "@langfuse/otel",
+  "@opentelemetry/api",
+  "@opentelemetry/core",
+  "@opentelemetry/sdk-trace-base",
+  "@opentelemetry/otlp-exporter-base",
+  "@opentelemetry/exporter-trace-otlp-http",
+];
+
+/** Whether `specifier`, written in `file`, points into src/server. */
+function reachesServer(file: string, specifier: string): boolean {
+  if (/^@\/server(?:\/|$)/.test(specifier)) return true;
+  if (!specifier.startsWith(".")) return false;
+  const resolved = path.resolve(path.dirname(file), specifier);
+  return resolved === SERVER_DIR || resolved.startsWith(SERVER_DIR + path.sep);
+}
+
+/** The specifiers of `file` that reach src/server, type imports included. */
+const serverImports = (file: string, source: string): string[] =>
+  moduleSpecifiers(stripComments(source)).filter((specifier) => reachesServer(file, specifier));
+
+/** The specifiers of `file` (under src/server) that R4-05 does not allow, type imports included. */
+function serverImportViolations(file: string, source: string): string[] {
+  return moduleSpecifiers(stripComments(source)).filter((specifier) => {
+    if (SERVER_ALLOWED.includes(specifier)) return false;
+    if (file === LANGFUSE_FILE && TRACING_PACKAGES.includes(specifier)) return false;
+    return !reachesServer(file, specifier);
+  });
+}
+
+describe("C-GUARD4-04 the server shell is reached only from the two routes and imports only R4-05's list", () => {
+  it("C-GUARD4-04 scans real files: the server files of R4-05 and the two route files", () => {
+    for (const file of [...SERVER_AI_FILES, ...ROUTE_FILES]) {
+      expect(existsSync(file), path.relative(ROOT, file)).toBe(true);
+    }
+    expect(codeFiles(SERVER_DIR)).toEqual(expect.arrayContaining(SERVER_AI_FILES));
+  });
+
+  it("C-GUARD4-04 finds no import of src/server under src/features, src/components or src/lib", () => {
+    const files = ["src/features", "src/components", "src/lib"].flatMap((folder) =>
+      codeFiles(path.join(ROOT, folder)),
+    );
+    expect(files.length).toBeGreaterThan(0);
+    const bad = files.flatMap((file) =>
+      serverImports(file, readFileSync(file, "utf8")).map(
+        (specifier) => `${path.relative(ROOT, file)}: ${specifier}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it("C-GUARD4-04 finds src/server imported under src/app by the two route files only", () => {
+    const importers = codeFiles(path.join(ROOT, "src/app"))
+      .filter((file) => serverImports(file, readFileSync(file, "utf8")).length > 0)
+      .sort();
+    expect(importers).toEqual([...ROUTE_FILES].sort());
+  });
+
+  it("C-GUARD4-04 finds src/server importing only @/ai, @/engine, @/spec, next/server and its own files, and the tracing packages in langfuse.ts alone", () => {
+    const files = codeFiles(SERVER_DIR);
+    expect(files.length).toBeGreaterThanOrEqual(SERVER_AI_FILES.length);
+    const bad = files.flatMap((file) =>
+      serverImportViolations(file, readFileSync(file, "utf8")).map(
+        (specifier) => `${path.relative(ROOT, file)}: ${specifier}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  const HANDLE_FILE = path.join(SERVER_AI_DIR, "handle.ts");
+  const APP_PROBE = path.join(ROOT, "src/app/probe.ts");
+
+  it.each([
+    'import { handleAi } from "@/server/ai/handle";',
+    'import type { AiDeps } from "@/server/ai/handle";',
+    'import { x } from "@/server";',
+    'import { x } from "../server/ai/env";',
+    'export { serverDeps } from "../server/ai/deps";',
+    'const m = await import("@/server/ai/handle");',
+  ])("C-GUARD4-04 sees an import of src/server in the probe %j", (source) => {
+    expect(serverImports(APP_PROBE, source)).toHaveLength(1);
+  });
+
+  it.each([
+    'import { x } from "@/serverless";',
+    'import { x } from "./server-actions";',
+    'import { x } from "@/lib/site/config";',
+    '// import { handleAi } from "@/server/ai/handle";',
+  ])("C-GUARD4-04 lets the probe %j through", (source) => {
+    expect(serverImports(APP_PROBE, source)).toEqual([]);
+  });
+
+  it.each([
+    [HANDLE_FILE, 'import { z } from "zod";'],
+    [HANDLE_FILE, 'import { z } from "@/spec/zod";'],
+    [HANDLE_FILE, 'import { chatMessages } from "@/ai/chat";'],
+    [HANDLE_FILE, 'import { chipChange } from "@/features/ai/steer";'],
+    [HANDLE_FILE, 'import { SITE } from "@/lib/site/config";'],
+    [HANDLE_FILE, 'import { createHmac } from "node:crypto";'],
+    [HANDLE_FILE, 'import { cookies } from "next/headers";'],
+    [HANDLE_FILE, 'import { startObservation } from "@langfuse/tracing";'],
+    [HANDLE_FILE, 'import type { Span } from "@opentelemetry/api";'],
+    [LANGFUSE_FILE, 'import { NodeSDK } from "@opentelemetry/sdk-node";'],
+    [LANGFUSE_FILE, 'import { LangfuseClient } from "@langfuse/client";'],
+  ])("C-GUARD4-04 reports the probe in %s: %j", (file, source) => {
+    expect(serverImportViolations(file, source)).toHaveLength(1);
+  });
+
+  it.each([
+    [HANDLE_FILE, 'import { AI_FEATURES, type AiFeature } from "@/ai";'],
+    [HANDLE_FILE, 'import type { DesignSpec } from "@/spec";'],
+    [HANDLE_FILE, 'import { lintSpec } from "@/engine";'],
+    [HANDLE_FILE, 'import { after } from "next/server";'],
+    [HANDLE_FILE, 'import { readAiEnv } from "./env";'],
+    [HANDLE_FILE, 'import { readAiEnv } from "@/server/ai/env";'],
+    [LANGFUSE_FILE, 'import { startObservation } from "@langfuse/tracing";'],
+    [LANGFUSE_FILE, 'import { LangfuseSpanProcessor } from "@langfuse/otel";'],
+    [LANGFUSE_FILE, 'import { BasicTracerProvider } from "@opentelemetry/sdk-trace-base";'],
+  ])("C-GUARD4-04 allows the probe in %s: %j", (file, source) => {
+    expect(serverImportViolations(file, source)).toEqual([]);
+  });
+});
+
 // C-GUARD4-08 of docs/specs/04-ai.md, section 14.10 (R4-20): .env.example names every variable of
 // section 11.4, with the values that section's last paragraph gives: the slugs of R4-13 and the
 // reserve 35; every other value, each secret and the Langfuse trio among them, is empty, and

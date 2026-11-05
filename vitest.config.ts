@@ -137,10 +137,21 @@ const AI_HELPERS = [
   "router",
 ].map((name) => `src/features/ai/${name}.ts`);
 
-/** The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name. */
-const SERVER_FILES = ["env", "clock", "guard", "cache", "transport", "smoke"].map(
-  (name) => `src/server/ai/${name}.ts`,
-);
+/**
+ * The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name.
+ * langfuse.ts and deps.ts, the routes and the proxy are covered by the flows instead.
+ */
+const SERVER_FILES = [
+  "env",
+  "clock",
+  "cap",
+  "guard",
+  "cache",
+  "transport",
+  "trace",
+  "smoke",
+  "handle",
+].map((name) => `src/server/ai/${name}.ts`);
 /** The server files' floor: 90 lines, statements and functions, 85 branches. */
 const SERVER_FLOORS = { lines: 90, statements: 90, functions: 90, branches: 85 };
 
