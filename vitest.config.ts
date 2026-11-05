@@ -14,6 +14,8 @@ const PURE_CORE_TESTS = [
   "tests/unit/import/**/*.test.{ts,tsx}",
   // The AI core (M4, R4-59) is pure too.
   "tests/unit/ai/**/*.test.{ts,tsx}",
+  // The server shell's pieces (M4, R4-59) run in Node, where the routes run; fetch is injected.
+  "tests/unit/server/**/*.test.{ts,tsx}",
   // The build scripts and the gate guard run under Node and spawn it; they have no DOM.
   "tests/unit/scripts/**/*.test.{ts,tsx}",
 ];
@@ -123,6 +125,13 @@ const IMPORT_HELPERS = ["form"].map((name) => `src/features/import/${name}.ts`);
 /** The AI feature's pure helpers (Task 4.5 on), held to `PURE_FLOORS` the same way. */
 const AI_HELPERS = ["steer"].map((name) => `src/features/ai/${name}.ts`);
 
+/** The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name. */
+const SERVER_FILES = ["env", "clock", "guard", "cache", "transport"].map(
+  (name) => `src/server/ai/${name}.ts`,
+);
+/** The server files' floor: 90 lines, statements and functions, 85 branches. */
+const SERVER_FLOORS = { lines: 90, statements: 90, functions: 90, branches: 85 };
+
 export default defineConfig({
   plugins: [react()],
   resolve: {
@@ -212,6 +221,9 @@ export default defineConfig({
         ...EXPORT_HELPERS,
         ...IMPORT_HELPERS,
         ...AI_HELPERS,
+        // The server shell's pieces (M4); handle.ts composes them, and the routes are covered by
+        // the flows.
+        ...SERVER_FILES,
       ],
       thresholds: {
         lines: 80,
@@ -236,6 +248,7 @@ export default defineConfig({
             ...AI_HELPERS,
           ].map((file) => [file, PURE_FLOORS]),
         ),
+        ...Object.fromEntries(SERVER_FILES.map((file) => [file, SERVER_FLOORS])),
       },
     },
   },

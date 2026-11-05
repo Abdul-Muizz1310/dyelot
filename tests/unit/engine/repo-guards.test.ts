@@ -363,9 +363,18 @@ describe("C-REPO-M2-02 the pure core imports nothing from the app layers (I-M2-0
   const LAYERS = ["features", "app", "components", "lib"].map((name) =>
     path.join(ROOT, "src", name),
   );
-  const pureFiles = ["engine", "spec", "theme"].flatMap((name) =>
-    codeFiles(path.join(ROOT, "src", name)),
-  );
+  // Section 16 of docs/specs/04-ai.md (R4-03, R4-05): src/ai and src/server join the rule.
+  const PURE_FOLDERS = ["engine", "spec", "theme", "ai", "server"];
+  const pureFiles = PURE_FOLDERS.flatMap((name) => codeFiles(path.join(ROOT, "src", name)));
+
+  it("C-REPO-M2-02 scans src/ai and src/server too, each with real files", () => {
+    for (const folder of ["ai", "server"]) {
+      const inside = pureFiles.filter((file) =>
+        file.startsWith(path.join(ROOT, "src", folder) + path.sep),
+      );
+      expect(inside.length, `src/${folder}`).toBeGreaterThan(0);
+    }
+  });
 
   /** Whether `specifier`, written in `file`, points into one of the app layers. */
   function importsFromLayer(file: string, specifier: string): boolean {
@@ -1091,5 +1100,62 @@ describe("C-GUARD4-03 app code reaches @/ai only through import()", () => {
     expect(result.status).not.toBe(0);
     expect(result.output).toContain("noRestrictedImports");
     expect(result.output).toContain('import("@/ai")');
+  });
+});
+
+// C-GUARD4-08 of docs/specs/04-ai.md, section 14.10 (R4-20): .env.example names every variable of
+// section 11.4, with the values that section's last paragraph gives: the slugs of R4-13, the reserve
+// 35 and Langfuse's base URL; every other value, each secret among them, is empty.
+
+/** The variables of section 11.4, in its order, with the value `.env.example` gives each. */
+const ENV_EXAMPLE: ReadonlyArray<readonly [name: string, value: string]> = [
+  ["OPENROUTER_API_KEY", ""],
+  ["DYELOT_COOKIE_SECRET", ""],
+  ["DYELOT_AI_RESERVE", "35"],
+  ["OPENROUTER_BASE_URL", ""],
+  ["OPENROUTER_MODEL_PRIMARY", "google/gemma-4-26b-a4b-it:free"],
+  ["OPENROUTER_MODEL_FAST", "xingchen-agi/xing4.0-29b-a4b:free"],
+  ["OPENROUTER_MODEL_FALLBACK", "dots-studio/dots-3-note-preview:free"],
+  ["OPENROUTER_VISION_MODEL_1", "dots-studio/dots-3-note-preview:free"],
+  ["OPENROUTER_VISION_MODEL_2", "google/gemma-4-26b-a4b-it:free"],
+  ["OPENROUTER_VISION_MODEL_3", ""],
+  ["LANGFUSE_PUBLIC_KEY", ""],
+  ["LANGFUSE_SECRET_KEY", ""],
+  ["LANGFUSE_BASE_URL", "https://us.cloud.langfuse.com"],
+  ["APP_ENV", ""],
+];
+
+/** The `NAME=value` lines of a dotenv text, in order; comments, blank and indented lines aside. */
+function dotenvEntries(text: string): [name: string, value: string][] {
+  return text
+    .split(/\r?\n/)
+    .filter((line) => /^[A-Z][A-Z0-9_]*=/.test(line))
+    .map((line) => {
+      const at = line.indexOf("=");
+      return [line.slice(0, at), line.slice(at + 1)];
+    });
+}
+
+describe("C-GUARD4-08 .env.example declares every variable of section 11.4", () => {
+  const entries = dotenvEntries(readFileSync(path.join(ROOT, ".env.example"), "utf8"));
+  const names = new Set(ENV_EXAMPLE.map(([name]) => name));
+
+  it("C-GUARD4-08 declares each variable of section 11.4 once, in that section's order", () => {
+    expect(entries.map(([name]) => name).filter((name) => names.has(name))).toEqual(
+      ENV_EXAMPLE.map(([name]) => name),
+    );
+  });
+
+  it("C-GUARD4-08 gives the slugs, the reserve and the Langfuse base URL, and leaves the rest empty", () => {
+    const values = new Map(entries);
+    for (const [name, value] of ENV_EXAMPLE) expect(values.get(name), name).toBe(value);
+  });
+
+  it("C-GUARD4-08 reads NAME=value lines and nothing else (a probe)", () => {
+    expect(dotenvEntries("# A=1\nB=2\r\n\n  C=3\nD=\nE=x=y\n")).toEqual([
+      ["B", "2"],
+      ["D", ""],
+      ["E", "x=y"],
+    ]);
   });
 });
