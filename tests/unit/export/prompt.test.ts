@@ -9,6 +9,7 @@ import { editLink, mdText } from "@/export/text";
 import { themeCss } from "@/export/theme-css";
 import type { DesignSpec } from "@/spec";
 import { DEFAULT_PARAMS } from "../spec/support";
+import { PROMPT_PROPERTY_TIMEOUT } from "../support/timeouts";
 import { ORIGIN, SPEC } from "./golden-support";
 
 // C-PRM-01 to 03 of docs/specs/03-export.md, section 10.8 (6.11, R3-10).
@@ -64,7 +65,10 @@ describe("promptMd", () => {
     for (const row of table) expect(text).toContain(row);
   });
 
-  it("C-PRM-02: any plain text lands as mdText, with one css fence", { timeout: 120_000 }, () => {
+  // The timeout is sized for the coverage run in CI.
+  it("C-PRM-02: any plain text lands as mdText, with one css fence", {
+    timeout: PROMPT_PROPERTY_TIMEOUT,
+  }, () => {
     const piece = fc.stringMatching(/^[A-Za-z0-9 *_[\]`#-]{1,30}$/).filter((t) => t.trim() === t);
     const ticks = fc.constantFrom("```", "a```b", "`x`");
     const plain = fc.oneof(piece, ticks);

@@ -1,7 +1,8 @@
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
 import { generateSystem } from "@/engine";
-import { anyDirection, anySeedText, PROPERTY_TIMEOUT } from "../spec/support";
+import { anyDirection, anySeedText } from "../spec/support";
+import { DTCG_PROPERTY_TIMEOUT } from "../support/timeouts";
 import { type Json, PATHS, parsed, walk } from "./dtcg-support";
 import { formatValidator, resolverValidator } from "./schema-support";
 
@@ -42,6 +43,6 @@ describe("C-DTCG-14 property", () => {
         { numRuns: 1000, seed: 3007 },
       );
     },
-    PROPERTY_TIMEOUT,
+    DTCG_PROPERTY_TIMEOUT, // sized for the coverage run in CI
   );
 });

@@ -22,6 +22,7 @@ import type { RoleName } from "@/engine/color/roles";
 import { gamutExcess } from "@/engine/lint";
 import { freshParams, resolveParams } from "@/features/studio/params";
 import type { DesignSpec } from "@/spec";
+import { GRID_TEST_TIMEOUT } from "../support/timeouts";
 
 // The five fixed grids of ruling R3-41 (spec docs/specs/03-export.md): 3,808 generated designs, each
 // of which must generate and lint with no finding of severity "error" (I-M3-10). The record keeps,
@@ -315,12 +316,16 @@ const CASE: Record<Grid, string> = {
 /** The test every grid file runs: its slice of one grid generates and lints with no error. */
 export function describeGridSlice(grid: Grid, slice: readonly [number, number]): void {
   describe(`grid ${grid} designs ${slice[0]} to ${slice[1]}`, () => {
-    it(`${CASE[grid]} generates without a throw and lints with no error (grid ${grid})`, () => {
-      const designs = gridDesigns(grid);
-      const record = measureGrid(designs, slice);
-      console.table(ERROR_RULES.map((id) => ({ rule: id, ...record.rules[id] })));
-      console.table(record.seedHues);
-      expect(record.failures, "designs that threw or raised an error").toEqual([]);
-    }, 240_000);
+    it(
+      `${CASE[grid]} generates without a throw and lints with no error (grid ${grid})`,
+      () => {
+        const designs = gridDesigns(grid);
+        const record = measureGrid(designs, slice);
+        console.table(ERROR_RULES.map((id) => ({ rule: id, ...record.rules[id] })));
+        console.table(record.seedHues);
+        expect(record.failures, "designs that threw or raised an error").toEqual([]);
+      },
+      GRID_TEST_TIMEOUT,
+    ); // sized for the coverage run in CI
   });
 }

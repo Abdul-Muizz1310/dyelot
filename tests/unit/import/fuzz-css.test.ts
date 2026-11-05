@@ -4,6 +4,8 @@ import { lintSpec } from "@/engine";
 import { importShadcnCss } from "@/import/css";
 import { normalizeSpec } from "@/spec";
 
+import { IMPORT_FUZZ_TIMEOUT } from "../support/timeouts";
+
 // C-IMP-03, the CSS half (I-M3-05): 300 runs, seed 3005. Import never throws for a string.
 
 const CODES = new Set([
@@ -80,35 +82,39 @@ const piece = fc.constantFrom(
 const cssLike = fc.array(piece, { maxLength: 80 }).map((parts) => parts.join(" "));
 
 describe("C-IMP-03 importShadcnCss never throws for a string", () => {
-  it("returns an error code or a normalized, lintable spec", () => {
-    const strings = fc.oneof(
-      cssLike,
-      fc.string({ maxLength: 4096 }),
-      fc.string({ unit: "binary", maxLength: 2048 }),
-      fc.string({ unit: "grapheme", maxLength: 2048 }),
-      fc
-        .integer({ min: 200_000, max: 270_000 })
-        .chain((n) =>
-          fc
-            .constantFrom("a", "{", "--primary: red;", ":root{")
-            .map((unit) => unit.repeat(Math.ceil(n / unit.length))),
-        ),
-      fc
-        .array(cssLike, { minLength: 1, maxLength: 4 })
-        .map((parts) => `:root { --primary: #3a6ea5; ${parts.join("\n")} }`),
-    );
-    fc.assert(
-      fc.property(strings, (text) => {
-        const result = importShadcnCss(text);
-        if (!result.ok) {
-          expect(CODES.has(result.error.code)).toBe(true);
-          expect(result.error.message.length).toBeGreaterThan(0);
-          return;
-        }
-        expect(result.spec).toEqual(normalizeSpec(result.spec));
-        expect(() => lintSpec(result.spec)).not.toThrow();
-      }),
-      { numRuns: 300, seed: 3005 },
-    );
-  });
+  it(
+    "returns an error code or a normalized, lintable spec",
+    () => {
+      const strings = fc.oneof(
+        cssLike,
+        fc.string({ maxLength: 4096 }),
+        fc.string({ unit: "binary", maxLength: 2048 }),
+        fc.string({ unit: "grapheme", maxLength: 2048 }),
+        fc
+          .integer({ min: 200_000, max: 270_000 })
+          .chain((n) =>
+            fc
+              .constantFrom("a", "{", "--primary: red;", ":root{")
+              .map((unit) => unit.repeat(Math.ceil(n / unit.length))),
+          ),
+        fc
+          .array(cssLike, { minLength: 1, maxLength: 4 })
+          .map((parts) => `:root { --primary: #3a6ea5; ${parts.join("\n")} }`),
+      );
+      fc.assert(
+        fc.property(strings, (text) => {
+          const result = importShadcnCss(text);
+          if (!result.ok) {
+            expect(CODES.has(result.error.code)).toBe(true);
+            expect(result.error.message.length).toBeGreaterThan(0);
+            return;
+          }
+          expect(result.spec).toEqual(normalizeSpec(result.spec));
+          expect(() => lintSpec(result.spec)).not.toThrow();
+        }),
+        { numRuns: 300, seed: 3005 },
+      );
+    },
+    IMPORT_FUZZ_TIMEOUT,
+  ); // sized for the coverage run in CI
 });

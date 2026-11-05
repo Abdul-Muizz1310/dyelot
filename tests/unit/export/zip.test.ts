@@ -4,6 +4,7 @@ import { buildBundle } from "@/export/bundle";
 import { sha256 } from "@/export/sha256";
 import { zipBundle, zipName } from "@/export/zip";
 import { specId } from "@/spec";
+import { ZIP_ZONES_TIMEOUT } from "../support/timeouts";
 import { BUNDLE, LONG_NAME } from "./bundle-support";
 import { ORIGIN, SPEC } from "./golden-support";
 
@@ -66,22 +67,26 @@ describe("zipBundle", () => {
     expect(view.getUint16((end as number) + 20, true)).toBe(0);
   });
 
-  it("C-ZIP-03: the same bytes in every time zone", () => {
-    const original = process.env.TZ;
-    const hash = (zone: string) => {
-      process.env.TZ = zone;
-      return sha256(zipBundle(BUNDLE));
-    };
-    try {
-      const expected = hash("UTC");
-      const zones = Intl.supportedValuesOf("timeZone");
-      expect(zones.length).toBeGreaterThan(100);
-      for (const zone of zones) expect(hash(zone), zone).toBe(expected);
-    } finally {
-      if (original === undefined) delete process.env.TZ;
-      else process.env.TZ = original;
-    }
-  });
+  it(
+    "C-ZIP-03: the same bytes in every time zone",
+    () => {
+      const original = process.env.TZ;
+      const hash = (zone: string) => {
+        process.env.TZ = zone;
+        return sha256(zipBundle(BUNDLE));
+      };
+      try {
+        const expected = hash("UTC");
+        const zones = Intl.supportedValuesOf("timeZone");
+        expect(zones.length).toBeGreaterThan(100);
+        for (const zone of zones) expect(hash(zone), zone).toBe(expected);
+      } finally {
+        if (original === undefined) delete process.env.TZ;
+        else process.env.TZ = original;
+      }
+    },
+    ZIP_ZONES_TIMEOUT,
+  ); // sized for the coverage run in CI
 
   it("C-ZIP-04: two calls give equal bytes", () => {
     expect(zipBundle(BUNDLE)).toEqual(zipBundle(BUNDLE));
