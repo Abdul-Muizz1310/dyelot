@@ -84,11 +84,14 @@ function noticeText(result: ReturnType<typeof importShadcnCss>): string {
   const parts = [
     `Imported a ${name}: ${count("light")} of 46 light roles and ${count("dark")} of 46 dark roles came from the file.`,
   ];
-  if (report.adjusted.length > 0) {
+  // 9.3's "adjusted to fit sRGB or drop alpha" is the gamut and alpha entries; a foreground that
+  // onFill generated (reason `foreground`) is not an adjusted color.
+  const n = report.adjusted.filter((a) => a.reason === "gamut" || a.reason === "alpha").length;
+  if (n > 0) {
     parts.push(
-      report.adjusted.length === 1
+      n === 1
         ? "1 color was adjusted to fit sRGB or drop alpha."
-        : `${report.adjusted.length} colors were adjusted to fit sRGB or drop alpha.`,
+        : `${n} colors were adjusted to fit sRGB or drop alpha.`,
     );
   }
   if (report.inferred.customFonts) {
@@ -173,6 +176,8 @@ test.describe("the import dialog", () => {
     expect(text).toMatch(
       /^Imported a shadcn theme: \d+ of 46 light roles and \d+ of 46 dark roles came from the file\./,
     );
+    // Measured: the fixture has 10 gamut and 3 alpha entries, and 2 generated foregrounds.
+    expect(text).toContain("13 colors were adjusted to fit sRGB or drop alpha.");
     await expect.poll(() => hashOf(page)).toBe(`#s=${encodeSpec(IMPORTED)}`);
     expect((await canvasVars(page))["--primary"]).toBe(
       expectedVars(IMPORTED, "light")["--primary"],
@@ -211,6 +216,8 @@ test.describe("the import dialog", () => {
     await doImport(page).click();
     await expect(dialog(page)).toHaveCount(0);
     await expect(notice(page)).toContainText("Imported a DESIGN.md:");
+    // Its one report entry is a generated foreground, which is not an adjusted color.
+    await expect(notice(page)).not.toContainText("adjusted");
     const expected = importDesignMd(README_MD);
     if (!expected.ok) throw new Error("the DESIGN.md fixture did not import");
     expect(specId(await hashedSpec(page))).toBe(specId(expected.spec));

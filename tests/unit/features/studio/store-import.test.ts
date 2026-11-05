@@ -19,13 +19,16 @@ const IMPORTED = OK.spec;
 
 const countOf = (mode: "light" | "dark") =>
   OK.report.mapped.filter((entry) => entry.mode === mode).length;
+/** 9.3's "colors adjusted to fit sRGB or drop alpha": the gamut and alpha entries, not a generated foreground. */
+const adjustedOf = (report: typeof OK.report) =>
+  report.adjusted.filter((entry) => entry.reason === "gamut" || entry.reason === "alpha").length;
 const NOTICE = {
   kind: "imported",
   format: "shadcn-css",
   exact: false,
   light: countOf("light"),
   dark: countOf("dark"),
-  adjusted: OK.report.adjusted.length,
+  adjusted: adjustedOf(OK.report),
 } as const;
 
 beforeEach(() => {
@@ -65,6 +68,22 @@ describe("importDesign", () => {
     store.getState().importDesign(OK);
     expect(store.getState().status.notice).toEqual(NOTICE);
     expect(store.getState().status.phase).toBe("idle");
+    // Measured: 10 gamut and 3 alpha entries; the 2 foreground entries are generated, not adjusted.
+    expect(NOTICE.adjusted).toBe(13);
+    expect(OK.report.adjusted.filter((entry) => entry.reason === "foreground")).toHaveLength(2);
+  });
+
+  it("C-STOR3-02 counts no generated foreground as an adjusted color", () => {
+    const md = importDesignMd(readFixture("design-md-readme.md"));
+    if (!md.ok) throw new Error("the DESIGN.md fixture did not import");
+    // Its one entry is the primary-foreground that onFill generated.
+    expect(md.report.adjusted.map((entry) => entry.reason)).toEqual(["foreground"]);
+    const { store } = makeStore();
+    store.getState().importDesign(md);
+    const notice = store.getState().status.notice;
+    expect(notice).toMatchObject({ kind: "imported", adjusted: 0 });
+    const { message, detail } = bannerFor(notice as never);
+    expect(`${message} ${detail}`).not.toContain("adjusted");
   });
 
   it("C-STOR3-03 ties the notice to the snapshot: undo clears it, redo restores it, a commit clears it", () => {

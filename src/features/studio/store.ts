@@ -502,7 +502,8 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
       exact: report.exact,
       light: count("light"),
       dark: count("dark"),
-      adjusted: report.adjusted.length,
+      // 9.3 says "adjusted to fit sRGB or drop alpha": a foreground that onFill generated is not.
+      adjusted: report.adjusted.filter((a) => a.reason === "gamut" || a.reason === "alpha").length,
       ...(report.inferred.customFonts ? { customFonts: true as const } : {}),
     };
     importNotices.set(spec, notice);
