@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { type APIRequestContext, expect, type Page, type Request, test } from "@playwright/test";
 import type { VibeInput } from "@/ai";
 import { gamutMap, imagePalette, lintSpec, PRESETS, paramsOfSpec, toHex } from "@/engine";
@@ -23,9 +24,11 @@ import {
   findingsSection,
   heldDesign,
   hexWithin,
+  imageFixture,
   lexiconLine,
   lockToggle,
   MOCK_KEY_PATH,
+  MOCK_ORIGIN,
   type MockScenario,
   mockLog,
   OUTPUTS,
@@ -43,6 +46,7 @@ import {
   seedField,
   setScenario,
   specInHash,
+  TEST_KEY,
   TEXT_SLUGS,
   VISION_SLUGS,
   waitForHeld,
@@ -63,14 +67,17 @@ import { button, inputsPanel, openStudio, settled } from "./studio-support";
 
 // The flows of docs/specs/04-ai.md, section 14.11, that reach the local mock of OpenRouter (Task
 // 4.12a, R4-58): the browser posts to the real `/api/ai/<feature>`, and the production server, run
-// with section 4's TEST_ENV, calls tests/e2e/mock-openrouter.mjs on 127.0.0.1:3199. The tests run in
-// order in one worker, and each sets its scenario first, then waits until no chat request is open.
-// The server's cache outlives a flow, so each flow reads a brief or a design no other flow uses.
+// with section 4's TEST_ENV, calls tests/e2e/mock-openrouter.mjs on 127.0.0.1:3199. The tests run
+// serially in one worker with no retries: the server's cache outlives a test, so a retry would meet
+// its own cached result, and a failure skips the rest. The first test proves the app under test runs
+// against the mock, so no later flow can reach openrouter.ai (the default base URL). Each flow sets
+// its scenario first, then waits until no chat request is open, and reads a brief or a design no
+// other flow uses.
 // The cap cookie is `Secure`, and Chromium keeps it on http://localhost (R4-62, probe 4), so no flow
 // replays it. Playwright's Chromium has a `LanguageModel`: the on-device switch stays off (its
 // default), so every action takes the shared route.
 
-test.describe.configure({ mode: "default" });
+test.describe.configure({ mode: "serial", retries: 0 });
 test.use({ viewport: { width: 1280, height: 800 } });
 
 /** 13.1's line for a model on the shared quota, as `madeWith` writes it. */
@@ -78,6 +85,16 @@ const sharedLine = (slug: string): string => `Made with dyelot's shared AI (${sl
 const [TEXT_1, TEXT_2, TEXT_3] = TEXT_SLUGS;
 const [VISION_1] = VISION_SLUGS;
 const CANCELED = "Canceled. Nothing changed.";
+/** R4-09's chat body: exactly these keys, in this order. */
+const CHAT_KEYS = [
+  "model",
+  "messages",
+  "response_format",
+  "plugins",
+  "max_tokens",
+  "temperature",
+  "usage",
+] as const;
 
 /** Sets the mock's scenario, then waits until no chat request an earlier flow sent is open. */
 async function startScenario(request: APIRequestContext, name: MockScenario): Promise<void> {
@@ -104,6 +121,109 @@ const RF2_BRIEF = `${RF2_HEAD}, quiet ${"calm ".repeat(82)}`;
 const named = (name: string): DesignSpec =>
   normalizeSpec({ ...SPEC, meta: { ...SPEC.meta, name } });
 
+test.describe("R4-58 the run's wiring", () => {
+  test("R4-58 the app under test answers with the test slugs and reaches the mock, before any flow runs", async ({
+    request,
+    baseURL,
+  }) => {
+    // The slug variables are this config's, so the server runs with its environment ...
+    const models = await request.get("/api/ai/models");
+    expect(models.status()).toBe(200);
+    expect(await models.json()).toEqual({ text: [...TEXT_SLUGS], vision: [...VISION_SLUGS] });
+    // ... and its first chat call reaches the mock, so its base URL is the mock's.
+    await startScenario(request, "ok");
+    const input = ai.briefInput("the run reaches the mock at dawn", {});
+    const reply = await request.post("/api/ai/brief", {
+      data: input,
+      headers: { Origin: baseURL ?? "" },
+    });
+    expect(reply.status()).toBe(200);
+    expect(await reply.json()).toMatchObject({
+      ok: true,
+      path: { provider: "shared", slug: TEXT_1 },
+    });
+    const log = await mockLog(request);
+    expect(log.filter((entry) => entry.path === MOCK_KEY_PATH)).toHaveLength(1);
+    expect(chatRequests(log).map((entry) => [entry.model, entry.feature, entry.status])).toEqual([
+      [TEXT_1, "brief", 200],
+    ]);
+  });
+
+  test("R4-58 the mock refuses a chat body that breaks R4-09 or R4-10, naming the field", async ({
+    request,
+    baseURL,
+  }) => {
+    await startScenario(request, "ok");
+    const built = (feature: "brief" | "vibe") => {
+      const input =
+        feature === "brief"
+          ? ai.briefInput("a body the mock checks", {})
+          : ai.vibeInput(imagePalette([{ hex: "#b8422e", share: 1 }]), {
+              dataUrl: `data:image/jpeg;base64,${readFileSync(imageFixture("tiny.jpg")).toString("base64")}`,
+              width: 2,
+              height: 2,
+            });
+      const chat = ai.buildChatRequest({
+        feature,
+        input: input as never,
+        slug: feature === "brief" ? TEXT_1 : VISION_1,
+        baseUrl: `${MOCK_ORIGIN}/api/v1`,
+        apiKey: TEST_KEY,
+        referer: baseURL ?? "",
+      });
+      return { headers: chat.headers, body: JSON.parse(chat.body) as Record<string, unknown> };
+    };
+    const send = (chat: ReturnType<typeof built>) =>
+      request.post(`${MOCK_ORIGIN}/api/v1/chat/completions`, {
+        headers: chat.headers,
+        data: chat.body,
+      });
+    // What the route builds passes.
+    for (const feature of ["brief", "vibe"] as const) {
+      expect((await send(built(feature))).status(), feature).toBe(200);
+    }
+    const brief = built("brief");
+    const vibe = built("vibe");
+    const messages = vibe.body.messages as { role: string; content: unknown }[];
+    const textOnly = messages.map((message) =>
+      Array.isArray(message.content)
+        ? { ...message, content: message.content.filter((part) => part.type === "text") }
+        : message,
+    );
+    const { max_tokens: _maxTokens, ...noMaxTokens } = brief.body;
+    const broken: ReadonlyArray<readonly [field: string, chat: ReturnType<typeof built>]> = [
+      ["response_format", { ...brief, body: { ...brief.body, response_format: { type: "text" } } }],
+      ["plugins", { ...brief, body: { ...brief.body, plugins: [] } }],
+      ["max_tokens", { ...brief, body: noMaxTokens }],
+      ["models", { ...brief, body: { ...brief.body, models: [TEXT_1, TEXT_2] } }],
+      ["provider", { ...brief, body: { ...brief.body, provider: { require_parameters: true } } }],
+      ["image_url", { ...vibe, body: { ...vibe.body, messages: textOnly } }],
+    ];
+    for (const [field, chat] of broken) {
+      const response = await send(chat);
+      expect(response.status(), field).toBe(400);
+      const { error } = (await response.json()) as { error: { message: string } };
+      expect(error.message, field).toContain(field);
+    }
+    const chats = chatRequests(await mockLog(request));
+    expect(chats.map((entry) => entry.status)).toEqual([200, 200, 400, 400, 400, 400, 400, 400]);
+  });
+
+  test("R4-23 a POST with no Origin or a foreign one is refused 403 forbidden-origin and reaches no model", async ({
+    request,
+  }) => {
+    await startScenario(request, "ok");
+    const data = ai.briefInput("a brief from another site", {});
+    const origins: Record<string, string>[] = [{}, { Origin: "https://example.com" }];
+    for (const headers of origins) {
+      const reply = await request.post("/api/ai/brief", { data, headers });
+      expect(reply.status(), JSON.stringify(headers)).toBe(403);
+      expect(await reply.json()).toEqual({ ok: false, code: "forbidden-origin" });
+    }
+    expect(await mockLog(request)).toEqual([]);
+  });
+});
+
 test.describe("14.11 the brief on the shared route", () => {
   test("F-BRIEF-01 the mock's first tier reads the brief: one /key read, one chat call, one undoable commit", async ({
     page,
@@ -123,6 +243,14 @@ test.describe("14.11 the brief on the shared route", () => {
     expect(chats).toHaveLength(1);
     expect(chats[0]?.model).toBe(TEXT_1);
     expect(chats[0]?.system?.startsWith(ai.PROMPTS.brief.body)).toBe(true);
+    // The body R4-09 and R4-10 write, as the mock read it.
+    expect(chats[0]).toMatchObject({
+      keys: CHAT_KEYS,
+      response_format: { type: "json_object" },
+      plugins: [{ id: "response-healing" }],
+      max_tokens: ai.PROMPTS.brief.maxTokens,
+      image: false,
+    });
     await button(page, "Undo").click();
     await expect.poll(() => heldDesign(page)).toEqual(before);
   });
@@ -225,13 +353,15 @@ test.describe("14.11 the brief on the shared route", () => {
     await expect(readBrief(page)).not.toHaveAttribute("aria-busy", "true");
     expect(await heldDesign(page)).toEqual(before);
     await expectNothingToUndo(page);
-    // The next scenario answers the held reply. Whatever the post then gets (nothing, once it was
-    // aborted), the design and the history stay as they were.
+    // The cancel aborted the post, and the server dropped its held tier (R4-16), so no reply can
+    // come back; the next scenario then has nothing to answer.
     const [posted] = postsTo(requests, "brief");
     if (posted === undefined) throw new Error("F-BRIEF-09: the brief was not posted");
+    expect(await posted.response()).toBeNull();
+    await expect
+      .poll(async () => chatRequests(await mockLog(request)).map((entry) => entry.state))
+      .toEqual(["closed"]);
     await setScenario(request, "ok");
-    await posted.response();
-    await page.waitForTimeout(500);
     expect(await heldDesign(page)).toEqual(before);
     await expectNothingToUndo(page);
     await expectBriefLines(page, [CANCELED]);
@@ -344,6 +474,14 @@ test.describe("14.11 the image, steer and inspector actions on the shared route"
     expect(Math.max(input.image.width, input.image.height)).toBeLessThanOrEqual(768);
     const chats = chatRequests(await mockLog(request));
     expect(chats.map((entry) => [entry.model, entry.feature])).toEqual([[VISION_1, "vibe"]]);
+    // The image goes as an `image_url` part, in R4-09's body.
+    expect(chats[0]).toMatchObject({
+      keys: CHAT_KEYS,
+      response_format: { type: "json_object" },
+      plugins: [{ id: "response-healing" }],
+      max_tokens: ai.PROMPTS.vibe.maxTokens,
+      image: true,
+    });
     // The preset organic applies first, then the type vibe's pairing, schibsted-serif. That is not
     // organic's own pairing, so the Preset select reads "Custom" (R2-28) over organic's other values
     // (controller ruling on F-IMG-03).

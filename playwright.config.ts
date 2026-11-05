@@ -20,10 +20,12 @@ export default defineConfig({
   webServer: [
     // The local mock of OpenRouter (docs/specs/04-ai.md, R4-58), first, so the app's shared route
     // reaches it from the first flow. The flows that reach it live in tests/e2e/ai-route.spec.ts.
+    // It is always started fresh: a stale or foreign server on its fixed port fails the run instead
+    // of answering it.
     {
       command: "node tests/e2e/mock-openrouter.mjs",
       url: "http://127.0.0.1:3199/__log",
-      reuseExistingServer: !process.env.CI,
+      reuseExistingServer: false,
       timeout: 30_000,
     },
     {

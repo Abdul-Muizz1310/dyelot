@@ -581,7 +581,9 @@ export type MockScenario = "ok" | "tier1-500" | "tier1-color" | "all-fail" | "ho
 /**
  * One request the mock logged since its scenario was set: `open` until the mock has written its
  * reply (`answered`, with the status) or the caller hung up first (`closed`). A chat request also
- * carries its `model`, the feature its user message names and its system message.
+ * carries its `model`, the feature its user message names, its system message, the body's keys in
+ * order, its `response_format`, `plugins` and `max_tokens`, whether its user message holds an
+ * `image_url` part, and the message of a 400 the mock gave a body that breaks R4-09 or R4-10.
  */
 export type MockRequest = {
   readonly method: string;
@@ -591,6 +593,12 @@ export type MockRequest = {
   readonly model?: string;
   readonly feature?: AiFeature | null;
   readonly system?: string;
+  readonly keys?: readonly string[];
+  readonly response_format?: unknown;
+  readonly plugins?: unknown;
+  readonly max_tokens?: unknown;
+  readonly image?: boolean;
+  readonly error?: string;
 };
 
 /**

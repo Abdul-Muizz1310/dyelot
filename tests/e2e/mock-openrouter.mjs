@@ -10,14 +10,19 @@
 //   the user message's JSON (for vibe, its text part) and replies `{ choices: [{ message: { content } }],
 //   usage }` with that feature's output from tests/fixtures/ai/outputs.json, which the unit tests read
 //   too; for a vibe input of one cluster the roles leave out `secondary`. Tier 1 is a request whose
-//   `model` is `test/text-1:free` or `test/vision-1:free`;
+//   `model` is `test/text-1:free` or `test/vision-1:free`. A body the route must never build gets
+//   400 with a message naming the field (R4-09, R4-10): keys other than R4-09's seven in their
+//   order (`models`, `provider` or `require_parameters` among them), a `response_format` other than
+//   `{ type: "json_object" }`, no response-healing plugin, no integer `max_tokens`, or a vibe call
+//   whose user message holds no `image_url` part;
 // - `POST /api/v1/auth/keys` answers the PKCE exchange with a made-up key;
 // - `POST /__scenario { name }` sets the scenario, answers every reply `hold` held, clears the log,
 //   and replies once the held replies are written;
 // - `POST /__release` answers every held reply;
 // - `GET /__log` lists the requests to /api/v1 since the scenario was set, in order, each `open`
 //   until the mock has written its reply (`answered`, with the status) or the caller hung up first
-//   (`closed`), a chat request with its model, feature and system message.
+//   (`closed`). A chat request also has its model, feature and system message, the body's keys,
+//   `response_format`, `plugins` and `max_tokens`, whether it sent an image part, and a 400's message.
 //
 // The scenarios (section 4): `ok` answers every tier; `tier1-500` answers tier 1 with 500;
 // `tier1-color` gives tier 1 a rationale whose thesis holds `#ff0000`; `all-fail` answers every tier
@@ -48,6 +53,16 @@ const USAGE = Object.freeze({
   total_tokens: 180,
   cost: 0,
 });
+/** R4-09's chat body: exactly these keys, in this order. */
+const CHAT_KEYS = Object.freeze([
+  "model",
+  "messages",
+  "response_format",
+  "plugins",
+  "max_tokens",
+  "temperature",
+  "usage",
+]);
 /** The key the PKCE exchange answers with: made up, never a real one. */
 const EXCHANGED_KEY = "sk-or-v1-mock-0123456789abcdef0123456789abcdef";
 
@@ -60,6 +75,12 @@ const EXCHANGED_KEY = "sk-or-v1-mock-0123456789abcdef0123456789abcdef";
  *   model?: string;
  *   feature?: string | null;
  *   system?: string;
+ *   keys?: string[];
+ *   response_format?: unknown;
+ *   plugins?: unknown;
+ *   max_tokens?: unknown;
+ *   image?: boolean;
+ *   error?: string;
  * }} Entry
  */
 
@@ -176,8 +197,75 @@ function outputFor(feature, input, tier1) {
   return OUTPUTS[feature];
 }
 
+/**
+ * Whether the user message holds an `image_url` part with an image data URL (R4-10's vibe message).
+ * @param {unknown} body
+ */
+function hasImage(body) {
+  const content = contentOf(body, "user");
+  return (
+    Array.isArray(content) &&
+    content.some(
+      (part) =>
+        isRecord(part) &&
+        part.type === "image_url" &&
+        isRecord(part.image_url) &&
+        typeof part.image_url.url === "string" &&
+        part.image_url.url.startsWith("data:image/"),
+    )
+  );
+}
+
+/**
+ * What breaks R4-09 or R4-10 in a chat body, as a message that starts with the field, or null.
+ * @param {Record<string, unknown>} body
+ * @param {string} feature
+ */
+function bodyProblem(body, feature) {
+  const keys = Object.keys(body);
+  if ("models" in body) return "models: the route never sends a models list (R4-09).";
+  if ("provider" in body) {
+    return "provider: the route never sends provider or require_parameters (R4-09).";
+  }
+  const extra = keys.find((key) => !CHAT_KEYS.includes(key));
+  if (extra !== undefined) return `${extra}: not a key of R4-09's body.`;
+  const format = body.response_format;
+  if (!isRecord(format) || format.type !== "json_object" || Object.keys(format).length !== 1) {
+    return 'response_format: must be { "type": "json_object" } (R4-10).';
+  }
+  const { plugins } = body;
+  if (
+    !Array.isArray(plugins) ||
+    !plugins.some((plugin) => isRecord(plugin) && plugin.id === "response-healing")
+  ) {
+    return "plugins: must hold the response-healing plugin (R4-09).";
+  }
+  const maxTokens = body.max_tokens;
+  if (typeof maxTokens !== "number" || !Number.isInteger(maxTokens) || maxTokens < 1) {
+    return "max_tokens: must be a positive integer (R4-09).";
+  }
+  if (keys.join() !== CHAT_KEYS.join()) {
+    return `keys: must be ${CHAT_KEYS.join(", ")}, in that order (R4-09).`;
+  }
+  if (feature === "vibe" && !hasImage(body)) {
+    return "messages: a vibe call's user message must hold an image_url part (R4-10).";
+  }
+  return null;
+}
+
 /** Whether the call carries a bearer key, as OpenRouter requires. @param {import("node:http").IncomingMessage} req */
 const authorized = (req) => /^Bearer \S+$/.test(req.headers.authorization ?? "");
+
+/**
+ * A 400 for a chat body the route must never build, its message logged.
+ * @param {import("node:http").ServerResponse} res
+ * @param {Entry} entry
+ * @param {string} message
+ */
+function refuse(res, entry, message) {
+  entry.error = message;
+  return answer(res, entry, 400, failure(400, message));
+}
 
 /**
  * `POST /api/v1/chat/completions` by the scenario.
@@ -196,10 +284,20 @@ async function chat(req, res, entry) {
   entry.model = model;
   entry.feature = feature;
   entry.system = typeof system === "string" ? system : "";
-  if (!authorized(req)) return answer(res, entry, 401, failure(401, "No auth credentials found."));
-  if (feature === null || !isRecord(input)) {
-    return answer(res, entry, 400, failure(400, "No feature in the user message."));
+  if (isRecord(body)) {
+    entry.keys = Object.keys(body);
+    entry.response_format = body.response_format;
+    entry.plugins = body.plugins;
+    entry.max_tokens = body.max_tokens;
+    entry.image = hasImage(body);
   }
+  if (!authorized(req)) return answer(res, entry, 401, failure(401, "No auth credentials found."));
+  if (!isRecord(body)) return refuse(res, entry, "body: not a JSON object.");
+  if (feature === null || !isRecord(input)) {
+    return refuse(res, entry, "messages: no feature in the user message.");
+  }
+  const problem = bodyProblem(body, feature);
+  if (problem !== null) return refuse(res, entry, problem);
   const tier1 = TIER_1.has(model);
   if (scenario === "all-fail") return answer(res, entry, 503, failure(503, "No provider."));
   if (scenario === "tier1-500" && tier1) {
