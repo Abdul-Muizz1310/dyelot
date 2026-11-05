@@ -450,6 +450,19 @@ describe("the scan", () => {
       registryApp((css) => css.replace(":root {\n", ":root {\n  --neutral-75: #ff0000;\n")),
     );
     expect(codes(odd)).toEqual(["raw-color"]);
+    // Only the theme file may hold scale steps: in any other file the same line is a finding.
+    const elsewhere = check(
+      registryApp(withScale, {
+        "app/components.css": ".card {\n  --neutral-50: #ff0000;\n}\n",
+        "src/a.tsx": 'const s = "--neutral-50: #ff0000";\n',
+      }),
+    );
+    expect(
+      elsewhere.json.findings.map((f: { code: string; path: string }) => [f.code, f.path]),
+    ).toEqual([
+      ["raw-color", "app/components.css"],
+      ["raw-color", "src/a.tsx"],
+    ]);
   });
 
   it("C-CHK-33: a malformed receipt is exit 2 with a message, never a stack", () => {
