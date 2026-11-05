@@ -396,23 +396,90 @@ describe("C-TRACE-02 when a trace is made, ended and flushed", () => {
     expect(context.afters).toHaveLength(1);
   });
 
-  it.each([
-    ["a 404", "poem", {}, {}],
-    ["a 403", "brief", {}, { origin: null }],
-    ["a 429", "brief", {}, { cookie: `dyelot_ai=${capValue(TODAY, 3)}` }],
-    ["a first-read pool-low", "brief", { key: [keyAnswer(37)] }, {}],
-    ["a first-read guard-unavailable", "brief", { key: [statusAnswer(500)] }, {}],
-  ] as const)(
-    "C-TRACE-02 %s makes no trace and flushes nothing",
-    async (_, feature, script, options) => {
-      const context = traced(script);
-      await handleAi(feature, post(feature, INPUTS.brief, options), context.deps);
+  /** Every refusal before the cascade (R4-16's steps 1 to 8): each answers with no trace at all. */
+  const VISION_OFF = {
+    ...TRACING_ENV,
+    OPENROUTER_VISION_MODEL_1: "",
+    OPENROUTER_VISION_MODEL_2: "",
+    OPENROUTER_VISION_MODEL_3: "",
+  };
+  const REFUSALS: ReadonlyArray<
+    readonly [
+      string,
+      string,
+      Parameters<typeof recordingFetch>[0],
+      Parameters<typeof post>[2],
+      Partial<AiDeps>,
+      unknown,
+      number,
+    ]
+  > = [
+    ["a 404", "poem", {}, {}, {}, INPUTS.brief, 404],
+    ["a 403", "brief", {}, { origin: null }, {}, INPUTS.brief, 403],
+    [
+      "a 503 not-configured for a bad variable",
+      "brief",
+      {},
+      {},
+      { env: { ...TRACING_ENV, OPENROUTER_API_KEY: "" } },
+      INPUTS.brief,
+      503,
+    ],
+    ["a 503 not-configured for no tier", "vibe", {}, {}, { env: VISION_OFF }, INPUTS.vibe, 503],
+    ["a 413", "brief", {}, { headers: { "content-length": "40000" } }, {}, INPUTS.brief, 413],
+    ["a 400", "brief", {}, {}, {}, "{", 400],
+    ["a 429", "brief", {}, { cookie: `dyelot_ai=${capValue(TODAY, 3)}` }, {}, INPUTS.brief, 429],
+    ["a first-read pool-low", "brief", { key: [keyAnswer(37)] }, {}, {}, INPUTS.brief, 503],
+    [
+      "a first-read guard-unavailable",
+      "brief",
+      { key: [statusAnswer(500)] },
+      {},
+      {},
+      INPUTS.brief,
+      503,
+    ],
+  ];
+
+  it.each(REFUSALS)(
+    "C-TRACE-02 %s makes no trace, no generation and no flush",
+    async (_, feature, script, options, overrides, body, status) => {
+      const tracings: unknown[] = [];
+      const context = traced(script, undefined, {
+        ...overrides,
+        tracerFor: (tracing) => {
+          tracings.push(tracing);
+          return fakeTracer().tracer;
+        },
+      });
+      const reply = await handleAi(feature, post(feature, body, options), context.deps);
+      expect(reply.status).toBe(status);
+      expect(tracings).toEqual([]);
       expect(context.fake.actions).toEqual([]);
       expect(context.afters).toHaveLength(1);
       await context.afters[0];
       expect(context.fake.counts.flushes).toBe(0);
     },
   );
+
+  it("C-TRACE-02 a 503 busy makes no trace, no generation and no flush", async () => {
+    const context = traced({});
+    let called = 0;
+    context.deps = {
+      ...context.deps,
+      tracerFor: () => {
+        called += 1;
+        return context.fake.tracer;
+      },
+    };
+    expect(context.deps.gate.enter(1_793_880_000_000)).not.toBeNull();
+    const reply = await handleAi("brief", post("brief", INPUTS.brief), context.deps);
+    expect((await read(reply)).json.code).toBe("busy");
+    expect(called).toBe(0);
+    expect(context.fake.actions).toEqual([]);
+    await Promise.all(context.afters);
+    expect(context.fake.counts.flushes).toBe(0);
+  });
 
   it("C-TRACE-02 a cache hit makes no trace", async () => {
     const context = traced({ key: [keyAnswer(50)], chat: [chatAnswer(BRIEF_CONTENT)] });

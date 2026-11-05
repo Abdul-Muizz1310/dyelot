@@ -234,7 +234,10 @@ async function readBody(request: Request, cap: number): Promise<string | null | 
   }
 }
 
-/** The feature's input from the body's text, or null when it is not JSON or `inputSchema` refuses it. */
+/**
+ * The feature's input from the body's text, as `inputSchema` reads it (its output, not the raw JSON),
+ * or null when the text is not JSON or the schema refuses it.
+ */
 function parseInput(feature: AiFeature, text: string): FeatureInput[AiFeature] | null {
   let value: unknown;
   try {
@@ -242,7 +245,8 @@ function parseInput(feature: AiFeature, text: string): FeatureInput[AiFeature] |
   } catch {
     return null;
   }
-  return inputSchema(feature).safeParse(value).success ? (value as FeatureInput[AiFeature]) : null;
+  const checked = inputSchema(feature).safeParse(value);
+  return checked.success ? (checked.data as FeatureInput[AiFeature]) : null;
 }
 
 /** The highest count among the request's cap cookies for `today`; 0 when none verifies. */
@@ -380,39 +384,107 @@ async function respond(
   const key = cacheKey(feature, input, PROMPTS[feature].version);
   const hit = deps.cache.get(key);
   if (hit !== undefined) return reply(200, success(feature, hit, left));
-  // (7) The cascade gate: only the request that entered it leaves it, once, on every path.
-  const release = deps.gate.enter();
+  // (7) The cascade gate: only the request that entered it leaves it, once, on every path. A hold
+  // older than GATE_STALE_MS is taken over (R4-17 (b)).
+  const release = deps.gate.enter(now);
   if (release === null) return reply(503, { ok: false, code: "busy", remaining: left });
   try {
-    // (8) The guard, failing closed.
-    const signal = request.signal;
-    const guard = { fetch: deps.fetch, baseUrl: env.baseUrl, apiKey: env.apiKey, signal };
-    const first = await readGuard({ ...guard, timeoutMs: GUARD_TIMEOUT_MS });
-    const verdict = guardVerdict(first, env.reserve);
-    if (verdict !== "ok") return reply(503, { ok: false, code: verdict, remaining: left });
-    const rereads = (first as number) < env.reserve + REREAD_MARGIN;
-    // (9) The cascade. From the first attempt on, the action counts, success or not.
-    const { trace, traced } = startTrace(deps, env, feature, input, flush);
-    const counted = async () =>
-      capSetCookie(await signCap(capKey, today, count + 1), secondsToUtcMidnight(now));
-    const end = (output: Parameters<ActionTrace["end"]>[0]) =>
-      traceStep(deps, "end", () => trace.end(output));
-    const image = feature === "vibe" ? (input as FeatureInput["vibe"]).image : undefined;
-    const failures: Failure[] = [];
+    return await guardAndCascade({
+      deps,
+      env,
+      feature,
+      input,
+      signal: request.signal,
+      plan,
+      key,
+      left,
+      flush,
+      counted: async () =>
+        capSetCookie(await signCap(capKey, today, count + 1), secondsToUtcMidnight(now)),
+    });
+  } finally {
+    release();
+  }
+}
+
+/** One action past the gate: what the guard and the tiers need from the request. */
+type Action = {
+  readonly deps: AiDeps;
+  readonly env: AiEnv;
+  readonly feature: AiFeature;
+  readonly input: FeatureInput[AiFeature];
+  readonly signal: AbortSignal;
+  readonly plan: readonly Tier[];
+  /** The cache key of the input. */
+  readonly key: string;
+  /** The visitor's actions left before this one: 3 − count. */
+  readonly left: number;
+  readonly flush: Flush;
+  /** The cap cookie's `Set-Cookie` line with the count raised by one. */
+  readonly counted: () => Promise<string>;
+};
+
+/**
+ * R4-16 steps 8 and 9: the guard reads `/key` with 5,000 ms and fails closed; an admitted action runs
+ * the tiers, re-reading `/key` with 2,000 ms before tiers 2 and 3 when the first read was below
+ * `reserve + 6` (R4-17 (c)).
+ */
+async function guardAndCascade(action: Action): Promise<Response> {
+  const { deps, env, signal, left } = action;
+  const guard = { fetch: deps.fetch, baseUrl: env.baseUrl, apiKey: env.apiKey, signal };
+  const first = await readGuard({ ...guard, timeoutMs: GUARD_TIMEOUT_MS });
+  const verdict = guardVerdict(first, env.reserve);
+  if (verdict !== "ok") return reply(503, { ok: false, code: verdict, remaining: left });
+  const rereads = (first as number) < env.reserve + REREAD_MARGIN;
+  return cascade(action, async () =>
+    rereads
+      ? guardVerdict(await readGuard({ ...guard, timeoutMs: REREAD_TIMEOUT_MS }), env.reserve)
+      : "ok",
+  );
+}
+
+/** The error's name for a log line, never its message, which could hold a value. */
+const errorName = (error: unknown): string =>
+  error instanceof Error ? error.name : describeType(error);
+
+/**
+ * The tiers of R4-12 after the guard admitted the action (R4-16 step 9). A tier is sent only while
+ * the visitor's signal is live; before tier 1 a cancel answers as a first-read abort does (503
+ * `guard-unavailable`, not counted), and before tier 2 or 3 it stops the cascade (502 with the
+ * failures so far). The trace starts with the first attempt. From that attempt on the action counts
+ * against the cap on every path: a success (200), a re-read's refusal (503), every tier failing
+ * (502), and a fault that throws after it, which is logged once by its name and answered with what
+ * the action has, its result or its failures.
+ */
+async function cascade(
+  action: Action,
+  reread: () => Promise<"ok" | "pool-low" | "guard-unavailable">,
+): Promise<Response> {
+  const { deps, env, feature, input, signal, plan, key, left, flush, counted } = action;
+  const timed = env.tracing !== null;
+  const image = feature === "vibe" ? (input as FeatureInput["vibe"]).image : undefined;
+  const failures: Failure[] = [];
+  let trace: ActionTrace | null = null;
+  let traced = false;
+  let ended = false;
+  let attempts = 0;
+  let answered: CachedResult | null = null;
+  const end = (output: Parameters<ActionTrace["end"]>[0]) => {
+    if (trace === null || ended) return;
+    ended = true;
+    const current = trace;
+    traceStep(deps, "end", () => current.end(output));
+  };
+  try {
     for (const [index, tier] of plan.entries()) {
       if (index > 0) {
         // A visitor's cancel starts no further tier (R4-16, R4-56).
         if (signal.aborted) break;
-        if (rereads) {
-          const again = guardVerdict(
-            await readGuard({ ...guard, timeoutMs: REREAD_TIMEOUT_MS }),
-            env.reserve,
-          );
-          if (again !== "ok") {
-            end({ outcome: "all-tiers-failed" });
-            const body = { ok: false, code: again, remaining: left - 1, failures };
-            return reply(503, body, await counted());
-          }
+        const again = await reread();
+        if (again !== "ok") {
+          end({ outcome: "all-tiers-failed" });
+          const body = { ok: false, code: again, remaining: left - 1, failures };
+          return reply(503, body, await counted());
         }
       }
       const chat = buildChatRequest({
@@ -423,51 +495,75 @@ async function respond(
         apiKey: env.apiKey,
         referer: deps.siteOrigin,
       });
-      // A traced attempt is timed by the clock around it; the cookie keeps the time read at the start.
-      const startMs = traced ? deps.now() : 0;
+      // With tracing on, an attempt is timed by readings around it; the cookie keeps the time read
+      // at the start (R4-16).
+      const startMs = timed ? deps.now() : 0;
+      // Nothing async lies between this check and sendChat's own, so a tier is sent exactly when
+      // the signal is live here.
+      if (signal.aborted) {
+        if (attempts === 0)
+          return reply(503, { ok: false, code: "guard-unavailable", remaining: left });
+        break;
+      }
+      if (trace === null) ({ trace, traced } = startTrace(deps, env, feature, input, flush));
+      attempts += 1;
       const response = await sendChat(chat, {
         fetch: deps.fetch,
         timeoutMs: TIER_TIMEOUT_MS,
         signal,
       });
       const outcome = readReply(feature, input, response);
-      if (traced) {
-        const endMs = deps.now();
-        traceStep(deps, "generation", () =>
-          trace.generation({
-            tier: tier.tier,
-            slug: tier.slug,
-            messages: traceMessages(chat.body, image),
-            reply: outcome.content ?? null,
-            usage: outcome.usage,
-            failure: outcome.ok
-              ? null
-              : outcome.status === undefined
-                ? { kind: outcome.kind }
-                : { kind: outcome.kind, status: outcome.status },
-            startMs,
-            endMs,
-          }),
-        );
-      }
       if (outcome.ok) {
-        const value = {
-          result: outcome.output,
-          slug: tier.slug,
-          tier: tier.tier,
-          attempts: index + 1,
-        };
-        deps.cache.set(key, value);
-        end({ outcome: "ok", tier: tier.tier });
-        return reply(200, success(feature, value, left - 1), await counted());
+        answered = { result: outcome.output, slug: tier.slug, tier: tier.tier, attempts };
+      } else {
+        failures.push(failureOf(tier, outcome));
       }
-      failures.push(failureOf(tier, outcome));
+      if (timed) {
+        const endMs = deps.now();
+        const current = trace;
+        if (traced) {
+          traceStep(deps, "generation", () =>
+            current.generation({
+              tier: tier.tier,
+              slug: tier.slug,
+              messages: traceMessages(chat.body, image),
+              reply: outcome.content ?? null,
+              usage: outcome.usage,
+              failure: outcome.ok
+                ? null
+                : outcome.status === undefined
+                  ? { kind: outcome.kind }
+                  : { kind: outcome.kind, status: outcome.status },
+              startMs,
+              endMs,
+            }),
+          );
+        }
+      }
+      if (answered !== null) {
+        deps.cache.set(key, answered);
+        end({ outcome: "ok", tier: answered.tier });
+        return reply(200, success(feature, answered, left - 1), await counted());
+      }
     }
     end({ outcome: "all-tiers-failed" });
     const body = { ok: false, code: "all-tiers-failed", remaining: left - 1, failures };
     return reply(502, body, await counted());
-  } finally {
-    release();
+  } catch (error) {
+    if (attempts === 0) throw error;
+    logOnce(deps.log, `dyelot ai: an action failed after an attempt (${errorName(error)}).`);
+    const tried = plan[attempts - 1] as Tier;
+    if (answered === null && failures.length < attempts) {
+      // The attempt in flight has no outcome: it reads as a call that did not complete (R4-11).
+      failures.push({ tier: tried.tier, slug: tried.slug, kind: "http", status: 0 });
+    }
+    end(
+      answered === null ? { outcome: "all-tiers-failed" } : { outcome: "ok", tier: answered.tier },
+    );
+    const setCookie = await counted();
+    if (answered !== null) return reply(200, success(feature, answered, left - 1), setCookie);
+    const body = { ok: false, code: "all-tiers-failed", remaining: left - 1, failures };
+    return reply(502, body, setCookie);
   }
 }
 

@@ -60,25 +60,38 @@ export async function readGuard(args: {
 
 /** Lets the gate go; once only, so a second call frees nothing. */
 export type CascadeRelease = () => void;
-export type CascadeGate = { enter(): CascadeRelease | null };
+/** `now`: the request's time in ms, the handler's one reading of its injected clock (R4-16). */
+export type CascadeGate = { enter(now: number): CascadeRelease | null };
 
 /**
- * The cascade gate of R4-17 (b), one per server instance: `enter()` gives a release when no cascade
- * holds the gate, and then holds it, or null while one does. Only the holder has a release, and it
- * works once: a second call, or a call after another request entered, changes nothing, and a request
- * answered `busy` holds nothing it could release. The holder calls it in a `finally`.
+ * A hold this old is stale: `maxDuration` (70 s) and 5 s more. An invocation the platform ended
+ * without running its `finally` can then hold the gate no longer than this (R4-17 (b)).
+ */
+export const GATE_STALE_MS = 75_000;
+
+/**
+ * The cascade gate of R4-17 (b), one per server instance: `enter(now)` gives a release when no
+ * cascade holds the gate, or when the hold was entered `GATE_STALE_MS` or more before `now`, and
+ * then holds it from `now`; it gives null while a younger hold stands (a clock stepped back included).
+ * Only the holder has a release, and it is tied to its own hold and works once: a second call, a call
+ * after another request entered, or a stale holder's call after a takeover changes nothing, and a
+ * request answered `busy` holds nothing it could release. The holder calls it in a `finally`.
  */
 export function createCascadeGate(): CascadeGate {
-  let held = false;
+  let hold: { readonly since: number } | null = null;
   return Object.freeze({
-    enter(): CascadeRelease | null {
-      if (held) return null;
-      held = true;
-      let open = true;
+    enter(now: number): CascadeRelease | null {
+      if (typeof now !== "number") {
+        throw new TypeError(`CascadeGate.enter: now must be a number, got ${describeType(now)}`);
+      }
+      if (!Number.isFinite(now) || now < 0) {
+        throw new RangeError(`CascadeGate.enter: now must be a time in ms, got ${now}`);
+      }
+      if (hold !== null && now - hold.since < GATE_STALE_MS) return null;
+      const mine = { since: now };
+      hold = mine;
       return () => {
-        if (!open) return;
-        open = false;
-        held = false;
+        if (hold === mine) hold = null;
       };
     },
   });

@@ -20,6 +20,7 @@ import {
   capValue,
   chatAnswer,
   cookieOf,
+  fakeTracer,
   held,
   INPUTS,
   keyAnswer,
@@ -39,6 +40,7 @@ import {
   settled,
   statusAnswer,
   streamed,
+  TRACING_ENV,
   throwing,
   UPSTREAM_TEXT,
   watched,
@@ -615,6 +617,46 @@ describe("C-ROUTE-06 the cascade", () => {
   });
 });
 
+describe("C-ROUTE-06 an attempted action counts even when it then throws", () => {
+  it("C-ROUTE-06 a fault after tier 1 answered still answers the result with the count raised by one, logged once by its name", async () => {
+    const context = setup(
+      { key: [keyAnswer(50), keyAnswer(50)], chat: [BRIEF_OK, BRIEF_OK] },
+      { cache: throwingCache() },
+    );
+    const cookie = `dyelot_ai=${capValue(TODAY, 1)}`;
+    const reply = await act(context, "brief", BRIEF_A, { cookie });
+    expect(reply.status).toBe(200);
+    expect(reply.text).toBe(JSON.stringify(okBody("brief", TEXT_SLUGS[0], "primary", 1, 1)));
+    expect(reply.setCookie).toBe(setCookieLine(capValue(TODAY, 2)));
+    await act(context, "brief", BRIEF_B);
+    expect(context.lines).toEqual(["dyelot ai: an action failed after an attempt (TypeError)."]);
+  });
+
+  it("C-ROUTE-06 a fault after a failed tier answers 502 with that failure and the count raised by one", async () => {
+    let reads = 0;
+    const now = () => {
+      reads += 1;
+      if (reads === 3) throw new RangeError("now: broken for this test");
+      return NOW;
+    };
+    const context = setup(
+      { key: [keyAnswer(50)], chat: [statusAnswer(500), BRIEF_OK] },
+      { env: TRACING_ENV, now },
+    );
+    const reply = await act(context, "brief", BRIEF_A);
+    expect(reply.status).toBe(502);
+    expect(reply.json).toEqual({
+      ok: false,
+      code: "all-tiers-failed",
+      remaining: 2,
+      failures: [{ tier: "primary", slug: TEXT_SLUGS[0], kind: "http", status: 500 }],
+    });
+    expect(reply.setCookie).toBe(setCookieLine(capValue(TODAY, 1)));
+    expect(context.recording.chatCalls()).toHaveLength(1);
+    expect(context.lines).toContain("dyelot ai: an action failed after an attempt (RangeError).");
+  });
+});
+
 describe("C-ROUTE-07 the bounds on one action", () => {
   it("C-ROUTE-07 makes 2 chat calls at most when _FAST is unset", async () => {
     const env = { ...TEST_ENV, OPENROUTER_MODEL_FAST: "" };
@@ -839,6 +881,18 @@ describe("C-ROUTE-12 handleAi's wiring", () => {
   });
 });
 
+/** A cache whose `set` throws, as a broken dependency would. */
+function throwingCache() {
+  const inner = createAiCache({ now: () => NOW });
+  return {
+    get: inner.get,
+    size: inner.size,
+    set: () => {
+      throw new TypeError("AiCache.set: broken for this test");
+    },
+  };
+}
+
 /** A gate that counts the releases each request it let in called. */
 function countingGate(): { gate: CascadeGate; releases: number[]; handed: (() => void)[] } {
   const inner = createCascadeGate();
@@ -848,8 +902,8 @@ function countingGate(): { gate: CascadeGate; releases: number[]; handed: (() =>
     releases,
     handed,
     gate: {
-      enter() {
-        const release = inner.enter();
+      enter(now) {
+        const release = inner.enter(now);
         if (release === null) return null;
         const index = releases.push(0) - 1;
         const counted = () => {
@@ -947,28 +1001,76 @@ describe("C-ROUTE-13 the cascade gate", () => {
     controller.abort();
     await settle(context, "brief", pending);
     expect(counting.releases).toEqual([1]);
-    expect(counting.gate.enter()).not.toBeNull();
+    expect(counting.gate.enter(NOW)).not.toBeNull();
   });
 
-  it("C-ROUTE-13 the gate opens after a thrown error, which still reaches the caller", async () => {
+  it("C-ROUTE-13 the gate opens after a thrown error before any attempt, which reaches the caller", async () => {
     const counting = countingGate();
-    const broken = createAiCache({ now: () => NOW });
-    const cache = {
-      get: broken.get,
-      size: broken.size,
-      set: () => {
-        throw new TypeError("AiCache.set: broken for this test");
-      },
+    let reads = 0;
+    const now = () => {
+      reads += 1;
+      if (reads === 2) throw new TypeError("now: broken for this test");
+      return NOW;
     };
     const context = setup(
       { key: [keyAnswer(50)], chat: [BRIEF_OK] },
-      { gate: counting.gate, cache },
+      { gate: counting.gate, env: TRACING_ENV, now },
     );
     await expect(handleAi("brief", post("brief", BRIEF_A), context.deps)).rejects.toThrow(
-      "AiCache.set: broken for this test",
+      "now: broken for this test",
     );
+    expect(context.recording.chatCalls()).toEqual([]);
     expect(counting.releases).toEqual([1]);
-    expect(counting.gate.enter()).not.toBeNull();
+    expect(counting.gate.enter(NOW)).not.toBeNull();
+  });
+
+  it("C-ROUTE-13 the gate opens after a thrown error after an attempt", async () => {
+    const counting = countingGate();
+    const context = setup(
+      { key: [keyAnswer(50)], chat: [BRIEF_OK] },
+      { gate: counting.gate, cache: throwingCache() },
+    );
+    expect((await act(context, "brief", BRIEF_A)).status).toBe(200);
+    expect(counting.releases).toEqual([1]);
+    expect(counting.gate.enter(NOW)).not.toBeNull();
+  });
+
+  it("C-ROUTE-13 a hold older than 75 s is taken over: the stale holder's end frees nothing, the new holder's end frees the gate", async () => {
+    const stale = held();
+    const fresh = held();
+    const context = setup({
+      key: [keyAnswer(50), keyAnswer(50), keyAnswer(50)],
+      chat: [stale.answer, fresh.answer, BRIEF_OK],
+    });
+    const at = (ms: number) => ({ ...context.deps, now: () => ms });
+    const first = handleAi("brief", post("brief", BRIEF_A), at(NOW));
+    const firstCall = await stale.called;
+    const tooSoon = await settle(
+      context,
+      "brief",
+      handleAi("brief", post("brief", BRIEF_B), at(NOW + 74_999)),
+      {},
+      context.recording.calls.length,
+    );
+    expect(tooSoon.json.code).toBe("busy");
+    const from = context.recording.calls.length;
+    const second = handleAi("brief", post("brief", BRIEF_B), at(NOW + 75_000));
+    const secondCall = await fresh.called;
+    stale.release(await BRIEF_OK(firstCall));
+    expect((await read(await first)).status).toBe(200);
+    const blocked = await settle(
+      context,
+      "brief",
+      handleAi("brief", post("brief", BRIEF_C), at(NOW + 75_001)),
+      {},
+      context.recording.calls.length,
+    );
+    expect(blocked.json.code).toBe("busy");
+    fresh.release(await BRIEF_OK(secondCall));
+    expect((await settle(context, "brief", second, {}, from)).status).toBe(200);
+    const next = context.recording.calls.length;
+    const after = handleAi("brief", post("brief", BRIEF_D), at(NOW + 75_002));
+    expect((await settle(context, "brief", after, {}, next)).status).toBe(200);
   });
 
   it("C-ROUTE-13 a busy request releases nothing, and a second call of a release changes nothing", async () => {
@@ -1105,6 +1207,19 @@ describe("C-ROUTE-15 one reading of the clock", () => {
     expect(reads).toBe(1);
   });
 
+  it("C-ROUTE-15 with tracing on, each attempt is timed by two more readings, and the cookie keeps the first", async () => {
+    const start = Date.UTC(2026, 10, 5, 23, 59, 59);
+    let reads = 0;
+    const now = () => (reads++ === 0 ? start : start + 2000);
+    const context = setup(
+      { key: [keyAnswer(50)], chat: [statusAnswer(500), BRIEF_OK] },
+      { env: TRACING_ENV, now, tracerFor: () => fakeTracer().tracer },
+    );
+    const reply = await act(context, "brief", BRIEF_A);
+    expect(reply.setCookie).toBe(setCookieLine(capValue("2026-11-05", 1), 1));
+    expect(reads).toBe(1 + 2 * 2);
+  });
+
   it("C-ROUTE-15 a cookie from the day the action started counts", async () => {
     const start = Date.UTC(2026, 10, 5, 23, 59, 59);
     let reads = 0;
@@ -1141,7 +1256,7 @@ describe("C-ROUTE-16 a visitor's cancel", () => {
       remaining: 2,
       failures: [{ tier: "primary", slug: TEXT_SLUGS[0], kind: "http", status: 0 }],
     });
-    expect(context.deps.gate.enter()).not.toBeNull();
+    expect(context.deps.gate.enter(NOW)).not.toBeNull();
   });
 
   it("C-ROUTE-16 passes request.signal to the /key read too: an abort there reads as guard-unavailable, uncounted", async () => {
@@ -1159,6 +1274,41 @@ describe("C-ROUTE-16 a visitor's cancel", () => {
     const reply = await settle(context, "brief", pending);
     expect(reply.json.code).toBe("guard-unavailable");
     expect(reply.setCookie).toBeNull();
+  });
+
+  it("C-ROUTE-16 an abort after the /key read and before tier 1 sends nothing, counts nothing and traces nothing", async () => {
+    // With tracing on, the clock's reading that times tier 1 is the one seam between the guard and
+    // the first send: the visitor's cancel lands there.
+    const controller = new AbortController();
+    let reads = 0;
+    const now = () => {
+      reads += 1;
+      if (reads === 2) controller.abort();
+      return NOW;
+    };
+    const tracings: unknown[] = [];
+    const context = setup(
+      { key: [keyAnswer(50)], chat: [BRIEF_OK] },
+      {
+        env: TRACING_ENV,
+        now,
+        tracerFor: (tracing) => {
+          tracings.push(tracing);
+          throw new Error("tracerFor: no trace may start");
+        },
+      },
+    );
+    const reply = await act(context, "brief", BRIEF_A, {
+      signal: controller.signal,
+      cookie: `dyelot_ai=${capValue(TODAY, 1)}`,
+    });
+    expect(reply.status).toBe(503);
+    expect(reply.text).toBe('{"ok":false,"code":"guard-unavailable","remaining":2}');
+    expect(reply.setCookie).toBeNull();
+    expect(context.recording.chatCalls()).toEqual([]);
+    expect(tracings).toEqual([]);
+    expect(context.lines).toEqual([]);
+    expect(context.deps.gate.enter(NOW)).not.toBeNull();
   });
 
   it("C-ROUTE-16 an abort during a re-read stops before tier 2", async () => {

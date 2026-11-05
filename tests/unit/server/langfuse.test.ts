@@ -1,6 +1,10 @@
-import { InMemorySpanExporter, type ReadableSpan } from "@opentelemetry/sdk-trace-base";
+import {
+  InMemorySpanExporter,
+  type ReadableSpan,
+  type SpanExporter,
+} from "@opentelemetry/sdk-trace-base";
 import { describe, expect, it } from "vitest";
-import { createLangfuseTracer } from "@/server/ai/langfuse";
+import { createLangfuseTracer, langfuseTracers } from "@/server/ai/langfuse";
 import { TEXT_SLUGS } from "../ai/fixtures";
 import { INPUTS, OUTPUTS } from "./support";
 
@@ -98,5 +102,48 @@ describe("C-TRACE-01 the Langfuse tracer writes 11.6's fields onto its spans", (
     });
     expect(answered?.attributes["langfuse.observation.level"]).toBeUndefined();
     expect(JSON.stringify(spans.map((span) => span.attributes))).not.toContain(TRACING.secretKey);
+  });
+});
+
+describe("C-TRACE-02 one Langfuse tracer per instance, flushed when its settings change", () => {
+  const SETTINGS = {
+    publicKey: "pk-lf-test-public",
+    secretKey: "sk-lf-test-secret-0123456789",
+    baseUrl: "https://us.cloud.langfuse.com",
+    environment: "test",
+  };
+
+  it("C-TRACE-02 the same settings give the same tracer", () => {
+    const tracerFor = langfuseTracers(new InMemorySpanExporter());
+    const tracer = tracerFor(SETTINGS);
+    expect(tracerFor({ ...SETTINGS })).toBe(tracer);
+  });
+
+  /** An exporter that hands each batch on 20 ms late, as a network export would. */
+  function lateExporter(inner: InMemorySpanExporter): SpanExporter {
+    return {
+      export: (spans, done) => {
+        setTimeout(() => inner.export(spans, done), 20);
+      },
+      shutdown: () => inner.shutdown(),
+      forceFlush: () => inner.forceFlush(),
+    };
+  }
+
+  it("C-TRACE-02 a change of the settings flushes the spans buffered under the old ones before the new tracer's flush ends", async () => {
+    const exporter = new InMemorySpanExporter();
+    const tracerFor = langfuseTracers(lateExporter(exporter));
+    const first = tracerFor(SETTINGS);
+    const action = first.action("read-brief", {
+      feature: "brief",
+      environment: "test",
+      input: INPUTS.brief,
+    });
+    action.end({ outcome: "all-tiers-failed" });
+    expect(byName(exporter.getFinishedSpans(), "read-brief")).toEqual([]);
+    const second = tracerFor({ ...SETTINGS, environment: "other" });
+    expect(second).not.toBe(first);
+    await second.flush();
+    expect(byName(exporter.getFinishedSpans(), "read-brief")).toHaveLength(1);
   });
 });

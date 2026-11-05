@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { createCascadeGate, readGuard } from "@/server/ai/guard";
+import { createCascadeGate, GATE_STALE_MS, readGuard } from "@/server/ai/guard";
 import { TEST_KEY } from "../ai/fixtures";
 import { abortable, never, recording, settled } from "./fetch-fakes";
 
@@ -228,52 +228,98 @@ describe("C-QUOTA-01 readGuard reads GET {base}/key", () => {
   });
 });
 
+/** A time of a request, in ms: the handler passes its one reading of the clock to `enter`. */
+const T = 1_793_880_000_000;
+
 describe("C-GATE-01 the cascade gate alone", () => {
   it("C-GATE-01 enter() gives a release when no cascade holds the gate, then null until it is released", () => {
     const gate = createCascadeGate();
-    const release = gate.enter();
+    const release = gate.enter(T);
     expect(release).toBeTypeOf("function");
-    expect(gate.enter()).toBeNull();
-    expect(gate.enter()).toBeNull();
+    expect(gate.enter(T)).toBeNull();
+    expect(gate.enter(T + 1000)).toBeNull();
     release?.();
-    const next = gate.enter();
+    const next = gate.enter(T + 2000);
     expect(next).toBeTypeOf("function");
-    expect(gate.enter()).toBeNull();
+    expect(gate.enter(T + 2000)).toBeNull();
   });
 
   it("C-GATE-01 a release works once: a second call, after another request entered, frees nothing", () => {
     const gate = createCascadeGate();
-    const first = gate.enter();
+    const first = gate.enter(T);
     first?.();
-    const second = gate.enter();
+    const second = gate.enter(T + 1);
     expect(second).toBeTypeOf("function");
     first?.();
-    expect(gate.enter()).toBeNull();
+    expect(gate.enter(T + 2)).toBeNull();
     second?.();
     second?.();
-    expect(gate.enter()).toBeTypeOf("function");
-    expect(gate.enter()).toBeNull();
+    expect(gate.enter(T + 3)).toBeTypeOf("function");
+    expect(gate.enter(T + 3)).toBeNull();
   });
 
   it("C-GATE-01 a request answered busy holds nothing it could release", () => {
     const gate = createCascadeGate();
-    const holder = gate.enter();
-    const busy = gate.enter();
+    const holder = gate.enter(T);
+    const busy = gate.enter(T);
     expect(busy).toBeNull();
-    expect(gate.enter()).toBeNull();
+    expect(gate.enter(T)).toBeNull();
     holder?.();
-    expect(gate.enter()).toBeTypeOf("function");
+    expect(gate.enter(T)).toBeTypeOf("function");
   });
 
   it("C-GATE-01 each gate is its own: one per server instance", () => {
     const first = createCascadeGate();
     const second = createCascadeGate();
-    const release = first.enter();
-    expect(second.enter()).toBeTypeOf("function");
+    const release = first.enter(T);
+    expect(second.enter(T)).toBeTypeOf("function");
     release?.();
-    expect(second.enter()).toBeNull();
-    expect(first.enter()).toBeTypeOf("function");
+    expect(second.enter(T)).toBeNull();
+    expect(first.enter(T)).toBeTypeOf("function");
     expect(Object.isFrozen(first)).toBe(true);
     expect(Object.keys(first)).toEqual(["enter"]);
+  });
+
+  it("C-GATE-01 a hold is stale at 75,000 ms: an enter() takes it over then, and not at 74,000 or 74,999", () => {
+    expect(GATE_STALE_MS).toBe(75_000);
+    const gate = createCascadeGate();
+    expect(gate.enter(T)).toBeTypeOf("function");
+    expect(gate.enter(T + 74_000)).toBeNull();
+    expect(gate.enter(T + 74_999)).toBeNull();
+    const takeover = gate.enter(T + 75_000);
+    expect(takeover).toBeTypeOf("function");
+    expect(gate.enter(T + 75_000)).toBeNull();
+    expect(gate.enter(T + 149_999)).toBeNull();
+  });
+
+  it("C-GATE-01 the stale holder's later release frees nothing; the new holder's release frees the gate", () => {
+    const gate = createCascadeGate();
+    const stale = gate.enter(T);
+    const fresh = gate.enter(T + 80_000);
+    expect(fresh).toBeTypeOf("function");
+    stale?.();
+    expect(gate.enter(T + 80_001)).toBeNull();
+    fresh?.();
+    expect(gate.enter(T + 80_002)).toBeTypeOf("function");
+  });
+
+  it("C-GATE-01 a taken-over hold ages from the takeover, and a clock stepped back is not stale", () => {
+    const gate = createCascadeGate();
+    gate.enter(T);
+    gate.enter(T + 75_000);
+    expect(gate.enter(T + 149_999)).toBeNull();
+    expect(gate.enter(T + 150_000)).toBeTypeOf("function");
+    const other = createCascadeGate();
+    other.enter(T);
+    expect(other.enter(T - 100_000)).toBeNull();
+  });
+
+  it("C-GATE-01 enter() refuses a time that is not one, naming itself", () => {
+    const gate = createCascadeGate();
+    expect(() => gate.enter("now" as never)).toThrow(TypeError);
+    expect(() => gate.enter(undefined as never)).toThrow(/^CascadeGate\.enter: now /);
+    expect(() => gate.enter(Number.NaN)).toThrow(RangeError);
+    expect(() => gate.enter(-1)).toThrow(/^CascadeGate\.enter: now /);
+    expect(gate.enter(T)).toBeTypeOf("function");
   });
 });

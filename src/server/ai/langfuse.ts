@@ -61,3 +61,35 @@ export function createLangfuseTracer(tracing: TracingEnv, exporter?: SpanExporte
     flush: () => processor.forceFlush(),
   };
 }
+
+function sameTracing(a: TracingEnv, b: TracingEnv): boolean {
+  return (
+    a.publicKey === b.publicKey &&
+    a.secretKey === b.secretKey &&
+    a.baseUrl === b.baseUrl &&
+    a.environment === b.environment
+  );
+}
+
+/**
+ * The instance's `tracerFor` (5.4): one Langfuse tracer for the settings it was made with. When the
+ * settings change, the old tracer's processor starts flushing the spans it still buffers, and the new
+ * tracer's `flush` waits for that flush too, so no span is dropped with the old processor and a
+ * failure there reaches the handler's flush step. `exporter` is `createLangfuseTracer`'s test seam.
+ */
+export function langfuseTracers(exporter?: SpanExporter): (tracing: TracingEnv) => Tracer {
+  let current: { readonly tracing: TracingEnv; readonly tracer: Tracer } | null = null;
+  return (tracing) => {
+    if (current !== null && sameTracing(current.tracing, tracing)) return current.tracer;
+    const previous = current?.tracer.flush() ?? Promise.resolve();
+    // Handled here so a failure of the old flush is never unhandled, and handed on below.
+    previous.catch(() => {});
+    const made = createLangfuseTracer(tracing, exporter);
+    const tracer: Tracer = {
+      action: made.action,
+      flush: () => Promise.all([previous, made.flush()]).then(() => undefined),
+    };
+    current = { tracing, tracer };
+    return tracer;
+  };
+}
