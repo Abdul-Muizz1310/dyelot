@@ -25,12 +25,21 @@ const SPEC_DIR = path.join(ROOT, "src/spec");
 const THEME_DIR = path.join(ROOT, "src/theme");
 const CODE_FILE = /\.[cm]?[jt]sx?$/;
 
+/**
+ * A folder the Biome probes of tests/unit/engine/entry.test.ts write under src for a moment and
+ * remove: a file listed while it exists may be gone by the time a guard reads it, so no walk
+ * lists it.
+ */
+const PROBE_DIR = "__entry-probe__";
+const inProbe = (file: string): boolean => file.split(path.sep).includes(PROBE_DIR);
+
 /** Every code file under `directory`, or none when the folder does not exist yet. */
 function codeFiles(directory: string): string[] {
   try {
     return readdirSync(directory, { recursive: true, withFileTypes: true })
       .filter((entry) => entry.isFile() && CODE_FILE.test(entry.name))
-      .map((entry) => path.join(entry.parentPath, entry.name));
+      .map((entry) => path.join(entry.parentPath, entry.name))
+      .filter((file) => !inProbe(file));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
@@ -448,7 +457,8 @@ function textFiles(directory: string): string[] {
     return readdirSync(directory, { recursive: true, withFileTypes: true })
       .filter((entry) => entry.isFile() && !BINARY.test(entry.name))
       .map((entry) => path.join(entry.parentPath, entry.name))
-      .filter((file) => !file.split(path.sep).join("/").includes("public/fonts/"));
+      .filter((file) => !file.split(path.sep).join("/").includes("public/fonts/"))
+      .filter((file) => !inProbe(file));
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
     throw error;
@@ -1214,5 +1224,13 @@ describe("C-GUARD4-09 the visitor key's name lives in visitor-key.ts, and src/fe
     "const consoleText = 1; const myconsole = 2;",
   ])("C-GUARD4-09 lets the probe %j through", (source) => {
     expect(namesConsole(source)).toBe(false);
+  });
+});
+
+describe("the guards' file walks skip the Biome probe folder", () => {
+  it("lists no file under a __entry-probe__ folder, which entry.test.ts writes and removes", () => {
+    expect(inProbe(path.join(ROOT, "src", "components", PROBE_DIR, "probe.ts"))).toBe(true);
+    expect(inProbe(path.join(ROOT, "src", "components", "probe.ts"))).toBe(false);
+    expect(inProbe(path.join(ROOT, "src", "features", "__entry-probe-x__", "a.ts"))).toBe(false);
   });
 });
