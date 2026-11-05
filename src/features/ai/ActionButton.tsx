@@ -1,6 +1,6 @@
 "use client";
 
-import { useId } from "react";
+import { type ReactNode, useId } from "react";
 import { type ActionLines, type AiAction, WAIT_LINE } from "@/features/ai/useAiAction";
 import { BUTTON } from "@/features/studio/chrome";
 
@@ -62,14 +62,18 @@ export function ActionButton({
   );
 }
 
-/** A section's status region (13): the failure sentences in router order, then the result line. */
-export function ActionStatus({ lines }: { lines: ActionLines }) {
+/**
+ * A section's status region (13): the failure sentences in router order, then the result line, then
+ * `children`, the section's own lines (the Findings section's fix outcome, 13.5).
+ */
+export function ActionStatus({ lines, children }: { lines: ActionLines; children?: ReactNode }) {
   return (
     <div role="status" data-ai-lines="" className="space-y-1 text-foreground text-xs leading-snug">
       {lines.failures.map((line) => (
         <p key={line}>{line}</p>
       ))}
       {lines.result !== null && <p>{lines.result}</p>}
+      {children}
     </div>
   );
 }

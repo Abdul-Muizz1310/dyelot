@@ -10,25 +10,36 @@ import {
   type ActionLines,
   type AiAction,
   CANCELED_LINE,
+  LOAD_FAILED_LINE,
   useAiAction,
 } from "@/features/ai/useAiAction";
-import { TOOL_BUTTON } from "@/features/studio/chrome";
+import { FixButton, FixNote } from "@/features/studio/FixButton";
 import { fixFor } from "@/features/studio/fixes";
 import { findingKey, findingTitle } from "@/features/studio/inspect";
-import { type DesignSpec, specId } from "@/spec";
+import { type StudioStore, useStudio } from "@/features/studio/store";
+import { specId } from "@/spec";
 
 // The critique of the inspector's Findings section (docs/specs/04-ai.md, 13.5, R4-50, R4-55):
 // "Explain the top findings" asks the router to rank up to three of the held design's findings and
 // say why, and the explanation shows the verdict, then one item per ranked finding with its title,
-// its subject, the model's reason and the finding's fix button. It is shown only while the spec it
-// explained is held, and never stored. Without a model the list stays sorted by severity. What a
+// its subject, the model's reason and the finding's fix button. It explains one spec and is never
+// stored: a reply that lands after the held spec changed is dropped, and a new held spec clears the
+// explanation and its result line for good, so an Undo back brings neither back. The failure
+// sentences, the cancel line, the load-failure line and the dropped-reply line describe the action,
+// not the design, so they stay until it runs again (controller rulings on Task 4.11's review). What a
 // model wrote is shown as React text only (R4-28): `parseOutput` has cleaned it and capped its
 // length.
 
-/** 13.5's line without a model. */
+/** 13.5's lines: without a model, and for a reply whose design is no longer held. */
 const LIST_STAYS = "The list below stays sorted by severity (no model).";
-/** No lines: the status region shows none while the spec they spoke of is not held. */
-const NO_LINES: ActionLines = Object.freeze({ failures: Object.freeze([]), result: null });
+const DESIGN_CHANGED =
+  "The design changed while the findings were explained. Explain them again for this design.";
+/** The result lines that describe the action, which no design change clears. */
+const ACTION_RESULTS: ReadonlySet<string> = new Set([
+  CANCELED_LINE,
+  LOAD_FAILED_LINE,
+  DESIGN_CHANGED,
+]);
 
 /** What a model's critique says about the findings it was given. */
 export type Critique = {
@@ -36,30 +47,38 @@ export type Critique = {
   /** The ranked findings, in the model's order, each with its reason. */
   readonly items: readonly { readonly finding: Finding; readonly why: string }[];
 };
-/** A critique and the id of the spec whose findings it explained. */
-export type Explained = Critique & { readonly specId: string };
+/**
+ * What a run settled on about the design: the critique to show (none without a model) and the id of
+ * the spec it and the result line speak of.
+ */
+export type Settled = { readonly critique: Critique | null; readonly on: string };
 
 /**
- * Explains `findings`, the held design's `lintSpec` list (13.5): the router asks each provider in
- * turn; a model's critique goes to `show`, and the rules' answer clears it, so the list below stands
- * alone. A cancel shows nothing new. The design never changes.
+ * Explains `findings`, the `lintSpec` list of the spec `explaining` (13.5). The router asks each
+ * provider in turn. A model's critique settles on that spec, unless `heldNow()` names another when
+ * the reply lands: then it is dropped, and the line says so. The rules settle on no critique, so the
+ * list stands alone. A cancel settles nothing. The design never changes.
  */
 export async function explainFindings(
   ai: AiModule,
   deps: {
     findings: readonly Finding[];
+    /** The id of the spec the findings came from. */
+    explaining: string;
+    /** The id of the spec held now, read when the reply lands. */
+    heldNow(): string;
     activity: AiActivity;
     signal: AbortSignal;
-    show(critique: Critique | null): void;
+    settle(settled: Settled): void;
   },
 ): Promise<{ failures: readonly string[]; result: string }> {
-  const { findings, activity, signal, show } = deps;
+  const { findings, explaining, heldNow, activity, signal, settle } = deps;
   const input = ai.critiqueInput(findings);
   const routed = await runProviders(stepsFor(ai, "critique", input, browserDeps(activity)), signal);
   if (routed.kind === "canceled" || signal.aborted) return { failures: [], result: CANCELED_LINE };
   if (routed.kind === "rules") {
     const failures = failureLines(ai, routed.failures, "critique", "rules");
-    show(null);
+    settle({ critique: null, on: heldNow() });
     return { failures, result: LIST_STAYS };
   }
   const { path, output } = routed;
@@ -69,6 +88,7 @@ export async function explainFindings(
   }
   // Every line and item is built before anything shows, so a failure while building shows nothing.
   const failures = failureLines(ai, routed.failures, "critique", path.provider);
+  if (heldNow() !== explaining) return { failures, result: DESIGN_CHANGED };
   const result = ai.madeWith(path, "critique");
   // `critiqueInput` keeps lintSpec's order, so an index of the input is an index of `findings`.
   const items = output.top.map(({ findingIndex, why }) => {
@@ -78,50 +98,51 @@ export async function explainFindings(
     }
     return { finding, why };
   });
-  show({ verdict: output.verdict, items });
+  settle({ critique: { verdict: output.verdict, items }, on: explaining });
   return { failures, result };
 }
 
 /**
- * The critique action of the Findings section: the action; its lines and its explanation, each
- * while the spec they speak of is held (else none); and `run`, which explains the held findings.
- * An explanation whose spec is no longer held is dropped (13.5: it hides when the held spec id
- * changes), and the lines go with it, as the section's status region speaks only of the held spec
- * (a fix's outcome there names the spec it came with, R2-10).
+ * The critique action of the Findings section: the action; the lines its status region shows; the
+ * explanation, or null; and `run`, which explains the held findings. What a run settled on is
+ * cleared, not hidden, once the held spec id differs from the one it speaks of, and with it the
+ * result line that came with it (`Made with <label>.` or the no-model line); the failure sentences
+ * and the action's own result lines stay (13.5).
  */
 export function useCritique(
   activity: AiActivity,
-  spec: DesignSpec,
+  store: StudioStore,
   findings: readonly Finding[],
-): { action: AiAction; lines: ActionLines; explained: Explained | null; run(): void } {
+): { action: AiAction; lines: ActionLines; explained: Critique | null; run(): void } {
   const action = useAiAction(activity, "critique");
+  const spec = useStudio(store, (studio) => studio.spec);
   const held = useMemo(() => specId(spec), [spec]);
-  /** The id of the spec the last run started on. */
-  const [ranOn, setRanOn] = useState<string | null>(null);
-  const [explained, setExplained] = useState<Explained | null>(null);
-  const stale = explained !== null && explained.specId !== held;
+  const [settled, setSettled] = useState<Settled | null>(null);
+  const cleared = settled !== null && settled.on !== held;
   useEffect(() => {
-    if (stale) setExplained(null);
-  }, [stale]);
+    if (cleared) setSettled(null);
+  }, [cleared]);
   const run = () => {
     // The findings and the id of the spec they came from, as they are at the click.
-    const id = held;
-    setRanOn(id);
+    const explaining = held;
     action.run((ai, signal) =>
       explainFindings(ai, {
         findings,
+        explaining,
+        heldNow: () => specId(store.getState().spec),
         activity,
         signal,
-        show: (critique) => setExplained(critique === null ? null : { ...critique, specId: id }),
+        settle: setSettled,
       }),
     );
   };
-  return {
-    action,
-    lines: ranOn === held ? action.lines : NO_LINES,
-    explained: stale ? null : explained,
-    run,
-  };
+  const standing = cleared ? null : settled;
+  const { lines } = action;
+  const kept =
+    lines.result === null || ACTION_RESULTS.has(lines.result) || standing !== null
+      ? lines
+      : { failures: lines.failures, result: null };
+  return { action, lines: kept, explained: standing?.critique ?? null, run };
 }
 
 /**
@@ -178,17 +199,8 @@ function ExplainedItem({
       <p className="text-foreground text-xs leading-snug text-pretty">{why}</p>
       {level !== undefined && (
         <div className="space-y-1.5 pt-1">
-          <button
-            type="button"
-            aria-describedby={noteId}
-            onClick={() => onFix(finding)}
-            className={TOOL_BUTTON}
-          >
-            Raise contrast to {level}
-          </button>
-          <p id={noteId} className="text-[11px] text-fg-muted">
-            Regenerates every color at {level}.
-          </p>
+          <FixButton level={level} noteId={noteId} onClick={() => onFix(finding)} />
+          <FixNote id={noteId} level={level} />
         </div>
       )}
     </li>

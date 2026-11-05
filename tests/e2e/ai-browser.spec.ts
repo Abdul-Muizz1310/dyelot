@@ -20,6 +20,7 @@ import {
   fakeLanguageModel,
   findingsLines,
   findingsSection,
+  holdShared,
   isAiRequest,
   lexiconLine,
   noLanguageModel,
@@ -37,7 +38,16 @@ import {
   sharedOk,
   writeRationale,
 } from "./ai-support";
-import { button, first, inputsPanel, lotId, nearHex, openStudio, settled } from "./studio-support";
+import {
+  button,
+  first,
+  inputsPanel,
+  inspectorAside,
+  lotId,
+  nearHex,
+  openStudio,
+  settled,
+} from "./studio-support";
 
 // The browser flows of docs/specs/04-ai.md, section 14.11, for Task 4.10a: the Brief section
 // (13.1, R4-39, R4-40), the action hook's cancel and load failure (R4-56, section 13), the
@@ -276,9 +286,41 @@ test.describe("13.5 The inspector", () => {
   const START_SPEC = decodeSpec(START.slice(3));
   const RATIONALE_OUT = OUTPUTS.rationale;
   const CRITIQUE_OUT = OUTPUTS.critique;
-  /** 13.5's line without a model for each feature, and 10.3's sentence for a shared quota that is off. */
+  /** 13.5's lines: each feature's without a model, and the critique's for a reply whose design left. */
   const NOTHING_WRITTEN = "Nothing written. The export keeps the preset's text (no model).";
   const LIST_STAYS = "The list below stays sorted by severity (no model).";
+  const DESIGN_CHANGED =
+    "The design changed while the findings were explained. Explain them again for this design.";
+  /** 10.3's sentence for the critique's shared step when the shared quota is off. */
+  const CRITIQUE_OFF = "The shared quota is off here, so dyelot used the findings list.";
+  const ONE_FAIL_LINK = `#s=${encodeSpec(ONE_FAIL)}`;
+  const busyButton = (page: Page, name: string) =>
+    inspectorAside(page).getByRole("button", { name, exact: true });
+  const cancelButton = (page: Page) =>
+    inspectorAside(page).getByRole("button", { name: "Cancel", exact: true });
+
+  /**
+   * The on-device model, switched on, holding its reply until the test releases it (it ignores the
+   * cancel), so a reply can land after "Cancel".
+   */
+  async function heldOnDevice(page: Page, output: unknown): Promise<void> {
+    await fakeLanguageModel(page, {
+      state: "available",
+      reply: JSON.stringify(output),
+      hold: true,
+    });
+    await page.addInitScript(() => localStorage.setItem("dyelot:on-device", "on"));
+  }
+  const released = (page: Page) =>
+    expect.poll(() => page.evaluate(() => (window as unknown as LmHost).__lm.replied)).toBe(true);
+
+  /** Commits a new design from the inputs panel while an action runs (R4-56 keeps it usable). */
+  async function regenerate(page: Page): Promise<void> {
+    const lot = await lotId(page).textContent();
+    await button(page, "Regenerate").click();
+    await expect(lotId(page)).not.toHaveText(lot ?? "");
+    await settled(page);
+  }
 
   test("Write the rationale on the shared route stores the model's text in one undoable commit, shown as text", async ({
     page,
@@ -367,10 +409,7 @@ test.describe("13.5 The inspector", () => {
     // Without a model the list stays as it is, and no explanation is shown.
     await answerShared(page, "critique", sharedFailure("not-configured"));
     await explainFindings(page).click();
-    await expect(findingsLines(page).locator("p")).toHaveText([
-      "The shared quota is off here, so dyelot used the findings list.",
-      LIST_STAYS,
-    ]);
+    await expect(findingsLines(page).locator("p")).toHaveText([CRITIQUE_OFF, LIST_STAYS]);
     await expect(explanation(page)).toHaveCount(0);
     expect(await design(page)).toEqual(before);
 
@@ -390,6 +429,120 @@ test.describe("13.5 The inspector", () => {
     await expect(
       findingsSection(page).getByRole("heading", { name: "Findings", exact: true }),
     ).toBeFocused();
+    // Cleared, not hidden: one Undo holds the explained design again, and neither the explanation nor
+    // its line comes back (controller ruling on Task 4.11's review).
+    await button(page, "Undo").click();
+    await expect.poll(() => design(page)).toEqual(before);
+    await expect(findingsLines(page)).toBeEmpty();
+    await expect(explanation(page)).toHaveCount(0);
+  });
+
+  test("F-RAT-04 a reply that lands after the visitor's edit commits on the design as it is then", async ({
+    page,
+  }) => {
+    const release = await holdShared(page, "rationale");
+    await openAt(page);
+    await writeRationale(page).click();
+    await expect(busyButton(page, "Writing the rationale…")).toHaveAttribute("aria-busy", "true");
+    // The visitor renames the design while the rationale is written.
+    await inputsPanel(page).getByRole("textbox", { name: "Name", exact: true }).fill("Tide Table");
+    await expect.poll(async () => (await hashedSpec(page)).meta.name).toBe("Tide Table");
+    const renamed = await design(page);
+    await release();
+    await expect(rationaleLines(page).locator("p")).toHaveText([SHARED_LINE]);
+    await expectCreatedWith(page, "model:test/text-1:free");
+    const spec = await hashedSpec(page);
+    expect(spec.meta.name).toBe("Tide Table");
+    expect(spec.direction?.thesis).toBe(RATIONALE_OUT.thesis);
+    expect(spec.rules).toEqual({ do: RATIONALE_OUT.do, dont: RATIONALE_OUT.dont });
+    // One commit after the visitor's: one Undo takes back the rationale and keeps the new name.
+    await button(page, "Undo").click();
+    await expect.poll(() => design(page)).toEqual(renamed);
+  });
+
+  test("F-RAT-05 Cancel ends Writing the rationale at once, and a reply after it writes nothing", async ({
+    page,
+  }) => {
+    await heldOnDevice(page, RATIONALE_OUT);
+    await openAt(page);
+    const before = await design(page);
+    await writeRationale(page).click();
+    const busy = busyButton(page, "Writing the rationale…");
+    await expect(busy).toHaveAttribute("aria-busy", "true");
+    await expect.poll(() => page.evaluate(() => (window as unknown as LmHost).__lm.prompt)).toBe(1);
+    // "Cancel" comes right after its busy button in Tab order (13.7).
+    await busy.focus();
+    await page.keyboard.press("Tab");
+    await expect(cancelButton(page)).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(rationaleLines(page).locator("p")).toHaveText([CANCELED]);
+    await expect(cancelButton(page)).toHaveCount(0);
+    await expect(writeRationale(page)).toBeFocused();
+    await page.evaluate(() => (window as unknown as LmHost).__lmRelease());
+    await released(page);
+    expect(await design(page)).toEqual(before);
+    await expect(rationaleSection(page)).toContainText("No thesis yet.");
+    await expect(rationaleLines(page).locator("p")).toHaveText([CANCELED]);
+  });
+
+  test("F-CRIT-03 a reply whose design left is dropped, and the action's own lines outlast a design change", async ({
+    page,
+  }) => {
+    await openStudio(page, ONE_FAIL_LINK);
+    // A core that will not load: its line describes the action, so a new design keeps it.
+    const chunks = "**/_next/static/**/*.js";
+    await page.route(chunks, (route) => route.abort("failed"));
+    await explainFindings(page).click();
+    await expect(findingsLines(page).locator("p")).toHaveText([LOAD_FAILED]);
+    await page.unroute(chunks);
+    await regenerate(page);
+    await expect(findingsLines(page).locator("p")).toHaveText([LOAD_FAILED]);
+
+    // A model's reply that lands after the design changed explains a design no longer held: it is
+    // dropped, and the line says so, through a later change too.
+    const release = await holdShared(page, "critique");
+    await explainFindings(page).click();
+    await expect(busyButton(page, "Ranking the findings…")).toHaveAttribute("aria-busy", "true");
+    await regenerate(page);
+    await release();
+    await expect(findingsLines(page).locator("p")).toHaveText([DESIGN_CHANGED]);
+    await expect(explanation(page)).toHaveCount(0);
+    await regenerate(page);
+    await expect(findingsLines(page).locator("p")).toHaveText([DESIGN_CHANGED]);
+
+    // Without a model: the failure sentence stays through a design change, the rule line goes.
+    await answerShared(page, "critique", sharedFailure("not-configured"));
+    await explainFindings(page).click();
+    await expect(findingsLines(page).locator("p")).toHaveText([CRITIQUE_OFF, LIST_STAYS]);
+    await regenerate(page);
+    await expect(findingsLines(page).locator("p")).toHaveText([CRITIQUE_OFF]);
+  });
+
+  test("F-CRIT-04 Cancel ends Ranking the findings at once, and a reply after it shows nothing", async ({
+    page,
+  }) => {
+    await heldOnDevice(page, CRITIQUE_OUT);
+    await openStudio(page, ONE_FAIL_LINK);
+    const before = await design(page);
+    await explainFindings(page).click();
+    const busy = busyButton(page, "Ranking the findings…");
+    await expect(busy).toHaveAttribute("aria-busy", "true");
+    await expect.poll(() => page.evaluate(() => (window as unknown as LmHost).__lm.prompt)).toBe(1);
+    await busy.focus();
+    await page.keyboard.press("Tab");
+    await expect(cancelButton(page)).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expect(findingsLines(page).locator("p")).toHaveText([CANCELED]);
+    await expect(cancelButton(page)).toHaveCount(0);
+    await expect(explainFindings(page)).toBeFocused();
+    await page.evaluate(() => (window as unknown as LmHost).__lmRelease());
+    await released(page);
+    await page.waitForTimeout(300);
+    await expect(explanation(page)).toHaveCount(0);
+    expect(await design(page)).toEqual(before);
+    // The cancel line describes the action, so a new design keeps it.
+    await regenerate(page);
+    await expect(findingsLines(page).locator("p")).toHaveText([CANCELED]);
   });
 
   test("F-CRIT-02 with no finding, Explain the top findings is disabled and says why", async ({

@@ -166,7 +166,7 @@ export function Inspector({
           <RoleTable rows={rows} />
           <NamesSection spec={spec} />
           <Findings
-            spec={spec}
+            store={store}
             activity={activity}
             findings={findings}
             params={params}

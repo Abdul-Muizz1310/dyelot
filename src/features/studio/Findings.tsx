@@ -1,13 +1,14 @@
 import { type FocusEvent, useId, useLayoutEffect, useRef } from "react";
 import type { DirectionParams, Finding } from "@/engine";
-import { ActionButton } from "@/features/ai/ActionButton";
+import { ActionButton, ActionStatus } from "@/features/ai/ActionButton";
 import type { AiActivity } from "@/features/ai/activity";
 import { Explanation, useCritique } from "@/features/ai/Explanation";
-import type { DesignSpec } from "@/spec";
 import { TOGGLE_BUTTON, TOOL_BUTTON } from "./chrome";
+import { FixButton, FixNote } from "./FixButton";
 import { fixFor, fixTarget } from "./fixes";
 import { findingKey, findingMeasure, findingTitle, groupFindings } from "./inspect";
 import { PanelSection } from "./PanelSection";
+import type { StudioStore } from "./store";
 
 // The Findings section of the inspector (spec section 7.8): the counts per severity, then the groups
 // "Errors", "Warnings" and "Info" in the linter's order. Each finding shows its id, title, subject,
@@ -22,7 +23,8 @@ import { PanelSection } from "./PanelSection";
 // After the heading, "Explain the top findings" asks a model to rank the findings (docs/specs/04-ai.md,
 // 13.5, R4-50): its failure sentences and result line come first in the status region, then a fix's
 // outcome; its explanation sits before the counts, and its fix buttons are in the focus rescue's care
-// like the cards' (13.7). Both show only while the spec they speak of is held.
+// like the cards' (13.7). A new held spec clears the explanation and its result line; the action's own
+// lines (failures, cancel, load failure, a dropped reply) stay until it runs again.
 
 /** The note on an F1 card: the ring paints only on focus, so "show me" outlines what it sits on. */
 const F1_NOTE = "The ring shows on focus. Show me outlines the surfaces it sits on.";
@@ -39,8 +41,8 @@ const count = (n: number, word: string, plural = `${word}s`) => `${n} ${n === 1 
 const NOTHING_TO_EXPLAIN = "There are no findings to explain.";
 
 export type FindingsProps = {
-  /** The held spec, whose id the critique's explanation belongs to. */
-  spec: DesignSpec;
+  /** The studio's store: the critique reads the held spec's id from it. */
+  store: StudioStore;
   /** The studio's one AI activity (R4-56), which the critique runs in. */
   activity: AiActivity;
   findings: readonly Finding[];
@@ -62,7 +64,7 @@ export type FindingsProps = {
 };
 
 export function Findings({
-  spec,
+  store,
   activity,
   findings,
   params,
@@ -74,8 +76,7 @@ export function Findings({
   onRebuild,
 }: FindingsProps) {
   const groups = groupFindings(findings);
-  const critique = useCritique(activity, spec, findings);
-  const { lines } = critique;
+  const critique = useCritique(activity, store, findings);
   const heading = useRef<HTMLHeadingElement>(null);
   // The control inside the list that last took focus, until focus moves out of the section.
   const focused = useRef<Element | null>(null);
@@ -116,17 +117,7 @@ export function Findings({
           reason={findings.length === 0 ? NOTHING_TO_EXPLAIN : null}
           onRun={critique.run}
         />
-        <div
-          role="status"
-          data-findings-status=""
-          className="space-y-1 text-foreground text-xs leading-snug"
-        >
-          {lines.failures.map((line) => (
-            <p key={line}>{line}</p>
-          ))}
-          {lines.result !== null && <p>{lines.result}</p>}
-          {outcome !== "" && <p>{outcome}</p>}
-        </div>
+        <ActionStatus lines={critique.lines}>{outcome !== "" && <p>{outcome}</p>}</ActionStatus>
       </div>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: the handlers only track focus for the rescue above; nothing here acts on input. */}
       <div className="space-y-3" onFocus={onFocus} onBlur={onBlur}>
@@ -242,22 +233,11 @@ function FindingItem({
         >
           Show me
         </button>
-        {patch !== null && level !== undefined && (
-          <button
-            type="button"
-            aria-describedby={noteId}
-            onClick={() => onFix(finding)}
-            className={TOOL_BUTTON}
-          >
-            Raise contrast to {level}
-          </button>
+        {level !== undefined && (
+          <FixButton level={level} noteId={noteId} onClick={() => onFix(finding)} />
         )}
       </div>
-      {patch !== null && level !== undefined && (
-        <p id={noteId} className="text-[11px] text-fg-muted">
-          Regenerates every color at {level}.
-        </p>
-      )}
+      {level !== undefined && <FixNote id={noteId} level={level} />}
       {spent && (
         <p className="text-[11px] text-fg-muted">Contrast is already {params.contrastLevel}.</p>
       )}
