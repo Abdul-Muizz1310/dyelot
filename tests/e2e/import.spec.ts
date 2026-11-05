@@ -103,10 +103,13 @@ function noticeText(result: ReturnType<typeof importShadcnCss>): string {
 
 const hashOf = (page: Page): Promise<string> => page.evaluate(() => window.location.hash);
 
-/** The spec the hash holds, once the debounced write (300 ms) has happened and differs from `before`. */
-async function hashedSpec(page: Page) {
-  await expect.poll(() => hashOf(page)).toMatch(/^#s=/);
-  return decodeSpec((await hashOf(page)).slice(3));
+/**
+ * The id of the spec the hash holds now, or "" before a spec is written. The hash is written 300 ms
+ * after a commit, so a test polls this until it reads the id it expects.
+ */
+async function hashedId(page: Page): Promise<string> {
+  const hash = await hashOf(page);
+  return hash.startsWith("#s=") ? specId(decodeSpec(hash.slice(3))) : "";
 }
 
 /** The name of the focused element: its label, aria-label or text. */
@@ -220,7 +223,7 @@ test.describe("the import dialog", () => {
     await expect(notice(page)).not.toContainText("adjusted");
     const expected = importDesignMd(README_MD);
     if (!expected.ok) throw new Error("the DESIGN.md fixture did not import");
-    expect(specId(await hashedSpec(page))).toBe(specId(expected.spec));
+    await expect.poll(() => hashedId(page)).toBe(specId(expected.spec));
   });
 
   test("F-IMP-06 the DESIGN.md of a golden bundle imports exactly, from its edit link", async ({
@@ -235,7 +238,7 @@ test.describe("the import dialog", () => {
     await expect(notice(page)).toContainText(
       "Imported the DESIGN.md exactly, from its edit link. Undo returns to the design before.",
     );
-    expect(specId(await hashedSpec(page))).toBe(specId(GOLDEN));
+    await expect.poll(() => hashedId(page)).toBe(specId(GOLDEN));
   });
 
   test("F-IMP-07 an empty import shows its message in the error region, with focus on the textarea", async ({
