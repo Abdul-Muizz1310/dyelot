@@ -15,6 +15,7 @@ const FILES = [
   "four-colors.png",
   "gray.png",
   "tiny.jpg",
+  "smoke-16.jpg",
   "odd/one-pixel.png",
   "odd/transparent.png",
   "odd/two-frames.gif",

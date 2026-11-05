@@ -126,7 +126,7 @@ const IMPORT_HELPERS = ["form"].map((name) => `src/features/import/${name}.ts`);
 const AI_HELPERS = ["steer"].map((name) => `src/features/ai/${name}.ts`);
 
 /** The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name. */
-const SERVER_FILES = ["env", "clock", "guard", "cache", "transport"].map(
+const SERVER_FILES = ["env", "clock", "guard", "cache", "transport", "smoke"].map(
   (name) => `src/server/ai/${name}.ts`,
 );
 /** The server files' floor: 90 lines, statements and functions, 85 branches. */

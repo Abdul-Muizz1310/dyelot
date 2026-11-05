@@ -34,5 +34,9 @@
   "tiny.jpg": {
     "sha256": "5f5b9a411d7111d39f4293e135c49910eb2f23984bb87f4e55d3157f7b191e02",
     "command": "magick -size 2x2 xc:\"#b8422e\" -fill \"#3a6ea5\" -draw \"point 1,0\" -fill \"#f2e6d0\" -draw \"point 0,1\" -fill \"#1a1c1e\" -draw \"point 1,1\" -strip -quality 90 tiny.jpg"
+  },
+  "smoke-16.jpg": {
+    "sha256": "1962576157323e2868b02ef1622c84919e255793ef08c6e6967927243063fbe7",
+    "command": "magick -size 16x16 gradient:\"#b8422e-#3a6ea5\" -strip -quality 90 smoke-16.jpg"
   }
 }
