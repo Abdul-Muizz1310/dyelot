@@ -695,11 +695,11 @@ export function main(argv, io) {
     const files = [];
     walkFiles(root, "", io, own, files);
     files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-    const names = `${[...roleNames, "radius"].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}|color-[\\w-]*`;
+    const declared = `${[...roleNames, "radius"].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}|color-[\\w-]*`;
     const scale = `(?:${SCALE_PALETTES.join("|")})-(?:${SCALE_STEPS.join("|")})`;
-    const declaration = new RegExp(`(?:^|[\\s;{])--(?:${names})\\s*:`);
+    const declaration = new RegExp(`(?:^|[\\s;{])--(?:${declared})\\s*:`);
     // Only the resolved theme file may hold scale steps, where the registry route writes them.
-    const themeDeclaration = new RegExp(`(?:^|[\\s;{])--(?:${names}|${scale})\\s*:`);
+    const themeDeclaration = new RegExp(`(?:^|[\\s;{])--(?:${declared}|${scale})\\s*:`);
     checked.files = files.length;
     for (const file of files) {
       const lines = file.text.split(/\r\n|\r|\n/);
