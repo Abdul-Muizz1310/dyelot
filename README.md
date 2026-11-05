@@ -1,9 +1,9 @@
 # 🎨 `dyelot`
 
 > 🧾 **A palette becomes a design system your coding agent can build.**
-> M0 to M3 are done: the shell, a tested color engine and spec model, the studio, and the export bundle with its receipt, checker and import. The AI layers come next.
+> M0 to M4 are done: the shell, a tested color engine and spec model, the studio, the export bundle with its receipt, checker and import, and the AI layer: a brief, a word list, steer chips, image palettes, a rationale and a critique. Motion and 3D come next.
 
-📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🎛️ [Studio spec](docs/specs/02-studio.md) · 📦 [Export spec](docs/specs/03-export.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
+📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🎛️ [Studio spec](docs/specs/02-studio.md) · 📦 [Export spec](docs/specs/03-export.md) · 🤖 [AI spec](docs/specs/04-ai.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
 
 ![next](https://img.shields.io/badge/Next.js-16.4-black?style=flat-square&logo=next.js)
 ![react](https://img.shields.io/badge/React-19.3-149eca?style=flat-square&logo=react&logoColor=white)
@@ -36,7 +36,8 @@ the full reasoning.
 
 The goal comes from the [design spec](docs/specs/00-design.md). M1 built the engine underneath the second and fifth
 bullets. M2 built the studio, which puts the second and third in front of a visitor. M3 built the fourth and fifth bullets
-and the import of an existing DESIGN.md. The next sections say what each does today.
+and the import of an existing DESIGN.md. M4 built the brief, the image drop and the refine-in-words steps of the first bullet,
+with a rule-based path for each. The next sections say what each does today.
 
 - 🎨 **Start from anything** — a color, a few words, an image, a curated system or an existing DESIGN.md
 - 🧮 **Computed, accessible systems** — color roles and scales for light and dark mode, plus type, space, shape, depth and motion, solved for WCAG 2.2 contrast
@@ -110,11 +111,41 @@ its first UI. The [engine spec](docs/specs/01-color-engine.md) has every rule an
 
 ---
 
+## 🤖 The AI layer today (M4)
+
+The studio keeps working with zero model calls: every feature has a rule-based path that runs when no model answers, and every
+model path is labeled. A model never writes a color value. The [AI spec](docs/specs/04-ai.md) has every ruling and case.
+
+- 📝 **Brief** — a visitor types words and gets a design. A model reads them when one is available. Without one, a word list of at least 400 terms in six categories, with no brand or company name, sets the direction, and colors named in the brief (hex, `rgb()`, `hsl()` or `oklch()`) lock the seeds with no call at all
+- 🎚️ **Steer chips** — warmer, cooler, bolder, quieter, softer, sharper and airier. Each chip changes the design with no model call, and a chip that would change nothing is disabled with its reason. A sentence in the refine box goes to a model through ten closed op kinds; an op outside them fails that tier
+- 🖼️ **Image palette and vibe** — a dropped image is decoded and reduced to 256 px in a worker, and `colorthief` returns the clusters that become the seeds, with no call. "Read the vibe" sends a 768 px JPEG and the clusters to a model, which picks roles among the cluster ids and names a mood and a type vibe
+- ✍️ **Rationale and critique** — on an explicit click, a model writes the one-liner, the thesis and the rules into the spec; without a model nothing is written and the export keeps the preset's text. The critique ranks and explains the lint findings, and is shown but never stored
+- 🔀 **Three providers, in order** — Chrome's on-device model when the visitor turns it on (labeled experimental), then the visitor's own OpenRouter key through a PKCE sign-in (`:free` slugs only), then the shared route. If none answers, the rule-based path runs and the page says so
+- 🛡️ **The shared route and its guard** — `POST /api/ai/<feature>` calls OpenRouter's free models with the server key, one tier at a time with 20 s per tier. Before a call it requires a matching `Origin`, reads `GET /key` and refuses below `DYELOT_AI_RESERVE + 3` requests, and it sets a soft cap of 3 actions per visitor in an HMAC-signed cookie. Results are cached per server instance for 24 hours. A `vercel.json` opts the route into request cancellation
+- 🔒 **A nonce CSP** — every page carries a per-request nonce, with `connect-src 'self' https://openrouter.ai`, and model text is rendered as text only
+
+### Live smoke
+
+The live smoke sent one call per unique slug through dyelot's own request builder: 7 calls in all over two runs, the second
+approved by the owner. `google/gemma-4-26b-a4b-it:free` answered with a valid reply (an image call).
+`nvidia/nemotron-3.5-super-vl:free` failed the first run and answered validly on the second (11.3 s, an image call).
+`xingchen-agi/xing4.0-29b-a4b:free` answered empty (no content, 11.4 s, a text call), and
+`dots-studio/dots-3-note-preview:free` timed out (over the 20 s per-tier limit, an image call). No slug answered HTTP 400.
+On Vercel Production the primary and vision-1 slugs are `gemma-4-26b` and the fast and vision-2 slugs are
+`nemotron-3.5-super-vl`; the fallback and vision-3 slugs are unset. Preview deployments have none of the AI variables, so
+previews use the rule-based paths.
+
+The on-device eval was not run: no Chrome with the built-in model was available in the session. Its page,
+`/dev/on-device-eval`, exists in development builds only, and the switch stays labeled "(experimental)".
+
+---
+
 ## 🔧 Architecture
 
 The planned layers and their rules are in the [design spec](docs/specs/00-design.md#3-architecture).
 The shell, the pure core, the studio and the export exist today: `generateSystem`, `lintSpec`, `themeVars`, the live previews,
-`measureSpec`, `buildBundle` and the importers in the diagram below. The AI layers come in M4.
+`measureSpec`, `buildBundle` and the importers in the diagram below, and the AI layer: the schemas, the word list and the
+router in `src/ai/`, with its server and browser shells in `src/server/ai/` and `src/features/ai/`.
 
 ```mermaid
 flowchart LR
@@ -147,6 +178,7 @@ src/
 │   ├── tokens/             type, space, shape, depth and motion
 │   └── lint/               the 20 color rules and the 4 taste rules
 ├── spec/                   the dyelot.spec/1 schema, canonical form, spec id and share-link codec
+├── ai/                     the pure AI core: schemas, prompts, the word list, the request builder and the cascade plan
 ├── export/                 buildBundle and one writer per file, the receipt, the zip and the checker's source
 │   └── checker/            dyelot-check.mjs, the zero-dependency script that the bundle carries
 ├── import/                 importDesignMd and importShadcnCss, loaded only through import()
@@ -154,6 +186,7 @@ src/
 ├── features/
 │   ├── studio/             the studio: store, worker, links, drafts, inputs, toolbar and inspector
 │   ├── preview/            the canvas, the preview kit and the six templates
+│   ├── ai/                 the browser shell of the AI layer: the router, the providers and the steer chips
 │   ├── export/             the export dialog: file list, preview, copy and download
 │   ├── import/             the import dialog: the form, the file picker and the notices
 │   └── fonts/              the FontFace loader for the canvas fonts
@@ -168,7 +201,8 @@ docs/specs/
 ├── 00-design.md            the design spec (the umbrella)
 ├── 01-color-engine.md      the M1 spec: the engine, the spec model and the linter
 ├── 02-studio.md            the M2 spec: the studio, its templates and its gates
-└── 03-export.md            the M3 spec: the bundle, the receipt, the checker and import
+├── 03-export.md            the M3 spec: the bundle, the receipt, the checker and import
+└── 04-ai.md                the M4 spec: the AI layer, the shared route and its guard
 scripts/
 ├── copy-fonts.mjs          copies the canvas fonts into public/fonts/ before dev and build
 └── render-icons.mjs        renders the raster icons from src/app/icon.svg
@@ -229,20 +263,22 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | 2,719 Vitest tests in 159 files, in `tests/unit/`, with 1 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
+| Unit | 4,716 Vitest tests in 218 files, in `tests/unit/`, with 3 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
 | Slow set | 37 of those files, listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. 25 run in the two slow projects and 12 in the `scan` project. `pnpm gate` leaves them to `pnpm gate:full` and CI |
-| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) and [`03-export.md`](docs/specs/03-export.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), and 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows) |
+| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) [`03-export.md`](docs/specs/03-export.md) and [`04-ai.md`](docs/specs/04-ai.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows), and 224 of 224 in the M4 spec's section 14 (165 `C-` cases and 59 `F-` cases, checked by C-GUARD4-11) |
 | Goldens | 15 golden bundles (the 14 presets and the import of `shadcn-neutral.css`), pinned by `tests/golden/export/manifest.json` with each file's path, byte length and SHA-256. The `default` bundle holds 21 files and 409,581 bytes |
 | The generated-design grid | Before any export code existed, a test grid measured 3,808 designs from five fixed grids against the required checks: none threw and none raised a lint error. Its ten test files took 434.9 s in total when each ran alone on a 16-core machine |
 | Property tests | fast-check over arbitrary color strings, every parameter, random seeds, share-link tampering and the studio store's actions |
-| End to end | 286 Playwright flows in 10 files on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
+| End to end | 377 Playwright flows on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
 | Measured findings | The fix scan generates 576 designs (288 in sRGB and 288 in Display P3) and finds no C1, C5, N1 or F1 finding at AA. The preset sweep fits all 14 presets into the landing, editorial, dashboard and settings templates at 360 and 768 px and into the three mobile screens: 252 views, none with an overflow or a broken word |
 | Coverage scope | `src/engine/`, `src/spec/`, `src/theme/`, `src/export/`, `src/import/`, `src/lib/site/`, the canvas font loader and the 23 pure helper files of the studio, the preview, the export dialog and the import dialog. The end-to-end tier covers the components and routes |
 | Coverage floors | 80% lines and statements, 75% functions and 70% branches over that scope. `src/engine/`, `src/spec/`, `src/theme/`, the font loader and each pure helper hold 95% lines, statements and functions and 90% branches. `src/export/` and `src/import/` hold 90% and 85% |
 | Coverage at the M2 close | 99.64% statements, 98.65% branches, 100% functions and 99.68% lines over that scope |
 | Coverage at the M3 close | 98.57% statements, 95.8% branches, 99.69% functions and 98.76% lines over the larger scope, measured on a 16-core machine |
-| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows) |
+| Coverage at the M4 close | 98.88% statements, 96.65% branches, 99.58% functions and 99.08% lines, from `pnpm gate:full` on `m4-ai` at `f37215a` |
+| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows). At the M4 close `pnpm gate` took 6 min 27 s (179 unit files, 4,517 tests passed and 3 skipped, 377 flows) and `pnpm gate:full` took 27 min 30 s (218 unit files, 4,713 tests passed and 3 skipped, 377 flows), on a 16-core desktop that was also running the owner's own applications |
 | Not done in M3 | The templates still load eagerly (M2 final review M-12), and the settings template's top and save bars keep `overflow: hidden` without the clip margin. Both wait for M6 |
+| Not done in M4 | The on-device eval did not run. Three residuals are accepted: a canceled action does not count against a visitor's soft cap (the reserve floor of 37 holds); a "don't" rule that starts with "Avoid" plus a gerund exports as "Don't <gerund>..."; and F-IMP-RF4, M3's 2 s import budget, fails on the measuring machine under heavy desktop load for M3 and M4 alike, with no time added by M4 in interleaved pairs. Section 18 of the M4 spec lists what is deferred |
 | Static checks | Biome, and `tsc` in strict mode |
 
 ```bash
@@ -285,7 +321,10 @@ rest.
 - **M3, done.** The export bundle, the receipt, the checker and import, with their studio UI, built to the
   [export spec](docs/specs/03-export.md). The hand smoke installed the bundle into fresh Next.js apps by both routes, and
   the checker printed `PASS` in each.
-- **Next.** M4 the AI layers, M5 motion and 3D, M6 the gallery and the launch. The milestone table in the spec
+- **M4, done.** The AI layer, built to the [AI spec](docs/specs/04-ai.md): the brief, the word list, the steer chips, image
+  palettes and the vibe, the rationale and the critique, three providers, the shared route and its guard, and the nonce CSP.
+  `pnpm gate:full` passed with 4,713 unit tests and 377 of 377 flows, and the live smoke found two of four slugs valid.
+- **Next.** M5 motion and 3D, M6 the gallery and the launch. The milestone table in the spec
   has the details.
 
 `main` deploys to [dyelot.vercel.app](https://dyelot.vercel.app).

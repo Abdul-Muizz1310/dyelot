@@ -5,6 +5,8 @@
 > M2 sync (2026-11-03): where the M2 spec, `docs/specs/02-studio.md`, refines this document, the sentence carries a note in italics that starts "Refined in M2". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 >
 > M3 sync (2026-11-05): where the M3 spec, `docs/specs/03-export.md`, refines this document, the sentence carries a note in italics that starts "Refined in M3". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
+>
+> M4 sync (2026-11-06): where the M4 spec, `docs/specs/04-ai.md`, refines this document, the sentence carries a note in italics that starts "Refined in M4". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 
 # dyelot — a palette becomes a design system your coding agent can build
 
@@ -61,7 +63,7 @@ in the URL hash and, as a draft, in the visitor's own browser storage.
 | Engine | `src/engine/` | Color math, scale solver, roles, harmony and generators, image extraction, type/space/shape/depth/motion token generation, linter | Pure TypeScript. No DOM, no React, no I/O. Seeded PRNG only. Property-tested. |
 | Spec | `src/spec/` | The `dyelot.spec/1` model (zod), parse, canonical serialize, hash, URL codec | Parse, don't validate. Version mismatch fails loudly. |
 | Export | `src/export/` | Pure generators for every bundle file, the receipt, the zip | Same spec in, byte-identical files out. *Refined in M3: pure except the checker's `nodeIo` adapter, and a new pure layer, `src/import/`, reads DESIGN.md and shadcn CSS (R3-39).* |
-| AI | `src/ai/` | Schemas, prompt files, the lexicon, the router, three providers | The model never emits a final color value. |
+| AI | `src/ai/` | Schemas, prompt files, the lexicon, the router, three providers | The model never emits a final color value. *Refined in M4: `src/ai/` is a pure core, and the providers and the router live in shells, `src/server/ai/` and `src/features/ai/`; image extraction's pure part is `src/engine/image/` (R4-03, R4-05, R4-06, R4-07).* |
 | Features | `src/features/` | Studio, previews, export panel, gallery, explorer, motion lab, video | UI only; calls engine and export, never reimplements them. |
 | Shell | `src/app/`, `src/lib/site/` | Routes, route handlers, site metadata (copied per `knowledge/conventions/convention-site-metadata.md`) | Side effects live here. |
 
@@ -84,7 +86,7 @@ A zod schema, versioned, exported as JSON Schema for the docs. Top-level fields:
 
 | Field | Holds |
 |---|---|
-| `version`, `meta` | `"dyelot.spec/1"`; name, one-liner, seed, engine version, created-with (`controls` · `lexicon` · `model:<slug>` · `on-device` · `visitor-key` · `import`) |
+| `version`, `meta` | `"dyelot.spec/1"`; name, one-liner, seed, engine version, created-with (`controls` · `lexicon` · `model:<slug>` · `on-device` · `visitor-key` · `import`) *Refined in M4: every AI or lexicon action stamps it through a new optional argument of `generateSystem` (R4-36, R4-37).* |
 | `direction` | Thesis, 3–5 adjectives, style preset id, like/unlike references, density. *Refined in M3: `meta.oneLiner` and `direction` (thesis, adjectives, like, unlike) are optional plain text; the preset is derived by `presetOf` and density stays a view setting (R3-01, R3-02, R3-04, R3-07).* |
 | `color` | Seeds (OKLCH, with lock flags), hue anchors per palette (primary, secondary, accent, neutral, success, warning, danger, info, chart 1–5), contrast level (`AA` · `AA+` · `AAA`), gamut (`srgb` · `p3`), scale mode (`standard` · `even`), solved scales (11 steps × light and dark), role map (shadcn roles plus surfaces, light and dark) |
 | `type` | Display, body and mono families (catalog ids with license), scale context, ratio, steps with size, line height, tracking and weight; fluid display steps. *Refined in M3: weights are derived by `typeWeights` and never stored (R3-04, R3-05).* |
@@ -193,7 +195,7 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
 | `/explore` | 3D OKLCH explorer: the sRGB, P3 and Rec2020 gamut solids, the current palette as points, scales as tubes, lightness slices. |
 | `/motion` | Motion lab: presets, spring and easing curves, live previews, export. |
 | `/gallery` | Curated original systems and the Sanzo Wada combinations; any card opens in the studio. No brand clones. |
-| `/connect`, `/connect/callback` | The visitor-key sign-in with OpenRouter (§10). |
+| `/connect`, `/connect/callback` | The visitor-key sign-in with OpenRouter (§10). *Refined in M4: both pages are `noindex`; the callback is disallowed in robots and sends no referrer (R4-22, R4-33).* |
 | `/about` | How it works: the math, the receipt, the licenses, the privacy note for in-browser video. |
 
 ## 8. The studio
@@ -201,7 +203,7 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
 - **Left: inputs.** Seed colors with locks; brief box (AI); image drop; import (DESIGN.md, shadcn CSS);
   harmony, contrast level, gamut, scale mode; preset; type pairing and context; space, radius, depth,
   density; motion feel. *Refined in M2: the M2 studio shows no brief box, image drop or import. They wait for M4 and
-  later milestones.* *Refined in M3: the inputs panel gains About and Import (R3-33).*
+  later milestones.* *Refined in M3: the inputs panel gains About and Import (R3-33).* *Refined in M4: the inputs panel gains Brief, Image and Steer sections, in the order of R4-53.*
 - **Center: the canvas.** Six P0 templates on one shared spec: landing page, SaaS dashboard, settings and
   forms, three mobile screens, editorial article, and a kitchen sink with specimens. Templates use
   shadcn-style components themed only by the spec's role variables, scoped to the canvas, so what you see
@@ -252,39 +254,39 @@ and the engine validates every field.
 
 | Feature | Model's job | Fallback without a model |
 |---|---|---|
-| Brief → direction | Fill `DirectionParams`: hue ranges, chroma, contrast, harmony, pairing id, preset, shape, motion; name it | Lexicon matcher (about 400 mood and brand terms) |
+| Brief → direction | Fill `DirectionParams`: hue ranges, chroma, contrast, harmony, pairing id, preset, shape, motion; name it | Lexicon matcher (about 400 mood and brand terms) *Refined in M4: at least 400 terms in six categories and no brand or company name (R4-42).* |
 | Read the vibe (image) | Pick roles among the extracted cluster ids; mood and type vibe | Heuristic roles |
-| Refine in words | Typed ops (shift hue, set contrast, swap pairing, set radius) | Steer chips: warmer, cooler, bolder, quieter, softer, sharper, airier |
-| Rationale | DESIGN.md prose | Templates from the preset |
+| Refine in words | Typed ops (shift hue, set contrast, swap pairing, set radius) | Steer chips: warmer, cooler, bolder, quieter, softer, sharper, airier *Refined in M4: ten closed op kinds, and an unknown op fails the tier (R4-45).* |
+| Rationale | DESIGN.md prose | Templates from the preset *Refined in M4: the model writes `oneLiner`, `direction.thesis` and `rules` into the spec on an explicit click; without a model nothing is written and the export keeps the preset's text (R4-49).* |
 | Critique | Rank and explain lint findings | The sorted lint list |
 
 **Providers, tried in this order** for each action, with the path shown on the result:
 
 1. **On-device (DR-0039).** Chrome's Prompt API when `LanguageModel.availability()` is not
    `unavailable` and the visitor has turned it on. The same zod schema becomes the `responseConstraint`.
-   The first use needs a click to start the model download.
+   The first use needs a click to start the model download. *Refined in M4: an explicit "Download the model" button, and on-device runs the four text features only (R4-31).*
 2. **Visitor key (DR-0040).** After the OpenRouter sign-in (PKCE in the browser), calls go from the browser
    straight to OpenRouter with the visitor's key, `:free` models only. The key stays in `sessionStorage`
    unless the visitor chooses "remember on this device".
 3. **Shared quota.** `POST /api/ai/<feature>` calls OpenRouter's free models with the server key through
-   AI SDK v7 and `@openrouter/ai-sdk-provider`, non-streaming, with Response Healing. Text cascade:
+   AI SDK v7 and `@openrouter/ai-sdk-provider`, non-streaming, with Response Healing. *Refined in M4: one pure request builder and one pure reply reader, sent by two thin `fetch` transports; neither AI SDK nor the OpenRouter provider package enters the repo (R4-08, R4-60).* Text cascade:
    PRIMARY → FAST → FALLBACK; image cascade: dots-3-note → gemma-4-26b → nemotron-3.5-super-vl (after a
-   live JSON smoke test). Three HTTP attempts per action at most, one per tier; a schema failure goes to
-   the fallback, never a retry.
+   live JSON smoke test). *Refined in M4: the slugs come from `OPENROUTER_MODEL_*` and `OPENROUTER_VISION_MODEL_1` to `_3`, each ending in `:free`, and tier 3 stays unset until its live smoke passes (R4-13, R4-61).* Three HTTP attempts per action at most, one per tier; a schema failure goes to
+   the fallback, never a retry. *Refined in M4: any failure of a tier, a 429 and a 5xx included, moves to the next tier, with no retry and no backoff, 20 s per tier and `maxDuration` 70 (R4-12).*
 4. **No model.** The labeled rule-based fallback; the error is shown, never hidden.
 
 **Guarding the shared quota without a database.** Before a shared call, the route reads OpenRouter's
 `GET /api/v1/key` (`free_model_daily_requests.remaining`) and refuses when fewer than
 `DYELOT_AI_RESERVE + 3` requests remain (default reserve 35), so dyelot can never starve the other seven
-products. Each visitor gets a soft daily cap (3 actions) in an HMAC-signed cookie. Results are cached by
-the normalized input with `"use cache"`. Prompts live in `prompts/<name>.md` with frontmatter
-(`knowledge/conventions/convention-llm-usage.md`). Server-side calls are traced as one Langfuse trace per
+products. Each visitor gets a soft daily cap (3 actions) in an HMAC-signed cookie. *Refined in M4: the guard also requires an `Origin`, runs one cascade per server instance and re-reads `/key` before tiers 2 and 3 near the reserve; the cookie's format, key and lifetime are fixed (R4-17, R4-18).* Results are cached by
+the normalized input with `"use cache"`. *Refined in M4: a per-instance LRU of 256 entries for 24 hours, not `"use cache"` (R4-19).* Prompts live in `prompts/<name>.md` with frontmatter
+(`knowledge/conventions/convention-llm-usage.md`). *Refined in M4: `src/ai/prompts/<name>.md` with exactly `name`, `version`, `temperature` and `max_tokens`, bundled as text by a Turbopack raw rule (R4-51).* Server-side calls are traced as one Langfuse trace per
 action with one generation per HTTP attempt; on-device and visitor-key calls never reach our server and
 are not traced.
 
 **Security.** A nonce-based CSP with no third-party scripts; `connect-src 'self' https://openrouter.ai
 https://www.remotion.pro`; `Permissions-Policy: language-model=(self)`; model output rendered as text only;
-a Disconnect button that clears the key.
+a Disconnect button that clears the key. *Refined in M4: `connect-src 'self' https://openrouter.ai`, with Remotion's host added in M5, and the policy also denies camera, microphone and geolocation (R4-25, R4-27).*
 
 ## 11. Motion and 3D (RR-0030)
 
@@ -308,7 +310,7 @@ next 16.4, react 19.3, typescript 5 strict, tailwind 4.3, zod 4, zustand 5, moti
 Dev: Biome 2.5, Vitest 4, fast-check, Playwright 1.62 with @axe-core/playwright, msw, ajv (DTCG and shadcn
 schemas), @google/design.md (pinned, CI lint), colorjs.io (test oracle only). pnpm 10, Node 22 (*refined in M1:
 Node `^22.22.2 || ^24.15.0 || >=26`, the range jsdom 30 needs. CI runs Node 24*). License:
-MIT; the README states Remotion's own license for anyone reusing the video code. *Refined in M3: exact pins `yaml` 2.9.1, `@csstools/css-color-parser` 4.2.7, `fflate` 0.8.3 and `@toon-format/toon` 4.4.0; dev `@google/design.md` 0.4.0, `ajv` 8.20.0 and `ajv-formats` 3.0.1; `motion` stays 14.3.0; no GSAP, shadcn CLI, Style Dictionary or Terrazzo enters the repo (R3-37).*
+MIT; the README states Remotion's own license for anyone reusing the video code. *Refined in M3: exact pins `yaml` 2.9.1, `@csstools/css-color-parser` 4.2.7, `fflate` 0.8.3 and `@toon-format/toon` 4.4.0; dev `@google/design.md` 0.4.0, `ajv` 8.20.0 and `ajv-formats` 3.0.1; `motion` stays 14.3.0; no GSAP, shadcn CLI, Style Dictionary or Terrazzo enters the repo (R3-37).* *Refined in M4: neither `ai` nor `@openrouter/ai-sdk-provider` enters the repo, and there is no `msw`; the mock OpenRouter is a plain Node server; `colorthief` 3.5.0 is pinned (R4-08, R4-60).*
 
 ## 13. Testing
 
@@ -321,7 +323,7 @@ export ≥ 90%.
 | Engine | sRGB ↔ OKLCH round trip within 1/510; gamut mapping idempotent and in gamut; WCAG matches the spec's worked examples and never rounds; the perceptual score matches the published test vectors; every solved step hits its target within 0.01 with monotonic lightness (*refined in M1: within `max(0.05, 0.01 × target)`. Threshold steps meet 3.0, 4.5 or 7.0 and overshoot by at most 0.12, because one 8-bit code moves a high step's ratio by up to about 0.1*); an impossible target throws with step and hue; CVD outputs match the DaltonLens reference values; every text role pair ≥ 4.5 in both modes for every preset (property test over random seeds); achromatic hues are `none`; each linter rule has a passing and a failing fixture |
 | Spec | Rejects unknown versions, out-of-range values and missing roles; canonical serialization is stable; URL codec round-trips; a tampered or truncated hash fails with a message, never a blank studio |
 | Export | Golden files per preset; byte-identical output for the same spec; DTCG validates against the 2025.10 schemas; DESIGN.md lints with 0 errors; TOON round-trips; the registry item validates against shadcn's schema; `dyelot-check.mjs` passes on a clean fixture app and fails on raw hex, `bg-blue-500` and a tampered `theme.css`. *Refined in M3: goldens for the 14 presets and one import, and the validators run on vendored schemas with no network (R3-27, R3-28).* |
-| AI | Out-of-range model output is rejected; provider order; labeled fallback on every failure; the guard refuses below the reserve; a schema failure never retries; PKCE state mismatch is rejected; the visitor key never appears in a request to our origin; on-device unavailable falls through |
+| AI | Out-of-range model output is rejected; provider order; labeled fallback on every failure; the guard refuses below the reserve; a schema failure never retries; PKCE state mismatch is rejected; the visitor key never appears in a request to our origin; on-device unavailable falls through *Refined in M4: section 14 of the M4 spec holds the cases, with a local mock of OpenRouter and Playwright interception, and no network in any test (R4-58).* |
 | UI and flows (Playwright) | Color → system → export zip; brief (model mocked at the route) → system; image → palette; import DESIGN.md → preview → export; share link restores the exact spec; undo and redo; locks survive regenerate; reduced motion stops every animation; axe finds no violations on every route |
 | Motion and 3D | WebGL missing shows the fallback; context loss swaps in the poster; video export is hidden where `canRenderMediaOnWeb()` fails |
 
@@ -336,7 +338,7 @@ code. This document stays the umbrella; a milestone spec may refine it but must 
 | M1 | Engine, spec model, linter | All engine cases pass; property tests run in CI |
 | M2 | Studio, six P0 templates, presets, fonts, URL state, keyboard UX | Flows pass in Playwright; axe clean |
 | M3 | Export bundle, receipt, checker, import | Every validator passes in CI |
-| M4 | AI: lexicon and chips, shared-quota route with guard and cache, on-device, visitor key, image extraction | Mocked flows pass; one live smoke call per slug within budget |
+| M4 | AI: lexicon and chips, shared-quota route with guard and cache, on-device, visitor key, image extraction | Mocked flows pass; one live smoke call per slug within budget *Refined in M4: section 20 of the M4 spec adds the on-device eval record and a hand smoke on the deployed site.* |
 | M5 | Hero shader, explorer, motion lab, view transitions, scroll story, Remotion preview and export, Mediabunny loop, flavor exports | Fallback and reduced-motion cases pass |
 | M6 | Gallery, landing polish, share cards, performance and accessibility audits (Lighthouse accessibility ≥ 95), README, knowledge-graph product node | Deployed with the owner's OK; live flows checked |
 
@@ -357,4 +359,4 @@ export; a custom MCP server; publishing `dyelot` to npm (possible later, with th
 - **Open questions to settle in the milestone specs:** whether `/api/v1/key` calls count against the free
   quota; `"use cache"` inside route handlers under Cache Components; the Turbopack way to export component
   source as a string; Player hydration with Cache Components; which Langfuse TypeScript SDK fits AI SDK v7
-  (DR-0037 settled tracing for the Python services only).
+  (DR-0037 settled tracing for the Python services only). *Refined in M4: `"use cache"` is not used (R4-19); `/key`'s cost and the Langfuse packages were Task 4.0 probes (R4-62).*
