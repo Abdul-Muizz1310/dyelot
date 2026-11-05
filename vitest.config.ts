@@ -12,6 +12,8 @@ const PURE_CORE_TESTS = [
   "tests/unit/export/**/*.test.{ts,tsx}",
   // The import layer (M3) is pure too.
   "tests/unit/import/**/*.test.{ts,tsx}",
+  // The AI core (M4, R4-59) is pure too.
+  "tests/unit/ai/**/*.test.{ts,tsx}",
   // The build scripts and the gate guard run under Node and spawn it; they have no DOM.
   "tests/unit/scripts/**/*.test.{ts,tsx}",
 ];
@@ -195,6 +197,8 @@ export default defineConfig({
         // The export and import layers of M3 (pure, held to a floor of their own).
         "src/export/**",
         "src/import/**",
+        // The AI core of M4 (R4-59), held to the pure-core floor.
+        "src/ai/**",
         "src/lib/site/**",
         "src/features/fonts/load.ts",
         // The studio's pure helpers (spec R2-22). The store, the worker shell and the UI are
@@ -213,6 +217,7 @@ export default defineConfig({
         "src/engine/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/spec/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/theme/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
+        "src/ai/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/export/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
         // The import layer (M3): 90 lines, statements and functions, 85 branches.
         "src/import/**": { lines: 90, statements: 90, functions: 90, branches: 85 },

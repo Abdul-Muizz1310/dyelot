@@ -1,0 +1,38 @@
+{
+  "brief": {
+    "name": "Dusk Tea",
+    "oneLiner": "A calm tea house at dusk.",
+    "adjectives": ["calm", "exact"],
+    "hues": { "primary": 150 },
+    "chroma": "muted",
+    "neutralTint": "warm",
+    "harmony": "analogous",
+    "preset": "organic",
+    "radius": "soft",
+    "motion": "calm"
+  },
+  "refine": {
+    "ops": [
+      { "op": "setRadius", "radius": "round" },
+      { "op": "setNeutralTint", "neutralTint": "warm" }
+    ],
+    "summary": "Rounder corners and warmer neutrals."
+  },
+  "vibe": {
+    "roleMap": { "primary": "c1", "secondary": "c2" },
+    "neutralTint": "warm",
+    "moodTags": ["earthy", "calm"],
+    "typeVibe": "editorial-serif",
+    "preset": "organic"
+  },
+  "rationale": {
+    "oneLiner": "A calm system for long reading.",
+    "thesis": "<b>Calm</b> and exact",
+    "do": ["Keep body text at 16 px or more."],
+    "dont": ["Do not set saturated text on a saturated fill."]
+  },
+  "critique": {
+    "top": [{ "findingIndex": 0, "why": "Low contrast makes the main text hard to read." }],
+    "verdict": "Fix the contrast error first; the rest are notes."
+  }
+}
