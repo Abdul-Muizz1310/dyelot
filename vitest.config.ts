@@ -123,8 +123,13 @@ const EXPORT_HELPERS = ["files"].map((name) => `src/features/export/${name}.ts`)
 /** The import dialog's pure helpers (Task 3.16), held to `PURE_FLOORS` the same way. */
 const IMPORT_HELPERS = ["form"].map((name) => `src/features/import/${name}.ts`);
 
-/** The AI feature's pure helpers (Task 4.5 on), held to `PURE_FLOORS` the same way. */
-const AI_HELPERS = ["image-protocol", "steer"].map((name) => `src/features/ai/${name}.ts`);
+/**
+ * The AI feature's helpers (Task 4.5 on), held to `PURE_FLOORS` the same way: the steer chips, the
+ * image protocol of Task 4.6b, and the browser providers and their router of Task 4.9.
+ */
+const AI_HELPERS = ["image-protocol", "steer", "visitor-key", "connect"].map(
+  (name) => `src/features/ai/${name}.ts`,
+);
 
 /** The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name. */
 const SERVER_FILES = ["env", "clock", "guard", "cache", "transport", "smoke"].map(

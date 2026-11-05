@@ -1166,4 +1166,52 @@ describe("C-GUARD4-08 .env.example declares every variable of section 11.4", () 
       ["E", "x=y"],
     ]);
   });
+
+// C-GUARD4-09 of docs/specs/04-ai.md, section 14.10 (R4-29, I-M4-05): the visitor key's storage name
+// lives in one file of src, and nothing in the browser's AI shell logs, so the key cannot leave
+// through a log line.
+
+const KEY_STORAGE_NAME = "dyelot:openrouter-key";
+const FEATURES_AI_DIR = path.join(ROOT, "src/features/ai");
+const VISITOR_KEY_FILE = path.join(FEATURES_AI_DIR, "visitor-key.ts");
+
+/** Whether comment-free code names `console`, as a call, a property read or a destructuring. */
+const namesConsole = (source: string): boolean => /\bconsole\b/.test(stripComments(source));
+
+describe("C-GUARD4-09 the visitor key's name lives in visitor-key.ts, and src/features/ai never logs", () => {
+  it("C-GUARD4-09 names dyelot:openrouter-key in src/features/ai/visitor-key.ts and in no other file under src", () => {
+    const holders = textFiles(path.join(ROOT, "src")).filter((file) =>
+      readFileSync(file, "utf8").includes(KEY_STORAGE_NAME),
+    );
+    expect(holders.map((file) => path.relative(ROOT, file))).toEqual([
+      path.relative(ROOT, VISITOR_KEY_FILE),
+    ]);
+  });
+
+  it("C-GUARD4-09 finds no console in any file under src/features/ai", () => {
+    const files = codeFiles(FEATURES_AI_DIR);
+    expect(files).toEqual(expect.arrayContaining([VISITOR_KEY_FILE]));
+    const bad = files
+      .filter((file) => namesConsole(readFileSync(file, "utf8")))
+      .map((file) => path.relative(ROOT, file));
+    expect(bad).toEqual([]);
+  });
+
+  it.each([
+    "console.log(key);",
+    "console.error(error)",
+    "globalThis.console.info(stores);",
+    'console["warn"](key);',
+    "const { debug } = console;",
+  ])("C-GUARD4-09 sees console in the probe %j", (source) => {
+    expect(namesConsole(source)).toBe(true);
+  });
+
+  it.each([
+    "// console.log(key);",
+    "/* console.error(error) */ const x = 1;",
+    "const consoleText = 1; const myconsole = 2;",
+  ])("C-GUARD4-09 lets the probe %j through", (source) => {
+    expect(namesConsole(source)).toBe(false);
+  });
 });

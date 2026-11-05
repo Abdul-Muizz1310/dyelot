@@ -63,6 +63,7 @@ export { guardVerdict, readKeyRemaining } from "./guard";
 export { briefInput, critiqueInput, rationaleInput, refineInput, vibeInput } from "./inputs";
 export type { LexiconCategory, LexiconEntry, LexiconMatch } from "./lexicon/match";
 export { matchLexicon } from "./lexicon/match";
+export { authorizeUrl, base64url, readCallback } from "./pkce";
 export type { PromptFile } from "./prompts";
 export { PROMPTS } from "./prompts";
 export type { AiPath, RouteCode, RouteReply } from "./route-reply";

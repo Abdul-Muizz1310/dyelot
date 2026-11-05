@@ -35,6 +35,7 @@ import {
 import { guardVerdict, readKeyRemaining } from "@/ai/guard";
 import { briefInput, critiqueInput, rationaleInput, refineInput, vibeInput } from "@/ai/inputs";
 import { matchLexicon } from "@/ai/lexicon/match";
+import { authorizeUrl, base64url, readCallback } from "@/ai/pkce";
 import { PROMPTS } from "@/ai/prompts";
 import { ROUTE_CODES, readRouteReply } from "@/ai/route-reply";
 import type { CHROMA_LEVELS, NEUTRAL_TINTS } from "@/engine";
@@ -93,7 +94,7 @@ const AI_KEYS = [
  * 4.4 (the brief), 4.5 (refine), 4.6b (image) and 4.9 (PKCE). Each task adds its `export … from`
  * lines and deletes its keys here; the entry holds exactly the rest.
  */
-const PENDING_KEYS: readonly string[] = ["authorizeUrl", "base64url", "readCallback"];
+const PENDING_KEYS: readonly string[] = [];
 
 const sorted = (keys: readonly string[]): string[] => [...keys].sort();
 
@@ -121,6 +122,8 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
       PROMPTS,
       ROUTE_CODES,
       VISITOR_CAP,
+      authorizeUrl,
+      base64url,
       briefChange,
       briefColors,
       briefInput,
@@ -146,6 +149,7 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
       providerLabel,
       rationaleChange,
       rationaleInput,
+      readCallback,
       readKeyRemaining,
       readReply,
       readRouteReply,
