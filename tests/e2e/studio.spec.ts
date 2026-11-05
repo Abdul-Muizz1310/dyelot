@@ -892,7 +892,11 @@ function panelControls(page: Page): Promise<string[]> {
       const label = el.getAttribute("aria-label");
       if (label !== null) return label;
       if (el instanceof HTMLFieldSetElement) return el.querySelector("legend")?.textContent ?? "";
-      if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+      if (
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLSelectElement ||
+        el instanceof HTMLTextAreaElement
+      ) {
         return el.labels?.[0]?.textContent?.trim() ?? "";
       }
       return el.textContent?.trim() ?? "";
@@ -903,7 +907,8 @@ function panelControls(page: Page): Promise<string[]> {
       if (el instanceof HTMLInputElement) return el.type;
       return el.tagName.toLowerCase();
     };
-    return [...panel.querySelectorAll("fieldset, select, button, input:not([type='radio'])")]
+    const controls = "fieldset, select, button, textarea, input:not([type='radio'])";
+    return [...panel.querySelectorAll(controls)]
       .filter(visible)
       .map((el) => `${kindOf(el)}:${nameOf(el)}`);
   });
@@ -915,6 +920,9 @@ test.describe("7.2 The inputs panel", () => {
     "text:Name",
     "text:One line",
     "button:Import…",
+    // The Brief section (docs/specs/04-ai.md, 13.1 and 13.7; section 16).
+    "textarea:Describe the product or mood",
+    "button:Read the brief",
     ...SEEDS.flatMap((slot) => [
       `text:${slot}`,
       `color:Pick ${slot.toLowerCase()}`,
@@ -942,9 +950,11 @@ test.describe("7.2 The inputs panel", () => {
     await openStudio(page);
     expect(await panelControls(page)).toEqual(CONTROLS);
     const panel = inputsPanel(page);
-    await expect(panel.locator("textarea, input[type='file']")).toHaveCount(0);
-    // No brief or image control; the About section's "Import…" is the panel's one import control (R3-33).
-    await expect(panel).not.toContainText(/brief|image/i);
+    // The brief's textarea is the panel's one; no image control yet (M4, section 16: Task 4.10b
+    // adds the Image section). The About section's "Import…" is the panel's one import control (R3-33).
+    await expect(panel.locator("textarea")).toHaveCount(1);
+    await expect(panel.locator("input[type='file']")).toHaveCount(0);
+    await expect(panel).not.toContainText(/image/i);
     await expect(panel.getByText(/import/i)).toHaveCount(1);
     await expect(panel.getByRole("button", { name: "Import…", exact: true })).toHaveCount(1);
   });
@@ -957,6 +967,16 @@ test.describe("7.2 The inputs panel", () => {
       await expect(panel.locator("label", { hasText: new RegExp(`^${name}$`) })).toBeVisible();
     }
     await expect(panel.getByRole("button", { name: "Import…", exact: true })).toHaveText("Import…");
+    // The Brief section's controls carry section 13's strings (docs/specs/04-ai.md, F-INPUT4-02).
+    const brief = panel.getByRole("textbox", { name: "Describe the product or mood", exact: true });
+    await expect(brief).toHaveCount(1);
+    await expect(brief).toHaveAccessibleDescription("0 of 500 characters");
+    await expect(
+      panel.locator("label", { hasText: /^Describe the product or mood$/ }),
+    ).toBeVisible();
+    const read = panel.getByRole("button", { name: "Read the brief", exact: true });
+    await expect(read).toHaveText("Read the brief");
+    await expect(read).toHaveAccessibleDescription("Write a few words or a color first.");
     for (const slot of SEEDS) {
       await expect(panel.getByRole("textbox", { name: slot, exact: true })).toHaveCount(1);
       await expect(panel.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true })).toHaveCount(1);
@@ -1555,12 +1575,17 @@ test.describe("7.3 Keyboard", () => {
     expect(ring).toEqual(["solid", "2px", MADDER]);
   }
 
-  /** The Tab stops of the inputs panel, in the order of section 7.2. */
+  /**
+   * The Tab stops of the inputs panel, in the order of section 7.2, with the Brief section's stops
+   * after About (docs/specs/04-ai.md, 13.7; section 16).
+   */
   function panelStops(page: Page) {
     return [
       field(page, "Name"),
       field(page, "One line"),
       button(page, "Import…"),
+      field(page, "Describe the product or mood"),
+      button(page, "Read the brief"),
       ...(["Primary", "Secondary", "Accent"] as const).flatMap((slot) => [
         field(page, slot),
         page.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true }),

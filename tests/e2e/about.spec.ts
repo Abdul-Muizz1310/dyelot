@@ -49,13 +49,14 @@ test.describe("9.1 About", () => {
     await stubSeeds(page);
   });
 
-  test("F-ABT-01 the inputs panel opens with About before Seeds, and its two fields", async ({
+  test("F-ABT-01 the inputs panel opens with About first, before Brief, and its two fields", async ({
     page,
   }) => {
     await openStudio(page);
     const panel = inputsPanel(page);
     const titles = await panel.locator("section > h3").allTextContents();
-    expect(titles.slice(0, 2)).toEqual(["About", "Seeds"]);
+    // docs/specs/04-ai.md, section 16: About first, then Brief (R4-53); Task 4.10b adds Image.
+    expect(titles.slice(0, 3)).toEqual(["About", "Brief", "Seeds"]);
     const about = panel.getByRole("region", { name: "About", exact: true });
     await expect(nameField(page)).toHaveAttribute("placeholder", "untitled");
     await expect(nameField(page)).toHaveAccessibleDescription("Up to 80 characters");
