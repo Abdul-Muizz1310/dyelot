@@ -1,58 +1,20 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createCascadeGate, readGuard } from "@/server/ai/guard";
 import { TEST_KEY } from "../ai/fixtures";
+import { abortable, never, recording, settled } from "./fetch-fakes";
 
 // C-QUOTA-01 of docs/specs/04-ai.md, section 14.7: the guard's read of OpenRouter's `GET /key`
-// (R4-16, section 11.3), with an injected fetch that records its calls and fake timers. The cascade
-// gate's own behavior (R4-17 (b), section 11.3's last paragraph) is the part of C-ROUTE-13 that the
-// gate holds alone; Task 4.7b checks it through the route.
+// (R4-16, section 11.3), with an injected fetch that records its calls and fake timers. C-GATE-01:
+// the cascade gate's piece alone (R4-17 (b), section 11.3); Task 4.7b checks the route's use of it
+// (C-ROUTE-13).
 
 const BASE = "http://127.0.0.1:3199/api/v1";
 /** C-AI-20's body. */
 const keyBody = (remaining: unknown) => ({
   data: { free_model_daily_requests: { used: 12, limit: 50, remaining } },
 });
-
-type Call = { readonly url: string; readonly init: RequestInit };
-
-/** A fetch that records each call and answers it with `answer`. */
-function recording(answer: (call: Call) => Promise<Response>) {
-  const calls: Call[] = [];
-  const fetch = ((input: string | URL | Request, init?: RequestInit) => {
-    const call = { url: String(input), init: init ?? {} };
-    calls.push(call);
-    return answer(call);
-  }) as typeof globalThis.fetch;
-  return { calls, fetch };
-}
-
 const json = (body: unknown, status = 200) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
-/** A fetch answer that never settles and ignores the abort. */
-const never = () => new Promise<Response>(() => {});
-/** A fetch answer that rejects as the platform's fetch does when its signal aborts. */
-const abortable = (call: Call) =>
-  new Promise<Response>((_, reject) => {
-    call.init.signal?.addEventListener("abort", () =>
-      reject(new DOMException("This operation was aborted", "AbortError")),
-    );
-  });
-
-/** Whether `promise` has settled, without waiting for it. */
-async function settled(promise: Promise<unknown>): Promise<boolean> {
-  let done = false;
-  promise.then(
-    () => {
-      done = true;
-    },
-    () => {
-      done = true;
-    },
-  );
-  await Promise.resolve();
-  await Promise.resolve();
-  return done;
-}
 
 type GuardArgs = Parameters<typeof readGuard>[0];
 const argsFor = (fetch: typeof globalThis.fetch, timeoutMs = 5000): GuardArgs => ({
@@ -78,6 +40,12 @@ describe("C-QUOTA-01 readGuard reads GET {base}/key", () => {
     expect(call?.init.body).toBeUndefined();
     expect(call?.init.signal).toBeInstanceOf(AbortSignal);
     expect(call?.init.signal?.aborted).toBe(false);
+  });
+
+  it('C-QUOTA-01 never lets the bearer key follow a redirect: redirect is "error"', async () => {
+    const { calls, fetch } = recording(() => json(keyBody(38)));
+    await readGuard(argsFor(fetch));
+    expect(calls[0]?.init.redirect).toBe("error");
   });
 
   it("C-QUOTA-01 asks Next.js never to cache the read", async () => {
@@ -204,6 +172,53 @@ describe("C-QUOTA-01 readGuard reads GET {base}/key", () => {
     },
   );
 
+  it("C-QUOTA-01 a visitor's signal reaches fetch, and its abort gives null at once", async () => {
+    vi.useFakeTimers();
+    const visitor = new AbortController();
+    const { calls, fetch } = recording(never);
+    const pending = readGuard({ ...argsFor(fetch), signal: visitor.signal });
+    await vi.advanceTimersByTimeAsync(100);
+    expect(calls[0]?.init.signal?.aborted).toBe(false);
+    visitor.abort();
+    expect(calls[0]?.init.signal?.aborted).toBe(true);
+    await expect(pending).resolves.toBeNull();
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("C-QUOTA-01 a fetch that rejects on the visitor's abort gives null too", async () => {
+    const visitor = new AbortController();
+    const { fetch } = recording(abortable);
+    const pending = readGuard({ ...argsFor(fetch), signal: visitor.signal });
+    visitor.abort();
+    await expect(pending).resolves.toBeNull();
+  });
+
+  it("C-QUOTA-01 an already-aborted signal gives null and sends nothing", async () => {
+    const { calls, fetch } = recording(() => json(keyBody(38)));
+    await expect(readGuard({ ...argsFor(fetch), signal: AbortSignal.abort() })).resolves.toBeNull();
+    expect(calls).toHaveLength(0);
+  });
+
+  it("C-QUOTA-01 a signal that is not an AbortSignal is a TypeError naming readGuard", async () => {
+    const { calls, fetch } = recording(never);
+    for (const signal of [null, "abort", { aborted: false }]) {
+      const args = { ...argsFor(fetch), signal } as unknown as GuardArgs;
+      await expect(readGuard(args), String(signal)).rejects.toThrow(TypeError);
+      await expect(readGuard(args)).rejects.toThrow(/^readGuard: args\.signal /);
+    }
+    expect(calls).toHaveLength(0);
+  });
+
+  it("C-QUOTA-01 names a null base URL or key as null, not object", async () => {
+    const { fetch } = recording(never);
+    await expect(
+      readGuard({ ...argsFor(fetch), baseUrl: null } as unknown as GuardArgs),
+    ).rejects.toThrow(/^readGuard: args\.baseUrl must be a string, got null$/);
+    await expect(
+      readGuard({ ...argsFor(fetch), apiKey: null } as unknown as GuardArgs),
+    ).rejects.toThrow(/^readGuard: args\.apiKey must be a string, got null$/);
+  });
+
   it("C-QUOTA-01 never puts the key in an error message", async () => {
     const key = "sk-or-bad key-0123456789abcdef";
     const { fetch } = recording(never);
@@ -213,32 +228,52 @@ describe("C-QUOTA-01 readGuard reads GET {base}/key", () => {
   });
 });
 
-describe("C-ROUTE-13 the cascade gate alone", () => {
-  it("C-ROUTE-13 tryEnter is true when no cascade holds the gate, then false until leave", () => {
+describe("C-GATE-01 the cascade gate alone", () => {
+  it("C-GATE-01 enter() gives a release when no cascade holds the gate, then null until it is released", () => {
     const gate = createCascadeGate();
-    expect(gate.tryEnter()).toBe(true);
-    expect(gate.tryEnter()).toBe(false);
-    expect(gate.tryEnter()).toBe(false);
-    gate.leave();
-    expect(gate.tryEnter()).toBe(true);
-    expect(gate.tryEnter()).toBe(false);
+    const release = gate.enter();
+    expect(release).toBeTypeOf("function");
+    expect(gate.enter()).toBeNull();
+    expect(gate.enter()).toBeNull();
+    release?.();
+    const next = gate.enter();
+    expect(next).toBeTypeOf("function");
+    expect(gate.enter()).toBeNull();
   });
 
-  it("C-ROUTE-13 leave() on a gate not held changes nothing", () => {
+  it("C-GATE-01 a release works once: a second call, after another request entered, frees nothing", () => {
     const gate = createCascadeGate();
-    gate.leave();
-    gate.leave();
-    expect(gate.tryEnter()).toBe(true);
-    expect(gate.tryEnter()).toBe(false);
+    const first = gate.enter();
+    first?.();
+    const second = gate.enter();
+    expect(second).toBeTypeOf("function");
+    first?.();
+    expect(gate.enter()).toBeNull();
+    second?.();
+    second?.();
+    expect(gate.enter()).toBeTypeOf("function");
+    expect(gate.enter()).toBeNull();
   });
 
-  it("C-ROUTE-13 each gate is its own: one per server instance", () => {
+  it("C-GATE-01 a request answered busy holds nothing it could release", () => {
+    const gate = createCascadeGate();
+    const holder = gate.enter();
+    const busy = gate.enter();
+    expect(busy).toBeNull();
+    expect(gate.enter()).toBeNull();
+    holder?.();
+    expect(gate.enter()).toBeTypeOf("function");
+  });
+
+  it("C-GATE-01 each gate is its own: one per server instance", () => {
     const first = createCascadeGate();
     const second = createCascadeGate();
-    expect(first.tryEnter()).toBe(true);
-    expect(second.tryEnter()).toBe(true);
-    first.leave();
-    expect(second.tryEnter()).toBe(false);
+    const release = first.enter();
+    expect(second.enter()).toBeTypeOf("function");
+    release?.();
+    expect(second.enter()).toBeNull();
+    expect(first.enter()).toBeTypeOf("function");
     expect(Object.isFrozen(first)).toBe(true);
+    expect(Object.keys(first)).toEqual(["enter"]);
   });
 });

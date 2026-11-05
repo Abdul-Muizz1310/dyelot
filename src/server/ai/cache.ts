@@ -3,7 +3,8 @@ import { isFreeSlug, type TierName } from "@/ai";
 // The per-instance cache of successes (docs/specs/04-ai.md, R4-19 and section 11.5): no "use cache",
 // at most `max` entries in memory for `ttlMs` each, least recently used out first. The key is
 // `cacheKey(feature, input, version)` from @/ai; only a tier's success is stored, with its slug, tier
-// and attempts, so a hit answers with the path that first produced it.
+// and attempts, so a hit answers with the path that first produced it. The result is stored as a
+// deep-frozen clone, so neither the caller nor any hit can change what a later hit is served.
 
 export type CachedResult = {
   readonly result: unknown;
@@ -56,7 +57,26 @@ function checkKey(key: unknown, caller: string): asserts key is string {
   }
 }
 
-/** A frozen copy of a success with its four fields only, each checked. */
+/** `value` with every object and array inside it frozen; a value seen already is skipped. */
+function deepFreeze(value: unknown): void {
+  if (typeof value !== "object" || value === null || Object.isFrozen(value)) return;
+  Object.freeze(value);
+  for (const item of Object.values(value)) deepFreeze(item);
+}
+
+/** A deep-frozen clone of `result`, or a TypeError when it holds what cannot be cloned. */
+function frozenClone(result: unknown, at: string): unknown {
+  let clone: unknown;
+  try {
+    clone = structuredClone(result);
+  } catch {
+    throw new TypeError(`${at}.result must hold only data that can be cloned, such as JSON`);
+  }
+  deepFreeze(clone);
+  return clone;
+}
+
+/** A frozen copy of a success with its four fields only, each checked, the result a deep clone. */
 function storedValue(value: unknown): CachedResult {
   const at = "AiCache.set: value";
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -82,13 +102,15 @@ function storedValue(value: unknown): CachedResult {
       `${at}.attempts must be an integer from 1 to ${MAX_ATTEMPTS}, got ${attempts}`,
     );
   }
-  return Object.freeze({ result, slug, tier: tier as TierName, attempts });
+  const stored = frozenClone(result, at);
+  return Object.freeze({ result: stored, slug, tier: tier as TierName, attempts });
 }
 
 /**
  * A cache of successes on the injected clock `now`: `get` returns an entry younger than `ttlMs` and
- * makes it the most recent, deleting an older one; `set` stores or replaces an entry, making it the
- * most recent, and evicts the least recent once the size passes `max`.
+ * makes it the most recent, deleting an older one or one whose clock has stepped back (a negative
+ * age); `set` stores or replaces an entry, making it the most recent, and evicts the least recent
+ * once the size passes `max`. Every entry it serves is deep-frozen.
  */
 export function createAiCache(args: { now: () => number; max?: number; ttlMs?: number }): AiCache {
   if (typeof args !== "object" || args === null || Array.isArray(args)) {
@@ -120,7 +142,8 @@ export function createAiCache(args: { now: () => number; max?: number; ttlMs?: n
       if (entry === undefined) return undefined;
       const time = clock("AiCache.get");
       entries.delete(key);
-      if (time - entry.storedAt >= ttlMs) return undefined;
+      const age = time - entry.storedAt;
+      if (age < 0 || age >= ttlMs) return undefined;
       entries.set(key, entry);
       return entry.value;
     },

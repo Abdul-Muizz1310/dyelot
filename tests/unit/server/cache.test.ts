@@ -107,6 +107,41 @@ describe("C-CACHE-01 the cache keeps 256 successes for a day, least recently use
     expect(cache.get("k")?.attempts).toBe(1);
   });
 
+  it("C-CACHE-01 stores a deep-frozen clone: neither the caller's result nor a served one changes a later hit", () => {
+    /** The brief output as plain data a caller could change. */
+    type Brief = { name: string; hues: { primary: number }; adjectives: string[] };
+    const { cache } = cacheAt();
+    const original = structuredClone({ ...BRIEF_OUT, name: "Dusk Tea" }) as unknown as Brief;
+    const value = { result: original, slug: TEXT_SLUGS[0], tier: "primary", attempts: 1 } as const;
+    cache.set("k", value);
+    original.name = "Changed by the caller";
+    original.hues.primary = 10;
+    original.adjectives.push("loud");
+    const served = cache.get("k");
+    const expected = { ...BRIEF_OUT, name: "Dusk Tea" };
+    expect(served?.result).toStrictEqual(expected);
+    const result = served?.result as typeof original;
+    expect(Object.isFrozen(result)).toBe(true);
+    expect(Object.isFrozen(result.hues)).toBe(true);
+    expect(Object.isFrozen(result.adjectives)).toBe(true);
+    expect(() => {
+      result.hues.primary = 20;
+    }).toThrow(TypeError);
+    expect(() => result.adjectives.push("loud")).toThrow(TypeError);
+    expect(() => {
+      result.name = "Changed by a hit";
+    }).toThrow(TypeError);
+    expect(cache.get("k")?.result).toStrictEqual(expected);
+  });
+
+  it("C-CACHE-01 an entry the clock has stepped back from is a miss, deleted", () => {
+    const { cache, at } = cacheAt();
+    cache.set("k", hit(1));
+    at(NOW - 1);
+    expect(cache.get("k")).toBeUndefined();
+    expect(cache.size()).toBe(0);
+  });
+
   it("C-CACHE-01 two caches share nothing", () => {
     const first = cacheAt().cache;
     const second = cacheAt().cache;
@@ -156,6 +191,7 @@ describe("C-CACHE-02 a wrong argument is refused (R-05)", () => {
   it.each([
     ["a value null", null, TypeError],
     ["no result", { slug: TEXT_SLUGS[0], tier: "primary", attempts: 1 }, TypeError],
+    ["a result holding a function", { ...hit(1), result: { name: () => "Dusk" } }, TypeError],
     ["a slug 5", { ...hit(1), slug: 5 }, TypeError],
     ["a slug that is not free", { ...hit(1), slug: "test/text-1" }, RangeError],
     ["a tier 5", { ...hit(1), tier: 5 }, TypeError],

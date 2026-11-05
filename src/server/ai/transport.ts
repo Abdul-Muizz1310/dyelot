@@ -2,8 +2,9 @@ import type { ChatRequest, ChatResponse } from "@/ai";
 
 // The server's transport (docs/specs/04-ai.md, R4-08, R4-11, R4-12 and section 5.4): it sends the
 // request @/ai built with the injected fetch and hands back what readReply reads. It never throws for
-// an upstream answer: a timeout, a rejected fetch, a body that fails mid-read or a status readReply
-// would refuse (outside 100 to 599) each become a failed tier here.
+// an upstream answer: a timeout, a rejected fetch, a body that fails mid-read, a status readReply
+// would refuse (outside 100 to 599) or the visitor's cancel each become a failed tier here. Every
+// call refuses redirects, so the bearer key goes to the URL it was built for and nowhere else.
 
 /** The most bytes of a body either transport reads (R4-11). */
 export const REPLY_MAX_BYTES = 262_144;
@@ -16,9 +17,14 @@ const URL_PATTERN = /^https?:\/\/\S+$/;
 const TIMEOUT: ChatResponse = Object.freeze({ kind: "timeout" });
 const NETWORK: ChatResponse = Object.freeze({ kind: "network" });
 
-export type CallArgs = { readonly fetch: typeof fetch; readonly timeoutMs: number };
+export type CallArgs = {
+  readonly fetch: typeof fetch;
+  readonly timeoutMs: number;
+  readonly signal?: AbortSignal;
+};
 
-function describeType(value: unknown): string {
+/** The type of `value` as an error message names it: `null` and an array are not "object". */
+export function describeType(value: unknown): string {
   if (value === null) return "null";
   return Array.isArray(value) ? "array" : typeof value;
 }
@@ -27,7 +33,10 @@ function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** The fetch and the timeout every network call takes: a TypeError or a RangeError naming `caller`. */
+/**
+ * The fetch, the timeout and the optional visitor's signal every network call takes: a TypeError or
+ * a RangeError naming `caller`.
+ */
 export function checkCallArgs(args: unknown, caller: string): asserts args is CallArgs {
   if (!isRecord(args)) {
     throw new TypeError(`${caller}: args must be an object, got ${describeType(args)}`);
@@ -46,6 +55,12 @@ export function checkCallArgs(args: unknown, caller: string): asserts args is Ca
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > TIMEOUT_MAX_MS) {
     throw new RangeError(
       `${caller}: args.timeoutMs must be an integer from 1 to ${TIMEOUT_MAX_MS}, got ${timeoutMs}`,
+    );
+  }
+  // An explicit undefined is an absent signal.
+  if (args.signal !== undefined && !(args.signal instanceof AbortSignal)) {
+    throw new TypeError(
+      `${caller}: args.signal must be an AbortSignal, got ${describeType(args.signal)}`,
     );
   }
 }
@@ -81,8 +96,9 @@ function checkRequest(request: unknown): asserts request is ChatRequest {
 
 /**
  * At most `REPLY_MAX_BYTES` of the body, decoded as UTF-8. A body past the cap is not read further
- * and gives "", which readReply reads as `empty`, as it reads a body over the cap (R4-11). An abort
- * cancels the read, so a body that never ends cannot hold the reader.
+ * and gives "", which readReply reads as `empty`, as it reads a body over the cap (R4-11). An abort,
+ * before the first read or during one, cancels the read, so a body that comes after the deadline is
+ * never read and one that never ends cannot hold the reader.
  */
 async function readCapped(response: Response, signal: AbortSignal): Promise<string> {
   const { body } = response;
@@ -91,6 +107,10 @@ async function readCapped(response: Response, signal: AbortSignal): Promise<stri
   const stop = () => {
     reader.cancel().catch(() => {});
   };
+  if (signal.aborted) {
+    stop();
+    return "";
+  }
   signal.addEventListener("abort", stop, { once: true });
   try {
     const chunks: Uint8Array[] = [];
@@ -118,51 +138,64 @@ async function readCapped(response: Response, signal: AbortSignal): Promise<stri
 }
 
 /**
- * One call under a deadline: the status and the capped body text, `{ kind: "timeout" }` when
- * `timeoutMs` runs out first (the call's signal aborts then, and the answer does not wait for a
- * fetch that ignores it), or `{ kind: "network" }` for a fetch that throws or rejects, a body that
- * fails mid-read, or a status outside 100 to 599. The timer is cleared once the call settles.
+ * One call under a deadline, with `redirect: "error"`: the status and the capped body text,
+ * `{ kind: "timeout" }` when `timeoutMs` runs out first, or `{ kind: "network" }` for a fetch that
+ * throws or rejects (a redirect included), a body that fails mid-read, a status outside 100 to 599,
+ * or the visitor's `cancel` signal (R4-16). Either abort reaches fetch through its signal, and the
+ * answer does not wait for a fetch that ignores it. A `cancel` already aborted sends nothing. The
+ * timer and the listener are cleared once the call settles.
  */
 export async function fetchCapped(
   send: typeof fetch,
   url: string,
-  init: Omit<RequestInit, "signal">,
+  init: Omit<RequestInit, "signal" | "redirect">,
   timeoutMs: number,
+  cancel?: AbortSignal,
 ): Promise<ChatResponse> {
-  const controller = new AbortController();
-  const { signal } = controller;
+  if (cancel?.aborted) return NETWORK;
+  const deadlineController = new AbortController();
+  const deadlineSignal = deadlineController.signal;
+  const signal = cancel === undefined ? deadlineSignal : AbortSignal.any([deadlineSignal, cancel]);
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const deadline = new Promise<ChatResponse>((resolve) => {
+  let onCancel: (() => void) | undefined;
+  const stopped = new Promise<ChatResponse>((resolve) => {
     timer = setTimeout(() => {
-      controller.abort();
       resolve(TIMEOUT);
+      deadlineController.abort();
     }, timeoutMs);
+    onCancel = () => resolve(NETWORK);
+    cancel?.addEventListener("abort", onCancel, { once: true });
   });
+  // Each abort settles `stopped` synchronously, the deadline before it aborts and the visitor's in
+  // its abort event, while `call` resumes only in a later microtask: the race answers the abort's own
+  // kind, and what `call` gives after an abort is never read.
   const call = async (): Promise<ChatResponse> => {
     try {
-      const response = await send(url, { ...init, signal });
+      const response = await send(url, { ...init, redirect: "error", signal });
       const { status } = response;
       if (!Number.isInteger(status) || status < MIN_STATUS || status > MAX_STATUS) return NETWORK;
       const text = await readCapped(response, signal);
-      return signal.aborted ? TIMEOUT : Object.freeze({ status, text });
+      return Object.freeze({ status, text });
     } catch {
-      return signal.aborted ? TIMEOUT : NETWORK;
+      return NETWORK;
     }
   };
   try {
-    return await Promise.race([call(), deadline]);
+    return await Promise.race([call(), stopped]);
   } finally {
     clearTimeout(timer);
+    if (onCancel !== undefined) cancel?.removeEventListener("abort", onCancel);
   }
 }
 
 /**
  * Sends a request `buildChatRequest` made: `POST` with its URL, headers and body, aborted at
- * `timeoutMs` (a tier's 20,000 ms, R4-12). The answer goes to readReply as it is.
+ * `timeoutMs` (a tier's 20,000 ms, R4-12) or when the visitor's `signal` aborts (R4-16). The answer
+ * goes to readReply as it is.
  */
 export async function sendChat(
   request: ChatRequest,
-  args: { fetch: typeof fetch; timeoutMs: number },
+  args: { fetch: typeof fetch; timeoutMs: number; signal?: AbortSignal },
 ): Promise<ChatResponse> {
   checkRequest(request);
   checkCallArgs(args, "sendChat");
@@ -171,5 +204,6 @@ export async function sendChat(
     request.url,
     { method: "POST", headers: { ...request.headers }, body: request.body, cache: "no-store" },
     args.timeoutMs,
+    args.signal,
   );
 }

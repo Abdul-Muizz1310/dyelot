@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { type EnvSource, readAiEnv, readSlugs } from "@/server/ai/env";
 import { TEST_ENV, TEST_KEY, TEST_SECRET, TEXT_SLUGS, VISION_SLUGS } from "../ai/fixtures";
@@ -370,6 +372,27 @@ describe("C-ENV-04 tracing: the Langfuse trio and APP_ENV never invalidate the e
       expect(env.tracing).toBeNull();
       expect(env.tracingProblem).toBeNull();
     }
+  });
+
+  it("C-ENV-04 a copy of .env.example with a key and a secret leaves tracing off with no problem", () => {
+    const example = readFileSync(
+      path.resolve(import.meta.dirname, "../../../.env.example"),
+      "utf8",
+    );
+    const entries = example
+      .split(/\r?\n/)
+      .filter((line) => /^[A-Z][A-Z0-9_]*=/.test(line))
+      .map((line) => [line.slice(0, line.indexOf("=")), line.slice(line.indexOf("=") + 1)]);
+    const copied = {
+      ...Object.fromEntries(entries),
+      OPENROUTER_API_KEY: TEST_KEY,
+      DYELOT_COOKIE_SECRET: TEST_SECRET,
+    };
+    const env = envOf(copied);
+    expect(env.tracing).toBeNull();
+    expect(env.tracingProblem).toBeNull();
+    expect(env.reserve).toBe(35);
+    expect(env.text).toHaveLength(3);
   });
 
   it("C-ENV-04 a bad environment fails first: tracing never hides a bad key", () => {

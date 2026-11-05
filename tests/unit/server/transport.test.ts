@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { buildChatRequest, type ChatRequest, readReply } from "@/ai";
 import { sendChat } from "@/server/ai/transport";
 import { BRIEF_IN, BRIEF_OUT, TEST_KEY, TEXT_SLUGS } from "../ai/fixtures";
+import { abortable, never, recording, settled } from "./fetch-fakes";
 
 // C-TRANS-01 of docs/specs/04-ai.md, section 14.7: the server transport sends the request @/ai built
 // and gives back what readReply reads (R4-11, R4-12, section 5.4), with an injected fetch that records
@@ -22,46 +23,8 @@ const REPLY = JSON.stringify({
   usage: { prompt_tokens: 900, completion_tokens: 120, cost: 0 },
 });
 
-type Call = { readonly url: string; readonly init: RequestInit };
-
-/** A fetch that records each call and answers it with `answer`. */
-function recording(answer: (call: Call) => Promise<Response>) {
-  const calls: Call[] = [];
-  const fetch = ((input: string | URL | Request, init?: RequestInit) => {
-    const call = { url: String(input), init: init ?? {} };
-    calls.push(call);
-    return answer(call);
-  }) as typeof globalThis.fetch;
-  return { calls, fetch };
-}
-
 const reply = (text: string | ReadableStream<Uint8Array>, status = 200) =>
   Promise.resolve(new Response(text, { status }));
-/** A fetch answer that never settles and ignores the abort. */
-const never = () => new Promise<Response>(() => {});
-/** A fetch answer that rejects as the platform's fetch does when its signal aborts. */
-const abortable = (call: Call) =>
-  new Promise<Response>((_, reject) => {
-    call.init.signal?.addEventListener("abort", () =>
-      reject(new DOMException("This operation was aborted", "AbortError")),
-    );
-  });
-
-/** Whether `promise` has settled, without waiting for it. */
-async function settled(promise: Promise<unknown>): Promise<boolean> {
-  let done = false;
-  promise.then(
-    () => {
-      done = true;
-    },
-    () => {
-      done = true;
-    },
-  );
-  await Promise.resolve();
-  await Promise.resolve();
-  return done;
-}
 
 afterEach(() => {
   vi.useRealTimers();
@@ -82,6 +45,12 @@ describe("C-TRANS-01 sendChat posts the request and gives back the reply", () =>
     expect(call?.init.signal).toBeInstanceOf(AbortSignal);
     expect(call?.init.signal?.aborted).toBe(false);
     expect(call?.init.cache).toBe("no-store");
+  });
+
+  it('C-TRANS-01 never lets the bearer key follow a redirect: redirect is "error"', async () => {
+    const { calls, fetch } = recording(() => reply(REPLY));
+    await sendChat(REQUEST, { fetch, timeoutMs: 20_000 });
+    expect(calls[0]?.init.redirect).toBe("error");
   });
 
   it("C-TRANS-01 hands readReply a reply it reads to the output", async () => {
@@ -297,6 +266,90 @@ describe("C-TRANS-01 sendChat posts the request and gives back the reply", () =>
       expect(calls).toHaveLength(0);
     },
   );
+
+  it("C-TRANS-01 a visitor's signal reaches fetch, and its abort gives { kind: 'network' } at once", async () => {
+    vi.useFakeTimers();
+    const visitor = new AbortController();
+    const { calls, fetch } = recording(never);
+    const pending = sendChat(REQUEST, { fetch, timeoutMs: 20_000, signal: visitor.signal });
+    await vi.advanceTimersByTimeAsync(5000);
+    expect(calls[0]?.init.signal?.aborted).toBe(false);
+    visitor.abort();
+    expect(calls[0]?.init.signal?.aborted).toBe(true);
+    await expect(pending).resolves.toStrictEqual({ kind: "network" });
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("C-TRANS-01 a fetch that rejects on the visitor's abort, or a body cut by it, is network", async () => {
+    const visitor = new AbortController();
+    const { fetch } = recording(abortable);
+    const pending = sendChat(REQUEST, { fetch, timeoutMs: 20_000, signal: visitor.signal });
+    visitor.abort();
+    await expect(pending).resolves.toStrictEqual({ kind: "network" });
+    const reader = new AbortController();
+    const endless = new ReadableStream<Uint8Array>({ start() {} });
+    const slow = recording(() => reply(endless));
+    const reading = sendChat(REQUEST, {
+      fetch: slow.fetch,
+      timeoutMs: 20_000,
+      signal: reader.signal,
+    });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    reader.abort();
+    await expect(reading).resolves.toStrictEqual({ kind: "network" });
+  });
+
+  it("C-TRANS-01 an already-aborted signal gives { kind: 'network' } and sends nothing", async () => {
+    const { calls, fetch } = recording(() => reply(REPLY));
+    await expect(
+      sendChat(REQUEST, { fetch, timeoutMs: 20_000, signal: AbortSignal.abort() }),
+    ).resolves.toStrictEqual({ kind: "network" });
+    expect(calls).toHaveLength(0);
+  });
+
+  it("C-TRANS-01 a signal that is not an AbortSignal is a TypeError naming sendChat", async () => {
+    const { calls, fetch } = recording(never);
+    for (const signal of [null, "abort", { aborted: false }]) {
+      const args = { fetch, timeoutMs: 20_000, signal } as unknown as Parameters<
+        typeof sendChat
+      >[1];
+      await expect(sendChat(REQUEST, args), String(signal)).rejects.toThrow(TypeError);
+      await expect(sendChat(REQUEST, args)).rejects.toThrow(/^sendChat: args\.signal /);
+    }
+    expect(calls).toHaveLength(0);
+  });
+
+  it("C-TRANS-01 does not read the body of a reply that comes after the deadline", async () => {
+    vi.useFakeTimers();
+    let answer: (response: Response) => void = () => {};
+    const { fetch } = recording(
+      () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve;
+        }),
+    );
+    let pulled = 0;
+    let canceled = false;
+    const late = new ReadableStream<Uint8Array>(
+      {
+        pull(controller) {
+          pulled += 1;
+          controller.enqueue(new Uint8Array(1024).fill(0x20));
+        },
+        cancel() {
+          canceled = true;
+        },
+      },
+      { highWaterMark: 0 },
+    );
+    const pending = sendChat(REQUEST, { fetch, timeoutMs: 20_000 });
+    await vi.advanceTimersByTimeAsync(20_000);
+    await expect(pending).resolves.toStrictEqual({ kind: "timeout" });
+    answer(new Response(late, { status: 200 }));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(canceled).toBe(true);
+    expect(pulled).toBe(0);
+  });
 
   it("C-TRANS-01 never puts the request's headers, key included, in an error message", async () => {
     const { fetch } = recording(never);

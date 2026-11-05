@@ -1,31 +1,34 @@
 import { readKeyRemaining } from "@/ai";
 import { SERVER_KEY } from "./env";
-import { checkCallArgs, fetchCapped } from "./transport";
+import { checkCallArgs, describeType, fetchCapped } from "./transport";
 
 // The shared pool's guard and the cascade gate (docs/specs/04-ai.md, R4-16, R4-17 and section 11.3).
 // readGuard reads OpenRouter's `GET /key` and fails closed: any failure is null, which guardVerdict
-// (@/ai) turns into `guard-unavailable`. The gate lets one cascade run per server instance.
+// (@/ai) turns into `guard-unavailable`. The gate lets one cascade run per server instance, and only
+// the request that entered it can let it go, once.
 
 /** A base URL as readAiEnv gives it: an origin and a path, with no query, hash or trailing slash. */
 const BASE_URL = /^https?:\/\/[^\s/?#]+(?:\/[^\s?#]*)?$/;
 
 /**
- * The free pool's remaining requests from `GET {baseUrl}/key` with the server key, read under
- * `timeoutMs` (5,000 ms for the first read, 2,000 ms for a re-read): `readKeyRemaining` of the JSON
- * body, or null for a timeout, a network error, a status outside 200 to 299 or a body that is not
- * JSON. It rejects only for an argument of the wrong type or outside its domain, before any fetch,
- * and no message holds the key.
+ * The free pool's remaining requests from `GET {baseUrl}/key` with the server key and
+ * `redirect: "error"`, read under `timeoutMs` (5,000 ms for the first read, 2,000 ms for a re-read):
+ * `readKeyRemaining` of the JSON body, or null for a timeout, a network error or redirect, a status
+ * outside 200 to 299, a body that is not JSON, or the visitor's `signal` (R4-16), which sends
+ * nothing when it has already aborted. It rejects only for an argument of the wrong type or outside
+ * its domain, before any fetch, and no message holds the key.
  */
 export async function readGuard(args: {
   fetch: typeof fetch;
   baseUrl: string;
   apiKey: string;
   timeoutMs: number;
+  signal?: AbortSignal;
 }): Promise<number | null> {
   checkCallArgs(args, "readGuard");
   const { baseUrl, apiKey } = args;
   if (typeof baseUrl !== "string") {
-    throw new TypeError(`readGuard: args.baseUrl must be a string, got ${typeof baseUrl}`);
+    throw new TypeError(`readGuard: args.baseUrl must be a string, got ${describeType(baseUrl)}`);
   }
   if (!BASE_URL.test(baseUrl) || baseUrl.endsWith("/")) {
     throw new RangeError(
@@ -33,7 +36,7 @@ export async function readGuard(args: {
     );
   }
   if (typeof apiKey !== "string") {
-    throw new TypeError(`readGuard: args.apiKey must be a string, got ${typeof apiKey}`);
+    throw new TypeError(`readGuard: args.apiKey must be a string, got ${describeType(apiKey)}`);
   }
   if (!SERVER_KEY.test(apiKey)) {
     throw new RangeError(
@@ -45,6 +48,7 @@ export async function readGuard(args: {
     `${baseUrl}/key`,
     { method: "GET", headers: { Authorization: `Bearer ${apiKey}` }, cache: "no-store" },
     args.timeoutMs,
+    args.signal,
   );
   if ("kind" in response || response.status < 200 || response.status > 299) return null;
   try {
@@ -54,23 +58,28 @@ export async function readGuard(args: {
   }
 }
 
-export type CascadeGate = { tryEnter(): boolean; leave(): void };
+/** Lets the gate go; once only, so a second call frees nothing. */
+export type CascadeRelease = () => void;
+export type CascadeGate = { enter(): CascadeRelease | null };
 
 /**
- * The cascade gate of R4-17 (b), one per server instance: `tryEnter()` is true when no cascade holds
- * it, and then holds it; `leave()` lets it go. Only a request whose `tryEnter()` returned true calls
- * `leave()`, in a `finally`; `leave()` on a gate not held changes nothing.
+ * The cascade gate of R4-17 (b), one per server instance: `enter()` gives a release when no cascade
+ * holds the gate, and then holds it, or null while one does. Only the holder has a release, and it
+ * works once: a second call, or a call after another request entered, changes nothing, and a request
+ * answered `busy` holds nothing it could release. The holder calls it in a `finally`.
  */
 export function createCascadeGate(): CascadeGate {
   let held = false;
   return Object.freeze({
-    tryEnter(): boolean {
-      if (held) return false;
+    enter(): CascadeRelease | null {
+      if (held) return null;
       held = true;
-      return true;
-    },
-    leave(): void {
-      held = false;
+      let open = true;
+      return () => {
+        if (!open) return;
+        open = false;
+        held = false;
+      };
     },
   });
 }

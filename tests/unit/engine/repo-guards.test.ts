@@ -1104,8 +1104,9 @@ describe("C-GUARD4-03 app code reaches @/ai only through import()", () => {
 });
 
 // C-GUARD4-08 of docs/specs/04-ai.md, section 14.10 (R4-20): .env.example names every variable of
-// section 11.4, with the values that section's last paragraph gives: the slugs of R4-13, the reserve
-// 35 and Langfuse's base URL; every other value, each secret among them, is empty.
+// section 11.4, with the values that section's last paragraph gives: the slugs of R4-13 and the
+// reserve 35; every other value, each secret and the Langfuse trio among them, is empty, and
+// Langfuse's US base URL stands in a comment, so a copy of the file leaves tracing off.
 
 /** The variables of section 11.4, in its order, with the value `.env.example` gives each. */
 const ENV_EXAMPLE: ReadonlyArray<readonly [name: string, value: string]> = [
@@ -1121,7 +1122,7 @@ const ENV_EXAMPLE: ReadonlyArray<readonly [name: string, value: string]> = [
   ["OPENROUTER_VISION_MODEL_3", ""],
   ["LANGFUSE_PUBLIC_KEY", ""],
   ["LANGFUSE_SECRET_KEY", ""],
-  ["LANGFUSE_BASE_URL", "https://us.cloud.langfuse.com"],
+  ["LANGFUSE_BASE_URL", ""],
   ["APP_ENV", ""],
 ];
 
@@ -1146,9 +1147,16 @@ describe("C-GUARD4-08 .env.example declares every variable of section 11.4", () 
     );
   });
 
-  it("C-GUARD4-08 gives the slugs, the reserve and the Langfuse base URL, and leaves the rest empty", () => {
+  it("C-GUARD4-08 gives the slugs and the reserve, and leaves the rest empty, the Langfuse trio included", () => {
     const values = new Map(entries);
     for (const [name, value] of ENV_EXAMPLE) expect(values.get(name), name).toBe(value);
+  });
+
+  it("C-GUARD4-08 names Langfuse's US base URL in a comment only", () => {
+    const lines = readFileSync(path.join(ROOT, ".env.example"), "utf8").split(/\r?\n/);
+    const naming = lines.filter((line) => line.includes("https://us.cloud.langfuse.com"));
+    expect(naming.length).toBeGreaterThan(0);
+    for (const line of naming) expect(line.startsWith("#"), line).toBe(true);
   });
 
   it("C-GUARD4-08 reads NAME=value lines and nothing else (a probe)", () => {
