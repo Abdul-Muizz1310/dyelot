@@ -45,7 +45,7 @@ const SLOW_CORE_TESTS = [
   "tests/unit/engine/lint/t3-defaults-1.test.ts", // 12.1 s: C-TASTE-13
   "tests/unit/engine/presets-lint-5.test.ts", // 11.7 s
   "tests/unit/engine/presets-match-change.test.ts", // 40.6 s: C-PMATCH-03
-  "tests/unit/ai/apply-property.test.ts", // 44.8 s under lane load: C-IMG-14 (360 generations)
+  "tests/unit/ai/apply-property.test.ts", // 37.7 to 40.2 s solo, load 0.3 to 0.9: C-IMG-14 (360 runs)
   "tests/unit/export/prompt.test.ts", // 22 s: C-PRM-02 (200 runs of generateSystem and themeCss)
   "tests/unit/import/fuzz-md.test.ts", // 11.5 s: C-IMP-03, 300 runs of importDesignMd
   "tests/unit/export/zip.test.ts", // 11.2 s: C-ZIP-03, one zip per time zone
@@ -58,7 +58,7 @@ const SLOW_WEB_TESTS = [
   "tests/unit/features/studio/store-lock-seeds.test.ts", // 18.1 s: C-STORE-34
   "tests/unit/features/studio/store-lock-pair-aaa.test.ts", // 13.7 s
   "tests/unit/features/studio/store-lock-pair-aa.test.ts", // 13.4 s
-  "tests/unit/features/ai/steer-property.test.ts", // 44.7 s under lane load: C-CHIP-09
+  "tests/unit/features/ai/steer-property.test.ts", // 19.5 to 19.7 s solo, load 0.7 to 0.9: C-CHIP-09
 ];
 
 /** The slow set of R2-31 apart from the scan; the gate guard (C-REPO-M2-07) reads it. */
