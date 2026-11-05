@@ -1,6 +1,6 @@
-// The deny list of docs/specs/04-ai.md, section 7.3 (R4-42): 60 brand and company names that are not
+// The deny list of docs/specs/04-ai.md, section 7.3 (R4-42): 62 brand and company names that are not
 // ordinary English words. No LEXICON term equals one, and no two-word term holds one as a word
-// (C-LEX-10).
+// (C-LEX-10). The last two, a company name and its trademark, joined at Task 4.4's review.
 
 export const DENY_LIST: readonly string[] = Object.freeze([
   "google",
@@ -63,4 +63,6 @@ export const DENY_LIST: readonly string[] = Object.freeze([
   "chatgpt",
   "supabase",
   "shadcn",
+  "riso",
+  "risograph",
 ]);

@@ -24,7 +24,9 @@ import type { LexiconCategory, LexiconEntry } from "./match";
 // - A hue only where the word has a color of its own: a color name, a pigment, a gem, a material, a
 //   landscape, a time of day. Hues are OKLCH angles (red 29, orange 55, yellow 100, green 145, teal
 //   190, blue 260, violet 295, magenta 330). A word for a feeling sets no hue, because hues average:
-//   "warm blue" must stay blue, so "warm" sets only the tint.
+//   "warm blue" must stay blue, so "warm" sets only the tint. An industry sets no hue either: a blue
+//   for finance or a green for health is a cliché, and it would pull "red fintech" to magenta. Only
+//   coffee and wine, which name colors of their own, keep one (C-LEX-12).
 // - A color name sets only its hue, and a muted chroma when the name means one (brown, mustard). A
 //   material, place or gem adds the tint its surfaces suggest (terracotta warm, steel cool).
 // - Weight 3: the word names a parameter or a style outright (a preset, a pairing's fit word, a color,
@@ -32,9 +34,11 @@ import type { LexiconCategory, LexiconEntry } from "./match";
 //   loose one, or a word with other common senses (data, modern, cloud).
 // - The order is the tie-break (7.4): styles first, then moods, industries, eras, materials and
 //   places, so an explicit style word wins a tie over a loose image.
-// - No brand or company name (7.3), and no term that is another's suffix form, so a word matches at
-//   most one term. Terms are copy ("Matched: tea house, dusk, calm"), so American English (gray,
-//   theater, jewelry).
+// - A phrase gets its own term where one of its words would misread it: "ice cream" is warm and
+//   soft, not "ice" (C-LEX-13); "pixel perfect" is precise, not the pixel preset.
+// - No brand or company name (7.3), and no term that is another's suffix form. A token that is both
+//   ("tealy": teal and tea) takes the first in data order. Terms are copy ("Matched: tea house,
+//   dusk, calm"), so American English (gray, theater, jewelry).
 
 type Weight = LexiconEntry["weight"];
 type LexiconSet = Omit<BriefDraft, "name" | "oneLiner" | "adjectives">;
@@ -397,28 +401,15 @@ const INDUSTRY: readonly Row[] = [
     "fintech",
     3,
     {
-      hues: { primary: 250 },
       neutralTint: "cool",
       contrastLevel: "AA+",
       typeContext: "product",
     },
   ],
-  [
-    "finance",
-    2,
-    { hues: { primary: 255 }, neutralTint: "cool", contrastLevel: "AA+", chroma: "muted" },
-  ],
-  [
-    "financial",
-    2,
-    { hues: { primary: 255 }, neutralTint: "cool", contrastLevel: "AA+", chroma: "muted" },
-  ],
-  ["bank", 2, { hues: { primary: 260 }, contrastLevel: "AA+", chroma: "muted", radius: "soft" }],
-  [
-    "insurance",
-    2,
-    { hues: { primary: 245 }, neutralTint: "cool", contrastLevel: "AA+", preset: "default" },
-  ],
+  ["finance", 2, { neutralTint: "cool", contrastLevel: "AA+", chroma: "muted" }],
+  ["financial", 2, { neutralTint: "cool", contrastLevel: "AA+", chroma: "muted" }],
+  ["bank", 2, { contrastLevel: "AA+", chroma: "muted", radius: "soft" }],
+  ["insurance", 2, { neutralTint: "cool", contrastLevel: "AA+", preset: "default" }],
   [
     "legal",
     2,
@@ -431,32 +422,12 @@ const INDUSTRY: readonly Row[] = [
   ],
   // Health and care: the accessible pairing at AAA.
   ["health", 3, { pairing: "atkinson", contrastLevel: "AAA", radius: "round" }],
-  [
-    "healthcare",
-    3,
-    { pairing: "atkinson", contrastLevel: "AAA", hues: { primary: 200 }, neutralTint: "cool" },
-  ],
-  [
-    "medical",
-    3,
-    { pairing: "atkinson", contrastLevel: "AAA", hues: { primary: 210 }, neutralTint: "cool" },
-  ],
+  ["healthcare", 3, { pairing: "atkinson", contrastLevel: "AAA", neutralTint: "cool" }],
+  ["medical", 3, { pairing: "atkinson", contrastLevel: "AAA", neutralTint: "cool" }],
   ["clinic", 2, { pairing: "atkinson", contrastLevel: "AAA", neutralTint: "cool" }],
-  [
-    "hospital",
-    2,
-    { pairing: "atkinson", contrastLevel: "AAA", hues: { primary: 190 }, neutralTint: "cool" },
-  ],
-  [
-    "pharmacy",
-    2,
-    { pairing: "atkinson", contrastLevel: "AAA", hues: { primary: 150 }, neutralTint: "cool" },
-  ],
-  [
-    "dental",
-    2,
-    { hues: { primary: 200 }, neutralTint: "cool", contrastLevel: "AAA", radius: "round" },
-  ],
+  ["hospital", 2, { pairing: "atkinson", contrastLevel: "AAA", neutralTint: "cool" }],
+  ["pharmacy", 2, { pairing: "atkinson", contrastLevel: "AAA", neutralTint: "cool" }],
+  ["dental", 2, { neutralTint: "cool", contrastLevel: "AAA", radius: "round" }],
   ["wellness", 2, { pairing: "commissioner", motion: "calm", chroma: "muted", radius: "round" }],
   ["yoga", 2, { pairing: "commissioner", motion: "calm", radius: "round", neutralTint: "warm" }],
   ["meditation", 2, { harmony: "monochrome", chroma: "muted", motion: "calm" }],
@@ -532,7 +503,7 @@ const INDUSTRY: readonly Row[] = [
   ["academic", 2, { pairing: "literata-spline", typeContext: "editorial", chroma: "muted" }],
   ["research", 2, { pairing: "literata-spline", typeContext: "dense" }],
   ["science", 2, { neutralTint: "cool", contrastLevel: "AA+", typeContext: "dense" }],
-  ["biotech", 2, { hues: { primary: 170 }, neutralTint: "cool", contrastLevel: "AA+" }],
+  ["biotech", 2, { neutralTint: "cool", contrastLevel: "AA+" }],
   ["government", 3, { pairing: "atkinson", contrastLevel: "AAA", chroma: "muted" }],
   ["civic", 2, { pairing: "atkinson", contrastLevel: "AAA" }],
   ["public sector", 3, { pairing: "atkinson", contrastLevel: "AAA" }],
@@ -585,12 +556,11 @@ const INDUSTRY: readonly Row[] = [
     2,
     {
       pairing: "bodoni-familjen",
-      hues: { primary: 15 },
       neutralTint: "warm",
       chroma: "muted",
     },
   ],
-  ["cosmetic", 2, { pairing: "bodoni-familjen", hues: { primary: 10 }, neutralTint: "warm" }],
+  ["cosmetic", 2, { pairing: "bodoni-familjen", neutralTint: "warm" }],
   ["perfume", 2, { pairing: "bodoni-familjen", motion: "calm", depth: "layered" }],
   ["jewelry", 3, { pairing: "bodoni-familjen", depth: "layered", neutralTint: "warm" }],
   [
@@ -600,48 +570,36 @@ const INDUSTRY: readonly Row[] = [
   ],
   ["premium", 2, { pairing: "gloock-albert", chroma: "muted", depth: "layered" }],
   ["hotel", 2, { pairing: "gloock-albert", neutralTint: "warm", motion: "calm" }],
-  [
-    "wedding",
-    2,
-    { pairing: "gloock-albert", hues: { primary: 15 }, neutralTint: "warm", chroma: "muted" },
-  ],
+  ["wedding", 2, { pairing: "gloock-albert", neutralTint: "warm", chroma: "muted" }],
   // Food, travel and hospitality.
   ["hospitality", 2, { pairing: "young-onest", neutralTint: "warm", radius: "round" }],
-  ["restaurant", 3, { pairing: "young-onest", hues: { primary: 35 }, neutralTint: "warm" }],
+  ["restaurant", 3, { pairing: "young-onest", neutralTint: "warm" }],
   ["food", 3, { pairing: "young-onest", neutralTint: "warm" }],
-  [
-    "bakery",
-    3,
-    { pairing: "young-onest", hues: { primary: 70 }, neutralTint: "warm", radius: "round" },
-  ],
+  ["bakery", 3, { pairing: "young-onest", neutralTint: "warm", radius: "round" }],
   [
     "coffee",
     2,
     { pairing: "young-onest", hues: { primary: 55 }, neutralTint: "warm", chroma: "muted" },
   ],
   ["wine", 2, { pairing: "gloock-albert", hues: { primary: 10 }, neutralTint: "warm" }],
-  ["brewery", 2, { pairing: "shoulders-redhat", hues: { primary: 75 }, neutralTint: "warm" }],
+  ["brewery", 2, { pairing: "shoulders-redhat", neutralTint: "warm" }],
   ["grocery", 2, { pairing: "young-onest", chroma: "balanced" }],
-  ["travel", 1, { hues: { primary: 220 }, typeContext: "marketing", chroma: "balanced" }],
-  ["tourism", 1, { hues: { primary: 220 }, typeContext: "marketing", chroma: "balanced" }],
-  ["airline", 2, { hues: { primary: 250 }, neutralTint: "cool", contrastLevel: "AA+" }],
+  ["travel", 1, { typeContext: "marketing", chroma: "balanced" }],
+  ["tourism", 1, { typeContext: "marketing", chroma: "balanced" }],
+  ["airline", 2, { neutralTint: "cool", contrastLevel: "AA+" }],
   // Land, making and building.
-  ["farm", 2, { preset: "organic", hues: { primary: 120 }, neutralTint: "warm" }],
-  ["agriculture", 2, { preset: "organic", hues: { primary: 125 } }],
-  [
-    "florist",
-    2,
-    { preset: "organic", hues: { primary: 350 }, neutralTint: "warm", chroma: "muted" },
-  ],
-  ["sustainable", 2, { preset: "organic", hues: { primary: 135 }, neutralTint: "warm" }],
-  ["climate", 2, { hues: { primary: 155 }, chroma: "balanced" }],
-  ["solar", 2, { hues: { primary: 85 }, neutralTint: "warm", chroma: "vivid" }],
+  ["farm", 2, { preset: "organic", neutralTint: "warm" }],
+  ["agriculture", 2, { preset: "organic" }],
+  ["florist", 2, { preset: "organic", neutralTint: "warm", chroma: "muted" }],
+  ["sustainable", 2, { preset: "organic", neutralTint: "warm" }],
+  ["climate", 2, { chroma: "balanced", harmony: "analogous" }],
+  ["solar", 2, { neutralTint: "warm", chroma: "vivid" }],
   ["energy", 1, { chroma: "vivid", motion: "brisk" }],
-  ["outdoor", 2, { pairing: "shoulders-redhat", hues: { primary: 125 }, neutralTint: "warm" }],
+  ["outdoor", 2, { pairing: "shoulders-redhat", neutralTint: "warm" }],
   ["pet", 2, { radius: "round", motion: "playful", neutralTint: "warm" }],
   ["real estate", 2, { chroma: "muted", radius: "sharp", neutralTint: "warm" }],
   ["architecture", 2, { preset: "minimal-swiss", radius: "sharp", depth: "flat" }],
-  ["construction", 2, { pairing: "shoulders-redhat", hues: { primary: 85 }, radius: "sharp" }],
+  ["construction", 2, { pairing: "shoulders-redhat", radius: "sharp" }],
   ["engineering", 2, { pairing: "host-grotesk", radius: "sharp", contrastLevel: "AA+" }],
   ["manufacturing", 2, { pairing: "shoulders-redhat", radius: "sharp" }],
   ["logistics", 2, { pairing: "doto-redhat", typeContext: "dense", motion: "brisk" }],
@@ -982,6 +940,11 @@ const MATERIAL: readonly Row[] = [
   ["caramel", 2, { hues: { primary: 60 }, neutralTint: "warm" }],
   ["chocolate", 2, { hues: { primary: 45 }, neutralTint: "warm", chroma: "muted" }],
   ["cream", 2, { neutralTint: "warm", chroma: "muted" }],
+  [
+    "ice cream",
+    3,
+    { neutralTint: "warm", chroma: "muted", contrastLevel: "AA", radius: "round", depth: "soft" },
+  ],
   ["butter", 1, { hues: { primary: 95 }, neutralTint: "warm", chroma: "muted" }],
   ["citrus", 2, { hues: { primary: 100 }, chroma: "vivid" }],
   ["lemon", 2, { hues: { primary: 105 }, neutralTint: "warm", chroma: "vivid" }],
@@ -993,26 +956,6 @@ const MATERIAL: readonly Row[] = [
   // Print and paint.
   ["watercolor", 2, { chroma: "muted", harmony: "analogous", contrastLevel: "AA", depth: "soft" }],
   ["crayon", 2, { chroma: "vivid", harmony: "triadic", radius: "round", motion: "playful" }],
-  [
-    "risograph",
-    3,
-    {
-      pairing: "redaction-redhat",
-      chroma: "vivid",
-      depth: "flat",
-      harmony: "complementary",
-    },
-  ],
-  [
-    "riso",
-    3,
-    {
-      pairing: "redaction-redhat",
-      chroma: "vivid",
-      depth: "flat",
-      harmony: "complementary",
-    },
-  ],
   ["halftone", 2, { pairing: "redaction-redhat", depth: "flat", harmony: "monochrome" }],
   ["photocopy", 2, { pairing: "archivo-courier", harmony: "monochrome", depth: "flat" }],
 ];
@@ -1119,7 +1062,7 @@ const PLACE: readonly Row[] = [
   ["farmhouse", 2, { pairing: "young-onest", neutralTint: "warm", chroma: "muted" }],
   // Regions.
   ["nordic", 3, { neutralTint: "cool", chroma: "muted", harmony: "analogous", motion: "calm" }],
-  ["scandinavian", 3, { neutralTint: "warm", chroma: "muted", radius: "soft", depth: "flat" }],
+  ["scandinavian", 3, { neutralTint: "cool", chroma: "muted", radius: "soft", depth: "flat" }],
   ["mediterranean", 3, { hues: { primary: 240, secondary: 45 }, chroma: "balanced" }],
   ["tuscan", 2, { hues: { primary: 50 }, neutralTint: "warm", chroma: "muted" }],
   // Land.
