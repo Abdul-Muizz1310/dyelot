@@ -12,6 +12,10 @@ const PURE_CORE_TESTS = [
   "tests/unit/export/**/*.test.{ts,tsx}",
   // The import layer (M3) is pure too.
   "tests/unit/import/**/*.test.{ts,tsx}",
+  // The AI core (M4, R4-59) is pure too.
+  "tests/unit/ai/**/*.test.{ts,tsx}",
+  // The server shell's pieces (M4, R4-59) run in Node, where the routes run; fetch is injected.
+  "tests/unit/server/**/*.test.{ts,tsx}",
   // The build scripts and the gate guard run under Node and spawn it; they have no DOM.
   "tests/unit/scripts/**/*.test.{ts,tsx}",
 ];
@@ -41,6 +45,7 @@ const SLOW_CORE_TESTS = [
   "tests/unit/engine/lint/t3-defaults-1.test.ts", // 12.1 s: C-TASTE-13
   "tests/unit/engine/presets-lint-5.test.ts", // 11.7 s
   "tests/unit/engine/presets-match-change.test.ts", // 40.6 s: C-PMATCH-03
+  "tests/unit/ai/apply-property.test.ts", // 37.7 to 40.2 s solo, load 0.3 to 0.9: C-IMG-14 (360 runs)
   "tests/unit/export/prompt.test.ts", // 22 s: C-PRM-02 (200 runs of generateSystem and themeCss)
   "tests/unit/import/fuzz-md.test.ts", // 11.5 s: C-IMP-03, 300 runs of importDesignMd
   "tests/unit/export/zip.test.ts", // 11.2 s: C-ZIP-03, one zip per time zone
@@ -53,6 +58,7 @@ const SLOW_WEB_TESTS = [
   "tests/unit/features/studio/store-lock-seeds.test.ts", // 18.1 s: C-STORE-34
   "tests/unit/features/studio/store-lock-pair-aaa.test.ts", // 13.7 s
   "tests/unit/features/studio/store-lock-pair-aa.test.ts", // 13.4 s
+  "tests/unit/features/ai/steer-property.test.ts", // 19.5 to 19.7 s solo, load 0.7 to 0.9: C-CHIP-09
 ];
 
 /** The slow set of R2-31 apart from the scan; the gate guard (C-REPO-M2-07) reads it. */
@@ -116,6 +122,42 @@ const EXPORT_HELPERS = ["files"].map((name) => `src/features/export/${name}.ts`)
 
 /** The import dialog's pure helpers (Task 3.16), held to `PURE_FLOORS` the same way. */
 const IMPORT_HELPERS = ["form"].map((name) => `src/features/import/${name}.ts`);
+
+/**
+ * The AI feature's helpers (Task 4.5 on), held to `PURE_FLOORS` the same way: the steer chips, the
+ * image protocol of Task 4.6b, the browser providers and their router of Task 4.9, and the step
+ * planner and the studio's AI activity that carry the router's planning (the final review's Minor 4).
+ * The image worker's client and the action hook stay with the flows (docs/specs/04-ai.md, section 15).
+ */
+const AI_HELPERS = [
+  "image-protocol",
+  "steer",
+  "shared",
+  "visitor-key",
+  "connect",
+  "on-device",
+  "router",
+  "steps",
+  "activity",
+].map((name) => `src/features/ai/${name}.ts`);
+
+/**
+ * The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name.
+ * langfuse.ts and deps.ts, the routes and the proxy are covered by the flows instead.
+ */
+const SERVER_FILES = [
+  "env",
+  "clock",
+  "cap",
+  "guard",
+  "cache",
+  "transport",
+  "trace",
+  "smoke",
+  "handle",
+].map((name) => `src/server/ai/${name}.ts`);
+/** The server files' floor: 90 lines, statements and functions, 85 branches. */
+const SERVER_FLOORS = { lines: 90, statements: 90, functions: 90, branches: 85 };
 
 export default defineConfig({
   plugins: [react()],
@@ -195,6 +237,8 @@ export default defineConfig({
         // The export and import layers of M3 (pure, held to a floor of their own).
         "src/export/**",
         "src/import/**",
+        // The AI core of M4 (R4-59), held to the pure-core floor: its code, not its prompt files.
+        "src/ai/**/*.ts",
         "src/lib/site/**",
         "src/features/fonts/load.ts",
         // The studio's pure helpers (spec R2-22). The store, the worker shell and the UI are
@@ -203,6 +247,10 @@ export default defineConfig({
         ...PREVIEW_HELPERS,
         ...EXPORT_HELPERS,
         ...IMPORT_HELPERS,
+        ...AI_HELPERS,
+        // The server shell's pieces (M4); handle.ts composes them, and the routes are covered by
+        // the flows.
+        ...SERVER_FILES,
       ],
       thresholds: {
         lines: 80,
@@ -213,15 +261,21 @@ export default defineConfig({
         "src/engine/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/spec/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/theme/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
+        "src/ai/**": { lines: 95, statements: 95, functions: 95, branches: 90 },
         "src/export/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
         // The import layer (M3): 90 lines, statements and functions, 85 branches.
         "src/import/**": { lines: 90, statements: 90, functions: 90, branches: 85 },
         "src/features/fonts/load.ts": { lines: 95, statements: 95, functions: 95, branches: 90 },
         ...Object.fromEntries(
-          [...STUDIO_HELPERS, ...PREVIEW_HELPERS, ...EXPORT_HELPERS, ...IMPORT_HELPERS].map(
-            (file) => [file, PURE_FLOORS],
-          ),
+          [
+            ...STUDIO_HELPERS,
+            ...PREVIEW_HELPERS,
+            ...EXPORT_HELPERS,
+            ...IMPORT_HELPERS,
+            ...AI_HELPERS,
+          ].map((file) => [file, PURE_FLOORS]),
         ),
+        ...Object.fromEntries(SERVER_FILES.map((file) => [file, SERVER_FLOORS])),
       },
     },
   },

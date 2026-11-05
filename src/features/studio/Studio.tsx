@@ -4,6 +4,8 @@ import "./studio.css";
 import "./highlight.css";
 import Link from "next/link";
 import { type RefObject, useEffect, useRef, useState } from "react";
+import { createAiActivity } from "@/features/ai/activity";
+import { readToggle } from "@/features/ai/on-device";
 import { ExportDialog } from "@/features/export/ExportDialog";
 import { ImportDialog } from "@/features/import/ImportDialog";
 import { createFitStore, FitContext } from "@/features/preview/useFrameFit";
@@ -74,6 +76,12 @@ function StudioShell({ store }: { store: StudioStore }) {
   const [toast, setToast] = useState<ToastState | null>(null);
   // The canvas area measures the frame's fit and the toolbar's frame switcher shows it (M-8).
   const [fitStore] = useState(createFitStore);
+  // The one AI activity of the studio (docs/specs/04-ai.md, R4-56), with the on-device switch as
+  // this browser remembers it (R4-31).
+  const [activity] = useState(createAiActivity);
+  useEffect(() => {
+    activity.getState().setOnDevice(readToggle(safeStorage(window)));
+  }, [activity]);
 
   async function copyLink(): Promise<void> {
     // Where focus goes back to when the visitor closes a toast that took it (F-STUDIO-23).
@@ -235,6 +243,7 @@ function StudioShell({ store }: { store: StudioStore }) {
           />
           <InputsPanel
             store={store}
+            activity={activity}
             importButton={importButton}
             onImport={(opener) => openImport(opener)}
           />
@@ -266,6 +275,7 @@ function StudioShell({ store }: { store: StudioStore }) {
           />
           <Inspector
             store={store}
+            activity={activity}
             onCanvasShown={() => {
               // A drawer covers the canvas: it closes so the outline shows (section 7.8).
               if (open === "inspector") closeDrawer();

@@ -23,6 +23,7 @@ export const SITE = defineSite({
     headline: "one palette, every screen, a receipt for each color",
     highlight: "receipt",
   },
-  // No machine endpoints yet, so robots.txt disallows nothing.
-  routes: { sitemap: ["/", "/studio"], disallow: [] },
+  // The API is for the studio, not crawlers, and the OpenRouter callback is one step of a sign-in
+  // (docs/specs/04-ai.md, R4-22). /connect stays crawlable and sets noindex itself.
+  routes: { sitemap: ["/", "/studio"], disallow: ["/api/", "/connect/callback"] },
 });

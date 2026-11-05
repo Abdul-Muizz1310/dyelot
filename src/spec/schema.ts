@@ -216,7 +216,12 @@ const DirectionSchema = z
   })
   .refine((direction) => Object.keys(direction).length > 0, "must have at least one key");
 
-const CreatedWithSchema = z.union([
+/**
+ * What made a design (`meta.createdWith`, R4-36): the controls, the lexicon, a model on the device,
+ * the visitor's key, an import, or the shared route's model by slug. `generateSystem` and the
+ * studio's `applyAi` check their input with this schema itself, never a copy of its rule.
+ */
+export const CreatedWithSchema = z.union([
   z.enum(["controls", "lexicon", "on-device", "visitor-key", "import"]),
   z.templateLiteral(["model:", z.string().regex(MODEL_SLUG)]),
 ]);
@@ -292,3 +297,5 @@ export const DesignSpecSchema = z.strictObject({
 
 /** A parsed design system. The schema's types are what the rest of the app reads. */
 export type DesignSpec = z.infer<typeof DesignSpecSchema>;
+/** `meta.createdWith`'s values (spec 04, section 5.1): a type export only. */
+export type CreatedWith = DesignSpec["meta"]["createdWith"];

@@ -44,7 +44,8 @@ describe("defineSite (T-FE-20)", () => {
         headline: "one palette, every screen, a receipt for each color",
         highlight: "receipt",
       },
-      routes: { sitemap: ["/", "/studio"], disallow: [] },
+      // docs/specs/04-ai.md, R4-22 and section 16: the API and the OAuth callback leave robots.txt.
+      routes: { sitemap: ["/", "/studio"], disallow: ["/api/", "/connect/callback"] },
     });
   });
 

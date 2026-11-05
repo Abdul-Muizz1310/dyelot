@@ -40,13 +40,14 @@ import {
 
 const ROOT = path.resolve(import.meta.dirname, "../../../..");
 
-/** The snapshot fields of the state, for comparing what undo and redo restore. */
+/** The snapshot fields of the state, for comparing what undo and redo restore (C-STORE-10, R4-37). */
 const snap = (studio: Studio) => ({
   params: studio.params,
   seed: studio.seed,
   spec: studio.spec,
   preset: studio.preset,
   provenance: studio.provenance,
+  createdWith: studio.createdWith,
 });
 
 /** Runs `action`, then replies to the request it posted (a fake spec unless `real`). */
@@ -65,7 +66,7 @@ afterEach(() => {
 });
 
 describe("the first load with no hash and no draft", () => {
-  it("C-STORE-01 is FRESH: the default preset, auto pairing, seed-1, idle, light", () => {
+  it("C-STORE-01 is FRESH: the default preset, auto pairing, seed-1, idle, light, controls", () => {
     const { store } = makeStore();
     const state = store.getState();
     expect(state.params).toEqual(FRESH_PARAMS);
@@ -84,6 +85,8 @@ describe("the first load with no hash and no draft", () => {
     expect(state.future).toEqual([]);
     expect(state.status).toEqual({ phase: "idle", notice: null, draft: "on" });
     expect(state.view.mode).toBe("light");
+    // R4-37 (docs/specs/04-ai.md, section 16): a fresh design is made with the controls.
+    expect(state.createdWith).toBe("controls");
   });
 
   it("C-STORE-01 generates the fresh design on first load without posting a request", () => {
@@ -715,7 +718,7 @@ describe("loadFromHash", () => {
 const writeHashOf = (value: unknown): string => `#s=${linkOfValue(value)}`;
 
 describe("drafts on the first load", () => {
-  it("C-STORE-39 a draft with no hash restores its params, seed and preset, with a notice", () => {
+  it("C-STORE-39 a draft with no hash restores its params, seed, preset and createdWith, with a notice", () => {
     const first = makeStore();
     commit(first.store, first.stub, (s) => s.applyPreset("bento"), true);
     first.store.getState().flush();
@@ -724,6 +727,9 @@ describe("drafts on the first load", () => {
     // A draft is a load (R3-42): everything else is what was saved.
     expect(snap(store.getState())).toEqual({ ...saved, provenance: "loaded" });
     expect(store.getState().preset).toBe("bento");
+    // R4-37: createdWith comes from the draft's spec.
+    expect(store.getState().createdWith).toBe(store.getState().spec.meta.createdWith);
+    expect(store.getState().createdWith).toBe("controls");
     expect(store.getState().status.notice).toEqual({ kind: "draft-restored" });
   });
 

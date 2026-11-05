@@ -1,15 +1,18 @@
 import { type DirectionParams, generateSystem } from "@/engine";
-import type { DesignSpec } from "@/spec";
+import type { CreatedWith, DesignSpec } from "@/spec";
 import { describeType, isRecord } from "./guards";
 
 // The worker protocol (spec R2-13 item 2): a request carries an id, the resolved parameters and a
-// seed; the reply echoes the id with a spec or an error. `runGenerate` holds all the logic, so the
-// worker file only wires `message` to it and the logic is unit-tested here.
+// seed, and for an AI or lexicon intent what made it (R4-36); the reply echoes the id with a spec
+// or an error. `runGenerate` holds all the logic, so the worker file only wires `message` to it and
+// the logic is unit-tested here.
 
 export type GenerateRequest = {
   readonly id: number;
   readonly params: DirectionParams;
   readonly seed: string;
+  /** Present only for an AI or lexicon intent, so every M2 request stays `{ id, params, seed }` (R4-37). */
+  readonly createdWith?: Exclude<CreatedWith, "controls" | "import">;
 };
 
 export type GenerateReply =
@@ -53,15 +56,21 @@ function checkRequest(request: unknown): void {
 }
 
 /**
- * `generateSystem(request.params, request.seed)` as a reply that echoes the request's id. It never
- * throws: a generator error, or a request that is not one, becomes `{ ok: false, error }`. A request
- * without a readable id is answered with id 0, which no store applies.
+ * `generateSystem(request.params, request.seed)` as a reply that echoes the request's id, with
+ * `{ createdWith }` as the options when the request has one (R4-36); the generator checks it. It
+ * never throws: a generator error, or a request that is not one, becomes `{ ok: false, error }`. A
+ * request without a readable id is answered with id 0, which no store applies.
  */
 export function runGenerate(request: GenerateRequest): GenerateReply {
   const id = idOf(request);
   try {
     checkRequest(request);
-    return { id, ok: true, spec: generateSystem(request.params, request.seed) };
+    const { params, seed, createdWith } = request;
+    const spec =
+      createdWith === undefined
+        ? generateSystem(params, seed)
+        : generateSystem(params, seed, { createdWith });
+    return { id, ok: true, spec };
   } catch (error) {
     return { id, ok: false, error: errorOf(error) };
   }

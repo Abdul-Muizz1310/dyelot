@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { type Finding, lintSpec, PRESETS, type Preset } from "@/engine";
+import type { AiActivity } from "@/features/ai/activity";
+import { RationaleSection } from "@/features/ai/RationaleSection";
 import type { DesignSpec } from "@/spec";
 import { Findings } from "./Findings";
 import { fixFor } from "./fixes";
@@ -25,10 +27,11 @@ import { type StudioStore, useStudio } from "./store";
 import { useFontFailures } from "./useFontFailures";
 import type { Highlight } from "./view";
 
-// The inspector (spec section 7.8): a font-status message, then Scales, Roles, Names, Findings and
-// Preset notes, in a body that scrolls inside the column or the drawer and takes focus so the keyboard
-// scrolls it (`data-scroll-area`, R2-15 item 2). It holds two bits of state of its own: which finding's
-// "Show me" is pressed, and a fix on its way. The highlight itself is the view's (`view.highlight`),
+// The inspector (spec section 7.8): a font-status message, then Scales, Roles, Names, Findings,
+// Receipt, Rationale (docs/specs/04-ai.md, R4-55) and Preset notes, in a body that scrolls inside
+// the column or the drawer and takes focus so the keyboard scrolls it (`data-scroll-area`, R2-15
+// item 2). It holds two bits of state of its own: which finding's "Show me" is pressed, and a fix
+// on its way. The highlight itself is the view's (`view.highlight`),
 // which the canvas region and the scales read; the rest comes from the store and `inspect.ts`. The body
 // is positioned, so its visually hidden labels stay inside its scroll box and never lengthen the page.
 // Its content sits in an inline-size container, so the padding answers the width left beside a classic
@@ -47,9 +50,12 @@ const NO_CELLS: Highlight["cells"] = Object.freeze([]);
 
 export function Inspector({
   store,
+  activity,
   onCanvasShown,
 }: {
   store: StudioStore;
+  /** The studio's one AI activity (R4-56), which the critique and the rationale run in. */
+  activity: AiActivity;
   /** Called when "Show me" outlines parts of the canvas: a drawer gets out of the way (section 7.8). */
   onCanvasShown(): void;
 }) {
@@ -160,6 +166,8 @@ export function Inspector({
           <RoleTable rows={rows} />
           <NamesSection spec={spec} />
           <Findings
+            store={store}
+            activity={activity}
             findings={findings}
             params={params}
             selected={selected}
@@ -170,6 +178,7 @@ export function Inspector({
             onRebuild={fixable ? () => store.getState().rebuild() : undefined}
           />
           <ReceiptSection store={store} />
+          <RationaleSection store={store} activity={activity} />
           {notes !== null && (
             <PanelSection
               title="Preset notes"

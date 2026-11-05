@@ -1,5 +1,5 @@
 import { type DirectionParams, PRESET_IDS, type PresetId } from "@/engine";
-import { type DesignSpec, decodeSpec, SpecDecodeError } from "@/spec";
+import { type CreatedWith, type DesignSpec, decodeSpec, SpecDecodeError } from "@/spec";
 import { assertRecord, describeType, isOneOf, isRecord } from "./guards";
 import { paramsMatchSpec, parseParams } from "./params";
 import { encodeLink } from "./url";
@@ -29,6 +29,11 @@ export type Snapshot = {
   readonly spec: DesignSpec;
   readonly preset: PresetId | null;
   readonly provenance: Provenance;
+  /**
+   * What made the design (R4-37): the request's value for a generated design, and
+   * `spec.meta.createdWith` for a loaded one. The draft keeps it in its spec.
+   */
+  readonly createdWith: CreatedWith;
 };
 
 /** A draft read back: `params` is null when the stored ones fail the check of R2-14 item 2. */

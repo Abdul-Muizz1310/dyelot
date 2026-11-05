@@ -1,6 +1,8 @@
 import { canonicalJson } from "../spec/canonical";
 import {
   ADJECTIVE_MAX,
+  type CreatedWith,
+  CreatedWithSchema,
   DEPTH_STYLES,
   type DepthStyle,
   type DesignSpec,
@@ -250,6 +252,39 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   };
 }
 
+/** The options of `generateSystem` (R4-36). */
+type GenerateOptions = { readonly createdWith?: CreatedWith };
+
+const OPTION_KEYS: readonly string[] = ["createdWith"];
+
+/**
+ * `meta.createdWith` from `generateSystem`'s options: "controls" when the options or the key are
+ * absent, as before M4. The options must be an object with no other key, and `createdWith` a string
+ * that `CreatedWithSchema` accepts (R-05: TypeError for a wrong type, RangeError for a wrong value).
+ */
+function createdWithOf(options: unknown): CreatedWith {
+  if (options === undefined) return "controls";
+  const name = "generateSystem: options";
+  const source = checkObject(options, name);
+  const unknownKey = Object.keys(source).find((key) => !OPTION_KEYS.includes(key));
+  if (unknownKey !== undefined) {
+    throw new RangeError(`${name}.${unknownKey} is not an option of generateSystem`);
+  }
+  // Read once: a getter could hand back another value between the check and the build.
+  const createdWith: unknown = source.createdWith;
+  if (createdWith === undefined) return "controls";
+  if (typeof createdWith !== "string") {
+    throw new TypeError(`${name}.createdWith must be a string, got ${describeType(createdWith)}`);
+  }
+  const parsed = CreatedWithSchema.safeParse(createdWith);
+  if (!parsed.success) {
+    throw new RangeError(
+      `${name}.createdWith must be a value meta.createdWith takes, got ${JSON.stringify(createdWith)}`,
+    );
+  }
+  return parsed.data;
+}
+
 function rolesFor(palettes: Record<PaletteName, Palette>, mode: Mode, color: ColorParams) {
   const chart = pickChartColors(palettes, mode, color.gamut);
   return resolveRoles(palettes, mode, color.contrastLevel, chart);
@@ -263,9 +298,16 @@ function rolesFor(palettes: Record<PaletteName, Palette>, mode: Mode, color: Col
  * with the achromatic rule applied (R-02, R-03). Every number is stored through `round6`, and
  * the result always passes `DesignSpecSchema`. Generating again from what a spec records (its
  * color parameters, type, shape, depth and motion choices, name and seed) gives the same spec.
+ * `options.createdWith` stamps `meta.createdWith` (R4-36); absent, it is "controls", so every spec
+ * made before M4 is unchanged.
  */
-export function generateSystem(params: DirectionParams, seed: string): DesignSpec {
+export function generateSystem(
+  params: DirectionParams,
+  seed: string,
+  options?: GenerateOptions,
+): DesignSpec {
   const parsed = parseParams(params, seed);
+  const createdWith = createdWithOf(options);
   const { context, ratio } = parsed;
   const palettes = buildPalettes(parsed.color, seededRandom(seed));
   const draft = {
@@ -275,7 +317,7 @@ export function generateSystem(params: DirectionParams, seed: string): DesignSpe
       ...(parsed.oneLiner === undefined ? {} : { oneLiner: parsed.oneLiner }),
       seed,
       engineVersion: ENGINE_VERSION,
-      createdWith: "controls",
+      createdWith,
     },
     ...(parsed.direction === undefined ? {} : { direction: parsed.direction }),
     color: {

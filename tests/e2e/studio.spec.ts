@@ -892,7 +892,11 @@ function panelControls(page: Page): Promise<string[]> {
       const label = el.getAttribute("aria-label");
       if (label !== null) return label;
       if (el instanceof HTMLFieldSetElement) return el.querySelector("legend")?.textContent ?? "";
-      if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement) {
+      if (
+        el instanceof HTMLInputElement ||
+        el instanceof HTMLSelectElement ||
+        el instanceof HTMLTextAreaElement
+      ) {
         return el.labels?.[0]?.textContent?.trim() ?? "";
       }
       return el.textContent?.trim() ?? "";
@@ -903,7 +907,8 @@ function panelControls(page: Page): Promise<string[]> {
       if (el instanceof HTMLInputElement) return el.type;
       return el.tagName.toLowerCase();
     };
-    return [...panel.querySelectorAll("fieldset, select, button, input:not([type='radio'])")]
+    const controls = "fieldset, select, button, textarea, input:not([type='radio'])";
+    return [...panel.querySelectorAll(controls)]
       .filter(visible)
       .map((el) => `${kindOf(el)}:${nameOf(el)}`);
   });
@@ -915,6 +920,13 @@ test.describe("7.2 The inputs panel", () => {
     "text:Name",
     "text:One line",
     "button:Import…",
+    // The Brief section (docs/specs/04-ai.md, 13.1 and 13.7; section 16), AI settings closed.
+    "textarea:Describe the product or mood",
+    "button:Read the brief",
+    "button:AI settings",
+    // The Image section (13.3; section 16).
+    "file:Choose an image",
+    "button:Read the vibe",
     ...SEEDS.flatMap((slot) => [
       `text:${slot}`,
       `color:Pick ${slot.toLowerCase()}`,
@@ -933,6 +945,17 @@ test.describe("7.2 The inputs panel", () => {
     "group:Depth",
     "group:Density",
     "group:Motion feel",
+    // The Steer section (13.4; section 16), after Style and before the footer: the chips, a group
+    // of buttons, then the field and its button.
+    "button:Warmer",
+    "button:Cooler",
+    "button:Bolder",
+    "button:Quieter",
+    "button:Softer",
+    "button:Sharper",
+    "button:Airier",
+    "text:Refine in words",
+    "button:Refine",
     "button:Regenerate",
   ];
 
@@ -942,9 +965,11 @@ test.describe("7.2 The inputs panel", () => {
     await openStudio(page);
     expect(await panelControls(page)).toEqual(CONTROLS);
     const panel = inputsPanel(page);
-    await expect(panel.locator("textarea, input[type='file']")).toHaveCount(0);
-    // No brief or image control; the About section's "Import…" is the panel's one import control (R3-33).
-    await expect(panel).not.toContainText(/brief|image/i);
+    // The brief's textarea is the panel's one, and the Image section's file input its one file
+    // control (docs/specs/04-ai.md, section 16). The About section's "Import…" is the panel's one
+    // import control (R3-33).
+    await expect(panel.locator("textarea")).toHaveCount(1);
+    await expect(panel.locator("input[type='file']")).toHaveCount(1);
     await expect(panel.getByText(/import/i)).toHaveCount(1);
     await expect(panel.getByRole("button", { name: "Import…", exact: true })).toHaveCount(1);
   });
@@ -957,6 +982,39 @@ test.describe("7.2 The inputs panel", () => {
       await expect(panel.locator("label", { hasText: new RegExp(`^${name}$`) })).toBeVisible();
     }
     await expect(panel.getByRole("button", { name: "Import…", exact: true })).toHaveText("Import…");
+    // The Brief section's controls carry section 13's strings (docs/specs/04-ai.md, F-INPUT4-02).
+    const brief = panel.getByRole("textbox", { name: "Describe the product or mood", exact: true });
+    await expect(brief).toHaveCount(1);
+    await expect(brief).toHaveAccessibleDescription("0 of 500 characters");
+    await expect(
+      panel.locator("label", { hasText: /^Describe the product or mood$/ }),
+    ).toBeVisible();
+    const read = panel.getByRole("button", { name: "Read the brief", exact: true });
+    await expect(read).toHaveText("Read the brief");
+    await expect(read).toHaveAccessibleDescription("Write a few words or a color first.");
+    await expect(panel.getByRole("button", { name: "AI settings", exact: true })).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    // The Image section's controls (13.3).
+    const image = panel.getByLabel("Choose an image", { exact: true });
+    await expect(image).toHaveAttribute("type", "file");
+    const vibe = panel.getByRole("button", { name: "Read the vibe", exact: true });
+    await expect(vibe).toHaveText("Read the vibe");
+    await expect(vibe).toHaveAccessibleDescription("Choose an image first.");
+    // The Steer section's controls (13.4).
+    const steer = panel.getByRole("group", { name: "Steer the design", exact: true });
+    await expect(steer.getByText("Steer the design", { exact: true })).toBeVisible();
+    for (const name of ["Warmer", "Cooler", "Bolder", "Quieter", "Softer", "Sharper", "Airier"]) {
+      await expect(steer.getByRole("button", { name, exact: true })).toHaveText(name);
+    }
+    await expect(panel.getByRole("textbox", { name: "Refine in words", exact: true })).toHaveCount(
+      1,
+    );
+    await expect(panel.locator("label", { hasText: /^Refine in words$/ })).toBeVisible();
+    const refine = panel.getByRole("button", { name: "Refine", exact: true });
+    await expect(refine).toHaveText("Refine");
+    await expect(refine).toHaveAccessibleDescription("Write what to change first.");
     for (const slot of SEEDS) {
       await expect(panel.getByRole("textbox", { name: slot, exact: true })).toHaveCount(1);
       await expect(panel.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true })).toHaveCount(1);
@@ -1555,12 +1613,21 @@ test.describe("7.3 Keyboard", () => {
     expect(ring).toEqual(["solid", "2px", MADDER]);
   }
 
-  /** The Tab stops of the inputs panel, in the order of section 7.2. */
+  /**
+   * The Tab stops of the inputs panel, in the order of section 7.2, with the Brief and Image
+   * sections' stops after About and the Steer section's after "Motion feel" (docs/specs/04-ai.md,
+   * 13.7; section 16), AI settings closed.
+   */
   function panelStops(page: Page) {
     return [
       field(page, "Name"),
       field(page, "One line"),
       button(page, "Import…"),
+      field(page, "Describe the product or mood"),
+      button(page, "Read the brief"),
+      button(page, "AI settings"),
+      inputsPanel(page).getByLabel("Choose an image", { exact: true }),
+      button(page, "Read the vibe"),
       ...(["Primary", "Secondary", "Accent"] as const).flatMap((slot) => [
         field(page, slot),
         page.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true }),
@@ -1579,6 +1646,11 @@ test.describe("7.3 Keyboard", () => {
       radio(page, "Depth", "soft"),
       panelRadio(page, "Density", "comfortable"),
       radio(page, "Motion feel", "brisk"),
+      ...["Warmer", "Cooler", "Bolder", "Quieter", "Softer", "Sharper", "Airier"].map((name) =>
+        button(page, name),
+      ),
+      field(page, "Refine in words"),
+      button(page, "Refine"),
       button(page, "Regenerate"),
     ];
   }
@@ -1605,7 +1677,9 @@ test.describe("7.3 Keyboard", () => {
   }) => {
     await stubSeeds(page);
     await openStudio(page);
-    // The inspector follows the canvas: its scroll area, then each finding's actions (Task 2.10b).
+    // The inspector follows the canvas: its scroll area, then each finding's actions (Task 2.10b),
+    // with "Explain the top findings" before the cards and "Write the rationale" after the Receipt
+    // section (13.7 and section 16 of docs/specs/04-ai.md, Task 4.11).
     const findings = lintSpec(first()).map(findingKey);
     expect(findings.length).toBeGreaterThan(0);
     const stops = [
@@ -1617,11 +1691,13 @@ test.describe("7.3 Keyboard", () => {
     ];
     const inspectorStops = [
       inspectorAside(page).locator("[data-scroll-area]"),
+      inspectorAside(page).getByRole("button", { name: "Explain the top findings", exact: true }),
       ...findings.map((key) =>
         inspectorAside(page)
           .locator(`[data-finding="${key}"]`)
           .getByRole("button", { name: "Show me", exact: true }),
       ),
+      inspectorAside(page).getByRole("button", { name: "Write the rationale", exact: true }),
     ];
     await focusBody(page);
     for (const stop of stops) {

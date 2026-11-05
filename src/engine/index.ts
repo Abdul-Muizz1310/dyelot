@@ -51,6 +51,8 @@ export {
   type PairingId,
 } from "./fonts/pairings";
 export { ENGINE_VERSION, generateSystem } from "./generate";
+export type { ImageCluster, ImagePalette, RawCluster } from "./image/palette";
+export { imagePalette } from "./image/palette";
 export { lintSpec } from "./lint";
 export type { Finding, LintedSpec, LintOptions, RuleId, Severity } from "./lint/types";
 export { RULE_IDS } from "./lint/types";

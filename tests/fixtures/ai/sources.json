@@ -1,0 +1,42 @@
+{
+  "four-colors.png": {
+    "sha256": "ebe89904969f224f9ee90ec54e8082e60468c3c0b914751c84c6b78bae5b8e6e",
+    "command": "node tests/fixtures/ai/make-images.mjs"
+  },
+  "gray.png": {
+    "sha256": "0593da7eb8c4d17fedd180f53498537cc3fb077006669c0264a07ed38addd573",
+    "command": "node tests/fixtures/ai/make-images.mjs"
+  },
+  "odd/corrupt.png": {
+    "sha256": "01f9eea1e254e29a72b2396bc5766e836fe635f66bb38c455085d78622c41d00",
+    "command": "node tests/fixtures/ai/make-images.mjs"
+  },
+  "odd/huge.png": {
+    "sha256": "c59645e2122584a81b41438b959ac9e6a92d3b4dfec4838df88f3c634a60704e",
+    "command": "node tests/fixtures/ai/make-images.mjs"
+  },
+  "odd/one-pixel.png": {
+    "sha256": "045e3f17221cb17c9556cd55eec4a91de4139669dd8f1dc617796308ac6b2649",
+    "command": "node tests/fixtures/ai/make-images.mjs"
+  },
+  "odd/rotated.jpg": {
+    "sha256": "5322ba773391e623bde0bf011c253efe82b8b15b2060574e2f5273d80eb764e6",
+    "command": "magick -size 40x20 gradient:\"#b8422e-#3a6ea5\" -quality 90 -strip jpeg:odd/rotated.jpg && node tests/fixtures/ai/make-images.mjs orient6 odd/rotated.jpg (EXIF orientation 6, stored 40 x 20)"
+  },
+  "odd/transparent.png": {
+    "sha256": "ee5f4ae0aae66a3d9ad8166933132bf2fad25da6220d8f02127f69546b5a4795",
+    "command": "node tests/fixtures/ai/make-images.mjs"
+  },
+  "odd/two-frames.gif": {
+    "sha256": "23d121cbf2bc9f1eb4d85f91d7803a0890e9bdcda81a924b42a95f7286d8329c",
+    "command": "magick -delay 10 -size 8x8 xc:\"#b8422e\" -delay 10 -size 8x8 xc:\"#3a6ea5\" -loop 0 odd/two-frames.gif"
+  },
+  "tiny.jpg": {
+    "sha256": "5f5b9a411d7111d39f4293e135c49910eb2f23984bb87f4e55d3157f7b191e02",
+    "command": "magick -size 2x2 xc:\"#b8422e\" -fill \"#3a6ea5\" -draw \"point 1,0\" -fill \"#f2e6d0\" -draw \"point 0,1\" -fill \"#1a1c1e\" -draw \"point 1,1\" -strip -quality 90 tiny.jpg"
+  },
+  "smoke-16.jpg": {
+    "sha256": "1962576157323e2868b02ef1622c84919e255793ef08c6e6967927243063fbe7",
+    "command": "magick -size 16x16 gradient:\"#b8422e-#3a6ea5\" -strip -quality 90 smoke-16.jpg"
+  }
+}

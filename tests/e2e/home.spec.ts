@@ -147,26 +147,61 @@ test("the nav marks no link as current on the 404 page", async ({ page }) => {
   await expect(home).not.toHaveAttribute("aria-current");
 });
 
-// Breaks when the security headers leave next.config.ts, when their source stops matching a route,
-// or when the policy loosens: another origin in `connect-src`, a framable page, a plugin object or
-// `unsafe-eval` in a production build. A later milestone swaps `'unsafe-inline'` for a nonce.
+// Breaks when the proxy stops sending the policy (docs/specs/04-ai.md, R4-25), when its matcher
+// stops covering a response (section 12.2: a 404 under any path is HTML and needs a policy), when
+// a path under /api/ stops getting R4-24's policy, which runs nothing, when the proxy stops passing
+// a file through, when next.config.ts drops one of the other headers or the callback's
+// no-referrer (R4-27, R4-33), or when the page policy loosens: another origin in `connect-src`, an
+// inline script without the nonce, a framable page, a plugin object, a form posting elsewhere or
+// `unsafe-eval` in a production build. Section 16 amends M0's test to F-SEC4-01's values.
 test("every page is served with the security headers and a same-origin policy", async ({
   request,
 }) => {
-  for (const path of ["/", "/no-such-page"]) {
-    const headers = (await request.get(path)).headers();
+  const STRICT = "strict-origin-when-cross-origin";
+  const API_POLICY = "default-src 'none'; frame-ancestors 'none';";
+  const responses: ReadonlyArray<
+    [path: string, status: number, type: RegExp, referrer: string, body?: string]
+  > = [
+    ["/", 200, /^text\/html/, STRICT],
+    ["/studio", 200, /^text\/html/, STRICT],
+    ["/connect/callback", 200, /^text\/html/, "no-referrer"],
+    ["/no-such-page", 404, /^text\/html/, STRICT],
+    ["/api/nope", 404, /^text\/html/, STRICT],
+    ["/robots.txtx", 404, /^text\/html/, STRICT],
+    ["/robots.txt", 200, /^text\/plain/, STRICT, "Disallow: /connect/callback"],
+    ["/sitemap.xml", 200, /^application\/xml/, STRICT, "https://dyelot.vercel.app/studio"],
+    ["/fonts/geist/geist-latin-wght-normal.woff2", 200, /^font\/woff2/, STRICT],
+  ];
+  for (const [path, status, type, referrer, body] of responses) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(status);
+    const headers = response.headers();
+    expect(headers["content-type"], path).toMatch(type);
+    if (body !== undefined) expect(await response.text(), path).toContain(body);
     expect(headers["x-frame-options"], path).toBe("DENY");
     expect(headers["x-content-type-options"], path).toBe("nosniff");
-    expect(headers["referrer-policy"], path).toBe("strict-origin-when-cross-origin");
+    expect(headers["referrer-policy"], path).toBe(referrer);
+    expect(headers["permissions-policy"], path).toBe(
+      "language-model=(self), camera=(), microphone=(), geolocation=()",
+    );
+    if (path.startsWith("/api/")) {
+      expect(headers["content-security-policy"], path).toBe(API_POLICY);
+      continue;
+    }
     const policy = directives(headers["content-security-policy"] ?? "");
     expect(policy["default-src"], path).toEqual(["'self'"]);
     expect(policy["base-uri"], path).toEqual(["'self'"]);
-    expect(policy["connect-src"], path).toEqual(["'self'"]);
+    expect(policy["connect-src"], path).toEqual(["'self'", "https://openrouter.ai"]);
     expect(policy["img-src"], path).toEqual(["'self'", "data:", "blob:"]);
     expect(policy["worker-src"], path).toEqual(["'self'", "blob:"]);
-    expect(policy["script-src"], path).toEqual(["'self'", "'unsafe-inline'"]);
+    expect(policy["script-src"], path).toEqual([
+      "'self'",
+      expect.stringMatching(/^'nonce-[A-Za-z0-9+/]{48}'$/),
+      "'strict-dynamic'",
+    ]);
     expect(policy["frame-ancestors"], path).toEqual(["'none'"]);
     expect(policy["object-src"], path).toEqual(["'none'"]);
+    expect(policy["form-action"], path).toEqual(["'self'"]);
   }
 });
 

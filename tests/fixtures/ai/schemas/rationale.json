@@ -1,0 +1,42 @@
+{
+  "type": "object",
+  "properties": {
+    "oneLiner": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 140
+    },
+    "thesis": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 280
+    },
+    "do": {
+      "minItems": 1,
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      }
+    },
+    "dont": {
+      "minItems": 1,
+      "maxItems": 6,
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 160
+      }
+    }
+  },
+  "required": [
+    "oneLiner",
+    "thesis",
+    "do",
+    "dont"
+  ],
+  "additionalProperties": false
+}

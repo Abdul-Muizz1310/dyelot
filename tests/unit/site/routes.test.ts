@@ -3,13 +3,17 @@
 
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { createElement } from "react";
+import { afterEach, describe, expect, it } from "vitest";
+import ConnectCallbackPage, { metadata as callbackMetadata } from "@/app/connect/callback/page";
+import ConnectPage, { metadata as connectMetadata } from "@/app/connect/page";
 import manifest from "@/app/manifest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
 import { SITE } from "@/lib/site/config";
 import { defineSite } from "@/lib/site/define";
-import { robotsFile } from "@/lib/site/metadata";
+import { pageMetadata, robotsFile } from "@/lib/site/metadata";
 import { pngSize } from "./image-headers";
 
 describe("manifest (T-FE-24)", () => {
@@ -42,11 +46,17 @@ describe("manifest (T-FE-24)", () => {
 });
 
 describe("robots and sitemap (T-FE-25)", () => {
-  it("allows the whole site and names the sitemap", () => {
+  // T-FE-25 as docs/specs/04-ai.md section 16 amends it (R4-22): the API and the OAuth callback
+  // leave robots.txt, and the sitemap keeps the two pages.
+  it("C-SITE4-01 allows the site but /api/ and /connect/callback, and names the sitemap", () => {
     expect(robots()).toEqual({
-      rules: [{ userAgent: "*", allow: "/" }],
+      rules: [{ userAgent: "*", allow: "/", disallow: ["/api/", "/connect/callback"] }],
       sitemap: "https://dyelot.vercel.app/sitemap.xml",
     });
+    expect(sitemap().map((entry) => entry.url)).toEqual([
+      "https://dyelot.vercel.app/",
+      "https://dyelot.vercel.app/studio",
+    ]);
   });
 
   it("disallows the machine endpoints a site declares", () => {
@@ -60,5 +70,62 @@ describe("robots and sitemap (T-FE-25)", () => {
     const urls = sitemap().map((entry) => entry.url);
     expect(urls).toEqual(["https://dyelot.vercel.app/", "https://dyelot.vercel.app/studio"]);
     expect(new Set(urls).size).toBe(urls.length);
+  });
+});
+
+// C-SITE4-03 of docs/specs/04-ai.md, section 14.8 (R4-22, R4-33, section 12.4).
+describe("C-SITE4-03 the connect pages' metadata", () => {
+  afterEach(cleanup);
+
+  const CONNECT = {
+    title: "Connect your OpenRouter key",
+    description:
+      "Use your own OpenRouter account for dyelot's model actions. Your browser talks to OpenRouter directly, and the key never reaches dyelot.",
+  };
+  const CALLBACK = {
+    title: "Connecting your OpenRouter key",
+    description:
+      "Finishes the OpenRouter sign-in in this browser and returns you to the studio. The key stays in this browser.",
+  };
+
+  it("C-SITE4-03 /connect has 12.4's title and description, a canonical and noindex, nofollow", () => {
+    expect(connectMetadata).toEqual({
+      title: CONNECT.title,
+      description: CONNECT.description,
+      alternates: { canonical: "/connect" },
+      robots: { index: false, follow: false },
+    });
+  });
+
+  it("C-SITE4-03 /connect/callback adds no-referrer to the same keys", () => {
+    expect(callbackMetadata).toEqual({
+      title: CALLBACK.title,
+      description: CALLBACK.description,
+      alternates: { canonical: "/connect/callback" },
+      robots: { index: false, follow: false },
+      referrer: "no-referrer",
+    });
+  });
+
+  it.each([
+    ["/connect", CONNECT],
+    ["/connect/callback", CALLBACK],
+  ] as const)("C-SITE4-03 %s's copy is within pageMetadata's bounds", (route, copy) => {
+    expect(() => pageMetadata(SITE, route, copy)).not.toThrow();
+    expect(copy.description.length).toBeGreaterThanOrEqual(50);
+    expect(copy.description.length).toBeLessThanOrEqual(160);
+    expect(`${copy.title} — ${SITE.name}`.length).toBeLessThanOrEqual(70);
+  });
+
+  // Section 13.6: until Task 4.10a mounts the panels, each page shows only its heading, which is
+  // the title above.
+  it.each([
+    ["/connect", ConnectPage, CONNECT.title],
+    ["/connect/callback", ConnectCallbackPage, CALLBACK.title],
+  ] as const)("C-SITE4-03 %s's one heading is its title", (_, Page, title) => {
+    render(createElement(Page));
+    const headings = screen.getAllByRole("heading", { level: 1 });
+    expect(headings).toHaveLength(1);
+    expect(headings[0]).toHaveTextContent(title);
   });
 });
