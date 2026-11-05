@@ -338,27 +338,28 @@ describe("designMd body", () => {
 
   it("C-DMD-12: Install and Self-check, filled", () => {
     const link = editLink(SPEC, ORIGIN);
-    expect(TEXT).toContain(
+    // 6.9.1 word for word, with SPEC's placeholders filled.
+    const expected = [
+      "## Install",
+      "",
       "Two routes put this system into a Next.js app with Tailwind CSS v4. Pick one.",
-    );
-    expect(TEXT).toContain(
-      "npm install @fontsource-variable/host-grotesk @fontsource/fragment-mono",
-    );
-    expect(TEXT).toContain(
-      "because they would override this theme. If the template sets a `font-family` on `body`, remove it, so the theme's fonts apply.",
-    );
-    expect(TEXT).toContain("`npx shadcn@latest add ./registry/untitled.json`");
-    expect(TEXT).toContain(
-      ", then `npx shadcn@latest add ./registry/font-<id>.json` for each font file",
-    );
-    expect(TEXT).toContain("`registry/font-host-grotesk.json`");
-    expect(TEXT).toContain("`registry/font-fragment-mono.json`");
-    expect(TEXT).toContain(
-      `Never edit \`receipt.json\` or \`app/theme.css\` by hand to make the check pass; change the design in the studio and export it again: ${link}\n`,
-    );
-    expect(TEXT).toContain("measures the 78 required contrast pairs again");
-    const install = TEXT.slice(TEXT.indexOf("## Install"), TEXT.indexOf("## Self-check"));
-    expect(install.trimEnd().endsWith(`\`\`\`css\n${themeCss(SPEC, ORIGIN)}\n\`\`\``)).toBe(true);
+      "",
+      '**Route 1: the stylesheet.** Copy `app/theme.css` into your app\'s `app/` folder. In `app/globals.css`, keep `@import "tailwindcss";` and add `@import "./theme.css";` right after it. If a template (create-next-app or shadcn/ui) wrote `@custom-variant dark`, `:root`, `.dark`, `@theme` or `@theme inline` blocks in `app/globals.css`, delete them, because they would override this theme. If the template sets a `font-family` on `body` or loads its own fonts in `app/layout.tsx` (create-next-app loads Geist), remove them, so the theme\'s fonts apply. Install the fonts with `npm install @fontsource-variable/host-grotesk @fontsource/fragment-mono` and import each once in `app/layout.tsx`: `import "@fontsource-variable/host-grotesk";` `import "@fontsource/fragment-mono";`. Put the class `dark` on `<html>` to show dark mode.',
+      "",
+      "**Route 2: shadcn.** Run `npx shadcn@latest add ./registry/untitled.json`, then `npx shadcn@latest add ./registry/font-<id>.json` for each font file (`registry/font-host-grotesk.json`, `registry/font-fragment-mono.json`). Do not also import `app/theme.css`. This route sets the colors, the radius and the fonts; the type steps, shadows and easings live only in `app/theme.css`, so copy its `@theme` block if you need them.",
+      "",
+      "Either way, copy `scripts/dyelot-check.mjs` and `receipt.json` into the app's root, and add the block in `AGENTS.md.snippet` to your `AGENTS.md`. The files in `tokens/` are the source of truth for design tools; `design.toon` is a compact view of the same colors for prompts.",
+      "",
+      "```css",
+      themeCss(SPEC, ORIGIN),
+      "```",
+      "",
+      "## Self-check before you finish",
+      "",
+      `Run \`node scripts/dyelot-check.mjs\` from the app's root before you finish any UI change. It checks the theme against \`receipt.json\`, measures the 78 required contrast pairs again, and scans the source for raw colors and Tailwind palette classes. Fix every finding until it prints \`PASS\`. A raw color you must keep needs a comment on its line: \`dyelot-check-ignore: <reason>\`. Never edit \`receipt.json\` or \`app/theme.css\` by hand to make the check pass; change the design in the studio and export it again: ${link}`,
+      "",
+    ].join("\n");
+    expect(TEXT.slice(TEXT.indexOf("## Install"))).toBe(expected);
 
     const redaction = generateSystem(
       resolveParams({ ...DEFAULT_PARAMS, name: "Red" }, "seed-1"),
