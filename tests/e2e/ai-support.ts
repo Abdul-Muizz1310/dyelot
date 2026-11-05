@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { expect, type Locator, type Page, type Request, type Route } from "@playwright/test";
+import {
+  type APIRequestContext,
+  expect,
+  type Locator,
+  type Page,
+  type Request,
+  type Route,
+} from "@playwright/test";
 import type { AiFeature, FeatureOutput, RouteCode } from "@/ai";
 import type { ImagePalette } from "@/engine";
 import type { OnDeviceState } from "@/features/ai/on-device";
@@ -558,4 +565,73 @@ export async function runRefine(page: Page, text: string): Promise<void> {
 /** Waits until the Steer section shows exactly `lines`. */
 export async function expectSteerLines(page: Page, lines: readonly string[]): Promise<void> {
   await expect(steerLines(page).locator("p")).toHaveText([...lines]);
+}
+
+// ——— The mock OpenRouter (Task 4.12a, R4-58) ———
+
+/** The mock's address, the first web server of playwright.config.ts (R4-58). */
+export const MOCK_ORIGIN = "http://127.0.0.1:3199";
+/** The two OpenRouter paths the server shell calls on the mock. */
+export const MOCK_KEY_PATH = "/api/v1/key";
+export const MOCK_CHAT_PATH = "/api/v1/chat/completions";
+
+/** The mock's scenarios (section 4). */
+export type MockScenario = "ok" | "tier1-500" | "tier1-color" | "all-fail" | "hold";
+
+/**
+ * One request the mock logged since its scenario was set: `open` until the mock has written its
+ * reply (`answered`, with the status) or the caller hung up first (`closed`). A chat request also
+ * carries its `model`, the feature its user message names and its system message.
+ */
+export type MockRequest = {
+  readonly method: string;
+  readonly path: string;
+  readonly state: "open" | "answered" | "closed";
+  readonly status: number | null;
+  readonly model?: string;
+  readonly feature?: AiFeature | null;
+  readonly system?: string;
+};
+
+/**
+ * Sets the mock's scenario with `POST /__scenario`, which also clears its log and answers any reply
+ * it held, before it replies.
+ */
+export async function setScenario(request: APIRequestContext, name: MockScenario): Promise<void> {
+  const response = await request.post(`${MOCK_ORIGIN}/__scenario`, { data: { name } });
+  expect(response.status(), `setScenario: ${name}`).toBe(200);
+}
+
+/** Answers every chat reply the `hold` scenario holds, with `POST /__release`. */
+export async function release(request: APIRequestContext): Promise<void> {
+  const response = await request.post(`${MOCK_ORIGIN}/__release`);
+  expect(response.status(), "release").toBe(200);
+}
+
+/** The requests the mock logged since its scenario was set, in order (`GET /__log`). */
+export async function mockLog(request: APIRequestContext): Promise<MockRequest[]> {
+  const response = await request.get(`${MOCK_ORIGIN}/__log`);
+  expect(response.status(), "mockLog").toBe(200);
+  const body = (await response.json()) as { requests: MockRequest[] };
+  return body.requests;
+}
+
+/** The chat requests of a log. */
+export const chatRequests = (log: readonly MockRequest[]): MockRequest[] =>
+  log.filter((entry) => entry.path === MOCK_CHAT_PATH);
+
+const openChats = async (request: APIRequestContext): Promise<number> =>
+  chatRequests(await mockLog(request)).filter((entry) => entry.state === "open").length;
+
+/**
+ * Polls the mock's log until no chat request is open, so no reply an earlier flow left behind can
+ * keep the server's cascade gate taken (R4-58).
+ */
+export async function waitForIdle(request: APIRequestContext): Promise<void> {
+  await expect.poll(() => openChats(request)).toBe(0);
+}
+
+/** Polls the mock's log until it holds a chat request open (the `hold` scenario's). */
+export async function waitForHeld(request: APIRequestContext): Promise<void> {
+  await expect.poll(() => openChats(request)).toBeGreaterThan(0);
 }

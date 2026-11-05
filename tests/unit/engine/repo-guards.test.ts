@@ -12,6 +12,7 @@ import { builtinModules } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { isFreeSlug } from "@/ai";
 import config from "../../../vitest.config";
 
 // C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9, with
@@ -1567,5 +1568,129 @@ describe("C-GUARD4-07 model text is React text: src writes no HTML", () => {
     "const writer = document.writer;",
   ])("C-GUARD4-07 lets the probe %j through", (source) => {
     expect(htmlSinks(source)).toEqual([]);
+  });
+});
+
+// C-GUARD4-06 of docs/specs/04-ai.md, section 14.10 (R4-13): every slug the repository configures,
+// fixes or mocks is a free one. The values of the slug variables in .env.example, the e2e server's
+// environment in playwright.config.ts and the mock OpenRouter, and every string literal ending in
+// `:free` in those files and in the unit fixtures, pass `isFreeSlug`. An empty value is an unset
+// tier (11.4), not a slug.
+
+/** The files whose slug variables and `:free` literals the guard reads. */
+const SLUG_FILES = [".env.example", "playwright.config.ts", "tests/e2e/mock-openrouter.mjs"];
+/** A slug variable's name: `OPENROUTER_MODEL_*` or `OPENROUTER_VISION_MODEL_*`. */
+const SLUG_NAME = "OPENROUTER_(?:VISION_)?MODEL_[A-Z0-9_]+";
+/** A dotenv line `NAME=value`, at the start of its line (a comment never is). */
+const DOTENV_SLUG = new RegExp(`^(${SLUG_NAME})=(.*)$`, "gm");
+/** An object entry `NAME: "value"`, the value in any quote. */
+const ENTRY_SLUG = new RegExp(`\\b(${SLUG_NAME})\\s*:\\s*(["'\`])([^"'\`\\n]*)\\2`, "g");
+/** A string literal, in any quote, whose text ends in `:free`. */
+const FREE_LITERAL = /(["'`])([^"'`\n]*:free)\1/g;
+
+/** The slug variables a file sets, as `[name, value]` pairs in order, empty values included. */
+function slugVariables(text: string): [name: string, value: string][] {
+  const dotenv = [...text.matchAll(DOTENV_SLUG)].map((match): [string, string] => [
+    match[1] as string,
+    (match[2] as string).trim(),
+  ]);
+  const entries = [...text.matchAll(ENTRY_SLUG)].map((match): [string, string] => [
+    match[1] as string,
+    match[3] as string,
+  ]);
+  return [...dotenv, ...entries];
+}
+
+/** The text of every string literal ending in `:free`, in order. */
+const freeLiterals = (text: string): string[] =>
+  [...text.matchAll(FREE_LITERAL)].map((match) => match[2] as string);
+
+/** Every `fixtures*.ts` file under tests/unit. */
+function unitFixtureFiles(): string[] {
+  return readdirSync(path.join(ROOT, "tests/unit"), { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && /^fixtures.*\.ts$/.test(entry.name))
+    .map((entry) => path.join(entry.parentPath, entry.name));
+}
+
+describe("C-GUARD4-06 every configured, fixed or mocked slug is free", () => {
+  const read = (file: string) => readFileSync(path.join(ROOT, file), "utf8");
+
+  it("C-GUARD4-06 reads every slug variable of .env.example and of the e2e server", () => {
+    const names = [
+      "OPENROUTER_MODEL_PRIMARY",
+      "OPENROUTER_MODEL_FAST",
+      "OPENROUTER_MODEL_FALLBACK",
+      "OPENROUTER_VISION_MODEL_1",
+      "OPENROUTER_VISION_MODEL_2",
+      "OPENROUTER_VISION_MODEL_3",
+    ];
+    expect(slugVariables(read(".env.example")).map(([name]) => name)).toEqual(names);
+    expect(slugVariables(read("playwright.config.ts"))).toEqual([
+      ["OPENROUTER_MODEL_PRIMARY", "test/text-1:free"],
+      ["OPENROUTER_MODEL_FAST", "test/text-2:free"],
+      ["OPENROUTER_MODEL_FALLBACK", "test/text-3:free"],
+      ["OPENROUTER_VISION_MODEL_1", "test/vision-1:free"],
+      ["OPENROUTER_VISION_MODEL_2", "test/vision-2:free"],
+      ["OPENROUTER_VISION_MODEL_3", "test/vision-3:free"],
+    ]);
+  });
+
+  it("C-GUARD4-06 finds the free slugs the mock answers as tier 1 and the fixtures' test slugs", () => {
+    expect(freeLiterals(read("tests/e2e/mock-openrouter.mjs"))).toEqual(
+      expect.arrayContaining(["test/text-1:free", "test/vision-1:free"]),
+    );
+    const fixtures = unitFixtureFiles();
+    expect(fixtures).toContain(path.join(ROOT, "tests/unit/ai/fixtures.ts"));
+    expect(fixtures.flatMap((file) => freeLiterals(readFileSync(file, "utf8")))).toEqual(
+      expect.arrayContaining([
+        "test/text-1:free",
+        "test/text-2:free",
+        "test/text-3:free",
+        "test/vision-1:free",
+        "test/vision-2:free",
+        "test/vision-3:free",
+      ]),
+    );
+  });
+
+  it("C-GUARD4-06 finds every slug variable's value and every :free literal free", () => {
+    const slugs = SLUG_FILES.flatMap((file) => {
+      const text = read(file);
+      const values = slugVariables(text)
+        .filter(([, value]) => value !== "")
+        .map(([name, value]) => [`${file} ${name}`, value] as const);
+      const literals = freeLiterals(text).map((literal) => [file, literal] as const);
+      return [...values, ...literals];
+    });
+    const fixtures = unitFixtureFiles().flatMap((file) =>
+      freeLiterals(readFileSync(file, "utf8")).map(
+        (literal) => [path.relative(ROOT, file), literal] as const,
+      ),
+    );
+    const notFree = [...slugs, ...fixtures]
+      .filter(([, slug]) => !isFreeSlug(slug))
+      .map(([where, slug]) => `${where}: ${slug}`);
+    expect(notFree).toEqual([]);
+  });
+
+  it("C-GUARD4-06 reads both forms of a slug variable and every quote of a :free literal (a probe)", () => {
+    const probe = [
+      "# OPENROUTER_MODEL_PRIMARY=commented/out:free",
+      "OPENROUTER_MODEL_PRIMARY=openai/gpt-4o",
+      "OPENROUTER_VISION_MODEL_3=",
+      "const env = { OPENROUTER_MODEL_FAST: \"vendor/model:free\", OPENROUTER_VISION_MODEL_1: 'x:free' };",
+      "const slug = `vendor/model-2:free`;",
+    ].join("\n");
+    expect(slugVariables(probe)).toEqual([
+      ["OPENROUTER_MODEL_PRIMARY", "openai/gpt-4o"],
+      ["OPENROUTER_VISION_MODEL_3", ""],
+      ["OPENROUTER_MODEL_FAST", "vendor/model:free"],
+      ["OPENROUTER_VISION_MODEL_1", "x:free"],
+    ]);
+    expect(freeLiterals(probe)).toEqual(["vendor/model:free", "x:free", "vendor/model-2:free"]);
+    // A paid slug and a malformed free one are caught.
+    expect(isFreeSlug("openai/gpt-4o")).toBe(false);
+    expect(isFreeSlug("x:free")).toBe(false);
+    expect(isFreeSlug("vendor/model:free")).toBe(true);
   });
 });
