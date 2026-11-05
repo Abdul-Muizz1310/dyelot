@@ -10,7 +10,7 @@ import { lotTag, specId } from "@/spec";
 import { APP, type AppFiles, cleanFolders, SHADCN_APP, STUB_FILES } from "./checker-support";
 import { ORIGIN, SPEC } from "./golden-support";
 
-// C-CHK-01 to 23, 27 to 30, 34 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
+// C-CHK-01 to 23, 27 to 30, 34, 35 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
 // through `main(argv, io)`. C-CHK-24 and 26 spawn node: tests/unit/export/checker-entry.test.ts.
 
 afterAll(cleanFolders);
@@ -525,7 +525,7 @@ describe("the scan", () => {
     expect(r.json.ignored).toEqual([]);
   });
 
-  it("C-CHK-29: skipped folders, big files, the bundle's own files, declaration lines", () => {
+  it("C-CHK-29: skipped folders, big files, the bundle's own files", () => {
     const bad = 'const c = "#ff0000";\n';
     const files: Record<string, string> = {
       "src/node_modules/x/a.ts": bad,
@@ -539,12 +539,63 @@ describe("the scan", () => {
       "src/big.ts": `${"x".repeat(1.1 * 1024 * 1024)}\n${bad}`,
       "motion/motion.css": "a { color: #ff0000; }\n",
       "scripts/dyelot-check.mjs": bad,
-      "src/decl.css":
-        ":root { --primary: #ff0000; }\n.x {\n  --radius: #fff;\n  --color-primary: #abc;\n}\n",
     };
     const r = scan(files);
     expect(r.code).toBe(0);
-    expect(r.json.checked.files).toBe(2);
+    expect(r.json.checked.files).toBe(1);
+  });
+
+  it("C-CHK-35: the scan masks only the declarations checks 1b and 3 judge", () => {
+    const places = (r: Run) => scanOf(r).map((f) => [f.code, f.path, f.line]);
+    // A: an off-token color added through @theme, in globals.css and in a component stylesheet.
+    const brand = scan({
+      "app/globals.css": '@import "./theme.css";\n@theme {\n  --color-brand: #ff00aa;\n}\n',
+      "app/brand.css": "@theme { --color-brand: #ff00aa; }\n",
+      "src/a.tsx": '<p className="bg-brand text-brand" />\n',
+    });
+    expect(places(brand)).toEqual([
+      ["raw-color", "app/brand.css", 1],
+      ["raw-color", "app/globals.css", 3],
+    ]);
+    // F: a role set on a selector that is neither :root nor .dark.
+    const body = scan({
+      "app/globals.css":
+        '@import "./theme.css";\nbody { --primary: #ff0000; }\n.marketing { --background: oklch(0.2 0.1 30); }\n',
+    });
+    expect(places(body)).toEqual([
+      ["raw-color", "app/globals.css", 2],
+      ["raw-color", "app/globals.css", 3],
+    ]);
+    // B: a :root in a stylesheet the global one does not import.
+    const unimported = scan({ "app/marketing.css": ":root { --primary: #f00; }\n" });
+    expect(places(unimported)).toEqual([["raw-color", "app/marketing.css", 1]]);
+    // The declarations of any stylesheet nothing imports are scanned like any line.
+    const loose = scan({
+      "src/decl.css":
+        ":root { --primary: #ff0000; }\n.x {\n  --radius: #fff;\n  --color-primary: #abc;\n}\n",
+    });
+    expect(places(loose)).toEqual([
+      ["raw-color", "src/decl.css", 1],
+      ["raw-color", "src/decl.css", 3],
+      ["raw-color", "src/decl.css", 4],
+    ]);
+    // C: a judged role line and a raw color on one line: only the raw color is found.
+    const light = SPEC.color.roles.light.primary;
+    const line = `  --primary: ${light}; --brand: #ff0000;`;
+    const beside = check(registryApp((css) => css.replace(`  --primary: ${light};`, line)));
+    expect(scanOf(beside).map((f) => [f.code, f.path, f.column, f.text])).toEqual([
+      ["raw-color", "app/globals.css", line.indexOf("#ff0000") + 1, "#ff0000"],
+    ]);
+    const after = scan({
+      "app/globals.css": `@import "./theme.css";\n:root { --primary: ${light}; } a { color: #ff0000; }\n`,
+    });
+    expect(scanOf(after).map((f) => [f.code, f.text])).toEqual([["raw-color", "#ff0000"]]);
+    // A judged declaration in a later stylesheet is check 3's alone, never also a raw color.
+    const later = scan({
+      "app/globals.css": '@import "./theme.css";\n@import "./extra.css";\n',
+      "app/extra.css": ":root {\n  --primary: #000000;\n}\n",
+    });
+    expect(codes(later)).toEqual(["shadowed"]);
   });
 
   it("C-CHK-RF5: 5,000 files and a node_modules file", () => {

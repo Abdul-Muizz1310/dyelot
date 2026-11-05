@@ -29,7 +29,7 @@ import { fileURLToPath } from "node:url";
  * @property {string} [text]
  *
  * @typedef {{ path: string, line: number, reason: string }} Ignored
- * @typedef {{ name: string, value: string, offset: number, line: number }} Decl
+ * @typedef {{ name: string, value: string, offset: number, end: number, line: number }} Decl
  * @typedef {{ selector: string, kind: string, decls: Decl[], offset: number }} Block
  * @typedef {{ path: string, text: string }} Sheet
  * @typedef {{ roles: Record<string, Record<string, string>>, radius: string, contrast: Record<string, any>[], files: { path: string, sha256?: string }[], design?: Record<string, any> }} Receipt
@@ -132,6 +132,7 @@ function declsOf(source, text, from, to) {
           name: match[2] ?? "",
           value: (match[3] ?? "").trim(),
           offset,
+          end: at,
           line: lineOf(source, offset),
         });
       }
@@ -312,14 +313,27 @@ const SCALE_PALETTES = [
 const SCALE_STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
 
 /**
- * Scans one line of source.
+ * The text with each span blanked, line ends kept, so lines and columns stay those of the original.
+ * @param {string} text
+ * @param {readonly [number, number][]} spans
+ */
+function masked(text, spans) {
+  if (spans.length === 0) return text;
+  const units = text.split("");
+  for (const [from, to] of spans) {
+    for (let at = from; at < to; at += 1) {
+      if (units[at] !== "\n" && units[at] !== "\r") units[at] = " ";
+    }
+  }
+  return units.join("");
+}
+
+/**
+ * Scans one line of source, whose judged declarations are already masked.
  * @param {string} line
- * @param {RegExp} declaration Matches a line that declares a role, `--radius` or a `--color-*` name (and, in the theme file, a scale step).
  * @returns {{ findings: { code: string, column: number, text: string, message: string }[], ignored: string | null }}
  */
-export function scanLine(line, declaration) {
-  const none = { findings: [], ignored: null };
-  if (declaration.test(line)) return none;
+export function scanLine(line) {
   /** @type {{ code: string, column: number, text: string, message: string }[]} */
   const findings = [];
   /** @param {RegExpMatchArray} match */
@@ -688,6 +702,27 @@ export function main(argv, io) {
     }
 
     // Check 4: the scan.
+    // It masks exactly the declarations checks 1b and 3 judge, so none is counted twice: the
+    // roles, --radius and --color-<role> or --color-<palette>-<step> mappings in check 3's stream,
+    // and the scale steps in the theme's :root and .dark, where the registry route writes them.
+    // Every other declaration is scanned like any line, and so is the rest of a masked one's line.
+    const escaped = roleNames.map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
+    const scale = `(?:${SCALE_PALETTES.join("|")})-(?:${SCALE_STEPS.join("|")})`;
+    const judged = new RegExp(`^--(?:${escaped}|radius|color-(?:${escaped}|${scale}))$`);
+    const step = new RegExp(`^--${scale}$`);
+    /** @type {Map<string, [number, number][]>} */
+    const spans = new Map();
+    /** @param {string} file @param {Decl} decl */
+    const hide = (file, decl) => {
+      const list = spans.get(file) ?? [];
+      list.push([decl.offset, decl.end]);
+      spans.set(file, list);
+    };
+    for (const item of stream) if (judged.test(item.decl.name)) hide(item.path, item.decl);
+    for (const block of themeBlocks) {
+      if (!hasSelector(block, ":root") && !hasSelector(block, ".dark")) continue;
+      for (const decl of block.decls) if (step.test(decl.name)) hide(theme.path, decl);
+    }
     // The theme file is the bundle's own, wherever the user moved it: check 1 judged its hash.
     const own = new Set(["receipt.json", ...receipt.files.map((file) => file.path)]);
     if (path.posix.basename(theme.path) === "theme.css") own.add(theme.path);
@@ -695,16 +730,11 @@ export function main(argv, io) {
     const files = [];
     walkFiles(root, "", io, own, files);
     files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-    const declared = `${[...roleNames, "radius"].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}|color-[\\w-]*`;
-    const scale = `(?:${SCALE_PALETTES.join("|")})-(?:${SCALE_STEPS.join("|")})`;
-    const declaration = new RegExp(`(?:^|[\\s;{])--(?:${declared})\\s*:`);
-    // Only the resolved theme file may hold scale steps, where the registry route writes them.
-    const themeDeclaration = new RegExp(`(?:^|[\\s;{])--(?:${declared}|${scale})\\s*:`);
     checked.files = files.length;
     for (const file of files) {
-      const lines = file.text.split(/\r\n|\r|\n/);
+      const lines = masked(file.text, spans.get(file.path) ?? []).split(/\r\n|\r|\n/);
       lines.forEach((line, index) => {
-        const result = scanLine(line, file.path === theme.path ? themeDeclaration : declaration);
+        const result = scanLine(line);
         if (result.ignored !== null)
           ignored.push({ path: file.path, line: index + 1, reason: result.ignored });
         for (const f of result.findings) {
