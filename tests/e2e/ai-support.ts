@@ -533,3 +533,29 @@ export function extractionLines(palette: ImagePalette): string[] {
     .map(([role, hex]) => `${role} ${hex}`);
   return [`Seeds: ${parts.join(", ")}.`, "Made with the image's colors (no model)."];
 }
+
+/** The inputs panel's Steer section (13.4). */
+export const steerSection = (page: Page): Locator =>
+  inputsPanel(page).getByRole("region", { name: "Steer", exact: true });
+/** A chip of the group "Steer the design", by its label ("Warmer" … "Airier"). */
+export const chipButton = (page: Page, name: string): Locator =>
+  inputsPanel(page)
+    .getByRole("group", { name: "Steer the design", exact: true })
+    .getByRole("button", { name, exact: true });
+export const refineField = (page: Page): Locator =>
+  inputsPanel(page).getByRole("textbox", { name: "Refine in words", exact: true });
+export const refineButton = (page: Page): Locator =>
+  inputsPanel(page).getByRole("button", { name: "Refine", exact: true });
+/** The Steer section's one status region. */
+export const steerLines = (page: Page): Locator => steerSection(page).locator("[data-ai-lines]");
+
+/** Types `text` into "Refine in words" and presses "Refine". */
+export async function runRefine(page: Page, text: string): Promise<void> {
+  await refineField(page).fill(text);
+  await refineButton(page).click();
+}
+
+/** Waits until the Steer section shows exactly `lines`. */
+export async function expectSteerLines(page: Page, lines: readonly string[]): Promise<void> {
+  await expect(steerLines(page).locator("p")).toHaveText([...lines]);
+}

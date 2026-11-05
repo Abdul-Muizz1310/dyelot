@@ -945,6 +945,17 @@ test.describe("7.2 The inputs panel", () => {
     "group:Depth",
     "group:Density",
     "group:Motion feel",
+    // The Steer section (13.4; section 16), after Style and before the footer: the chips, a group
+    // of buttons, then the field and its button.
+    "button:Warmer",
+    "button:Cooler",
+    "button:Bolder",
+    "button:Quieter",
+    "button:Softer",
+    "button:Sharper",
+    "button:Airier",
+    "text:Refine in words",
+    "button:Refine",
     "button:Regenerate",
   ];
 
@@ -991,6 +1002,19 @@ test.describe("7.2 The inputs panel", () => {
     const vibe = panel.getByRole("button", { name: "Read the vibe", exact: true });
     await expect(vibe).toHaveText("Read the vibe");
     await expect(vibe).toHaveAccessibleDescription("Choose an image first.");
+    // The Steer section's controls (13.4).
+    const steer = panel.getByRole("group", { name: "Steer the design", exact: true });
+    await expect(steer.getByText("Steer the design", { exact: true })).toBeVisible();
+    for (const name of ["Warmer", "Cooler", "Bolder", "Quieter", "Softer", "Sharper", "Airier"]) {
+      await expect(steer.getByRole("button", { name, exact: true })).toHaveText(name);
+    }
+    await expect(panel.getByRole("textbox", { name: "Refine in words", exact: true })).toHaveCount(
+      1,
+    );
+    await expect(panel.locator("label", { hasText: /^Refine in words$/ })).toBeVisible();
+    const refine = panel.getByRole("button", { name: "Refine", exact: true });
+    await expect(refine).toHaveText("Refine");
+    await expect(refine).toHaveAccessibleDescription("Write what to change first.");
     for (const slot of SEEDS) {
       await expect(panel.getByRole("textbox", { name: slot, exact: true })).toHaveCount(1);
       await expect(panel.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true })).toHaveCount(1);
@@ -1591,7 +1615,8 @@ test.describe("7.3 Keyboard", () => {
 
   /**
    * The Tab stops of the inputs panel, in the order of section 7.2, with the Brief and Image
-   * sections' stops after About (docs/specs/04-ai.md, 13.7; section 16), AI settings closed.
+   * sections' stops after About and the Steer section's after "Motion feel" (docs/specs/04-ai.md,
+   * 13.7; section 16), AI settings closed.
    */
   function panelStops(page: Page) {
     return [
@@ -1621,6 +1646,11 @@ test.describe("7.3 Keyboard", () => {
       radio(page, "Depth", "soft"),
       panelRadio(page, "Density", "comfortable"),
       radio(page, "Motion feel", "brisk"),
+      ...["Warmer", "Cooler", "Bolder", "Quieter", "Softer", "Sharper", "Airier"].map((name) =>
+        button(page, name),
+      ),
+      field(page, "Refine in words"),
+      button(page, "Refine"),
       button(page, "Regenerate"),
     ];
   }

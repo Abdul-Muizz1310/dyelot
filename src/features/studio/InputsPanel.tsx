@@ -22,6 +22,7 @@ import {
 import type { AiActivity } from "@/features/ai/activity";
 import { BriefSection } from "@/features/ai/BriefSection";
 import { ImageSection } from "@/features/ai/ImageSection";
+import { SteerSection } from "@/features/ai/SteerSection";
 import { AboutFields } from "./AboutFields";
 import { BUTTON, PRESSED, PRIMARY_BUTTON } from "./chrome";
 import { Choice, LABEL, Picker, same } from "./controls";
@@ -34,7 +35,7 @@ import { DENSITIES } from "./view";
 // The inputs panel (spec section 7.2): the controls of the table, in its order. A set of at most
 // four options is a radio group, a larger one a native select; "Regenerate" is the panel's one
 // madder fill. About comes first, then Brief and Image (docs/specs/04-ai.md, R4-53), which set
-// seeds.
+// seeds; Steer follows Style, before the footer.
 
 /** The pairing select's value for "Auto": a pairing absent from the params (R2-05). */
 const AUTO = "auto";
@@ -195,6 +196,10 @@ export function InputsPanel({
             options={same(MOTION_FEELS)}
             onChange={(motion) => setParams({ motion })}
           />
+        </Section>
+
+        <Section title="Steer">
+          <SteerSection store={store} activity={activity} />
         </Section>
       </div>
       {/* The panel's footer: Regenerate and the keys stay in view while the controls scroll. */}

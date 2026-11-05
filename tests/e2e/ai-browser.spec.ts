@@ -1,8 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, type Response, test } from "@playwright/test";
-import { gamutMap, type Hex, lintSpec, paramsOfSpec, toHex } from "@/engine";
+import { type DirectionParams, gamutMap, type Hex, lintSpec, paramsOfSpec, toHex } from "@/engine";
+import { CHIPS, chipChange } from "@/features/ai/steer";
 import { fixFor } from "@/features/studio/fixes";
 import { findingTitle } from "@/features/studio/inspect";
+import { lockSeed } from "@/features/studio/params";
 import { decodeSpec, encodeSpec, normalizeSpec } from "@/spec";
 import { ONE_FAIL } from "../unit/export/one-fail-support";
 import {
@@ -14,13 +16,19 @@ import {
   briefField,
   briefLines,
   briefSection,
+  chipButton,
+  chooseImage,
   expectBriefLines,
+  expectImageLines,
+  expectSteerLines,
   explainFindings,
   explanation,
   fakeLanguageModel,
   findingsLines,
   findingsSection,
   holdShared,
+  imageInput,
+  imageSection,
   isAiRequest,
   lexiconLine,
   noLanguageModel,
@@ -28,24 +36,33 @@ import {
   onDeviceSwitch,
   openAiSettings,
   openAt,
+  panelChoice,
   rationaleLines,
   rationaleSection,
   readBrief,
+  readVibe,
   recordRequests,
+  refineButton,
+  refineField,
   runBrief,
   START,
   sharedFailure,
   sharedOk,
+  steerSection,
+  swatchItems,
   writeRationale,
 } from "./ai-support";
 import {
   button,
+  designFor,
+  FRESH,
   first,
   inputsPanel,
   inspectorAside,
   lotId,
   nearHex,
   openStudio,
+  seedOf,
   settled,
 } from "./studio-support";
 
@@ -725,19 +742,263 @@ test.describe("I-M4-09 the lazy AI layer", () => {
     return bodies;
   }
 
-  test("F-LAZY4-01 the first load of the studio fetches no prompt; Read the brief fetches one", async ({
+  test("F-LAZY4-01 the first load of the studio fetches no prompt while the chips show their state; Read the brief fetches one", async ({
     page,
   }) => {
     await answerShared(page, "brief", sharedOk("brief", BRIEF_OUT));
     const bodies = scripts(page);
-    await openAt(page);
+    // A design at the end of two chips' ranges, so their state shows at first paint.
+    const params: DirectionParams = {
+      ...FRESH,
+      chroma: "vivid",
+      radius: "round",
+      depth: "layered",
+    };
+    const spec = designFor(params, seedOf(7));
+    await openStudio(page, `#s=${encodeSpec(spec)}`);
     await page.waitForLoadState("networkidle");
     const first = await Promise.all(bodies);
     expect(first.length).toBeGreaterThan(0);
     expect(first.filter((body) => body.includes(PROMPT_TEXT))).toEqual([]);
+    // The Steer chips already show their state (P2): no AI chunk has loaded.
+    await expect(panelChoice(page, "Density", "comfortable")).toBeChecked();
+    const context = { params, density: "comfortable", primary: lockSeed(spec, "primary") } as const;
+    for (const chip of CHIPS) {
+      const outcome = chipChange(chip, context);
+      const name = `${chip[0]?.toUpperCase()}${chip.slice(1)}`;
+      if (outcome.enabled) {
+        await expect(chipButton(page, name)).not.toHaveAttribute("aria-disabled", "true");
+      } else {
+        await expect(chipButton(page, name)).toHaveAttribute("aria-disabled", "true");
+        await expect(chipButton(page, name)).toHaveAccessibleDescription(outcome.reason);
+      }
+    }
+    await expect(chipButton(page, "Bolder")).toHaveAccessibleDescription(
+      "Chroma is already vivid.",
+    );
+    await expect(chipButton(page, "Softer")).toHaveAccessibleDescription(
+      "Radius and depth are already at their softest.",
+    );
+    const loaded = await Promise.all(bodies);
+    expect(loaded.filter((body) => body.includes(PROMPT_TEXT))).toEqual([]);
     await runBrief(page, "a lazy afternoon in a reading room");
     await expectBriefLines(page, [SHARED_LINE]);
     const after = await Promise.all(bodies);
     expect(after.some((body) => body.includes(PROMPT_TEXT))).toBe(true);
+  });
+});
+
+test.describe("R4-53 the inputs panel's new sections", () => {
+  const PRIVACY =
+    "Sends a smaller copy of the image to OpenRouter and the model's provider, through your key or dyelot's shared quota.";
+  const field = (page: Page, name: string) =>
+    inputsPanel(page).getByRole("textbox", { name, exact: true });
+  const panelButton = (page: Page, name: string) =>
+    inputsPanel(page).getByRole("button", { name, exact: true });
+  const combobox = (page: Page, name: string) =>
+    inputsPanel(page).getByRole("combobox", { name, exact: true });
+  const CHIP_LABELS = ["Warmer", "Cooler", "Bolder", "Quieter", "Softer", "Sharper", "Airier"];
+
+  test("F-INPUT4-01 the sections run About, Brief, Image, Seeds, Color, Style and Steer, then Regenerate, and Tab follows 13.7", async ({
+    page,
+  }) => {
+    await fakeLanguageModel(page, { state: "downloadable" });
+    await openAt(page);
+    const panel = inputsPanel(page);
+    expect(await panel.locator("section > h3").allTextContents()).toEqual([
+      "About",
+      "Brief",
+      "Image",
+      "Seeds",
+      "Color",
+      "Style",
+      "Steer",
+    ]);
+    // "Regenerate" follows the last section.
+    const after = await panel.evaluate((root) => {
+      const sections = [...root.querySelectorAll("section")];
+      const last = sections.at(-1);
+      const regenerate = [...root.querySelectorAll("button")].find(
+        (b) => b.textContent === "Regenerate",
+      );
+      if (last === undefined || regenerate === undefined) return false;
+      return Boolean(last.compareDocumentPosition(regenerate) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    expect(after).toBe(true);
+    await openAiSettings(page);
+    const radio = (group: string, name: string) => panelChoice(page, group, name);
+    const stops = [
+      field(page, "Name"),
+      field(page, "One line"),
+      panelButton(page, "Import…"),
+      briefField(page),
+      readBrief(page),
+      aiSettingsButton(page),
+      onDeviceSwitch(page),
+      panelButton(page, "Download the model"),
+      panel.getByRole("link", { name: "Connect your OpenRouter key", exact: true }),
+      imageInput(page),
+      readVibe(page),
+      ...(["Primary", "Secondary", "Accent"] as const).flatMap((slot) => [
+        field(page, slot),
+        panel.getByLabel(`Pick ${slot.toLowerCase()}`, { exact: true }),
+        panelButton(page, `Lock ${slot.toLowerCase()}`),
+      ]),
+      combobox(page, "Harmony"),
+      radio("Chroma", "balanced"),
+      radio("Neutral tint", "brand"),
+      radio("Contrast level", "AA"),
+      radio("Gamut", "sRGB"),
+      radio("Scale mode", "standard"),
+      combobox(page, "Preset"),
+      combobox(page, "Pairing"),
+      combobox(page, "Type context"),
+      radio("Radius", "soft"),
+      radio("Depth", "soft"),
+      radio("Density", "comfortable"),
+      radio("Motion feel", "brisk"),
+      ...CHIP_LABELS.map((name) => chipButton(page, name)),
+      refineField(page),
+      refineButton(page),
+      panelButton(page, "Regenerate"),
+    ];
+    const [firstStop, ...rest] = stops;
+    await firstStop?.focus();
+    await expect(firstStop as NonNullable<typeof firstStop>).toBeFocused();
+    for (const stop of rest) {
+      await page.keyboard.press("Tab");
+      await expect(stop).toBeFocused();
+    }
+  });
+
+  test("F-INPUT4-02 each new control's accessible name and description are section 13's strings", async ({
+    page,
+  }) => {
+    await fakeLanguageModel(page, { state: "downloadable" });
+    await openAt(page);
+    const panel = inputsPanel(page);
+    // 13.1 Brief.
+    await expect(briefField(page)).toHaveAccessibleDescription("0 of 500 characters");
+    await expect(briefField(page)).toHaveAttribute(
+      "placeholder",
+      "A tea house at dusk, calm and exact",
+    );
+    await expect(briefField(page)).toHaveAttribute("maxlength", "500");
+    await expect(readBrief(page)).toHaveAccessibleDescription(
+      "Write a few words or a color first.",
+    );
+    await expect(aiSettingsButton(page)).toHaveAttribute("aria-expanded", "false");
+    // 13.2 AI settings.
+    await openAiSettings(page);
+    await expect(onDeviceSwitch(page)).toHaveAccessibleDescription(
+      "Needs a one-time download from Chrome.",
+    );
+    await expect(panelButton(page, "Download the model")).toHaveCount(1);
+    await expect(
+      panel.getByRole("link", { name: "Connect your OpenRouter key", exact: true }),
+    ).toHaveAccessibleDescription("No OpenRouter key connected.");
+    await expect(aiSettings(page)).toContainText("Shared AI: 3 actions a day.");
+    // 13.3 Image.
+    await expect(imageInput(page)).toHaveAttribute("type", "file");
+    await expect(imageInput(page)).toHaveAttribute(
+      "accept",
+      "image/png,image/jpeg,image/webp,image/gif,image/avif",
+    );
+    await expect(imageSection(page).locator("[data-drop-zone]")).toContainText(
+      "Choose an image or drop one here",
+    );
+    await expect(readVibe(page)).toHaveAttribute("aria-disabled", "true");
+    await expect(readVibe(page)).toHaveAccessibleDescription("Choose an image first.");
+    await expect(imageSection(page)).toContainText(PRIVACY);
+    await chooseImage(page, "four-colors.png");
+    await expect(swatchItems(page)).toHaveCount(4);
+    await expect(
+      imageSection(page).getByRole("list", { name: "Colors in the image", exact: true }),
+    ).toHaveCount(1);
+    await expect(readVibe(page)).not.toHaveAttribute("aria-disabled", "true");
+    await expect(readVibe(page)).toHaveAccessibleDescription(PRIVACY);
+    await expect(imageSection(page).getByRole("status")).toHaveCount(1);
+    // 13.4 Steer.
+    await expect(panel.getByRole("group", { name: "Steer the design", exact: true })).toHaveCount(
+      1,
+    );
+    for (const name of CHIP_LABELS) {
+      await expect(chipButton(page, name)).toHaveText(name);
+    }
+    await expect(refineField(page)).toHaveAttribute(
+      "placeholder",
+      "Make it calmer and a little warmer",
+    );
+    await expect(refineField(page)).toHaveAttribute("maxlength", "200");
+    await expect(refineButton(page)).toHaveAttribute("aria-disabled", "true");
+    await expect(refineButton(page)).toHaveAccessibleDescription("Write what to change first.");
+    await refineField(page).fill("   ");
+    await expect(refineButton(page)).toHaveAccessibleDescription("Write what to change first.");
+    await refineField(page).fill("warmer");
+    await expect(refineButton(page)).not.toHaveAttribute("aria-disabled", "true");
+    await expect(steerSection(page).getByRole("status")).toHaveCount(1);
+    const result = await new AxeBuilder({ page })
+      .include("#studio-inputs")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    expect(result.violations).toEqual([]);
+  });
+});
+
+test.describe("R4-56 keys and focus in the new sections", () => {
+  test("F-A11Y4-02 Space and the arrows type in the text fields, Cancel follows its busy button, and focus stays on the action's button", async ({
+    page,
+  }) => {
+    await openAt(page);
+    const before = await design(page);
+    // The brief's textarea and "Refine in words" are text fields (R2-15): the keys type text.
+    for (const target of [briefField(page), refineField(page)]) {
+      await target.click();
+      await page.keyboard.type("calm");
+      await page.keyboard.press("Space");
+      await page.keyboard.press("ArrowLeft");
+      await page.keyboard.press("ArrowRight");
+      await page.keyboard.type("tea");
+      await expect(target).toHaveValue("calm tea");
+    }
+    await page.waitForTimeout(300);
+    expect(await design(page)).toEqual(before);
+    await expect(button(page, "Undo")).toHaveAttribute("aria-disabled", "true");
+    await expect(button(page, "Redo")).toHaveAttribute("aria-disabled", "true");
+
+    // "Refine": busy, then "Cancel" right after it; when the reply lands, focus goes back to it.
+    const release = await holdShared(page, "refine", sharedFailure("not-configured"));
+    await refineButton(page).click();
+    const refining = inputsPanel(page).getByRole("button", { name: "Refining…", exact: true });
+    await expect(refining).toHaveAttribute("aria-busy", "true");
+    await refining.focus();
+    await page.keyboard.press("Tab");
+    const cancel = inputsPanel(page).getByRole("button", { name: "Cancel", exact: true });
+    await expect(cancel).toBeFocused();
+    await release();
+    await expectSteerLines(page, [
+      "The shared quota is off here, so dyelot used the steer words.",
+      "No steer words found, so nothing changed. Try warmer, cooler, bolder, quieter, softer, sharper or airier.",
+    ]);
+    await expect(cancel).toHaveCount(0);
+    await expect(refineButton(page)).toBeFocused();
+
+    // "Read the vibe": busy, "Cancel" after it, and a cancel keeps focus on the button.
+    const releaseVibe = await holdShared(page, "vibe", sharedFailure("not-configured"));
+    await chooseImage(page, "four-colors.png");
+    await expect(swatchItems(page)).toHaveCount(4);
+    await readVibe(page).click();
+    const reading = inputsPanel(page).getByRole("button", {
+      name: "Reading the vibe…",
+      exact: true,
+    });
+    await expect(reading).toHaveAttribute("aria-busy", "true");
+    await reading.focus();
+    await page.keyboard.press("Tab");
+    await expect(cancel).toBeFocused();
+    await page.keyboard.press("Enter");
+    await expectImageLines(page, ["Canceled. Nothing changed."]);
+    await expect(readVibe(page)).toBeFocused();
+    await releaseVibe();
   });
 });
