@@ -64,10 +64,11 @@ The tests check the bundle against outside tools: the DTCG and shadcn JSON schem
 
 ### Hand smoke
 
-Task 3.17 installed the `default` golden's bundle (LOT 4177·a34c) into a fresh Next.js app by each route, with node 24.19.0,
+The M3 hand smoke installed the `default` golden's bundle (LOT 4177·a34c) into a fresh Next.js app by each route, with node 24.19.0,
 next 16.4.3, react 19.3.0, tailwindcss 4.3.4 and shadcn 4.23.0. The first run of Route 2 found a defect: the registry route
 writes the palette scale into `globals.css`, and the checker counted those 176 lines as raw colors. The fix changed the checker and
-the Install text, and the rerun on commit `5ee5bfe` used fresh apps. Both routes pass.
+the Install text, and the rerun on commit `5ee5bfe` used fresh apps. Both routes pass, and the checker as it ships after the
+final review's fixes passes both apps too.
 
 | Route | Commands | Result |
 |---|---|---|
@@ -228,11 +229,11 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | 2,706 Vitest tests in 159 files, in `tests/unit/`, with 1 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
+| Unit | 2,715 Vitest tests in 159 files, in `tests/unit/`, with 1 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
 | Slow set | 37 of those files, listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. 25 run in the two slow projects and 12 in the `scan` project. `pnpm gate` leaves them to `pnpm gate:full` and CI |
-| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) and [`03-export.md`](docs/specs/03-export.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), and 333 of 333 in the M3 spec's section 10 (282 unit cases and 51 flows) |
-| Goldens | 15 golden bundles (the 14 presets and the import of `shadcn-neutral.css`), pinned by `tests/golden/export/manifest.json` with each file's path, byte length and SHA-256. The `default` bundle holds 21 files and 406,374 bytes |
-| The generated-design grid | Task 3.0 measured 3,808 designs from five fixed grids against the required checks before any export code existed: none threw and none raised a lint error. Its ten test files took 434.9 s in total when each ran alone on a 16-core machine |
+| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) and [`03-export.md`](docs/specs/03-export.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), and 337 of 337 in the M3 spec's section 10 (286 unit cases and 51 flows) |
+| Goldens | 15 golden bundles (the 14 presets and the import of `shadcn-neutral.css`), pinned by `tests/golden/export/manifest.json` with each file's path, byte length and SHA-256. The `default` bundle holds 21 files and 408,598 bytes |
+| The generated-design grid | Before any export code existed, a test grid measured 3,808 designs from five fixed grids against the required checks: none threw and none raised a lint error. Its ten test files took 434.9 s in total when each ran alone on a 16-core machine |
 | Property tests | fast-check over arbitrary color strings, every parameter, random seeds, share-link tampering and the studio store's actions |
 | End to end | 286 Playwright flows in 10 files on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
 | Measured findings | The fix scan generates 576 designs (288 in sRGB and 288 in Display P3) and finds no C1, C5, N1 or F1 finding at AA. The preset sweep fits all 14 presets into the landing, editorial, dashboard and settings templates at 360 and 768 px and into the three mobile screens: 252 views, none with an overflow or a broken word |
