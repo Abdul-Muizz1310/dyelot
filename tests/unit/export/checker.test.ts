@@ -10,7 +10,7 @@ import { lotTag, specId } from "@/spec";
 import { APP, type AppFiles, cleanFolders, SHADCN_APP, STUB_FILES } from "./checker-support";
 import { ORIGIN, SPEC } from "./golden-support";
 
-// C-CHK-01 to 23, 27 to 30, 34, 35 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
+// C-CHK-01 to 23, 27 to 30, 34 to 36 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
 // through `main(argv, io)`. C-CHK-24 and 26 spawn node: tests/unit/export/checker-entry.test.ts.
 
 afterAll(cleanFolders);
@@ -183,6 +183,24 @@ describe("the theme against the receipt", () => {
     expect(r.code).toBe(1);
     expect(codes(r)).toEqual(["theme-changed"]);
     expect(r.json.findings[0].path).toBeUndefined();
+  });
+
+  it("C-CHK-36: a CRLF, CR or BOM checkout of theme.css hashes as the LF file the bundle wrote", () => {
+    const variants: [string, string][] = [
+      ["CRLF", THEME.replace(/\n/g, "\r\n")],
+      ["CR", THEME.replace(/\n/g, "\r")],
+      ["BOM", `\uFEFF${THEME}`],
+      ["BOM and CRLF", `\uFEFF${THEME.replace(/\n/g, "\r\n")}`],
+    ];
+    for (const [name, text] of variants) {
+      const r = run(["--root", APP({ "app/theme.css": text })]);
+      expect(r.code, name).toBe(0);
+      expect(last(r), name).toBe("PASS");
+    }
+    const comment = THEME.split("\n")[2] as string;
+    const edited = THEME.replace(comment, `${comment.slice(0, -3)}x${comment.slice(-3)}`);
+    const r = check(APP({ "app/theme.css": `\uFEFF${edited.replace(/\n/g, "\r\n")}` }));
+    expect(codes(r)).toEqual(["theme-changed"]);
   });
 
   it("C-CHK-09: a tampered primary", () => {

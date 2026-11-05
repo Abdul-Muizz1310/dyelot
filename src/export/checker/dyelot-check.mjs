@@ -586,10 +586,12 @@ export function main(argv, io) {
     /** @param {string} code @param {string} message @param {Partial<Finding>} [place] */
     const report = (code, message, place = {}) => findings.push({ code, message, ...place });
 
-    // Check 1: the theme file against the receipt.
+    // Check 1: the theme file against the receipt. The receipt hashes the LF file the bundle
+    // wrote; a checkout may add a byte order mark or turn LF into CRLF (Git for Windows does).
     if (path.posix.basename(theme.path) === "theme.css") {
       const entry = receipt.files.find((file) => file.path === "app/theme.css");
-      const hash = createHash("sha256").update(theme.text, "utf8").digest("hex");
+      const lf = theme.text.replace(/^\uFEFF/, "").replace(/\r\n?/g, "\n");
+      const hash = createHash("sha256").update(lf, "utf8").digest("hex");
       if (entry?.sha256 !== hash) {
         report(
           "theme-changed",
