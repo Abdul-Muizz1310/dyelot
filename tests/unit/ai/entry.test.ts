@@ -5,10 +5,12 @@ import type * as types from "@/ai";
 import * as ai from "@/ai";
 import {
   briefChange,
+  imageChange,
   type MOOD_TAGS,
   rationaleChange,
   refineChange,
   type TYPE_VIBES,
+  vibeChange,
 } from "@/ai/apply";
 import { cacheKey } from "@/ai/cache-key";
 import { cascadePlan, isFreeSlug } from "@/ai/cascade";
@@ -91,13 +93,7 @@ const AI_KEYS = [
  * 4.4 (the brief), 4.5 (refine), 4.6b (image) and 4.9 (PKCE). Each task adds its `export … from`
  * lines and deletes its keys here; the entry holds exactly the rest.
  */
-const PENDING_KEYS: readonly string[] = [
-  "imageChange",
-  "vibeChange",
-  "authorizeUrl",
-  "base64url",
-  "readCallback",
-];
+const PENDING_KEYS: readonly string[] = ["authorizeUrl", "base64url", "readCallback"];
 
 const sorted = (keys: readonly string[]): string[] => [...keys].sort();
 
@@ -138,6 +134,7 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
       failureSentence,
       formatCapCookie,
       guardVerdict,
+      imageChange,
       inputSchema,
       isFreeSlug,
       madeWith,
@@ -154,6 +151,7 @@ describe("C-ENTRY4-02 the @/ai entry", () => {
       readRouteReply,
       refineChange,
       refineInput,
+      vibeChange,
       vibeInput,
     };
     const exported: Record<string, unknown> = { ...ai };

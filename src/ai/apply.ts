@@ -9,6 +9,7 @@ import {
   type DirectionParams,
   HARMONIES,
   type Harmony,
+  type ImagePalette,
   LOCKABLE,
   type Lockable,
   MOTION_FEELS,
@@ -26,7 +27,14 @@ import {
   type TypeContext,
 } from "@/engine";
 import { type CreatedWith, isPlainText } from "@/spec";
-import { assertInteger, assertOneOf, assertRecord, describeType, isRecord } from "./assert";
+import {
+  assertInteger,
+  assertOneOf,
+  assertRecord,
+  assertString,
+  describeType,
+  isRecord,
+} from "./assert";
 import type {
   BriefDraft,
   ChromaLevel,
@@ -34,6 +42,7 @@ import type {
   RationaleOutput,
   RefineOp,
   RefineOutput,
+  VibeOutput,
 } from "./features";
 
 // The changes an AI or rule result makes to the studio (docs/specs/04-ai.md, section 5.2): the two
@@ -343,6 +352,153 @@ export function rationaleChange(
       oneLiner: output.oneLiner,
       direction: { ...held, thesis: output.thesis },
       rules: { do: [...output.do], dont: [...output.dont] },
+    },
+  };
+}
+
+/** An image palette's tints (9.2 step 9): never `brand`. */
+const IMAGE_TINTS = ["none", "warm", "cool"] as const satisfies readonly NeutralTint[];
+// The bounds of VibeOutput and of a palette (R4-48, 9.2), repeated from features.ts for the reason
+// the brief's bounds are: features.ts imports this module's tables at run time.
+const MAX_CLUSTERS = 8;
+const MOOD_TAGS_MAX = 5;
+const VIBE_KEYS: readonly string[] = ["roleMap", "neutralTint", "moodTags", "typeVibe", "preset"];
+
+/** The three slots' seeds: a role's cluster color, or undefined for a slot with no role. */
+type RoleSeeds = {
+  readonly primary: Oklch;
+  readonly secondary: Oklch | undefined;
+  readonly accent: Oklch | undefined;
+};
+
+/** Each cluster's color by id, checked by `normalizeSeed`, which also makes a fresh seed. */
+function clusterSeeds(palette: unknown, name: string): ReadonlyMap<string, Oklch> {
+  assertRecord(palette, name);
+  const { clusters } = palette;
+  if (!Array.isArray(clusters)) {
+    throw new TypeError(`${name}.clusters must be an array, got ${describeType(clusters)}`);
+  }
+  if (clusters.length < 1 || clusters.length > MAX_CLUSTERS) {
+    throw new RangeError(
+      `${name}.clusters must hold 1 to ${MAX_CLUSTERS} clusters, got ${clusters.length}`,
+    );
+  }
+  const seeds = new Map<string, Oklch>();
+  (clusters as readonly unknown[]).forEach((cluster, i) => {
+    const where = `${name}.clusters[${i}]`;
+    assertRecord(cluster, where);
+    assertString(cluster.id, `${where}.id`);
+    if (seeds.has(cluster.id)) {
+      throw new RangeError(`${where}.id repeats ${JSON.stringify(cluster.id)}`);
+    }
+    seeds.set(cluster.id, normalizeSeed(cluster.oklch as Oklch, `${where}.oklch`));
+  });
+  return seeds;
+}
+
+/**
+ * The seeds a role map names (R4-47, R4-48): `primary` is required, `secondary` and `accent` are
+ * optional, each a distinct id of the palette's clusters. A slot with no role is undefined, which
+ * unlocks it when the patch is merged.
+ */
+function roleSeeds(roles: unknown, seeds: ReadonlyMap<string, Oklch>, name: string): RoleSeeds {
+  assertRecord(roles, name);
+  const extra = Object.keys(roles).find((key) => !(LOCKABLE as readonly string[]).includes(key));
+  if (extra !== undefined) {
+    throw new RangeError(`${name} has an unknown role ${JSON.stringify(extra)}`);
+  }
+  const taken: string[] = [];
+  const seedOf = (slot: Lockable): Oklch | undefined => {
+    const id = roles[slot];
+    if (id === undefined && slot !== "primary") return undefined;
+    assertString(id, `${name}.${slot}`);
+    const seed = seeds.get(id);
+    if (seed === undefined) {
+      throw new RangeError(
+        `${name}.${slot} names no cluster of the palette, got ${JSON.stringify(id)}`,
+      );
+    }
+    if (taken.includes(id)) {
+      throw new RangeError(`${name}.${slot} repeats the cluster ${JSON.stringify(id)}`);
+    }
+    taken.push(id);
+    return seed;
+  };
+  return {
+    primary: seedOf("primary") as Oklch,
+    secondary: seedOf("secondary"),
+    accent: seedOf("accent"),
+  };
+}
+
+/**
+ * The image's heuristic change (R4-47, section 9.4): the role clusters' colors become the locked
+ * seeds of primary, secondary and accent, a slot with no role is set to undefined, which unlocks
+ * it, and the palette's tint becomes `neutralTint`. Only `patch` is returned: the caller adds
+ * `createdWith: "controls"`.
+ */
+export function imageChange(palette: ImagePalette): { readonly patch: AiPatch } {
+  const seeds = clusterSeeds(palette, "imageChange: palette");
+  const { roles, neutralTint } = palette;
+  const slots = roleSeeds(roles, seeds, "imageChange: palette.roles");
+  assertOneOf(neutralTint, IMAGE_TINTS, "imageChange: palette.neutralTint");
+  return { patch: { ...slots, neutralTint } };
+}
+
+/**
+ * The vibe's change (R4-48, section 9.4): the output's preset, applied first, and a patch with the
+ * seeds of `output.roleMap` (looked up in `palette`; a slot with no role is undefined, which unlocks
+ * it), the tint, `TYPE_VIBE_PAIRING`'s pairing for the type vibe, and the mood tags as
+ * `direction.adjectives`, keeping the rest of the held `direction`. The output is the one
+ * `parseOutput` returns; anything else is refused before it can reach the generator.
+ */
+export function vibeChange(
+  output: VibeOutput,
+  context: { params: DirectionParams; palette: ImagePalette },
+): { readonly preset: PresetId; readonly patch: AiPatch } {
+  assertRecord(output, "vibeChange: output");
+  const extra = Object.keys(output).find((key) => !VIBE_KEYS.includes(key));
+  if (extra !== undefined) {
+    throw new RangeError(`vibeChange: output has an unknown key ${JSON.stringify(extra)}`);
+  }
+  assertRecord(context, "vibeChange: context");
+  const { params, palette } = context;
+  assertRecord(params, "vibeChange: context.params");
+  const held = params.direction;
+  if (held !== undefined && !isRecord(held)) {
+    throw new TypeError(
+      `vibeChange: context.params.direction must be an object, got ${describeType(held)}`,
+    );
+  }
+  const seeds = clusterSeeds(palette, "vibeChange: context.palette");
+  const slots = roleSeeds(output.roleMap, seeds, "vibeChange: output.roleMap");
+  const { neutralTint, moodTags, typeVibe, preset } = output;
+  assertOneOf(neutralTint, NEUTRAL_TINTS, "vibeChange: output.neutralTint");
+  if (!Array.isArray(moodTags)) {
+    throw new TypeError(
+      `vibeChange: output.moodTags must be an array, got ${describeType(moodTags)}`,
+    );
+  }
+  if (moodTags.length < 1 || moodTags.length > MOOD_TAGS_MAX) {
+    throw new RangeError(
+      `vibeChange: output.moodTags must hold 1 to ${MOOD_TAGS_MAX} tags, got ${moodTags.length}`,
+    );
+  }
+  moodTags.forEach((mood: unknown, i) => {
+    assertOneOf(mood, MOOD_TAGS, `vibeChange: output.moodTags[${i}]`);
+    if (moodTags.indexOf(mood) !== i) {
+      throw new RangeError(`vibeChange: output.moodTags[${i}] repeats ${JSON.stringify(mood)}`);
+    }
+  });
+  assertOneOf(typeVibe, TYPE_VIBES, "vibeChange: output.typeVibe");
+  assertOneOf(preset, PRESET_IDS, "vibeChange: output.preset");
+  return {
+    preset,
+    patch: {
+      ...slots,
+      neutralTint,
+      pairing: TYPE_VIBE_PAIRING[typeVibe],
+      direction: { ...held, adjectives: [...moodTags] },
     },
   };
 }

@@ -45,6 +45,7 @@ const SLOW_CORE_TESTS = [
   "tests/unit/engine/lint/t3-defaults-1.test.ts", // 12.1 s: C-TASTE-13
   "tests/unit/engine/presets-lint-5.test.ts", // 11.7 s
   "tests/unit/engine/presets-match-change.test.ts", // 40.6 s: C-PMATCH-03
+  "tests/unit/ai/apply-property.test.ts", // 44.8 s under lane load: C-IMG-14 (360 generations)
   "tests/unit/export/prompt.test.ts", // 22 s: C-PRM-02 (200 runs of generateSystem and themeCss)
   "tests/unit/import/fuzz-md.test.ts", // 11.5 s: C-IMP-03, 300 runs of importDesignMd
   "tests/unit/export/zip.test.ts", // 11.2 s: C-ZIP-03, one zip per time zone
@@ -123,7 +124,7 @@ const EXPORT_HELPERS = ["files"].map((name) => `src/features/export/${name}.ts`)
 const IMPORT_HELPERS = ["form"].map((name) => `src/features/import/${name}.ts`);
 
 /** The AI feature's pure helpers (Task 4.5 on), held to `PURE_FLOORS` the same way. */
-const AI_HELPERS = ["steer"].map((name) => `src/features/ai/${name}.ts`);
+const AI_HELPERS = ["image-protocol", "steer"].map((name) => `src/features/ai/${name}.ts`);
 
 /** The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name. */
 const SERVER_FILES = ["env", "clock", "guard", "cache", "transport", "smoke"].map(

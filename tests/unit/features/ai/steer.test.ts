@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { words } from "@/ai/lexicon/match";
 import {
   type Density,
   type DirectionParams,
@@ -21,7 +22,7 @@ import { copyProblems } from "../../ai/copy-rules";
 import { DEFAULT_PARAMS } from "../../spec/support";
 
 // Cases C-CHIP-01 to C-CHIP-10 of docs/specs/04-ai.md, section 14.5 (R4-44, R4-45, section 8). The
-// equivalence of C-CHIP-08's last clause (the matcher's `words`) moves to Task 4.6b (ruling P1).
+// equivalence of C-CHIP-08's last clause (the matcher's `words`) came with Task 4.6b (ruling P1).
 
 const CTX = (over: {
   params?: Partial<DirectionParams>;
@@ -346,6 +347,28 @@ describe("C-CHIP-08 chipWords", () => {
       "airier",
     ]);
     expect(chipWords(CHIPS.join(" "))).toEqual([...CHIPS]);
+  });
+
+  it("C-CHIP-08 for ten sample strings, steer.ts's split gives the same tokens as the matcher's words", () => {
+    const SAMPLES = [
+      "Make it Warmer and airier, warmer",
+      "WARMER\u2014cooler;sharper!",
+      "bo\u0301lde\u0301r qu\u00edeter",
+      "\uff57\uff41\uff52\uff4d\uff45\uff52 \uff43\uff4f\uff4f\uff4c\uff45\uff52",
+      "A\u0130R\u0130ER softer",
+      "\u02b7armer, \ufb00 sharper",
+      "warmer_cooler2bolder's-sharper\tquieter\nsofter",
+      "warmer\u{1f525}cooler\u6771\u4eacbolder",
+      "b\u03bflder \u00dfofter airier",
+      "warmers warmest cooler-ish airy",
+    ];
+    const isChip = (token: string): token is Chip => (CHIPS as readonly string[]).includes(token);
+    const chipsIn = (tokens: readonly string[]): Chip[] => [...new Set(tokens.filter(isChip))];
+    for (const sample of SAMPLES) expect(chipWords(sample), sample).toEqual(chipsIn(words(sample)));
+    // The samples reach the compatibility forms, the marks and the separators, not only plain words.
+    expect(SAMPLES.filter((sample) => chipWords(sample).length > 0)).toHaveLength(10);
+    expect(words(SAMPLES[3] as string)).toEqual(["warmer", "cooler"]);
+    expect(words(SAMPLES[5] as string)).toEqual(["warmer", "ff", "sharper"]);
   });
 });
 
