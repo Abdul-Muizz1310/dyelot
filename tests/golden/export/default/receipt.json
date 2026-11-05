@@ -1506,8 +1506,8 @@
   "files": [
     {
       "path": "DESIGN.md",
-      "bytes": 54349,
-      "sha256": "effe913a76630d54c5c1b320124802364e4f4d89715669d26132b04e5c3008c6"
+      "bytes": 54436,
+      "sha256": "dbb29a5571f3a4bce2c7e3fb1ca8a06d6d581e9eff4117dd865cf61b71fbbb8b"
     },
     {
       "path": "AGENTS.md.snippet",
@@ -1601,8 +1601,8 @@
     },
     {
       "path": "scripts/dyelot-check.mjs",
-      "bytes": 27802,
-      "sha256": "5a9a1f763d8a3271439c11c77beb561306c866a130695775a51d75662acb9cd5"
+      "bytes": 28083,
+      "sha256": "37f18615b8d6bb2e8e1097685fd05c70da7f4425469d3816375848953d59e115"
     }
   ]
 }

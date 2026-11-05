@@ -299,10 +299,22 @@ function trunc4(x) {
   return cut === "" ? whole : `${whole}.${cut}`;
 }
 
+const SCALE_PALETTES = [
+  "neutral",
+  "primary",
+  "secondary",
+  "accent",
+  "success",
+  "warning",
+  "danger",
+  "info",
+];
+const SCALE_STEPS = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+
 /**
  * Scans one line of source.
  * @param {string} line
- * @param {RegExp} declaration Matches a line that declares a role, `--radius` or a `--color-*` name.
+ * @param {RegExp} declaration Matches a line that declares a role, `--radius`, a scale step or a `--color-*` name.
  * @returns {{ findings: { code: string, column: number, text: string, message: string }[], ignored: string | null }}
  */
 export function scanLine(line, declaration) {
@@ -684,7 +696,7 @@ export function main(argv, io) {
     walkFiles(root, "", io, own, files);
     files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
     const declaration = new RegExp(
-      `(?:^|[\\s;{])--(?:${[...roleNames, "radius"].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}|color-[\\w-]*)\\s*:`,
+      `(?:^|[\\s;{])--(?:${[...roleNames, "radius"].map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|")}|color-[\\w-]*|(?:${SCALE_PALETTES.join("|")})-(?:${SCALE_STEPS.join("|")}))\\s*:`,
     );
     checked.files = files.length;
     for (const file of files) {
