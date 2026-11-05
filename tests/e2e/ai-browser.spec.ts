@@ -1,7 +1,10 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, type Response, test } from "@playwright/test";
-import { gamutMap, toHex } from "@/engine";
-import { decodeSpec } from "@/spec";
+import { gamutMap, type Hex, lintSpec, paramsOfSpec, toHex } from "@/engine";
+import { fixFor } from "@/features/studio/fixes";
+import { findingTitle } from "@/features/studio/inspect";
+import { decodeSpec, encodeSpec, normalizeSpec } from "@/spec";
+import { ONE_FAIL } from "../unit/export/one-fail-support";
 import {
   ai,
   aiSettings,
@@ -12,24 +15,34 @@ import {
   briefLines,
   briefSection,
   expectBriefLines,
+  explainFindings,
+  explanation,
   fakeLanguageModel,
+  findingsLines,
+  findingsSection,
   isAiRequest,
   lexiconLine,
   noLanguageModel,
+  OUTPUTS,
   onDeviceSwitch,
   openAiSettings,
   openAt,
+  rationaleLines,
+  rationaleSection,
   readBrief,
   recordRequests,
   runBrief,
+  START,
   sharedFailure,
   sharedOk,
+  writeRationale,
 } from "./ai-support";
-import { button, inputsPanel, lotId, nearHex, settled } from "./studio-support";
+import { button, first, inputsPanel, lotId, nearHex, openStudio, settled } from "./studio-support";
 
 // The browser flows of docs/specs/04-ai.md, section 14.11, for Task 4.10a: the Brief section
 // (13.1, R4-39, R4-40), the action hook's cancel and load failure (R4-56, section 13), the
-// on-device model (R4-31, 10.2) and the lazy AI layer (I-M4-09). The shared step is answered via
+// on-device model (R4-31, 10.2) and the lazy AI layer (I-M4-09); and, for Task 4.11, the
+// inspector's Rationale and the critique (13.5, R4-49, R4-50). The shared step is answered via
 // `page.route`; the mock-backed flows live in ai-route.spec.ts (Task 4.12a).
 
 test.use({ viewport: { width: 1280, height: 800 } });
@@ -255,6 +268,156 @@ test.describe("13.1 Brief", () => {
     await page.unroute(chunks);
     await readBrief(page).click();
     await expectBriefLines(page, [SHARED_LINE]);
+  });
+});
+
+test.describe("13.5 The inspector", () => {
+  /** The spec `START` opens. */
+  const START_SPEC = decodeSpec(START.slice(3));
+  const RATIONALE_OUT = OUTPUTS.rationale;
+  const CRITIQUE_OUT = OUTPUTS.critique;
+  /** 13.5's line without a model for each feature, and 10.3's sentence for a shared quota that is off. */
+  const NOTHING_WRITTEN = "Nothing written. The export keeps the preset's text (no model).";
+  const LIST_STAYS = "The list below stays sorted by severity (no model).";
+
+  test("Write the rationale on the shared route stores the model's text in one undoable commit, shown as text", async ({
+    page,
+  }) => {
+    const posted = await answerShared(page, "rationale", sharedOk("rationale"));
+    await openAt(page);
+    const before = await design(page);
+    const section = rationaleSection(page);
+    await expect(section).toContainText("No thesis yet.");
+    await expect(section).toContainText("No rules yet.");
+    await writeRationale(page).click();
+    await expect(rationaleLines(page).locator("p")).toHaveText([SHARED_LINE]);
+    // A design opened from a link holds no preset (R2-14 item 2).
+    expect(posted).toEqual([ai.rationaleInput(START_SPEC, null)]);
+    await expectCreatedWith(page, "model:test/text-1:free");
+    const spec = await hashedSpec(page);
+    expect(spec.meta.oneLiner).toBe(RATIONALE_OUT.oneLiner);
+    expect(spec.direction?.thesis).toBe(RATIONALE_OUT.thesis);
+    expect(spec.rules).toEqual({ do: RATIONALE_OUT.do, dont: RATIONALE_OUT.dont });
+    // The thesis "<b>Calm</b> and exact" is text: its tags show, and no element is made of them (R4-28).
+    await expect(section.getByText(RATIONALE_OUT.thesis, { exact: true })).toBeVisible();
+    await expect(section.locator("b")).toHaveCount(0);
+    await expect(section).not.toContainText("No thesis yet.");
+    await expect(
+      section.getByRole("list", { name: "Do", exact: true }).getByRole("listitem"),
+    ).toHaveText([...RATIONALE_OUT.do]);
+    await expect(
+      section.getByRole("list", { name: "Don't", exact: true }).getByRole("listitem"),
+    ).toHaveText([...RATIONALE_OUT.dont]);
+    await expect(rationaleLines(page)).toHaveAttribute("role", "status");
+    // One commit: one Undo restores the design before, and the section reads the held spec again.
+    await button(page, "Undo").click();
+    await expect.poll(() => design(page)).toEqual(before);
+    await expect(section).toContainText("No thesis yet.");
+    await expect(section).toContainText("No rules yet.");
+  });
+
+  test("F-RAT-03 without a model nothing is written and the export keeps the preset's text", async ({
+    page,
+  }) => {
+    const posted = await answerShared(page, "rationale", sharedFailure("not-configured"));
+    await openAt(page);
+    const before = await design(page);
+    await writeRationale(page).click();
+    await expect(rationaleLines(page).locator("p")).toHaveText([
+      "The shared quota is off here, so dyelot used the preset's text.",
+      NOTHING_WRITTEN,
+    ]);
+    expect(posted).toHaveLength(1);
+    expect(await design(page)).toEqual(before);
+    await expect(rationaleSection(page)).toContainText("No thesis yet.");
+  });
+
+  test("Explain the top findings on the shared route shows the ranking as text beside the fix buttons, and stores nothing", async ({
+    page,
+  }) => {
+    const findings = lintSpec(ONE_FAIL);
+    const posted = await answerShared(page, "critique", sharedOk("critique"));
+    await openStudio(page, `#s=${encodeSpec(ONE_FAIL)}`);
+    const before = await design(page);
+    await explainFindings(page).click();
+    await expect(findingsLines(page).locator("p")).toHaveText([SHARED_LINE]);
+    expect(posted).toEqual([ai.critiqueInput(findings)]);
+    // The verdict, then one item per `top` entry: the finding's title and subject, the why and its fix.
+    const region = explanation(page);
+    await expect(region.locator(":scope > p")).toHaveText([CRITIQUE_OUT.verdict]);
+    const items = region.getByRole("listitem");
+    await expect(items).toHaveCount(CRITIQUE_OUT.top.length);
+    const [entry] = CRITIQUE_OUT.top;
+    const target = findings[entry.findingIndex];
+    const patch = fixFor(target, paramsOfSpec(ONE_FAIL).params);
+    if (patch?.contrastLevel === undefined) throw new Error("the explained finding has no fix");
+    const item = items.first();
+    for (const text of [findingTitle(target.id), target.subject, entry.why]) {
+      await expect(item).toContainText(text);
+    }
+    const fix = item.getByRole("button", {
+      name: `Raise contrast to ${patch.contrastLevel}`,
+      exact: true,
+    });
+    await expect(fix).toBeVisible();
+    await expect(region.getByRole("list")).toHaveJSProperty("tagName", "OL");
+    // Never stored: the design, its id and the link are the ones before.
+    expect(await design(page)).toEqual(before);
+
+    // Without a model the list stays as it is, and no explanation is shown.
+    await answerShared(page, "critique", sharedFailure("not-configured"));
+    await explainFindings(page).click();
+    await expect(findingsLines(page).locator("p")).toHaveText([
+      "The shared quota is off here, so dyelot used the findings list.",
+      LIST_STAYS,
+    ]);
+    await expect(explanation(page)).toHaveCount(0);
+    expect(await design(page)).toEqual(before);
+
+    // The explanation's fix button raises the level: the held spec id changes, so the explanation
+    // hides, and its line with it; the section's one status region names the fix's outcome alone.
+    await answerShared(page, "critique", sharedOk("critique"));
+    await explainFindings(page).click();
+    await expect(explanation(page).getByRole("listitem")).toHaveCount(1);
+    await fix.click();
+    await settled(page);
+    await expect.poll(() => lotId(page).textContent()).not.toBe(before[0]);
+    await expect(explanation(page)).toHaveCount(0);
+    await expect(findingsLines(page)).toHaveText(
+      `Contrast raised to ${patch.contrastLevel}. The finding is cleared.`,
+    );
+    // The fix's button is gone with the explanation: focus moves to the Findings heading (F-STUDIO-23).
+    await expect(
+      findingsSection(page).getByRole("heading", { name: "Findings", exact: true }),
+    ).toBeFocused();
+  });
+
+  test("F-CRIT-02 with no finding, Explain the top findings is disabled and says why", async ({
+    page,
+  }) => {
+    const plain = first();
+    const spec = normalizeSpec({
+      ...plain,
+      color: {
+        ...plain.color,
+        roles: {
+          light: { ...plain.color.roles.light, border: "#808080" as Hex },
+          dark: { ...plain.color.roles.dark, border: "#8a8a8a" as Hex },
+        },
+      },
+    });
+    expect(lintSpec(spec)).toEqual([]);
+    const requests = recordRequests(page);
+    await openStudio(page, `#s=${encodeSpec(spec)}`);
+    const explain = explainFindings(page);
+    await expect(explain).toHaveAttribute("aria-disabled", "true");
+    await expect(explain).toHaveAccessibleDescription("There are no findings to explain.");
+    // Playwright will not click an aria-disabled button; the keyboard still reaches it.
+    await explain.focus();
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(300);
+    await expect(findingsLines(page)).toBeEmpty();
+    expect(requests.filter(isAiRequest)).toEqual([]);
   });
 });
 

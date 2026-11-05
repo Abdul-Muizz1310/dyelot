@@ -1387,3 +1387,78 @@ describe("the guards' file walks skip the Biome probe folder", () => {
     expect(inProbe(path.join(ROOT, "src", "features", "__entry-probe-x__", "a.ts"))).toBe(false);
   });
 });
+
+// C-GUARD4-07 of docs/specs/04-ai.md, section 14.10 (R4-28, R4-59): every string a model writes
+// reaches the page as React text, so no file under src writes HTML: `dangerouslySetInnerHTML` only in
+// the site's structured data (JSON-LD it builds itself), and no `innerHTML`, `outerHTML`,
+// `insertAdjacentHTML` or `document.write` anywhere. Comments may name them; strings may not.
+
+const STRUCTURED_DATA_FILE = path.join(ROOT, "src/lib/site/structured-data.tsx");
+
+/** The ways to write HTML that C-GUARD4-07 forbids, each with its pattern. */
+const HTML_SINKS: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
+  ["dangerouslySetInnerHTML", /\bdangerouslySetInnerHTML\b/],
+  ["innerHTML", /\binnerHTML\b/],
+  ["outerHTML", /\bouterHTML\b/],
+  ["insertAdjacentHTML", /\binsertAdjacentHTML\b/],
+  ["document.write", /\bdocument\s*\.\s*write(?:ln)?\b/],
+];
+
+/** The HTML sinks a source names outside its comments (strings count), by name. */
+function htmlSinks(source: string): string[] {
+  const code = stripComments(source);
+  return HTML_SINKS.filter(([, pattern]) => pattern.test(code)).map(([name]) => name);
+}
+
+describe("C-GUARD4-07 model text is React text: src writes no HTML", () => {
+  const files = codeFiles(path.join(ROOT, "src"));
+
+  it("C-GUARD4-07 scans real files, the structured data and the inspector's model text among them", () => {
+    expect(files).toEqual(
+      expect.arrayContaining([
+        STRUCTURED_DATA_FILE,
+        path.join(ROOT, "src/features/ai/RationaleSection.tsx"),
+        path.join(ROOT, "src/features/ai/Explanation.tsx"),
+      ]),
+    );
+  });
+
+  it("C-GUARD4-07 finds dangerouslySetInnerHTML only in src/lib/site/structured-data.tsx", () => {
+    const holders = files
+      .filter((file) => htmlSinks(readFileSync(file, "utf8")).includes("dangerouslySetInnerHTML"))
+      .map((file) => path.relative(ROOT, file));
+    expect(holders).toEqual([path.relative(ROOT, STRUCTURED_DATA_FILE)]);
+  });
+
+  it("C-GUARD4-07 finds no innerHTML, outerHTML, insertAdjacentHTML or document.write in src", () => {
+    const bad = files.flatMap((file) =>
+      htmlSinks(readFileSync(file, "utf8"))
+        .filter((sink) => sink !== "dangerouslySetInnerHTML")
+        .map((sink) => `${path.relative(ROOT, file)}: ${sink}`),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it.each([
+    ["dangerouslySetInnerHTML", "<p dangerouslySetInnerHTML={{ __html: text }} />"],
+    ["innerHTML", "node.innerHTML = text;"],
+    ["innerHTML", 'node["innerHTML"] = text;'],
+    ["outerHTML", "const html = node.outerHTML;"],
+    ["insertAdjacentHTML", 'node.insertAdjacentHTML("beforeend", text);'],
+    ["document.write", "document.write(text);"],
+    ["document.write", "window.document.writeln(text);"],
+    ["document.write", "document . write(text);"],
+  ])("C-GUARD4-07 sees %s in the probe %j", (name, source) => {
+    expect(htmlSinks(source)).toContain(name);
+  });
+
+  it.each([
+    "// node.innerHTML = text;",
+    "/* document.write(text); */ const x = 1;",
+    "node.textContent = text;",
+    "const innerHTMLish = 1; const myouterHTML = 2;",
+    "const writer = document.writer;",
+  ])("C-GUARD4-07 lets the probe %j through", (source) => {
+    expect(htmlSinks(source)).toEqual([]);
+  });
+});

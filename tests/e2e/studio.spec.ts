@@ -1636,7 +1636,9 @@ test.describe("7.3 Keyboard", () => {
   }) => {
     await stubSeeds(page);
     await openStudio(page);
-    // The inspector follows the canvas: its scroll area, then each finding's actions (Task 2.10b).
+    // The inspector follows the canvas: its scroll area, then each finding's actions (Task 2.10b),
+    // with "Explain the top findings" before the cards and "Write the rationale" after the Receipt
+    // section (13.7 and section 16 of docs/specs/04-ai.md, Task 4.11).
     const findings = lintSpec(first()).map(findingKey);
     expect(findings.length).toBeGreaterThan(0);
     const stops = [
@@ -1648,11 +1650,13 @@ test.describe("7.3 Keyboard", () => {
     ];
     const inspectorStops = [
       inspectorAside(page).locator("[data-scroll-area]"),
+      inspectorAside(page).getByRole("button", { name: "Explain the top findings", exact: true }),
       ...findings.map((key) =>
         inspectorAside(page)
           .locator(`[data-finding="${key}"]`)
           .getByRole("button", { name: "Show me", exact: true }),
       ),
+      inspectorAside(page).getByRole("button", { name: "Write the rationale", exact: true }),
     ];
     await focusBody(page);
     for (const stop of stops) {

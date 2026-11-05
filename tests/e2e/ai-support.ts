@@ -380,3 +380,28 @@ export function lexiconLine(text: string): string {
   if (draft === null) throw new Error(`lexiconLine: no term matches ${JSON.stringify(text)}`);
   return `Made with the word list (no model). Matched: ${terms.join(", ")}.`;
 }
+
+// ——— The inspector: Rationale and the critique (13.5) ———
+
+/** The inspector's landmark, as studio-support's `inspectorPanel` finds it. */
+const inspector = (page: Page): Locator =>
+  page.getByRole("complementary", { name: "Inspector", exact: true });
+
+/** The inspector's Rationale section and its controls. */
+export const rationaleSection = (page: Page): Locator =>
+  inspector(page).getByRole("region", { name: "Rationale", exact: true });
+export const writeRationale = (page: Page): Locator =>
+  inspector(page).getByRole("button", { name: "Write the rationale", exact: true });
+/** The Rationale section's result region: the failure sentences, then the result line (13). */
+export const rationaleLines = (page: Page): Locator =>
+  rationaleSection(page).locator("[data-ai-lines]");
+
+/** The inspector's Findings section, its critique button and the critique's explanation. */
+export const findingsSection = (page: Page): Locator =>
+  inspector(page).getByRole("region", { name: "Findings", exact: true });
+export const explainFindings = (page: Page): Locator =>
+  inspector(page).getByRole("button", { name: "Explain the top findings", exact: true });
+export const explanation = (page: Page): Locator =>
+  findingsSection(page).getByRole("region", { name: "Explanation", exact: true });
+/** The Findings section's one status region: the critique's lines, then a fix's outcome (13). */
+export const findingsLines = (page: Page): Locator => findingsSection(page).getByRole("status");

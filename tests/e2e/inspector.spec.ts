@@ -23,6 +23,7 @@ import {
 } from "@/features/studio/inspect";
 import type { TemplateId } from "@/features/studio/view";
 import { type DesignSpec, encodeSpec, normalizeSpec } from "@/spec";
+import { answerShared, explainFindings, explanation, sharedOk, writeRationale } from "./ai-support";
 import {
   button,
   canvasFrame,
@@ -54,7 +55,8 @@ import {
 // The inspector flows of docs/specs/02-studio.md, section 7.8 (Task 2.10b): F-INSP-01 to F-INSP-16,
 // with "show me" on the canvas (F-CANVAS-11) and the mobile fit with the inspector drawer and from the
 // first frame of a switch (F-TPL-32, the Task 2.10a review's M-1). A flow that names no viewport runs at
-// 1280 × 800, where the inspector is a 360 px column.
+// 1280 × 800, where the inspector is a 360 px column. F-INSP-14 carries section 16's change of
+// docs/specs/04-ai.md (Task 4.11): the critique's and the rationale's controls join its Tab stops.
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -1388,30 +1390,57 @@ test.describe("7.8 Keyboard and motion", () => {
     expect(await seedCalls(page)).toBe(seeds);
     await expect(lotId(page)).toHaveText(lot ?? "");
     await expect(button(page, "Redo")).toHaveAttribute("aria-disabled", "true");
-    // On the ring fixture, Tab from the area reaches each finding's "Show me" and fix button in order.
+    // On the ring fixture, Tab from the area reaches "Explain the top findings", the explanation's
+    // fix buttons in list order, then each finding's "Show me" and fix button in order (13.7, section
+    // 16 of docs/specs/04-ai.md). The critique, answered via page.route, ranks a finding with no fix
+    // first and F1 second, so the explanation holds exactly one fix button.
     await page.goto("about:blank");
     const ring = ringFixture();
+    const findings = lintSpec(ring);
+    const f1 = findings.findIndex((finding) => finding.id === "F1");
+    const other = findings.findIndex((finding) => finding.id !== "F1");
+    await answerShared(
+      page,
+      "critique",
+      sharedOk("critique", {
+        top: [
+          { findingIndex: other, why: "This one is a note to read." },
+          { findingIndex: f1, why: "The focus ring is hard to see on the page." },
+        ],
+        verdict: "Fix the focus ring first; the rest are notes.",
+      }),
+    );
     await openStudio(page, linkOf(ring));
-    const stops = lintSpec(ring).flatMap((finding) => {
+    await explainFindings(page).click();
+    await expect(explanation(page).getByRole("listitem")).toHaveCount(2);
+    const cards = findings.flatMap((finding) => {
       const key = findingKey(finding);
       const show = showMeButton(page, key);
       return finding.id === "F1"
         ? [show, findingItem(page, key).getByRole("button", { name: "Raise contrast to AAA" })]
         : [show];
     });
-    expect(stops.length).toBeGreaterThan(5);
+    expect(cards.length).toBeGreaterThan(5);
+    const stops = [
+      explainFindings(page),
+      explanation(page).getByRole("button", { name: "Raise contrast to AAA", exact: true }),
+      ...cards,
+    ];
     await scrollArea(page).focus();
     for (const stop of stops) {
       await page.keyboard.press("Tab");
       await expect(stop).toBeFocused();
     }
     // The ring fixture is a loaded design whose rebuild passes: Tab then reaches "Rebuild from the
-    // parameters", after the findings, and the Receipt section follows it (R3-36, R3-42).
+    // parameters", after the findings, and the Receipt section follows it (R3-36, R3-42); then the
+    // Rationale section's "Write the rationale", after the Receipt section (13.7).
     await page.keyboard.press("Tab");
     await expect(
       inspector(page).getByRole("button", { name: "Rebuild from the parameters", exact: true }),
     ).toBeFocused();
     await expect(region(page, "Receipt")).toBeVisible();
+    await page.keyboard.press("Tab");
+    await expect(writeRationale(page)).toBeFocused();
   });
 
   test("F-INSP-16 under reduced motion show me, a fix and the drawer start no motion in the canvas", async ({
@@ -1590,11 +1619,15 @@ test("F-INSP-14 F-A11Y-03 at 360 px the inspector drawer is walked by keyboard w
     }
     await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
     await openInspector(page);
-    // Close, the scroll area, then each finding's "Show me", each with the 2 px madder ring.
+    // Close, the scroll area, "Explain the top findings", each finding's "Show me", then "Write the
+    // rationale" after the Receipt section (section 16 of docs/specs/04-ai.md, 13.7), each with the
+    // 2 px madder ring.
     const stops = [
       button(page, "Close inspector"),
       scrollArea(page),
+      explainFindings(page),
       ...keys.map((key) => showMeButton(page, key)),
+      writeRationale(page),
     ];
     for (const stop of stops) {
       await page.keyboard.press("Tab");

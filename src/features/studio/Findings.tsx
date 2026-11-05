@@ -1,5 +1,9 @@
 import { type FocusEvent, useId, useLayoutEffect, useRef } from "react";
 import type { DirectionParams, Finding } from "@/engine";
+import { ActionButton } from "@/features/ai/ActionButton";
+import type { AiActivity } from "@/features/ai/activity";
+import { Explanation, useCritique } from "@/features/ai/Explanation";
+import type { DesignSpec } from "@/spec";
 import { TOGGLE_BUTTON, TOOL_BUTTON } from "./chrome";
 import { fixFor, fixTarget } from "./fixes";
 import { findingKey, findingMeasure, findingTitle, groupFindings } from "./inspect";
@@ -14,6 +18,11 @@ import { PanelSection } from "./PanelSection";
 // and one focus rescue: when the control that held focus leaves because the list changed (a fix that
 // clears its finding, a fix button gone at its level, a "Show me" whose finding left), focus moves to
 // the section's heading, never to the page body (F-STUDIO-23, fix round 1).
+//
+// After the heading, "Explain the top findings" asks a model to rank the findings (docs/specs/04-ai.md,
+// 13.5, R4-50): its failure sentences and result line come first in the status region, then a fix's
+// outcome; its explanation sits before the counts, and its fix buttons are in the focus rescue's care
+// like the cards' (13.7). Both show only while the spec they speak of is held.
 
 /** The note on an F1 card: the ring paints only on focus, so "show me" outlines what it sits on. */
 const F1_NOTE = "The ring shows on focus. Show me outlines the surfaces it sits on.";
@@ -26,7 +35,14 @@ const GROUPS = [
 
 const count = (n: number, word: string, plural = `${word}s`) => `${n} ${n === 1 ? word : plural}`;
 
+/** Why "Explain the top findings" cannot run (13.5). */
+const NOTHING_TO_EXPLAIN = "There are no findings to explain.";
+
 export type FindingsProps = {
+  /** The held spec, whose id the critique's explanation belongs to. */
+  spec: DesignSpec;
+  /** The studio's one AI activity (R4-56), which the critique runs in. */
+  activity: AiActivity;
   findings: readonly Finding[];
   params: DirectionParams;
   /** The key of the finding whose "Show me" is pressed. */
@@ -46,6 +62,8 @@ export type FindingsProps = {
 };
 
 export function Findings({
+  spec,
+  activity,
   findings,
   params,
   selected,
@@ -56,6 +74,8 @@ export function Findings({
   onRebuild,
 }: FindingsProps) {
   const groups = groupFindings(findings);
+  const critique = useCritique(activity, spec, findings);
+  const { lines } = critique;
   const heading = useRef<HTMLHeadingElement>(null);
   // The control inside the list that last took focus, until focus moves out of the section.
   const focused = useRef<Element | null>(null);
@@ -88,7 +108,31 @@ export function Findings({
   });
   return (
     <PanelSection title="Findings" headingRef={heading}>
-      <div className="space-y-1">
+      <div className="space-y-1.5">
+        <ActionButton
+          action={critique.action}
+          label="Explain the top findings"
+          busyLabel="Ranking the findings…"
+          reason={findings.length === 0 ? NOTHING_TO_EXPLAIN : null}
+          onRun={critique.run}
+        />
+        <div
+          role="status"
+          data-findings-status=""
+          className="space-y-1 text-foreground text-xs leading-snug"
+        >
+          {lines.failures.map((line) => (
+            <p key={line}>{line}</p>
+          ))}
+          {lines.result !== null && <p>{lines.result}</p>}
+          {outcome !== "" && <p>{outcome}</p>}
+        </div>
+      </div>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: the handlers only track focus for the rescue above; nothing here acts on input. */}
+      <div className="space-y-3" onFocus={onFocus} onBlur={onBlur}>
+        {critique.explained !== null && (
+          <Explanation explained={critique.explained} params={params} onFix={onFix} />
+        )}
         {findings.length === 0 ? (
           <p className="text-fg-muted text-xs">No findings.</p>
         ) : (
@@ -97,14 +141,8 @@ export function Findings({
             {groups.info.length} info
           </p>
         )}
-        <p role="status" data-findings-status="" className="text-foreground text-xs leading-snug">
-          {outcome}
-        </p>
-      </div>
-      {findings.length > 0 && (
-        // biome-ignore lint/a11y/noStaticElementInteractions: the handlers only track focus for the rescue above; nothing here acts on input.
-        <div className="space-y-3" onFocus={onFocus} onBlur={onBlur}>
-          {GROUPS.map(([severity, label]) =>
+        {findings.length > 0 &&
+          GROUPS.map(([severity, label]) =>
             groups[severity].length === 0 ? null : (
               <div key={severity} data-group={severity} className="space-y-2">
                 <h4 className="flex items-baseline gap-1.5 font-mono text-[11px] text-fg-muted uppercase tracking-[0.1em]">
@@ -131,18 +169,17 @@ export function Findings({
               </div>
             ),
           )}
-          {onRebuild !== undefined && (
-            <div className="space-y-1.5">
-              <button type="button" onClick={onRebuild} className={TOOL_BUTTON}>
-                Rebuild from the parameters
-              </button>
-              <p className="text-[11px] text-fg-muted leading-snug">
-                Generates the design again from its parameters and seed. Undo brings this one back.
-              </p>
-            </div>
-          )}
-        </div>
-      )}
+        {onRebuild !== undefined && (
+          <div className="space-y-1.5">
+            <button type="button" onClick={onRebuild} className={TOOL_BUTTON}>
+              Rebuild from the parameters
+            </button>
+            <p className="text-[11px] text-fg-muted leading-snug">
+              Generates the design again from its parameters and seed. Undo brings this one back.
+            </p>
+          </div>
+        )}
+      </div>
     </PanelSection>
   );
 }

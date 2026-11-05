@@ -275,6 +275,7 @@ function StudioShell({ store }: { store: StudioStore }) {
           />
           <Inspector
             store={store}
+            activity={activity}
             onCanvasShown={() => {
               // A drawer covers the canvas: it closes so the outline shows (section 7.8).
               if (open === "inspector") closeDrawer();
