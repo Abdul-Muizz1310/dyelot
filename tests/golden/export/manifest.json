@@ -4,8 +4,8 @@
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 54436,
-        "sha256": "dbb29a5571f3a4bce2c7e3fb1ca8a06d6d581e9eff4117dd865cf61b71fbbb8b"
+        "bytes": 54560,
+        "sha256": "b992dac94daebbc997ea5fa3c256607b7bfdd4c1fa11b6c9e1f2447de75e4c89"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -99,24 +99,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 45093,
-        "sha256": "0be3a8d967471f91e1e968d2645a9efcb438e89b43ffbe1686c8856ea517d7fe"
+        "sha256": "be9b69374d13a5ff28b7238ddba308f06c26d1f5331caffbaea9a8d06694c83e"
       }
     ],
-    "zipSha256": "4a8c04a2400393c2ec43712042236de15ab2fff62a7f026f61df45d913fe216e"
+    "zipSha256": "1028563f8aeb62abe0b3ba99b1031ad08af3453531ac480cc7d812b3cadad093"
   },
   "minimal-swiss": {
     "specId": "4aa24889811ae616",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 51657,
-        "sha256": "658f1871742ab742665e1407c813f43af1980c1714e00a84f4197d966aba6e6a"
+        "bytes": 51781,
+        "sha256": "302bd5bdb727462e9707e6beed795df0538da5508d0282782cdebc8f3e405544"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -205,24 +205,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 44262,
-        "sha256": "c1f6dcf7ce2ed42f7018ac3d9f38231db00f8001e180c615a3e7e57b62e7f417"
+        "sha256": "923d48183bb639b8e660c901e170647da9b3acc3dcc23a65965e0c625a877e68"
       }
     ],
-    "zipSha256": "2728523a96ce74323051cd39b42f7551f680777ad8b15ab4fcfce6326f6ed3a8"
+    "zipSha256": "3ab3d99cc161cf4ca65e9ba9691233400ab8ee1e765da60648439715a97d6147"
   },
   "editorial": {
     "specId": "a6521b022d357315",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 54418,
-        "sha256": "352275fae281540efa7b1fe4ac2e9dde7eff672dadd21a785e33fa193d45aadd"
+        "bytes": 54542,
+        "sha256": "78b117b0f912ea162b520286d43c01e9358a987ac5f107f431db20eb55d15644"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -316,24 +316,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 45262,
-        "sha256": "ddbe5ed09e018f281de293d312560307d60325ccabc46472ad8c52cc4b3e6b29"
+        "sha256": "edc01d63eb7f4b79dfc72fe10c4fda94fc9c87edfbc6e381a7f09b48b71405be"
       }
     ],
-    "zipSha256": "6cc1d1538b68499aa3661d8ed9166f0306e7a9565c9080c0f5893e71d7bb0c20"
+    "zipSha256": "fd3a1d7fd1534cf55c1cf7da51a5973d91a984eb7c2ab57473a88db41854b412"
   },
   "neo-brutalism": {
     "specId": "1cd53ed89de3f306",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 54022,
-        "sha256": "81b93822e8a2ffe15083d29e2a47504cb2f6140124508b57d6214f549fd592ec"
+        "bytes": 54146,
+        "sha256": "cdd6e35e29dce592c5a972157799a0e904eebfa382f8408ed499102a9cc42648"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -427,24 +427,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 45122,
-        "sha256": "2a71fe1d3b3b918cf65d7d75f00b3eebcf5a7fc20d00608ac508791099e239c9"
+        "sha256": "11b1299f9d843d82ea96aa57f5d27c247f72a8b089e8f07071bbc368d311ecd3"
       }
     ],
-    "zipSha256": "e02c766e9090750d7dd287bfaab266f79c40a77be31c70d0c836b12addb38f56"
+    "zipSha256": "eb1aa01441eb6560d334f598e21cf27cbb3469d9496417044e8747619c204fed"
   },
   "glass": {
     "specId": "1e2039e5542d2949",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 55043,
-        "sha256": "7477aeab1e6cdf24462ad0b0a3cda067055401496ad6875d3bed6525cf90b00b"
+        "bytes": 55167,
+        "sha256": "7fc0a63373f7a84ef8a40d94e70bd6601f7758ffda0818d1c86237ae00690961"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -538,24 +538,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 45128,
-        "sha256": "47fc0249718a1f167ebc5206ae675304260b4ee650c08614e68af27ed928b82b"
+        "sha256": "f690898614433201658cd3a7df54a255be381b1c37e15881b6a9292972675e24"
       }
     ],
-    "zipSha256": "91855344a1715993db7e4d82df01f6bc81d984b92de709b21f11d81dbb3df397"
+    "zipSha256": "6849c8fea471bc9ce7af04d521e09ec7018f0db797e008167355eefe65f04c72"
   },
   "dark-dev-tool": {
     "specId": "789a8c2104468509",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 54046,
-        "sha256": "9c5bdc065a1504e84e05ba04feae5e9d6bc4305721c6e6ef1a8e796f7af5c754"
+        "bytes": 54170,
+        "sha256": "5dbcc54b0dbc0a25b66cf0a73608a86468cc7c794c44fbb8b02bea0195a61611"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -649,24 +649,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 45140,
-        "sha256": "966280d766c7ddcf7592761e943724198c164437266ec64be17b6ee1de39fac1"
+        "sha256": "2a1d4bad9c1c40369486cec10efeb54f162bb7ef796cc7fe46a13c1d4ca325d0"
       }
     ],
-    "zipSha256": "f9046832d2657bcbdcbfadd0b1a58164ba4e5e26779c844773099a8880ff4d74"
+    "zipSha256": "29facc6088d354338e856670e8cc8dfe9c2dea51b586a9144a178e937c0b54c1"
   },
   "bento": {
     "specId": "1f028272a7787b51",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 54635,
-        "sha256": "6c21a7477e1601ecdf4ff39c13017bf5b99473b09b74f9499e6796bfc7e3ffde"
+        "bytes": 54759,
+        "sha256": "e1fc07b3567ae01094bc48f28be38b2338e65231daabbe26ceb36f9b00d5b2db"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -755,24 +755,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 44916,
-        "sha256": "a1f6b9321b8fd0a77e2c8ec87966f8259d76c4daf73669493524ca4501a27346"
+        "sha256": "636664b69e9a9f8108db4a1c5e255646f388e3565a8c7983d309eb70e5dc6113"
       }
     ],
-    "zipSha256": "765f75216364ae7f67363dbce5f0c84799da411d98a33c28675dee9a1c56e5eb"
+    "zipSha256": "fbc745ae6ec50fb5a988b04087b44d01274ba6c214fba3d3b441394394a18ba6"
   },
   "aurora": {
     "specId": "ec54a034198440b5",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 55558,
-        "sha256": "35d32429769bd2a674124eefcefa8d6cdf0a4d2f520f4015c84348bdbea63b20"
+        "bytes": 55682,
+        "sha256": "6c7feed612709e022c8a115e2e4bfa2209495eff9c5dd5d3832df7050ea3cfb9"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -866,24 +866,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 45286,
-        "sha256": "cffe3018aaf12f6485815700116dba0eb9da470fcd0069a7e5592a9ecb658e3f"
+        "sha256": "2a9a08c1e6155ed5a029c022d202081ec7bc66cd0314c03b3eaa0bb97b41e2e7"
       }
     ],
-    "zipSha256": "54d85682f7f7cafeaf33b8c8e894311797a23fff61a269554d8d6971d6235b78"
+    "zipSha256": "25d9c6c11e3340509092fc871868e4c464f7a7b466db0ac8e2c8a4b0584aebf4"
   },
   "retro-futurism": {
     "specId": "71763fb43b8259fe",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 55412,
-        "sha256": "c23355d4c9d3069d2b1837ec28b7ab0a0fe65e86b67e8eb103df580aa4035d24"
+        "bytes": 55536,
+        "sha256": "0f3cff9ce832891d764c1f43533a3e523d0da6d47b0c9e6045a82f95ea301a7b"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -977,24 +977,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 45291,
-        "sha256": "99392e4afa15d57c4f088afeaf4578d5e4377694ccccde3d98e97be07d6003d5"
+        "sha256": "1737ec0f7fc522f583d97bea5e7f4426b26ba9cbfba7d485167645e98841914c"
       }
     ],
-    "zipSha256": "7f4c6986419cfad2fa69816236f6f08ef361fb01ac8607ae62aecf75a34046fc"
+    "zipSha256": "6fb85dabf0ce32faaa3bdbc948a1c679ec5b377a7f9e2d19d2d2bd80bb98de83"
   },
   "tactile": {
     "specId": "e523c49336f2d591",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 54898,
-        "sha256": "a796ee67c8779e9e413e693b983050209542966147c2dcd2c5900132454d518c"
+        "bytes": 55022,
+        "sha256": "90852506de649fac07d90c612e4ce1b1e57126e55d3106cebb0efc4672e08802"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -1088,24 +1088,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 45142,
-        "sha256": "bf124b46c675833ad138e217782c3988a5c0f0937c1ce9ce3606d2175099ba45"
+        "sha256": "290fbeae4678e56cec8cae45b35ac1f745e0732d148b23246f7c6d7111be908d"
       }
     ],
-    "zipSha256": "6f46e3f6cda40f778f454390d2da3cbeb2cfde147bc5fee7d81c76f9415c4c54"
+    "zipSha256": "0b9db2d8bf78eb786c4bd140df692ddb0e3f055ab078643a149cefa8f1461d27"
   },
   "maximalism": {
     "specId": "ec2e8cd1bf4227e4",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 54850,
-        "sha256": "384ccfa0199a0060215459dfa9212d1d730c11ee46214abae72e9d6da00d7e87"
+        "bytes": 54974,
+        "sha256": "80e550316da72fcc5048393e7c438ae5f8506576253d4aa581481c43957f939a"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -1199,24 +1199,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 47689,
-        "sha256": "a997aa89d9855586c62205ce82e25e9f005f03620e1a5fe743009ed1210c61b6"
+        "sha256": "2b243053dbfb4a0477b5eeff4e3f76a089303cf24b15b3ba9c2b50238e6e2fca"
       }
     ],
-    "zipSha256": "81c6f6d64276c31963bc12b9f3c54cc56947d6442a8fb88639545e5f6f2e3c0d"
+    "zipSha256": "71bcc175ea1ec5fe978b9268338190dbe17f0387c3a0cd141cd3f97a085ed17e"
   },
   "organic": {
     "specId": "d2eff4b13924a69b",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 54993,
-        "sha256": "72f0c575890eef2fbde94b05e116cfe8eb5281ddcfb0427acd67a629725e9fc3"
+        "bytes": 55117,
+        "sha256": "e903c9fdd1543f1125ddda0cd830193b07edb3a730a8a04e787fda937b32b1d1"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -1310,24 +1310,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 45227,
-        "sha256": "0eff93d1bf646262ce85955be388fa82493e8cf6b1a7ef29bd475ec7cd9feef5"
+        "sha256": "beaf9f11174a6df49a30030579027954523e72aa6c6ec33a8ecbe795d50c8ae5"
       }
     ],
-    "zipSha256": "45ba552b1e2c9d060cea8425069ede40f2e9b548a0900571e08a789a2174f5f6"
+    "zipSha256": "1bb74c8c9e78cd797826181fc4491992ffc06290cd582323262506d035c202a4"
   },
   "dithering-pixel": {
     "specId": "40e61b5f63aaac4d",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 51680,
-        "sha256": "ac9f2999dab01efc72c8ed6e19b9b5900b74e6db67c3368b61db6375698e3d11"
+        "bytes": 51804,
+        "sha256": "b45b8ecf69406fc5be87efe0388b99ac122f29a95a9606172ec9a63c0625badb"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -1421,24 +1421,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 44436,
-        "sha256": "72f5ae9162a27ad26772cb8e305066751e3e05f09e2ebd5fd1a109494cc4dc33"
+        "sha256": "06b58b696081848bbabd295a4052e69bbe9ce7edaf247782fa73a314de08575d"
       }
     ],
-    "zipSha256": "e7ca92dd244a18ed511766c2be973f87f4a81d7aa2da256d51a0ae89d71d0454"
+    "zipSha256": "827b3f26b724f9a4a6313db554f102cd866e899c8cdd4f55b3e38ad6bf4d2181"
   },
   "m3-expressive": {
     "specId": "68222c06f302673c",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 55006,
-        "sha256": "4287dbc5c1cd984e4bdae0de6daddc8b98a159a11e739c38c97c89d649502365"
+        "bytes": 55130,
+        "sha256": "d1fe110a4e5488f19c9d4f584666032a2fff40293bd881c6daf45fa4c0e59690"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -1527,24 +1527,24 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 44968,
-        "sha256": "ec4f46cdbcc9b108068deef3481f25e5c2ea81aa3361431437238efc69f0a553"
+        "sha256": "6d0453bd1af8e26d0158b7afa789be1e3ff8ef1d39d0eeced71d5f15eb51e5c9"
       }
     ],
-    "zipSha256": "973878828b8cdcffdf22588f2ad88ca485c86aa64e7ae0f76a0f27c93d62ac5d"
+    "zipSha256": "615f4c695c52741fe8b4f88e60c9cf42ad2e72fcb6ff3c01a081d7518414bf96"
   },
   "imported-shadcn": {
     "specId": "fa62aec3843f24eb",
     "files": [
       {
         "path": "DESIGN.md",
-        "bytes": 52960,
-        "sha256": "3b62d2d4deb7ace658273963d821949de0883a95fa6700bfef1f9df72119f8e2"
+        "bytes": 53084,
+        "sha256": "5a379ea0510820ca0b6cc40dfc8c3a40395df69547e09857d8bd2dc63aa96e3c"
       },
       {
         "path": "AGENTS.md.snippet",
@@ -1638,15 +1638,15 @@
       },
       {
         "path": "scripts/dyelot-check.mjs",
-        "bytes": 28383,
-        "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
+        "bytes": 30483,
+        "sha256": "13ba41d8255db628238153e9c41dcf71a58e287d5f0dbc2a8f88ebb25a3c9288"
       },
       {
         "path": "receipt.json",
         "bytes": 49231,
-        "sha256": "dd96731e69277a609cb37d6b38481c11ba4ac27063b558a267fe3a10f40a59e1"
+        "sha256": "6aa057ef71a6f930331b69fea8a771386f3f141dfc6bda07d2aa980020ac081a"
       }
     ],
-    "zipSha256": "05b4d44ce7ba6988997015d6723ccbdd1734639bc0f995b053b9c12a7034ef16"
+    "zipSha256": "0b99fb531a44c9ac0470dcaf91032f0574f65185962128abeb25ed143cd2e3b3"
   }
 }
