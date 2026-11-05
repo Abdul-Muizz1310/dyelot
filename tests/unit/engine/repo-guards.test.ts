@@ -601,20 +601,22 @@ describe("C-REPO-M2-03 the new pure folders and helpers keep the pure-core floor
 });
 
 // C-GUARD3-01 to 04 of docs/specs/03-export.md, section 10.9 (R3-38, I-M3-02, R3-39): the export and
-// import cores load only through a dynamic import, and stay pure.
+// import cores load only through a dynamic import, and stay pure. Section 16 of docs/specs/04-ai.md
+// amends C-GUARD3-01, 03 and 04 (R4-04): the AI core, src/ai, is the third such core.
 
 const EXPORT_DIR = path.join(ROOT, "src/export");
 const IMPORT_DIR = path.join(ROOT, "src/import");
+const AI_DIR = path.join(ROOT, "src/ai");
 const APP_DIRS = ["src/features", "src/app", "src/components", "src/lib"].map((folder) =>
   path.join(ROOT, folder),
 );
 
-/** Whether `specifier`, written in `file`, points at `@/export`, `@/import` or a path under them. */
+/** Whether `specifier`, written in `file`, points at `@/export`, `@/import`, `@/ai` or a path under them. */
 function reachesCores(file: string, specifier: string): boolean {
-  if (/^@\/(?:export|import)(?:\/|$)/.test(specifier)) return true;
+  if (/^@\/(?:export|import|ai)(?:\/|$)/.test(specifier)) return true;
   if (!specifier.startsWith(".")) return false;
   const resolved = path.resolve(path.dirname(file), specifier);
-  return [EXPORT_DIR, IMPORT_DIR].some(
+  return [EXPORT_DIR, IMPORT_DIR, AI_DIR].some(
     (dir) => resolved === dir || resolved.startsWith(dir + path.sep),
   );
 }
@@ -641,7 +643,7 @@ function dynamicCoreImports(file: string, source: string): string[] {
 const APP_FILES = APP_DIRS.flatMap(codeFiles);
 const PROBE_FILE = path.join(ROOT, "src/features/probe.ts");
 
-describe("C-GUARD3-01 app code reaches the export and import cores only through import()", () => {
+describe("C-GUARD3-01 app code reaches the export, import and AI cores only through import()", () => {
   it("scans real app files", () => {
     expect(APP_FILES.length).toBeGreaterThan(0);
   });
@@ -663,6 +665,10 @@ describe("C-GUARD3-01 app code reaches the export and import cores only through 
     ['import { x } from "../import/css";', ["../import/css"]],
     ['import "@/export";', ["@/export"]],
     ['import {\n  a,\n  b,\n} from "@/export/bundle";', ["@/export/bundle"]],
+    ['import { parseOutput } from "@/ai";', ["@/ai"]],
+    ['import { chatMessages } from "@/ai/chat";', ["@/ai/chat"]],
+    ['import { x } from "../ai/features";', ["../ai/features"]],
+    ['export { briefInput } from "@/ai/inputs";', ["@/ai/inputs"]],
   ])("reports the probe %j", (source, expected) => {
     expect(staticCoreImports(PROBE_FILE, source)).toEqual(expected);
   });
@@ -674,6 +680,10 @@ describe("C-GUARD3-01 app code reaches the export and import cores only through 
     'import { x } from "@/engine";',
     'import { x } from "./export-button";',
     '// import { x } from "@/export";',
+    'import type { AiChange } from "@/ai";',
+    'const loadAi = () => import("@/ai");',
+    'import { chipChange } from "./ai/steer";',
+    'import { chipChange } from "@/features/ai/steer";',
   ])("allows the probe %j", (source) => {
     expect(staticCoreImports(PROBE_FILE, source)).toEqual([]);
   });
@@ -757,6 +767,17 @@ describe("C-GUARD3-02 src/export and src/import stay pure", () => {
   });
 });
 
+const ENTRY_NAMES = ["@/export", "@/import", "@/ai"];
+
+/** Every app `import()` of a core that names a path under it rather than its entry. */
+function misnamedDynamicImports(): string[] {
+  return APP_FILES.flatMap((file) =>
+    dynamicCoreImports(file, readFileSync(file, "utf8"))
+      .filter((specifier) => !ENTRY_NAMES.includes(specifier))
+      .map((specifier) => `${path.relative(ROOT, file)}: ${specifier}`),
+  );
+}
+
 /** Whether every statement of an index file is an `export … from` line. */
 function onlyExportsFrom(source: string): boolean {
   const statements = stripComments(source)
@@ -771,8 +792,8 @@ function onlyExportsFrom(source: string): boolean {
   );
 }
 
-describe("C-GUARD3-03 the two entries hold only export-from lines and app import() names them exactly", () => {
-  it.each(["src/export/index.ts", "src/import/index.ts"])(
+describe("C-GUARD3-03 the three entries hold only export-from lines and app import() names them exactly", () => {
+  it.each(["src/export/index.ts", "src/import/index.ts", "src/ai/index.ts"])(
     "keeps %s to export-from lines",
     (file) => {
       expect(onlyExportsFrom(readFileSync(path.join(ROOT, file), "utf8"))).toBe(true);
@@ -789,47 +810,49 @@ describe("C-GUARD3-03 the two entries hold only export-from lines and app import
     expect(onlyExportsFrom(source)).toBe(expected);
   });
 
-  it("names exactly @/export or @/import in every app import() of a core", () => {
-    const bad = APP_FILES.flatMap((file) =>
-      dynamicCoreImports(file, readFileSync(file, "utf8"))
-        .filter((specifier) => specifier !== "@/export" && specifier !== "@/import")
-        .map((specifier) => `${path.relative(ROOT, file)}: ${specifier}`),
-    );
-    expect(bad).toEqual([]);
+  it("names exactly @/export, @/import or @/ai in every app import() of a core", () => {
+    expect(misnamedDynamicImports()).toEqual([]);
   });
 
   it("reports a probe import of a path under a core", () => {
     expect(dynamicCoreImports(PROBE_FILE, 'import("@/export/zip")')).toEqual(["@/export/zip"]);
     expect(dynamicCoreImports(PROBE_FILE, 'import("../export/zip")')).toEqual(["../export/zip"]);
     expect(dynamicCoreImports(PROBE_FILE, 'import("@/export")')).toEqual(["@/export"]);
+    expect(dynamicCoreImports(PROBE_FILE, 'import("@/ai/chat")')).toEqual(["@/ai/chat"]);
+    expect(dynamicCoreImports(PROBE_FILE, 'import("../ai/chat")')).toEqual(["../ai/chat"]);
+    expect(dynamicCoreImports(PROBE_FILE, 'import("@/ai")')).toEqual(["@/ai"]);
+    expect(dynamicCoreImports(PROBE_FILE, 'import("./ai/steer")')).toEqual([]);
   });
 });
 
-describe("C-GUARD3-04 Biome rejects a static import of a path under the cores", () => {
-  const BIOME = path.join(ROOT, "node_modules/.bin/biome");
+const BIOME = path.join(ROOT, "node_modules/.bin/biome");
 
-  function lint(source: string): { status: number | null; output: string } {
-    const probe = path.join(ROOT, "src/features/guard3-04-probe.ts");
-    writeFileSync(probe, source);
-    try {
-      const r = spawnSync(BIOME, ["lint", probe], { cwd: ROOT, encoding: "utf8" });
-      return { status: r.status, output: `${r.stdout}${r.stderr}` };
-    } finally {
-      rmSync(probe, { force: true });
-    }
+/** Biome's verdict on `source` written as a file of src/features (the probe is removed after). */
+function lint(source: string): { status: number | null; output: string } {
+  const probe = path.join(ROOT, "src/features/guard3-04-probe.ts");
+  writeFileSync(probe, source);
+  try {
+    const r = spawnSync(BIOME, ["lint", probe], { cwd: ROOT, encoding: "utf8" });
+    return { status: r.status, output: `${r.stdout}${r.stderr}` };
+  } finally {
+    rmSync(probe, { force: true });
   }
+}
 
+describe("C-GUARD3-04 Biome rejects a static import of a path under the cores", () => {
   it("reports noRestrictedImports for a probe in src/features importing @/export/zip", () => {
     const result = lint('import { zipBundle } from "@/export/zip";\nexport const z = zipBundle;\n');
     expect(result.status).not.toBe(0);
     expect(result.output).toContain("noRestrictedImports");
   });
 
-  it("reports the import cores and a relative path into either core", () => {
+  it("reports the import and AI cores and a relative path into any core", () => {
     for (const source of [
       'import { importShadcnCss } from "@/import/css";\nexport const z = importShadcnCss;\n',
       'import { zipBundle } from "../export/zip";\nexport const z = zipBundle;\n',
       'import { x } from "../import/css";\nexport const z = x;\n',
+      'import { parseOutput } from "@/ai/features";\nexport const z = parseOutput;\n',
+      'import { parseOutput } from "../ai/features";\nexport const z = parseOutput;\n',
     ]) {
       const result = lint(source);
       expect(result.status, source).not.toBe(0);
@@ -840,5 +863,230 @@ describe("C-GUARD3-04 Biome rejects a static import of a path under the cores", 
   it("accepts a dynamic import of the entry", () => {
     const result = lint('export const load = () => import("@/export");\n');
     expect(result.status).toBe(0);
+  });
+
+  it("accepts a dynamic import of the AI entry and a type import from it", () => {
+    const source =
+      'import type { AiChange } from "@/ai";\nexport const load = () => import("@/ai");\nexport type C = AiChange;\n';
+    expect(lint(source).status).toBe(0);
+  });
+});
+
+// C-GUARD4-01 to 03 of docs/specs/04-ai.md, section 14.10 (R4-03, R4-04, I-M4-08): the AI core is
+// pure, imports only what R4-03 lists, and app code reaches it only through import("@/ai").
+
+/** The names of the I-M4-08 APIs: those of I-M3-02 and seven more. */
+const AI_IMPURE: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
+  ...IMPURE,
+  ["navigator", /\bnavigator\b/],
+  ["crypto", /\bcrypto\b/],
+  ["process", /\bprocess\b/],
+  ["setTimeout", /\bsetTimeout\b/],
+  ["setInterval", /\bsetInterval\b/],
+  ["Buffer", /\bBuffer\b/],
+  ["require", /\brequire\b/],
+];
+
+/**
+ * The module specifiers of comment-free code: `import … from`, `export … from` and `import "…"`
+ * statements, and `import("…")` calls. A statement starts the code or follows `;`, `}` or a line
+ * break, so a string such as `"import"` in a type is not read as an import.
+ */
+function moduleSpecifiers(code: string): string[] {
+  const statements = [
+    /(?:^|[;}\n])\s*(?:import|export)\b[^;"'`]*?\bfrom\s*["']([^"']+)["']/g,
+    /(?:^|[;}\n])\s*import\s*["']([^"']+)["']/g,
+    /\bimport\s*\(\s*["']([^"']+)["']\s*\)/g,
+  ];
+  return statements.flatMap((pattern) =>
+    [...code.matchAll(pattern)].map((match) => match[1] as string),
+  );
+}
+
+/** The impure APIs and imports (`node:`, a Node built-in, React or Next) of one src/ai file. */
+function aiViolations(source: string): string[] {
+  const code = stripComments(source);
+  const found = AI_IMPURE.filter(([, pattern]) => pattern.test(code)).map(([name]) => name);
+  for (const specifier of moduleSpecifiers(code)) {
+    if (isForbiddenSpecifier(specifier)) found.push(`import "${specifier}"`);
+  }
+  return found;
+}
+
+describe("C-GUARD4-01 src/ai uses no impure API (I-M4-08)", () => {
+  const files = codeFiles(AI_DIR);
+
+  it("C-GUARD4-01 scans real files, features.ts, inputs.ts and copy.ts among them", () => {
+    expect(files).toEqual(
+      expect.arrayContaining(
+        ["features.ts", "inputs.ts", "copy.ts", "index.ts"].map((name) => path.join(AI_DIR, name)),
+      ),
+    );
+  });
+
+  it("C-GUARD4-01 finds no clock, randomness, DOM, storage, network, environment, locale or Web Crypto", () => {
+    const bad = files.flatMap((file) =>
+      aiViolations(readFileSync(file, "utf8")).map(
+        (name) => `${path.relative(ROOT, file)}: ${name}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it.each([
+    ["Date", "const d = Date.now();"],
+    ["Math.random", "const r = Math.random();"],
+    ["getRandomValues", "globalThis.getRandomValues(a);"],
+    ["performance", "const t = performance.now();"],
+    ["Intl", "new Intl.Segmenter();"],
+    ["toLocale", "n.toLocaleString();"],
+    ["localeCompare", "a.localeCompare(b);"],
+    ["document", "document.title;"],
+    ["window", "window.open();"],
+    ["navigator", "navigator.language;"],
+    ["localStorage", "localStorage.getItem('k');"],
+    ["sessionStorage", "sessionStorage.clear();"],
+    ["fetch", "await fetch(url);"],
+    ["XMLHttpRequest", "new XMLHttpRequest();"],
+    ["crypto", "crypto.subtle.digest('SHA-256', bytes);"],
+    ["process", "const key = process.env.OPENROUTER_API_KEY;"],
+    ["setTimeout", "setTimeout(done, 20_000);"],
+    ["setInterval", "setInterval(tick, 1000);"],
+    ["Buffer", "Buffer.from(text).toString('base64');"],
+    ["require", "const z = require('zod');"],
+    ['import "node:crypto"', 'import { createHmac } from "node:crypto";'],
+    ['import "react"', 'import { useState } from "react";'],
+    ['import "next/server"', 'import { after } from "next/server";'],
+  ])("C-GUARD4-01 sees %s in a probe", (name, source) => {
+    expect(aiViolations(source)).toContain(name);
+  });
+
+  it("C-GUARD4-01 reads every form of import, and not a string that says import", () => {
+    expect(moduleSpecifiers('import a from "a";\nexport { b } from "b";\nimport "c";')).toEqual([
+      "a",
+      "b",
+      "c",
+    ]);
+    expect(moduleSpecifiers('import type {\n  D,\n} from "d";')).toEqual(["d"]);
+    expect(moduleSpecifiers('const m = await import("e");')).toEqual(["e"]);
+    expect(moduleSpecifiers('type C = Exclude<CreatedWith, "import">;\nconst x = "y";')).toEqual(
+      [],
+    );
+  });
+
+  it("C-GUARD4-01 lets a comment name an API, and longer words through", () => {
+    expect(aiViolations("// Date, fetch and crypto are the shells' work\nconst x = 1;")).toEqual(
+      [],
+    );
+    expect(aiViolations("const processed = 1; const cryptic = 2; const updated = 3;")).toEqual([]);
+  });
+});
+
+/** The specifiers R4-03 lets a src/ai file import, beside its own files. */
+const AI_ALLOWED = ["@/engine", "@/spec", "@/spec/zod", "@/export/sha256"];
+/** A prompt file, imported as text by a file directly under src/ai (R4-51). */
+const PROMPT_RAW = /^\.\/prompts\/[a-z-]+\.md\?raw$/;
+
+/** The specifiers of `file` (under src/ai) that R4-03 does not allow, type imports included. */
+function aiImportViolations(file: string, source: string): string[] {
+  return moduleSpecifiers(stripComments(source)).filter((specifier) => {
+    if (AI_ALLOWED.includes(specifier)) return false;
+    if (PROMPT_RAW.test(specifier)) return path.dirname(file) !== AI_DIR;
+    if (specifier.includes("?") || specifier.endsWith(".md")) return true;
+    const target = specifier.startsWith("@/ai/")
+      ? path.join(AI_DIR, specifier.slice("@/ai/".length))
+      : specifier.startsWith(".")
+        ? path.resolve(path.dirname(file), specifier)
+        : null;
+    return target === null || !(target === AI_DIR || target.startsWith(AI_DIR + path.sep));
+  });
+}
+
+describe("C-GUARD4-02 src/ai imports only what R4-03 lists", () => {
+  it("C-GUARD4-02 finds no other import in any file under src/ai", () => {
+    const files = codeFiles(AI_DIR);
+    expect(files.length).toBeGreaterThan(5);
+    const bad = files.flatMap((file) =>
+      aiImportViolations(file, readFileSync(file, "utf8")).map(
+        (specifier) => `${path.relative(ROOT, file)}: ${specifier}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  const ROOT_FILE = path.join(AI_DIR, "probe.ts");
+  const NESTED_FILE = path.join(AI_DIR, "lexicon/probe.ts");
+
+  it.each([
+    [ROOT_FILE, 'import { z } from "zod";'],
+    [ROOT_FILE, 'import { assertHex } from "@/engine/color/guards";'],
+    [ROOT_FILE, 'import { isPlainText } from "@/spec/text";'],
+    [ROOT_FILE, 'import { zipBundle } from "@/export/zip";'],
+    [ROOT_FILE, 'import { buildBundle } from "@/export";'],
+    [ROOT_FILE, 'import { lockSeed } from "@/features/studio/params";'],
+    [ROOT_FILE, 'import { chipChange } from "@/features/ai/steer";'],
+    [ROOT_FILE, 'import { readAiEnv } from "../server/ai/env";'],
+    [ROOT_FILE, 'import type { Snapshot } from "../features/studio/drafts";'],
+    [ROOT_FILE, 'import brief from "./prompts/brief.md";'],
+    [ROOT_FILE, 'import brief from "./prompts/brief.md?url";'],
+    [NESTED_FILE, 'import brief from "./prompts/brief.md?raw";'],
+    [ROOT_FILE, 'import { useState } from "react";'],
+    [ROOT_FILE, 'const m = await import("@/export/zip");'],
+  ])("C-GUARD4-02 reports the probe in %s: %j", (file, source) => {
+    expect(aiImportViolations(file, source)).toHaveLength(1);
+  });
+
+  it.each([
+    [ROOT_FILE, 'import { lintSpec } from "@/engine";'],
+    [ROOT_FILE, 'import type { DesignSpec } from "@/spec";'],
+    [ROOT_FILE, 'import { z } from "@/spec/zod";'],
+    [ROOT_FILE, 'import { sha256 } from "@/export/sha256";'],
+    [ROOT_FILE, 'import { AI_FEATURES } from "./features";'],
+    [ROOT_FILE, 'export { words } from "./lexicon/match";'],
+    [ROOT_FILE, 'import brief from "./prompts/brief.md?raw";'],
+    [NESTED_FILE, 'import type { BriefDraft } from "../features";'],
+    [NESTED_FILE, 'import { LEXICON } from "@/ai/lexicon/data";'],
+  ])("C-GUARD4-02 allows the probe in %s: %j", (file, source) => {
+    expect(aiImportViolations(file, source)).toEqual([]);
+  });
+});
+
+describe("C-GUARD4-03 app code reaches @/ai only through import()", () => {
+  /** The static imports of the AI core in `file`, type imports aside. */
+  const staticAiImports = (file: string, source: string) =>
+    staticCoreImports(file, source).filter((specifier) => {
+      if (/^@\/ai(?:\/|$)/.test(specifier)) return true;
+      const resolved = path.resolve(path.dirname(file), specifier);
+      return specifier.startsWith(".") && resolved.startsWith(AI_DIR + path.sep);
+    });
+
+  it("C-GUARD4-03 finds no static import of @/ai or a path under it in src/features, app, components or lib", () => {
+    const bad = APP_FILES.flatMap((file) =>
+      staticAiImports(file, readFileSync(file, "utf8")).map(
+        (specifier) => `${path.relative(ROOT, file)}: ${specifier}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it("C-GUARD4-03 sees a static import of the AI core and lets a type import through", () => {
+    expect(staticAiImports(PROBE_FILE, 'import { parseOutput } from "@/ai";')).toEqual(["@/ai"]);
+    expect(staticAiImports(PROBE_FILE, 'import { x } from "@/ai/chat";')).toEqual(["@/ai/chat"]);
+    expect(staticAiImports(PROBE_FILE, 'import { x } from "../ai/chat";')).toEqual(["../ai/chat"]);
+    expect(staticAiImports(PROBE_FILE, 'import type { AiChange } from "@/ai";')).toEqual([]);
+    expect(staticAiImports(PROBE_FILE, 'import { chipChange } from "./ai/steer";')).toEqual([]);
+  });
+
+  it("C-GUARD4-03 names exactly @/export, @/import or @/ai in every import() of a core", () => {
+    expect(misnamedDynamicImports()).toEqual([]);
+  });
+
+  it("C-GUARD4-03 Biome rejects a probe importing @/ai/chat from src/features, naming the three cores", () => {
+    const result = lint(
+      'import { chatMessages } from "@/ai/chat";\nexport const z = chatMessages;\n',
+    );
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain("noRestrictedImports");
+    expect(result.output).toContain('import("@/ai")');
   });
 });

@@ -46,8 +46,15 @@
                     "message": "Import the engine from @/engine and the spec from @/spec, never from a file inside them."
                   },
                   {
-                    "group": ["@/export/**", "@/import/**", "../**/export/**", "../**/import/**"],
-                    "message": "Load the export and import cores only through import(\"@/export\") or import(\"@/import\"), never from a file inside them."
+                    "group": [
+                      "@/export/**",
+                      "@/import/**",
+                      "@/ai/**",
+                      "../**/export/**",
+                      "../**/import/**",
+                      "../**/ai/**"
+                    ],
+                    "message": "Load the export, import and AI cores only through import(\"@/export\"), import(\"@/import\") or import(\"@/ai\"), never from a file inside them."
                   }
                 ]
               }
