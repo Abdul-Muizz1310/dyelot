@@ -10,7 +10,7 @@ import { lotTag, specId } from "@/spec";
 import { APP, type AppFiles, cleanFolders, SHADCN_APP, STUB_FILES } from "./checker-support";
 import { ORIGIN, SPEC } from "./golden-support";
 
-// C-CHK-01 to 23, 27 to 30 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
+// C-CHK-01 to 23, 27 to 30, 34 and C-CHK-RF5 of docs/specs/03-export.md, section 10.7, in process
 // through `main(argv, io)`. C-CHK-24 and 26 spawn node: tests/unit/export/checker-entry.test.ts.
 
 afterAll(cleanFolders);
@@ -427,6 +427,29 @@ describe("the scan", () => {
     expect(scanOf(r).map((f) => [f.code, f.line, f.text])).toEqual(
       classes.map((c) => ["palette-class", 1, c]),
     );
+  });
+
+  it("C-CHK-34: the scale steps a shadcn install writes are not scanned, other custom properties are", () => {
+    const palettes = "neutral primary secondary accent success warning danger info".split(" ");
+    const steps = [50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
+    const scale = palettes.flatMap((p) => steps.map((s) => `  --${p}-${s}: #123456;`)).join("\n");
+    const withScale = (css: string) =>
+      css.replace(":root {\n", `:root {\n${scale}\n`).replace(".dark {\n", `.dark {\n${scale}\n`);
+    const r = check(registryApp(withScale));
+    expect(codes(r)).toEqual([]);
+    expect(
+      run(["--root", registryApp(withScale)])
+        .out.trimEnd()
+        .endsWith("PASS"),
+    ).toBe(true);
+    const brand = check(
+      registryApp((css) => withScale(css).replace(":root {\n", ":root {\n  --brand: #ff0000;\n")),
+    );
+    expect(codes(brand)).toEqual(["raw-color"]);
+    const odd = check(
+      registryApp((css) => css.replace(":root {\n", ":root {\n  --neutral-75: #ff0000;\n")),
+    );
+    expect(codes(odd)).toEqual(["raw-color"]);
   });
 
   it("C-CHK-33: a malformed receipt is exit 2 with a message, never a stack", () => {
