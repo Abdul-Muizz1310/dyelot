@@ -1601,8 +1601,8 @@
     },
     {
       "path": "scripts/dyelot-check.mjs",
-      "bytes": 28083,
-      "sha256": "37f18615b8d6bb2e8e1097685fd05c70da7f4425469d3816375848953d59e115"
+      "bytes": 28383,
+      "sha256": "a0df91c6cee885b52490537173cf2cd3238201b8e03aeddbda0fb9a518fe4f47"
     }
   ]
 }
