@@ -21,12 +21,13 @@ from your own palette. dyelot will write DESIGN.md with tokens and a ready promp
 
 The numbers come from an engine, not a model. The engine solves each color for a target WCAG
 contrast and measures it again on the value it emits. A model, where one helps, fills a closed schema and
-never writes a color. Every export will carry a receipt of what was measured, so a claim of
+never writes a color. Every export carries a receipt of what was measured, so a claim of
 accessibility comes with its proof.
 
 ## What could go wrong
 
 DESIGN.md is alpha, and Google could add a palette studio to Stitch tomorrow. dyelot needs no model and
 no server for its core, so a changed format means a new file writer, not a rewrite. Today the repo
-holds the shell, the CI, the design spec and that engine, with its spec model and linter. The studio
-comes next.
+holds the shell, the CI, the design spec, that engine with its spec model and linter, the studio, and the export: a zip of files
+an agent can build from, a receipt of what was measured, a checker that reruns the measurement in the agent's own app, and an import
+for an existing DESIGN.md or shadcn theme. The AI layers come next.

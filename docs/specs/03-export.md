@@ -6,6 +6,8 @@
 
 Status: rebuilt on 2026-11-05 and approved by the owner on 2026-11-05, as written after review fix round 1. Task 3.0 passed on 2026-11-05: no design threw or raised an error.
 
+M3 closed on 2026-11-05. `pnpm gate:full` passed on a 16-core machine in 22 min 40 s with 2,706 unit tests (1 skipped) in 159 files and 286 end-to-end flows, and 98.57% statements, 95.8% branches, 99.69% functions and 98.76% lines of coverage; `pnpm gate` passed in 4 min 22.8 s with 2,516 unit tests (1 skipped) in 122 files and 286 flows. Every case in section 10 has a test that carries its id: 333 of 333 (282 unit cases and 51 flows). The hand smoke installed the `default` golden by both routes, and the checker printed `PASS` in each.
+
 The owner approved the first M3 spec on 2026-11-03. That file lived in a draft folder outside git on a machine the owner
 no longer has, and it is lost. This file rebuilds it from the M3 plan (`docs/plans/2026-11-03-dyelot-m3-export.md` in the
 meta-repo). The plan kept every ruling id (R3-01 to R3-42), every case id, every interface, the counts it measured and
@@ -192,8 +194,17 @@ right after `--font-mono`, each the integer of `typeWeights(spec)` written as te
 them unchanged. On the canvas, a `font-weight` of 600 or more on an element set in the display face becomes
 `min(<n>, var(--weight-heading))`. One set in the mono face that F-WGT-01 finds at fault drops to 500, because Fragment Mono, the mono face of 11 of the 20
 pairings, holds only 400. Body faces need no cap: C-WGT-06 asserts that every pairing's body family renders 600.
-The plan counted six rules to change. That count came from a measurement the lost spec recorded; Task 3.4 lists the rules
-it changes in its report, and F-WGT-01 is the check. **(plan; the rule list rebuilt)**
+The plan counted six rules to change. That count came from a measurement the lost spec recorded; F-WGT-01 found these 10
+rules at fault, and Task 3.4 changed them. On the display face, to `min(<n>, var(--weight-heading))`: `.kit-display` (650),
+`.kit-card-title` (600), `.kit-dialog-title` (650), `.kit-accordion-trigger` (600), the kitchen sink's `.sink-section > h3`,
+`.sink-chip` and `.sink-component > h4` (650 each) and the landing page's `.lp-card-title > span:first-child` and
+`.lp-feature-list h3` (650 each). On the mono face, a new rule `.kit-readings th.kit-num` sets 500, because the table head's 600 was
+at fault in Fragment Mono. The other rules of 600 or more are set in body faces and F-WGT-01 does not flag them. The same task
+scoped three canvas selectors (`[data-canvas][data-frame]`, `@container frame (width < 480px)`, `[data-canvas] [data-touch]`) and gave
+`.kit-phone` and `.canvas-fit` `overflow: clip` with `overflow-clip-margin: 12px`, so the "Show me" outline is not cut at the
+frame's edge (F-CANVAS-11). The settings template's top and save bars keep `overflow: hidden` without the margin: with
+`overflow: clip` on them, axe's color-contrast check left the whole settings page undecided (F-TPL-27). F-CANVAS-11 leaves those
+two parts out, and section 14 defers the fix. **(plan; the rule list rebuilt)**
 
 **R3-07 · `presetOf`.** `presetOf(spec)` returns the first id in `PRESET_IDS` whose preset the spec matches, or `null`. A
 spec made by import (`meta.createdWith` is `"import"`) never matches. A preset matches when the spec's `harmony`,
@@ -226,8 +237,9 @@ each mode, each palette in `PALETTE_NAMES` order and each step: `{ palette, step
 
 ### The bundle (Tasks 3.6 to 3.11)
 
-**R3-09 · Files are text.** A `BundleFile` is `{ path, text }`. A path is relative, uses `/`, holds only `[a-z0-9._/-]`,
-never starts with `/` or `.` and never holds `..`. The text is UTF-8 with LF line ends, no byte-order mark and no line that
+**R3-09 · Files are text.** A `BundleFile` is `{ path, text }`. A path is relative, uses `/`, holds only `[a-z0-9._/-]`, with
+three exceptions that R3-12 fixes: the names `DESIGN.md`, `AGENTS.md.snippet` and `SKILL.md` hold uppercase letters, and no other
+path does (`zipBundle` rejects `A.txt`). A path never starts with `/` or `.` and never holds `..`. The text is UTF-8 with LF line ends, no byte-order mark and no line that
 ends in a space or a tab, and it ends in exactly one newline, except `design.toon`, which ends with none (R3-19). A file's
 byte length and hash are those of its UTF-8 encoding. **(plan; path rule rebuilt)**
 
@@ -271,7 +283,7 @@ trailing slash; otherwise it is a `RangeError` (a non-string is a `TypeError`). 
 That is 18 files plus one per font item: 18 to 21. The decision's "21 files" and "three font items" are the count for a
 design with three distinct families that next/font can load. The edit link is `editLink(spec, origin)`: `<origin>/studio#s=<encodeSpec(spec)>`, with the origin checked as above. Per D4,
 `DESIGN.md`, `prompt.md`, the skill and the header comment of `theme.css` carry the words "Made with dyelot" and the edit
-link, and the receipt records the link. `zipName(bundle)` is `<slug>-<the first 8 digits of the spec id>.zip`. **(plan; the
+link, and the receipt records the link. `zipName(bundle)` is `<slug>-<the first 8 hex characters of the spec id>.zip`. **(plan; the
 order rebuilt from the plan's file list)**
 
 **R3-13 · `theme.css` reuses the bridge.** `themeCss(spec, origin)` writes the values of `themeVars(spec, "light")` and the color values of `themeVars(spec, "dark")`
@@ -473,7 +485,8 @@ own draft-07 meta-schema under that `https` id. **(plan)**
    succeeds even when the result fails the linter; the studio then holds a loaded design that cannot be exported until it is
    fixed (R3-42). **(plan; the thresholds rebuilt)**
 
-**R3-30 · DESIGN.md import.** The front matter (the text between a first line `---` and the next line `---`) and every fenced
+**R3-30 · DESIGN.md import.** The front matter (the text between a first line `---` and the next line `---`; the first line is the
+first one after any leading blank lines and HTML comments, because the design-md-readme fixture starts with a license comment) and every fenced
 ` ```yaml ` block outside other fences are parsed with `yaml` 2.9.1, `parseDocument(text, { schema: "core", uniqueKeys:
 true, maxAliasCount: 0 })`. Any entry of `doc.errors` is the error `yaml` with its line. A document holding an anchor or an
 alias, found by `visit`, is the error `yaml-alias`. A top-level group defined in two blocks is the error `yaml-group-twice`.
@@ -497,7 +510,11 @@ inside `@layer` blocks count. A later declaration wins. The importer reads `--<r
 `--font-sans` (body and display), `--font-serif` (display, when present) and `--font-mono`; every other name is listed in
 the report as ignored. A value is read by `@csstools/css-color-parser` 4.2.7 after trimming and dropping `!important`. A bare
 HSL triple such as `222.2 84% 4.9%` (shadcn's v3 form) is read as `hsl(222.2 84% 4.9%)`. A `var(--x)` resolves once against
-the same mode's declarations. A value the parser rejects, or reads with a parse error, is listed as unreadable and skipped.
+the same mode's declarations. A value the parser rejects, or reads with a parse error, is listed as unreadable and skipped: `ImportReport.notes` gets one
+sentence for each, "The <light|dark> value of --<role> could not be read, so it was skipped.", at most 20 per mode, then one
+more note, "<n> more <light|dark> values could not be read." (an unreadable `--radius` adds "The value of --radius could not be
+read, so it was skipped."). The DESIGN.md importer does the same for `colors`: "The value of colors.<name> could not be read, so it
+was skipped.", at most 20, then "<n> more colors could not be read.".
 Conversion to sRGB goes through relative color syntax (`color(from <value> srgb r g b / alpha)`), which keeps channels
 outside [0, 1] for R3-29's gamut step. The name is "Imported theme". A text with no role declaration in a light block is the
 error `no-roles`. **(plan; the selector list rebuilt)**
@@ -535,7 +552,9 @@ while the dialog is open. **(plan; the amendment recorded here, as Task 3.14 ask
 (the key `e` or the code `KeyE`, without Alt or Shift, outside a text field) gives `{ kind: "open-export" }`, and a repeat of
 it gives `{ kind: "swallow" }`. While a dialog is open, Mod+S and Mod+E give `{ kind: "swallow" }` anywhere, so the save
 dialog and the address bar stay shut, and every other key gives `null`: the dialog handles its own keys and Escape. The page calls `preventDefault` for `swallow` and does nothing else. `dialogOpen` is optional, and absent reads as `false`, so every M2 case keeps its answer. As in M2, the canvas region keeps
-its keys, so Mod+E there does nothing. **(plan)**
+its keys, so Mod+E there does nothing. With an inspector or inputs drawer open (below 1280 px), Mod+E closes the drawer and opens the
+dialog, and when the dialog closes, focus returns to that drawer's toggle button, because the control that opened the dialog is gone
+with the drawer. **(plan; the drawer rule added during the build)**
 
 **R3-36 · The inspector's receipt.** The inspector gains a section "Receipt" after "Findings". It shows the same summary lines
 as the export dialog, and, when export is off, one more line with the state's sentence of R3-42. **(plan)**
@@ -628,7 +647,8 @@ runs the real generator, which I-M3-10 says passes. In
 the dialog the blocked state replaces the preview with the list of failing checks, keeps the file list without sizes, and
 gives "Download" and every "Copy" `aria-disabled="true"`, described by the sentence. "Fix in the inspector" ("Show the
 findings" in the stuck and fault states) closes the dialog and moves focus to the Findings heading, opening the inspector
-drawer below 1280 px. **(plan; the sentences rebuilt)**
+drawer below 1280 px. Under "Rebuild from the parameters" the Findings section shows the note "Generates the design again from its
+parameters and seed. Undo brings this one back.". **(plan; the sentences rebuilt, the note added in Task 3.15)**
 
 ## 4. Conventions, invariants and fixtures
 
@@ -792,7 +812,7 @@ type Bundle = {
 };
 function buildBundle(input: BundleInput): Bundle;
 function zipBundle(bundle: Bundle): Uint8Array;  // R3-26
-function zipName(bundle: Bundle): string;         // "<slug>-<first 8 digits of specId>.zip"
+function zipName(bundle: Bundle): string;         // "<slug>-<first 8 hex characters of specId>.zip"
 function sha256(input: string | Uint8Array): string; // lowercase hex; a string is hashed as UTF-8
 const RECEIPT_FORMAT = "dyelot.check/1";
 ```
@@ -856,7 +876,7 @@ type ImportReport = {
   readonly ignored: readonly string[];                       // names and sections, input order, at most 50
   readonly ignoredMore: number;                              // how many more were ignored
   readonly truncated: readonly string[];                     // text fields toPlainText cut
-  readonly notes: readonly string[];                         // e.g. "The edit link was ignored because the tokens changed."
+  readonly notes: readonly string[];                         // the edit-link notes and the unreadable values (R3-31), at most 20 per mode
 };
 
 // build.ts, shared by both importers (R3-29)
@@ -1070,11 +1090,12 @@ in Young Serif, Onest and Fragment Mono, has three and 21.
 
 ### 6.9 `DESIGN.md` (Task 3.9)
 
-The front matter, keys in this order, every string through `yamlString`, every dimension through `fmt4`:
+The front matter, keys in this order, every string through `yamlString` (so `version` is the quoted string `"alpha"`, which the
+pinned linter accepts), every dimension through `fmt4`:
 
 ```yaml
 ---
-version: alpha
+version: "alpha"
 name: "<name>"
 description: "<one-liner, else describeDesign(spec)>"
 colors:
@@ -1163,7 +1184,7 @@ Two routes put this system into a Next.js app with Tailwind CSS v4. Pick one.
 
 **Route 1: the stylesheet.** Copy `app/theme.css` into your app's `app/` folder. In `app/globals.css`, keep `@import "tailwindcss";` and add `@import "./theme.css";` right after it. If shadcn/ui wrote `globals.css`, delete its `@custom-variant dark`, `:root`, `.dark` and `@theme inline` blocks, because they would override this theme. If the template sets a `font-family` on `body`, remove it, so the theme's fonts apply. Install the fonts with `npm install <packages>` and import each once in `app/layout.tsx`: <one import line per package>. Put the class `dark` on `<html>` to show dark mode.
 
-**Route 2: shadcn.** Run `npx shadcn@latest add ./registry/<slug>.json`, then `npx shadcn@latest add ./registry/font-<id>.json` for each font file. Do not also import `app/theme.css`. This route sets the colors, the radius and the fonts; the type steps, shadows and easings live only in `app/theme.css`, so copy its `@theme` block if you need them.
+**Route 2: shadcn.** Run `npx shadcn@latest add ./registry/<slug>.json`, then `npx shadcn@latest add ./registry/font-<id>.json` for each font file (<each `registry/font-<id>.json` of the bundle, in code spans, separated by commas>). Do not also import `app/theme.css`. This route sets the colors, the radius and the fonts; the type steps, shadows and easings live only in `app/theme.css`, so copy its `@theme` block if you need them.
 
 Either way, copy `scripts/dyelot-check.mjs` and `receipt.json` into the app's root, and add the block in `AGENTS.md.snippet` to your `AGENTS.md`. The files in `tokens/` are the source of truth for design tools; `design.toon` is a compact view of the same colors for prompts.
 
@@ -1172,9 +1193,11 @@ Either way, copy `scripts/dyelot-check.mjs` and `receipt.json` into the app's ro
 Run `node scripts/dyelot-check.mjs` from the app's root before you finish any UI change. It checks the theme against `receipt.json`, measures the 78 required contrast pairs again, and scans the source for raw colors and Tailwind palette classes. Fix every finding until it prints `PASS`. A raw color you must keep needs a comment on its line: `dyelot-check-ignore: <reason>`. Never edit `receipt.json` or `app/theme.css` by hand to make the check pass; change the design in the studio and export it again: <link>
 ```
 
-When no family has a font item, Route 2's command stops after the theme file: the words "`, then npx shadcn@latest add
-./registry/font-<id>.json` for each font file" are left out; when a family is outside the catalog, its
-package is left out of Route 1's install line.
+The command keeps the literal `font-<id>.json`; the parentheses list the actual files. When no family has a font item, Route 2's
+command stops after the theme file: the words ", then `npx shadcn@latest add ./registry/font-<id>.json` for each font file
+(…)" are left out. When a family is outside the catalog, its package is left out of Route 1's install line, and when no family has a
+package, Route 1's install sentence is "No font package matches these families, so add the fonts yourself." instead of the install
+and import lines.
 
 ### 6.10 `AGENTS.md.snippet` (Task 3.9)
 
@@ -1321,8 +1344,9 @@ preview, a focusable `pre` labelled "Preview of <path>" showing the selected fil
 name>."). The dialog fits a 360 × 740 window with no horizontal scroll; long paths and names wrap.
 
 A blocked dialog (R3-42) keeps the heading, the lot line and the summary lines, then the state's sentence, then the list of
-failing checks (each finding of severity `error` as `<subject>, <mode>: <measured> against <threshold>`, the measure through `trunc4` and
-the threshold through `fmt4`), then the file list
+failing checks (each finding of severity `error` in `receipt.findings`, as `<subject>, <mode>: <measured> against <threshold>`, with
+the numbers as 7.1 prints them: a WCAG rule's measure through `trunc4` and every other number through `fmt4`; the `@/export` entry
+exports neither helper, so the row reads the receipt), then the file list
 without sizes, the disabled buttons and "Fix in the inspector" or "Show the findings".
 
 ### 9.3 The import dialog (Task 3.16)
@@ -1334,7 +1358,9 @@ until the visitor picks one; a file input "Choose a file" accepting `.md`,
 `fileAccepted(name, size)` refuses another extension ("Choose a .md or a .css file.") or a size over `IMPORT_MAX_BYTES` (the
 `too-large` message) before reading the file. A chosen file's text fills the textarea. With no format picked and none
 detected, "Import" shows "Choose DESIGN.md or shadcn theme CSS.". An error keeps the dialog open with its message in the
-error region and focus on the textarea. A success closes the dialog, calls `store.importDesign`, shows the `imported` notice
+error region and focus on the textarea. Two more errors have the same place: a file the browser cannot read shows "That file could not be read. Choose it again.", and an import that
+loads but throws inside `store.importDesign` shows "The studio could not open that design. Check the file, then import again.", so a
+visitor never sees a raw error (I-M2-03). A success closes the dialog, calls `store.importDesign`, shows the `imported` notice
 and moves focus to the canvas region.
 
 The `imported` notice reads "Imported the DESIGN.md exactly, from its edit link." for an exact import, and otherwise
@@ -1581,6 +1607,9 @@ value `main` returns; "last line" means the last line of everything `io.out` rec
 | C-CHK-28 | pass | `--json`: stdout holds exactly one JSON object, written with two-space indent and a newline, with the keys `format` (`"dyelot.check-report/1"`), `result`, `design` (`specId`, `lot`), `findings`, `ignored` and `checked` (`theme`, `roles` 92, `pairs` 78, `files`). For C-CHK-09's folder, `result` is `"FAIL"`, exit 1 and `findings` holds the same codes as the human report; for C-CHK-06's, `result` is `"ERROR"` and exit 2; for `APP()`, `result` is `"PASS"` and exit 0 | ruling R3-25 |
 | C-CHK-29 | pass | The scan skips folders named `node_modules` at any depth, `.git`, `.next`, `dist`, `build`, `out` and `coverage`, any file over 1 MiB, and the bundle's own files: with `#ff0000` added to a `.ts` file in each skipped folder, to a 1.1 MiB `.ts` file, and to `motion/motion.css` and `scripts/dyelot-check.mjs` (paths the receipt lists, whose hashes the checker does not compare), exit 0; `checked.files` counts only the files scanned. A line declaring `--primary`, `--radius` or `--color-primary` with a hex, in any scanned `.css` file, gives no `raw-color` | ruling R3-25 |
 | C-CHK-30 | pass | Report lines: a scan finding prints `<path>:<line>:<column>  <code>  <message>` with the path relative to the root and written with `/`; a finding with no place prints `<code>  <message>`; each exempt line prints `ignored  <path>:<line>  <reason>`; the counts line precedes the last line | ruling R3-25, section 7.2 |
+| C-CHK-31 | pass | `CHECKER_SOURCE` equals the text of `src/export/checker/dyelot-check.mjs`, byte for byte, so the bundle carries the file the tests spawn | added in Task 3.10 |
+| C-CHK-32 | pass | Directional and compound utilities are palette classes: `border-t-gray-200`, `border-x-red-500`, `ring-offset-gray-100`, `inset-ring-red-500`, `inset-shadow-blue-500` and `drop-shadow-gray-900` on one line give six `palette-class` findings with the class as the matched text, in order; `border-t-white` on the next line gives none | added in Task 3.10, ruling R3-25 |
+| C-CHK-33 | failure | A malformed receipt is exit 2 with a message, never a stack: a receipt with `files` holding `null`, one with `contrast` holding `null` and one whose `roles.light.primary` is `"red"` each give a last line `ERROR: The receipt at <path> …` naming `files`, `contrast` or `roles`, an empty stderr, and with `--json` the result `ERROR` and an `error` holding the path | added in Task 3.10, ruling R3-25 |
 | C-CHK-34 | pass | A Route-2-shaped app (`app/globals.css` holding the receipt's roles, `--radius` and the 88 scale steps in `:root` and `.dark`, no `theme.css`) exits 0 and prints PASS; a `--brand: #ff0000` line beside them still gives one `raw-color`, and so does `--neutral-75: #ff0000`; the same `--neutral-50: #ff0000` line in `app/components.css` gives one `raw-color`, while in the theme's `globals.css` it gives none | ruling R3-25, task 3.17a |
 | C-CHK-RF5 | pass | A generated folder of 5,000 small `.tsx` files plus `packages/a/node_modules/x/index.js` holding `#ff0000`: in process, `main` returns 0 in under 10 s, and `io.readFile` is never called with a path holding `/node_modules/` | RF5 |
 
@@ -1835,6 +1864,11 @@ of section 10.12, not by the floors.
 | F-INSP-09 (M2) | A fix regenerates the design and clears its finding | The same; the regenerated design has provenance `"generated"`, and the Receipt section's lines follow it | R3-36, R3-42 |
 | F-INSP-10 (M2) | At `AAA`, "Contrast is already AAA." and no fix button | The same; the tampered-link fixture is a loaded design whose rebuild passes, so the Findings section also shows "Rebuild from the parameters" | R3-42 |
 | F-INSP-14 (M2) | Every inspector control is reachable by keyboard | The same, and Tab reaches "Rebuild from the parameters" and the Receipt section after the findings | R3-36, R3-42 |
+| `DIRECTION_PARAM_KEYS` test (M2, `params.test.ts`, I2) | The list holds the 15 keys of `DirectionParams` | The list holds 18 keys: the 15 plus `oneLiner`, `direction` and `rules` | R3-03, C-PAR3-03 |
+| `setParams` key test (M2, `store.test.ts`, I2) | The fixture of valid values holds one value for each of the 15 keys, and the store accepts exactly the keys `parseParams` accepts | The fixture also holds `oneLiner`, `direction` and `rules`, so the store still accepts exactly the 18 keys | R3-03, C-PAR3-03 |
+| F-KEY-11 (M2) | Tab reaches the skip link, the header, every control of the inputs panel in the order of M2's 7.2, the canvas toolbar in its order, the canvas region and the inspector | The same, with the panel starting at "Name", "One line" and "Import…" (the About section) before "Primary", and the toolbar ending with Export | R3-33, R3-34 |
+| F-KEY-12 (M2) | At 360 px every control is reachable by opening the drawers from the keyboard | The same, with the panel's first three stops "Name", "One line" and "Import…", and Export after Copy link | R3-33, R3-34 |
+| C-STORE-39 (M2) | A draft restore with no hash gives the draft's `params`, `seed` and `preset` | The same, and the restored snapshot's provenance is `"loaded"`, since a draft is a load | R3-42 |
 
 | C-GEN-04, C-GEN-05, C-GEN-13, C-CANON-04, C-CANON-07, C-NORM-04, C-URL-01 (M1 and M2) | `anyDirection` and `edgeDirection` in `tests/unit/spec/support.ts` draw `name` with `fc.string({ minLength: 1, maxLength: 80 })` | They draw names that pass `isPlainText`: the same strings mapped through `toPlainText(…, 80)`, keeping the non-null ones; the cases' assertions are unchanged | R3-02 rejects a name with a leading or trailing space (Task 3.2) |
 | C-REPO-M2-07 (M2) | `SCAN_TESTS` equals exactly the two fix-scan files of C-INSPECT-16 | The two fix-scan files plus `measure-grid-1` to `measure-grid-10`, each with its measured time | R3-41 (Task 3.0) |
@@ -1860,6 +1894,7 @@ Every other M1 and M2 case stands as written (I-M3-06).
 | Animations and keyframes in `theme.css` (umbrella §9 lists "animations") | umbrella §9 | M5, with the motion lab |
 | AI: the brief box, model-written rationale, critique and refine; `meta.createdWith` values `lexicon`, `model:*`, `on-device`, `visitor-key` | umbrella §10 | M4 |
 | Lazy-loaded templates (M2 final review M-12) | M2 final review | M6 |
+| The clip margin for the settings template's top and save bars (M2 final review M-11, in part): they keep `overflow: hidden`, so the "Show me" outline can clip on those two bars | R3-06, F-TPL-27 | M6 polish |
 | Each family's italic files for the canvas and the exports | M2 section 9 | M6 polish |
 | A fluid `display` step for the `poster` context | M2 section 9 | Not scheduled; revisit with M6 polish |
 | Linting DESIGN.md in the browser | R3-21 | Not scheduled: the pinned linter needs Node |
@@ -1881,8 +1916,9 @@ import already carry; M6's gallery opens a card as a link, which the store treat
   F-EXP-04 compares the zip Chromium builds with the manifest Node builds.
 - **next/font's data changes.** C-REG-09 and 10 read the installed `font-data.json`, so an upgrade that adds or removes a family
   fails a test before it ships a broken font item.
-- **An import can fail the linter.** Task 3.5 records here how many errors `IMPORTED` raises; the studio holds it as a loaded
-  design with export off until it is fixed (R3-42).
+- **An import can fail the linter.** `IMPORTED`, the import of `shadcn-neutral.css`, raises 15 errors (`summary.lint.error` is 15,
+  measured in Task 3.5); `shadcn-v3-hsl.css` raises 14. The studio holds such a design as a loaded design with export off until it is
+  fixed (R3-42).
 - **Task 3.0 can stop M3.** If any generated design fails, M3 waits for the owner (R3-41).
 
 ## 16. Done when
