@@ -2,14 +2,19 @@
 
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import { type ImagePalette, imagePalette } from "@/engine";
-import { ActionButton } from "@/features/ai/ActionButton";
+import { ActionButton, ActionStatus } from "@/features/ai/ActionButton";
 import type { AiActivity } from "@/features/ai/activity";
 import { createImageClient, type ImageClient } from "@/features/ai/image-client";
 import { IMAGE_TYPES, type ImageReply, imageAccepted } from "@/features/ai/image-protocol";
 import { type AiModule, loadAi } from "@/features/ai/load";
 import { runProviders } from "@/features/ai/router";
 import { browserDeps, createdWithOf, failureLines, stepsFor } from "@/features/ai/steps";
-import { CANCELED_LINE, LOAD_FAILED_LINE, useAiAction } from "@/features/ai/useAiAction";
+import {
+  type ActionLines,
+  CANCELED_LINE,
+  LOAD_FAILED_LINE,
+  useAiAction,
+} from "@/features/ai/useAiAction";
 import type { StudioStore } from "@/features/studio/store";
 
 // The Image section of the inputs panel (docs/specs/04-ai.md, 13.3, R4-46 to R4-48): the visitor
@@ -38,7 +43,26 @@ const ERRORS: Readonly<Record<Extract<ImageReply, { ok: false }>["error"], strin
 
 type ImageJpeg = NonNullable<Extract<ImageReply, { ok: true }>["jpeg"]>;
 /** The image the section holds: its palette and the JPEG "Read the vibe" may send. */
-type HeldImage = { readonly palette: ImagePalette; readonly jpeg: ImageJpeg | null };
+export type HeldImage = { readonly palette: ImagePalette; readonly jpeg: ImageJpeg | null };
+
+/**
+ * Why "Read the vibe" cannot run for the image held (13.3), or null when it can: no image read yet,
+ * or a worker that gave no JPEG because it stayed over `JPEG_MAX_BYTES` at both qualities.
+ */
+export function vibeReason(held: HeldImage | null): string | null {
+  if (held === null) return NO_IMAGE;
+  return held.jpeg === null ? NO_JPEG : null;
+}
+
+/** The section's lines as its status region shows them: the last one is the result. */
+const asLines = (lines: readonly string[]): ActionLines => ({
+  failures: lines.slice(0, -1),
+  result: lines.at(-1) ?? null,
+});
+
+/** Whether a read failed because it took longer than the client allows (9.1). */
+const isTimeout = (error: unknown): boolean =>
+  error instanceof DOMException && error.name === "TimeoutError";
 
 /** 13.3's seeds line: each role's cluster hex, absent roles left out. */
 function seedsLine(palette: ImagePalette): string {
@@ -129,24 +153,24 @@ export function ImageSection({ store, activity }: { store: StudioStore; activity
   );
 
   /**
-   * Reads a chosen or dropped file (13.3): a refused type or size shows its message before anything
-   * is read, and the image held before stays. Otherwise the worker reads it, and the roles apply as
-   * one commit as soon as it ends; from the start of the read the image before is let go, so "Read
-   * the vibe" never sends an image the design no longer follows. A newer file cancels this one, and
-   * a vibe still reading belongs to the image before, so it is canceled too. A failure leaves the
-   * design as it was.
+   * Reads a chosen or dropped file (13.3). The type and size are checked first: a refused file
+   * shows its message and changes nothing else, so a read or a vibe in progress goes on and the
+   * image held stays. An accepted file cancels a read in progress (its worker is ended) and a vibe
+   * still reading, which belongs to the image before; the image before is let go, so "Read the
+   * vibe" never sends an image the design no longer follows. The worker then reads it, and the
+   * roles apply as one commit as soon as it ends. A failure leaves the design as it was.
    */
   async function extract(file: File): Promise<void> {
-    vibe.cancel();
-    reading.current?.abort();
-    const own = new AbortController();
-    reading.current = own;
-    setShown("image");
     const accepted = imageAccepted(file.type, file.size);
+    setShown("image");
     if (!accepted.ok) {
       setImageLines([accepted.message]);
       return;
     }
+    vibe.cancel();
+    reading.current?.abort();
+    const own = new AbortController();
+    reading.current = own;
     setHeld(null);
     setImageLines([READING]);
     let reply: ImageReply;
@@ -154,9 +178,12 @@ export function ImageSection({ store, activity }: { store: StudioStore; activity
     try {
       client.current ??= createImageClient();
       [reply, ai] = await Promise.all([client.current.read(file, own.signal), loadAi()]);
-    } catch {
-      // A newer file took over, or the worker or the AI layer would not load: the next file tries again.
-      if (!own.signal.aborted) setImageLines([LOAD_FAILED_LINE]);
+    } catch (error) {
+      // A newer file took over (nothing to show), the read took too long (the read sentence), or
+      // the worker or the AI layer would not load (13's load sentence): the next file tries again.
+      if (own.signal.aborted) return;
+      reading.current = null;
+      setImageLines([isTimeout(error) ? READ_FAILED : LOAD_FAILED_LINE]);
       return;
     }
     if (own.signal.aborted) return;
@@ -189,11 +216,7 @@ export function ImageSection({ store, activity }: { store: StudioStore; activity
   const carriesFiles = (event: DragEvent<HTMLElement>): boolean =>
     [...event.dataTransfer.types].includes("Files");
 
-  const lines =
-    shown === "vibe"
-      ? [...vibe.lines.failures, ...(vibe.lines.result === null ? [] : [vibe.lines.result])]
-      : imageLines;
-  const reason = held === null ? NO_IMAGE : held.jpeg === null ? NO_JPEG : null;
+  const lines = shown === "vibe" ? vibe.lines : asLines(imageLines);
 
   return (
     <>
@@ -256,24 +279,22 @@ export function ImageSection({ store, activity }: { store: StudioStore; activity
         action={vibe}
         label="Read the vibe"
         busyLabel="Reading the vibe…"
-        reason={reason}
+        reason={vibeReason(held)}
         description={PRIVACY}
         onRun={() => {
           if (held === null || held.jpeg === null) return;
           const image = { palette: held.palette, jpeg: held.jpeg };
           setShown("vibe");
-          vibe.run((ai, signal) => readVibe(ai, { store, activity, image, signal }));
+          vibe.run(async (ai, signal) => {
+            const done = await readVibe(ai, { store, activity, image, signal });
+            // A refused file while the vibe read showed its message; the vibe's lines come back.
+            // A vibe a new image canceled stays hidden behind that image's lines.
+            if (!signal.aborted) setShown("vibe");
+            return done;
+          });
         }}
       />
-      <div
-        role="status"
-        data-ai-lines=""
-        className="space-y-1 text-foreground text-xs leading-snug"
-      >
-        {lines.map((line) => (
-          <p key={line}>{line}</p>
-        ))}
-      </div>
+      <ActionStatus lines={lines} />
     </>
   );
 }

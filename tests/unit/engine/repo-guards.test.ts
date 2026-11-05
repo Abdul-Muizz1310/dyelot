@@ -1395,9 +1395,13 @@ const EXCLUDED_PACKAGES = [
 ] as const;
 /** An exact version: no range, tag, tilde, caret, wildcard or protocol. */
 const EXACT_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
-/** The tracing packages R4-60 pins. */
-const isTracingPackage = (name: string): boolean =>
-  name.startsWith("@langfuse/") || name.startsWith("@opentelemetry/");
+/**
+ * The tracing packages R4-60 pins: the `@langfuse` and `@opentelemetry` scopes, and the unscoped
+ * `langfuse` and `opentelemetry` packages and their `-` variants (`langfuse-node`, `langfuse-vercel`,
+ * `opentelemetry-instrumentation-…`).
+ */
+const TRACING_PACKAGE = /^(?:@langfuse\/|@opentelemetry\/|(?:langfuse|opentelemetry)(?:-|$))/;
+const isTracingPackage = (name: string): boolean => TRACING_PACKAGE.test(name);
 
 /** Every dependency of a package.json, by name, from each of its dependency fields. */
 function declaredPackages(manifest: Record<string, unknown>): Map<string, string> {
@@ -1457,7 +1461,29 @@ describe("C-GUARD4-05 package.json pins colorthief and the tracing packages and 
     }
     expect(isTracingPackage("@langfuse/tracing")).toBe(true);
     expect(isTracingPackage("@opentelemetry/sdk-trace-base")).toBe(true);
-    expect(isTracingPackage("langfuse")).toBe(false);
+    // The unscoped Langfuse and OpenTelemetry packages count too (controller ruling on Task
+    // 4.10b's review), so `langfuse@^3` cannot slip past the exact-version rule.
+    for (const name of [
+      "langfuse",
+      "langfuse-node",
+      "langfuse-vercel",
+      "langfuse-langchain",
+      "opentelemetry",
+      "opentelemetry-instrumentation-fetch",
+    ]) {
+      expect(isTracingPackage(name), name).toBe(true);
+    }
+    for (const name of ["lang", "langfuser", "otel-ish", "@lang/fuse", "colorthief"]) {
+      expect(isTracingPackage(name), name).toBe(false);
+    }
+    const loose = declaredPackages({
+      dependencies: { langfuse: "^3.38.0", "langfuse-node": "3.38.0" },
+    });
+    expect(
+      [...loose].filter(
+        ([name, version]) => isTracingPackage(name) && !EXACT_VERSION.test(version),
+      ),
+    ).toEqual([["langfuse", "^3.38.0"]]);
   });
 });
 

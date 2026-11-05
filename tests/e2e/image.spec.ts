@@ -14,7 +14,6 @@ import {
   holdShared,
   imageInput,
   imageLines,
-  isAiRequest,
   lockToggle,
   OUTPUTS,
   openAt,
@@ -73,6 +72,50 @@ async function swatchList(page: Page): Promise<[string, number][]> {
   });
 }
 
+/**
+ * Replaces the image worker's `createImageBitmap` with `fake`'s result and counts the decodes and
+ * the canvases the worker makes from then on (`__decodes`, `__canvases`).
+ */
+async function stubWorker(
+  worker: PageWorker,
+  fake: { kind: "real" } | { kind: "size"; width: number; height: number } | { kind: "hang" },
+): Promise<void> {
+  await worker.evaluate((fake) => {
+    const scope = globalThis as unknown as {
+      createImageBitmap: typeof createImageBitmap;
+      OffscreenCanvas: typeof OffscreenCanvas;
+      __decodes: number;
+      __canvases: number;
+    };
+    const real = scope.createImageBitmap.bind(scope);
+    const RealCanvas = scope.OffscreenCanvas;
+    scope.__decodes = 0;
+    scope.__canvases = 0;
+    scope.createImageBitmap = ((...args: Parameters<typeof createImageBitmap>) => {
+      scope.__decodes += 1;
+      if (fake.kind === "hang") return new Promise<ImageBitmap>(() => {});
+      if (fake.kind === "size") {
+        const bitmap = { width: fake.width, height: fake.height, close: () => {} };
+        return Promise.resolve(bitmap as unknown as ImageBitmap);
+      }
+      return real(...args);
+    }) as typeof createImageBitmap;
+    scope.OffscreenCanvas = class extends RealCanvas {
+      constructor(width: number, height: number) {
+        super(width, height);
+        scope.__canvases += 1;
+      }
+    };
+  }, fake);
+}
+
+/** The image worker's decode and canvas counts since `stubWorker`. */
+const workerCounts = (worker: PageWorker) =>
+  worker.evaluate(() => {
+    const scope = globalThis as unknown as { __decodes: number; __canvases: number };
+    return { decodes: scope.__decodes, canvases: scope.__canvases };
+  });
+
 /** The image workers the page starts from now on: every worker but the generator's. */
 function imageWorkers(page: Page): PageWorker[] {
   const started: PageWorker[] = [];
@@ -116,7 +159,12 @@ test.describe("13.3 Image", () => {
     await expect.poll(() => heldDesign(page)).toEqual(before);
     await expect(button(page, "Undo")).toHaveAttribute("aria-disabled", "true");
     // Nothing left the device: no request to /api/ or OpenRouter, and none that carries image data.
-    expect(requests.filter(isAiRequest).map((request) => request.url())).toEqual([]);
+    // Every request to /api/ (not only /api/ai/) and to OpenRouter, as the row says.
+    const offDevice = requests.filter((request) => {
+      const url = new URL(request.url());
+      return url.pathname.startsWith("/api/") || url.hostname === "openrouter.ai";
+    });
+    expect(offDevice.map((request) => request.url())).toEqual([]);
     const carrying = requests.filter((request) => {
       const body = request.postDataBuffer();
       return body !== null && body.length > 0;
@@ -260,6 +308,76 @@ test.describe("13.3 Image", () => {
     expect(await heldDesign(page)).toEqual(gray);
     await expectImageLines(page, extractionLines(imagePalette(GRAY)));
     await expectCreatedWithIs(page, "controls");
+  });
+
+  test("9.1 step 2: a decoded size over 50 million pixels is refused before any copy is drawn", async ({
+    page,
+  }) => {
+    await openAt(page);
+    const workers = imageWorkers(page);
+    await chooseImage(page, "odd/one-pixel.png");
+    await expect(swatchItems(page)).toHaveCount(1);
+    const before = await heldDesign(page);
+    const [worker] = workers;
+    if (worker === undefined) throw new Error("no image worker");
+    // The header of four-colors.png states 100 x 10; the decoder hands back 10,000 x 5,001.
+    await stubWorker(worker, { kind: "size", width: 10_000, height: 5_001 });
+    await chooseImage(page, "four-colors.png");
+    await expectImageLines(page, [PIXELS_MESSAGE]);
+    expect(await workerCounts(worker)).toEqual({ decodes: 1, canvases: 0 });
+    await expect(swatchItems(page)).toHaveCount(0);
+    expect(await heldDesign(page)).toEqual(before);
+  });
+
+  test("a canceled read ends the worker, so no decode goes on, and the next read starts a new one", async ({
+    page,
+  }) => {
+    await openAt(page);
+    const workers = imageWorkers(page);
+    await chooseImage(page, "odd/one-pixel.png");
+    await expect(swatchItems(page)).toHaveCount(1);
+    const [first] = workers;
+    if (first === undefined) throw new Error("no image worker");
+    let ended = false;
+    first.on("close", () => {
+      ended = true;
+    });
+    // A decode that never ends: only ending the worker stops it.
+    await stubWorker(first, { kind: "hang" });
+    await chooseImage(page, "four-colors.png");
+    await expectImageLines(page, ["Reading the image's colors…"]);
+    await expect.poll(async () => (await workerCounts(first)).decodes).toBe(1);
+    await chooseImage(page, "gray.png");
+    await expectImageLines(page, extractionLines(imagePalette(GRAY)));
+    await expect.poll(() => ended).toBe(true);
+    expect(workers).toHaveLength(2);
+  });
+
+  test("a refused file leaves a running vibe and the held image as they were", async ({ page }) => {
+    const release = await holdShared(page, "vibe", sharedOk("vibe"));
+    await openAt(page);
+    await chooseImage(page, "four-colors.png");
+    await expectImageLines(page, extractionLines(imagePalette(FOUR_COLORS)));
+    await readVibe(page).click();
+    const reading = inputsPanel(page).getByRole("button", {
+      name: "Reading the vibe…",
+      exact: true,
+    });
+    await expect(reading).toHaveAttribute("aria-busy", "true");
+    await imageInput(page).setInputFiles({
+      name: "logo.svg",
+      mimeType: "image/svg+xml",
+      buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="1" height="1"/>'),
+    });
+    await expectImageLines(page, [TYPE_MESSAGE]);
+    // The vibe still runs, and the held image's colors stay listed.
+    await expect(reading).toHaveAttribute("aria-busy", "true");
+    await expect(swatchItems(page)).toHaveCount(4);
+    await release();
+    await expectImageLines(page, [
+      "Made with dyelot's shared AI (test/vision-1:free). Mood: earthy, calm.",
+    ]);
+    await expectCreatedWithIs(page, "model:test/vision-1:free");
   });
 
   test("F-IMG-RF3 every odd file gives a palette or a message within 5 s, never a hang", async ({

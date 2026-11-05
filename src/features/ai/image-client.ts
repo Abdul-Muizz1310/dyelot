@@ -9,10 +9,15 @@ import { describeType } from "@/features/studio/guards";
 
 // The image worker's client (docs/specs/04-ai.md, 9.1's last paragraph, R4-46; D2): one worker,
 // started on the first read, so the studio's first load fetches no quantizer. Only the newest read
-// is answered: a new read or an abort turns the one before into a cancel, an `AbortError`, and a
-// late reply for it is dropped. A worker that fails (it does not load, or its reply cannot be read)
-// fails the read in flight and is ended; the next read starts another. Covered by the flows of
-// 14.11 (tests/e2e/image.spec.ts), outside the pure floors.
+// is answered. A read that ends without its reply ends the worker too, so no decode goes on behind
+// it: a newer read or an abort cancels it (an `AbortError`), and a read past
+// `IMAGE_READ_TIMEOUT_MS` fails (a `TimeoutError`). A worker that fails (it does not load, or its
+// reply cannot be read) fails the read in flight and is ended. The next read starts a new worker.
+// Covered by the flows of 14.11 (tests/e2e/image.spec.ts) and tests/unit/features/ai/image-client
+// .test.ts, outside the pure floors.
+
+/** How long a read may take before it fails and its worker is ended (9.1): 20 seconds. */
+export const IMAGE_READ_TIMEOUT_MS = 20_000;
 
 /** The image worker. Turbopack bundles a worker written in this form, as the generator's is. */
 export function spawnImageWorker(): Worker {
@@ -20,7 +25,10 @@ export function spawnImageWorker(): Worker {
 }
 
 export type ImageClient = {
-  /** Reads `file` in the worker: its reply, or an `AbortError` when `signal` or a newer read cancels it. */
+  /**
+   * Reads `file` in the worker: its reply, an `AbortError` when `signal` or a newer read cancels
+   * it, or a `TimeoutError` past `IMAGE_READ_TIMEOUT_MS`.
+   */
   read(file: Blob, signal: AbortSignal): Promise<ImageReply>;
   /** Ends the worker; a read in flight is canceled, and no read may follow. */
   dispose(): void;
@@ -34,6 +42,8 @@ type Pending = {
 };
 
 const canceled = (): DOMException => new DOMException("The image read was canceled.", "AbortError");
+const timedOut = (): DOMException =>
+  new DOMException(`The image read took longer than ${IMAGE_READ_TIMEOUT_MS} ms.`, "TimeoutError");
 
 /**
  * A client over one worker made by `spawn` (by default `spawnImageWorker`), started lazily. A file
@@ -49,18 +59,29 @@ export function createImageClient(spawn: () => Worker = spawnImageWorker): Image
   let lastId = 0;
   let disposed = false;
 
-  /** Settles the read in flight with `error`, if any. */
-  const failPending = (error: unknown): void => {
-    const current = pending;
-    pending = null;
-    current?.reject(error);
+  /** Ends the worker, if one runs; the next read starts a new one. */
+  const endWorker = (): void => {
+    worker?.terminate();
+    worker = null;
   };
 
-  /** Ends `failed` and fails the read in flight; the next read starts a new worker. */
+  /**
+   * Ends the read in flight, if any, with `error`, and its worker with it, so the worker stops
+   * whatever it decodes for that read.
+   */
+  const endPending = (error: unknown): void => {
+    const current = pending;
+    if (current === null) return;
+    pending = null;
+    endWorker();
+    current.reject(error);
+  };
+
+  /** Ends `failed` and fails the read in flight. */
   const drop = (failed: Worker, what: string): void => {
     failed.terminate();
     if (worker === failed) worker = null;
-    failPending(new Error(`createImageClient: the image worker failed (${what})`));
+    endPending(new Error(`createImageClient: the image worker failed (${what})`));
   };
 
   const start = (): Worker => {
@@ -99,24 +120,31 @@ export function createImageClient(spawn: () => Worker = spawnImageWorker): Image
           `read: the file is not an image the studio takes (${accepted.message})`,
         );
       }
-      // Only the newest read is answered.
-      failPending(canceled());
+      // Only the newest read is answered: the one before is canceled, and its worker ended.
+      endPending(canceled());
       if (signal.aborted) return Promise.reject(canceled());
       lastId += 1;
       const id = lastId;
       return new Promise<ImageReply>((resolve, reject) => {
         const onAbort = () => {
-          if (pending?.id === id) failPending(canceled());
+          if (pending?.id === id) endPending(canceled());
+        };
+        const timer = setTimeout(() => {
+          if (pending?.id === id) endPending(timedOut());
+        }, IMAGE_READ_TIMEOUT_MS);
+        const settle = () => {
+          clearTimeout(timer);
+          signal.removeEventListener("abort", onAbort);
         };
         signal.addEventListener("abort", onAbort, { once: true });
         pending = {
           id,
           resolve(reply) {
-            signal.removeEventListener("abort", onAbort);
+            settle();
             resolve(reply);
           },
           reject(error) {
-            signal.removeEventListener("abort", onAbort);
+            settle();
             reject(error);
           },
         };
@@ -125,16 +153,15 @@ export function createImageClient(spawn: () => Worker = spawnImageWorker): Image
           const request: ImageRequest = { id, file };
           worker.postMessage(request);
         } catch (error) {
-          failPending(error);
+          endPending(error);
         }
       });
     },
     dispose() {
       if (disposed) return;
       disposed = true;
-      failPending(canceled());
-      worker?.terminate();
-      worker = null;
+      endPending(canceled());
+      endWorker();
     },
   };
 }

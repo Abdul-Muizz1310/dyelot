@@ -38,6 +38,7 @@ const EMPTY_REASON = "Write what to change first.";
 const NO_WORDS =
   "No steer words found, so nothing changed. Try warmer, cooler, bolder, quieter, softer, sharper or airier.";
 const STALE = "The design changed while the request was read, so nothing changed.";
+const AT_LIMIT = "Those words are already at their limit, so nothing changed.";
 /** Each chip's button label. */
 const CHIP_LABELS: Readonly<Record<Chip, string>> = {
   warmer: "Warmer",
@@ -73,7 +74,8 @@ function controlsChange(patch: AiPatch, density: Density | undefined): AiChange 
 /**
  * Refines the design from a cleaned text and applies what it gives as one commit (13.4, R4-45):
  * the lines to show. A model's ops apply on the design as it is when the answer lands, and
- * `refineChange` gives null when one of them no longer can; without a model, the chip words apply.
+ * `refineChange` gives null when one of them no longer can; without a model, the chip words that
+ * can still move apply, and when none can, nothing is committed.
  */
 export async function refineDesign(
   ai: AiModule,
@@ -102,9 +104,10 @@ export async function refineDesign(
   const words = chipWords(text);
   if (words.length === 0) return { failures, result: NO_WORDS };
   const { patch, density, applied } = chipsChange(words, chipContext(now));
-  // The chips that applied; when every one is at the end of its range, the words that were read.
-  const listed = applied.length > 0 ? applied : words;
-  const result = `Made with ${ai.providerLabel({ provider: "rules" }, "refine")}: ${listed.join(", ")}.`;
+  // Every chip word is at the end of its range: no commit, so the history and the design's
+  // `meta.createdWith` stay as they were (controller ruling on Task 4.10b's review).
+  if (applied.length === 0) return { failures, result: AT_LIMIT };
+  const result = `Made with ${ai.providerLabel({ provider: "rules" }, "refine")}: ${applied.join(", ")}.`;
   now.applyAi(controlsChange(patch, density));
   return { failures, result };
 }

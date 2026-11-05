@@ -48,6 +48,7 @@ const START_CONTEXT = {
 const NO_WORDS =
   "No steer words found, so nothing changed. Try warmer, cooler, bolder, quieter, softer, sharper or airier.";
 const OFF_HERE = "The shared quota is off here, so dyelot used the steer words.";
+const AT_LIMIT = "Those words are already at their limit, so nothing changed.";
 
 /** Polls the primary seed field until it shows `seed` (±1 per channel). */
 async function expectPrimary(page: Page, seed: Oklch): Promise<void> {
@@ -132,6 +133,31 @@ test.describe("13.4 Steer", () => {
     expect(await heldDesign(page)).toEqual(after);
     // One commit for the words: one Undo goes back to the start.
     await button(page, "Undo").click();
+    await expect(button(page, "Undo")).toHaveAttribute("aria-disabled", "true");
+  });
+
+  test("F-STEER-04 words whose chips are all at their limit change nothing, and a model-made design keeps its createdWith", async ({
+    page,
+  }) => {
+    await answerShared(page, "refine", sharedFailure("not-configured"));
+    // A design a model made, at the end of the bolder and softer chips' ranges.
+    const made = designFor(
+      { ...FRESH, chroma: "vivid", radius: "round", depth: "layered" },
+      seedOf(7),
+    );
+    const spec = {
+      ...made,
+      meta: { ...made.meta, createdWith: "model:test/text-1:free" as const },
+    };
+    await openStudio(page, `#s=${encodeSpec(spec)}`);
+    await expectCreatedWithIs(page, "model:test/text-1:free");
+    const before = await heldDesign(page);
+    await expect(button(page, "Undo")).toHaveAttribute("aria-disabled", "true");
+    await runRefine(page, "bolder and softer please");
+    await expectSteerLines(page, [OFF_HERE, AT_LIMIT]);
+    await page.waitForTimeout(300);
+    expect(await heldDesign(page)).toEqual(before);
+    await expectCreatedWithIs(page, "model:test/text-1:free");
     await expect(button(page, "Undo")).toHaveAttribute("aria-disabled", "true");
   });
 
