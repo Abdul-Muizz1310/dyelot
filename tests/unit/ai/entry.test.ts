@@ -89,29 +89,19 @@ const AI_KEYS = [
   "vibeInput",
 ] as const;
 
-/**
- * The keys a later task of M4 adds with its module: 4.2b (`chat.ts`, `cache-key.ts`), 4.3 (`PROMPTS`),
- * 4.4 (the brief), 4.5 (refine), 4.6b (image) and 4.9 (PKCE). Each task adds its `export … from`
- * lines and deletes its keys here; the entry holds exactly the rest.
- */
-const PENDING_KEYS: readonly string[] = [];
-
 const sorted = (keys: readonly string[]): string[] => [...keys].sort();
 
 /** One `export … from` statement of the entry, from a module inside src/ai (a nested path included). */
 const EXPORT_LINE = /^export\s+(?:type\s+)?\{[^}]*\}\s+from\s+"\.\/[\w-]+(?:\/[\w-]+)*"$/;
 
 describe("C-ENTRY4-02 the @/ai entry", () => {
-  it("C-ENTRY4-02 lists 41 names, of which the pending ones are a part", () => {
+  it("C-ENTRY4-02 lists 41 names, each once", () => {
     expect(AI_KEYS).toHaveLength(41);
     expect(new Set(AI_KEYS).size).toBe(41);
-    for (const key of PENDING_KEYS) expect(AI_KEYS).toContain(key);
   });
 
-  it("C-ENTRY4-02 exports the 41 names of section 5.2 and nothing else, bar the keys a later task adds", () => {
-    expect(sorted(Object.keys(ai))).toEqual(
-      sorted(AI_KEYS.filter((key) => !PENDING_KEYS.includes(key))),
-    );
+  it("C-ENTRY4-02 exports the 41 names of section 5.2 and nothing else", () => {
+    expect(sorted(Object.keys(ai))).toEqual(sorted(AI_KEYS));
   });
 
   it("C-ENTRY4-02 exports, for every key, the very object its home module exports", () => {

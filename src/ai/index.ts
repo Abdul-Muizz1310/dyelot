@@ -1,6 +1,6 @@
-// The AI entry (R4-04, section 5.2 of docs/specs/04-ai.md): only `export … from` lines. App code
-// reaches it through `import()`, or with a type-only import. Later tasks add the rest of 5.2's
-// runtime names with their modules (chat, cache key, prompts, lexicon, colors, refine, image, PKCE).
+// The AI entry (R4-04, section 5.2 of docs/specs/04-ai.md): only `export … from` lines, and exactly
+// the 41 runtime names of 5.2 (C-ENTRY4-02). App code reaches it through `import()`, or with a
+// type-only import.
 
 export type { AiChange, AiPatch } from "./apply";
 export { briefChange, imageChange, rationaleChange, refineChange, vibeChange } from "./apply";
