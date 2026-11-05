@@ -147,9 +147,11 @@ test("the nav marks no link as current on the 404 page", async ({ page }) => {
   await expect(home).not.toHaveAttribute("aria-current");
 });
 
-// Breaks when the security headers leave next.config.ts, when their source stops matching a route,
-// or when the policy loosens: another origin in `connect-src`, a framable page, a plugin object or
-// `unsafe-eval` in a production build. A later milestone swaps `'unsafe-inline'` for a nonce.
+// Breaks when the proxy stops sending the policy (docs/specs/04-ai.md, R4-25), when its matcher
+// stops covering a page, when next.config.ts drops one of the other headers (R4-27), or when the
+// policy loosens: another origin in `connect-src`, an inline script without the nonce, a framable
+// page, a plugin object, a form posting elsewhere or `unsafe-eval` in a production build. Section
+// 16 amends M0's test to F-SEC4-01's values.
 test("every page is served with the security headers and a same-origin policy", async ({
   request,
 }) => {
@@ -158,15 +160,23 @@ test("every page is served with the security headers and a same-origin policy", 
     expect(headers["x-frame-options"], path).toBe("DENY");
     expect(headers["x-content-type-options"], path).toBe("nosniff");
     expect(headers["referrer-policy"], path).toBe("strict-origin-when-cross-origin");
+    expect(headers["permissions-policy"], path).toBe(
+      "language-model=(self), camera=(), microphone=(), geolocation=()",
+    );
     const policy = directives(headers["content-security-policy"] ?? "");
     expect(policy["default-src"], path).toEqual(["'self'"]);
     expect(policy["base-uri"], path).toEqual(["'self'"]);
-    expect(policy["connect-src"], path).toEqual(["'self'"]);
+    expect(policy["connect-src"], path).toEqual(["'self'", "https://openrouter.ai"]);
     expect(policy["img-src"], path).toEqual(["'self'", "data:", "blob:"]);
     expect(policy["worker-src"], path).toEqual(["'self'", "blob:"]);
-    expect(policy["script-src"], path).toEqual(["'self'", "'unsafe-inline'"]);
+    expect(policy["script-src"], path).toEqual([
+      "'self'",
+      expect.stringMatching(/^'nonce-[A-Za-z0-9+/]{48}'$/),
+      "'strict-dynamic'",
+    ]);
     expect(policy["frame-ancestors"], path).toEqual(["'none'"]);
     expect(policy["object-src"], path).toEqual(["'none'"]);
+    expect(policy["form-action"], path).toEqual(["'self'"]);
   }
 });
 
