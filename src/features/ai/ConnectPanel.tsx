@@ -24,6 +24,8 @@ const NO_CRYPTO =
   "This browser cannot make a secure sign-in here. Open dyelot over HTTPS and try again.";
 const NO_STORAGE =
   "This browser blocks the storage the sign-in needs. Allow site data for dyelot and try again.";
+/** Why "Continue to OpenRouter" cannot run while a sign-in starts (13.6; the final review). */
+const STARTING = "Opening OpenRouter's sign-in…";
 
 const LINK =
   "inline-flex min-h-6 items-center font-mono text-sm text-foreground underline underline-offset-4 hover:text-fg-muted";
@@ -65,6 +67,7 @@ export function ConnectPanel() {
   const waiting = useRef<ReturnType<typeof setTimeout> | null>(null);
   const boxId = useId();
   const warningId = `${boxId}-warning`;
+  const startingId = `${boxId}-starting`;
 
   useEffect(
     () => () => {
@@ -160,6 +163,7 @@ export function ConnectPanel() {
           type="button"
           data-primary=""
           aria-disabled={starting ? "true" : undefined}
+          aria-describedby={starting ? startingId : undefined}
           onClick={() => void start()}
           className={`${PRIMARY_BUTTON} min-h-9 px-4 aria-disabled:cursor-wait aria-disabled:opacity-70`}
         >
@@ -169,6 +173,12 @@ export function ConnectPanel() {
           Back to the studio
         </Link>
       </div>
+      {/* A control that cannot run is described by its reason (13): here, the sign-in on its way. */}
+      {starting && (
+        <p id={startingId} className="text-fg-muted text-sm">
+          {STARTING}
+        </p>
+      )}
     </div>
   );
 }

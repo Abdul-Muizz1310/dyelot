@@ -49,6 +49,8 @@ const SENTENCES = {
 /** 13.6's line when the callback cannot load the AI layer (controller ruling on Task 4.10a's review). */
 const CALLBACK_LOAD_FAILED = "This page could not finish the sign-in. Start again from Connect.";
 const CONNECT_STORAGE = "dyelot:connect";
+/** 13.6's reason while "Continue to OpenRouter" waits for the sign-in page (the final review). */
+const STARTING_LINE = "Opening OpenRouter's sign-in…";
 const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 const connectLink = (page: Page) =>
@@ -503,6 +505,52 @@ test.describe("13.6 the connect pages", () => {
     expect(opened).toHaveLength(1);
     const record = await page.evaluate((name) => sessionStorage.getItem(name), CONNECT_STORAGE);
     expect(JSON.parse(record ?? "{}").state).toBe(opened[0]?.searchParams.get("state"));
+  });
+
+  test("F-KEY4-08 Continue to OpenRouter, waiting for the sign-in page, is described by why", async ({
+    page,
+  }) => {
+    const opened: string[] = [];
+    // A 204 answer ends the navigation and leaves this page where it is.
+    await page.route("https://openrouter.ai/auth?**", async (route) => {
+      opened.push(route.request().url());
+      await route.fulfill({ status: 204 });
+    });
+    await page.goto("/connect");
+    await expect(button(page, "Continue to OpenRouter")).not.toHaveAttribute("aria-describedby");
+    await expect(page.getByText(STARTING_LINE, { exact: true })).toHaveCount(0);
+    await button(page, "Continue to OpenRouter").click();
+    await expect.poll(() => opened.length).toBe(1);
+    // Read through the page: Playwright's locators wait for the 204 navigation, which never ends.
+    const described = () =>
+      page.evaluate(() => {
+        const target = [...document.querySelectorAll("button")].find(
+          (each) => each.textContent === "Continue to OpenRouter",
+        );
+        const ids = target?.getAttribute("aria-describedby")?.split(/\s+/) ?? [];
+        const lines = ids.map((id) => document.getElementById(id));
+        return {
+          disabled: target?.getAttribute("aria-disabled") ?? null,
+          description: lines.map((line) => line?.textContent ?? "").join(" "),
+          visible: lines.length > 0 && lines.every((line) => line?.checkVisibility() === true),
+        };
+      });
+    // While the sign-in page may still open, the button cannot run, and its description says why.
+    expect(await described()).toEqual({
+      disabled: "true",
+      description: STARTING_LINE,
+      visible: true,
+    });
+    // The page still here after 5 s: the button works again, with no description and no line.
+    await expect
+      .poll(described, { timeout: 10_000 })
+      .toEqual({ disabled: null, description: "", visible: false });
+    expect(
+      await page.evaluate(
+        (line) => [...document.querySelectorAll("p")].some((each) => each.textContent === line),
+        STARTING_LINE,
+      ),
+    ).toBe(false);
   });
 
   test("Continue to OpenRouter works again 5 s after a sign-in page that does not open", async ({
