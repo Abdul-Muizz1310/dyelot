@@ -229,7 +229,7 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | 2,717 Vitest tests in 159 files, in `tests/unit/`, with 1 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
+| Unit | 2,719 Vitest tests in 159 files, in `tests/unit/`, with 1 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
 | Slow set | 37 of those files, listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. 25 run in the two slow projects and 12 in the `scan` project. `pnpm gate` leaves them to `pnpm gate:full` and CI |
 | Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) and [`03-export.md`](docs/specs/03-export.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), and 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows) |
 | Goldens | 15 golden bundles (the 14 presets and the import of `shadcn-neutral.css`), pinned by `tests/golden/export/manifest.json` with each file's path, byte length and SHA-256. The `default` bundle holds 21 files and 409,581 bytes |

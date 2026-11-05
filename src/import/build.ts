@@ -27,7 +27,7 @@ import {
   toHex,
 } from "@/engine";
 import { sha256 } from "@/export/sha256";
-import { type DesignSpec, normalizeSpec, toPlainText } from "@/spec";
+import { type DesignSpec, DesignSpecSchema, normalizeSpec, toPlainText } from "@/spec";
 import type { ParsedColor } from "./color";
 import { familyId } from "./map";
 import {
@@ -56,12 +56,16 @@ export type ImportDraft = {
     readonly light: Partial<Record<RoleName, ParsedColor>>;
     readonly dark: Partial<Record<RoleName, ParsedColor>>;
   };
+  /**
+   * Prose text (R3-30) is cut by `toPlainText`. Verbatim text (R3-32, `verbatim: true`) is a decoded
+   * spec's, kept exactly as it is: each field must already pass the spec's own rule. A `thesis`
+   * comes only with prose text, a `direction` only with verbatim text.
+   */
   readonly text: {
+    verbatim?: true;
     name?: string;
     oneLiner?: string;
-    /** A thesis read from prose (R3-30); never together with `direction`. */
     thesis?: string;
-    /** A decoded spec's whole direction (R3-32), kept as it is; never together with `thesis`. */
     direction?: NonNullable<DirectionParams["direction"]>;
     do?: string[];
     dont?: string[];
@@ -197,14 +201,20 @@ function checkDraft(draft: unknown): asserts draft is ImportDraft {
   for (const key of ["do", "dont"] as const) {
     if (text[key] !== undefined) checkList(text[key], `draft.text.${key}`);
   }
+  if (text.verbatim !== undefined && text.verbatim !== true) {
+    throw new TypeError("buildImport: draft.text.verbatim must be true when present");
+  }
+  if (text.verbatim === true && text.thesis !== undefined) {
+    throw new RangeError("buildImport: draft.text.thesis comes only with prose text");
+  }
   if (text.direction !== undefined) {
-    if (text.thesis !== undefined) {
-      throw new RangeError("buildImport: draft.text holds both thesis and direction");
-    }
     const direction = record(text.direction, "draft.text.direction");
     checkStrings(direction, "draft.text.direction", ["thesis"]);
     for (const key of ["adjectives", "like", "unlike"] as const) {
       if (direction[key] !== undefined) checkList(direction[key], `draft.text.direction.${key}`);
+    }
+    if (text.verbatim !== true) {
+      throw new RangeError("buildImport: draft.text.direction comes only with verbatim text");
     }
   }
   const report = record(input.report, "draft.report");
@@ -304,13 +314,40 @@ function cutList(raw: readonly string[] | undefined, field: string, truncated: s
   return kept;
 }
 
+const SPEC_SHAPE = DesignSpecSchema.shape;
+
+/** A decoded spec's text, kept exactly (R3-32): each field passes the spec's own rule, or the draft is a bug. */
+function keptText(text: ImportDraft["text"]): Text {
+  const name = text.name ?? DEFAULT_NAME;
+  const rules = { do: [...(text.do ?? [])], dont: [...(text.dont ?? [])] };
+  const fields: readonly [string, unknown, { safeParse(value: unknown): { success: boolean } }][] =
+    [
+      ["name", name, SPEC_SHAPE.meta.shape.name],
+      ["oneLiner", text.oneLiner, SPEC_SHAPE.meta.shape.oneLiner],
+      ["direction", text.direction, SPEC_SHAPE.direction],
+      ["rules", rules, SPEC_SHAPE.rules],
+    ];
+  for (const [field, value, rule] of fields) {
+    if (value !== undefined && !rule.safeParse(value).success) {
+      throw new RangeError(`buildImport: verbatim draft.text.${field} must be as a spec holds it`);
+    }
+  }
+  return {
+    name,
+    ...(text.oneLiner === undefined ? {} : { oneLiner: text.oneLiner }),
+    ...(text.direction === undefined ? {} : { direction: text.direction }),
+    ...(rules.do.length === 0 && rules.dont.length === 0 ? {} : { rules }),
+    truncated: [],
+  };
+}
+
 function readText(text: ImportDraft["text"]): Text {
+  if (text.verbatim === true) return keptText(text);
   const truncated: string[] = [];
   const name = cut(text.name, NAME_MAX, "name", truncated) ?? DEFAULT_NAME;
   const oneLiner = cut(text.oneLiner, ONE_LINER_MAX, "oneLiner", truncated);
   const thesis = cut(text.thesis, THESIS_MAX, "thesis", truncated);
-  // A decoded spec's direction is already within R3-01's bounds; generateSystem checks it again.
-  const direction = text.direction ?? (thesis === undefined ? undefined : { thesis });
+  const direction = thesis === undefined ? undefined : { thesis };
   const doList = cutList(text.do, "do", truncated);
   const dontList = cutList(text.dont, "dont", truncated);
   return {

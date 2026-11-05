@@ -211,14 +211,15 @@ function proseText(groups: Json, parts: Structure): ImportDraft["text"] {
 const NAME_RULE = DesignSpecSchema.shape.meta.shape.name;
 
 /**
- * The text of the spec an edited file's link decodes (R3-32): its own fields, never the prose dyelot
- * wrote from them (the describeDesign sentence, the fixed Do and Don't lines, mdText's escapes).
- * The name is the exception: the front matter's `name` round-trips exactly, so an edit to it wins
- * when the schema would accept it as `meta.name`.
+ * The text of the spec an edited file's link decodes (R3-32): its own fields, verbatim, never the
+ * prose dyelot wrote from them (the describeDesign sentence, the fixed Do and Don't lines, mdText's
+ * escapes). The name is the exception: the front matter's `name` round-trips exactly, so an edit to
+ * it wins when the schema would accept it as `meta.name`.
  */
 function specText(spec: DesignSpec, front: Json | null): ImportDraft["text"] {
   const edited = front === null ? undefined : own(front, "name");
   return {
+    verbatim: true,
     name: NAME_RULE.safeParse(edited).success ? (edited as string) : spec.meta.name,
     ...(spec.meta.oneLiner === undefined ? {} : { oneLiner: spec.meta.oneLiner }),
     ...(spec.direction === undefined ? {} : { direction: spec.direction }),

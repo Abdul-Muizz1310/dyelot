@@ -539,6 +539,27 @@ describe("C-DMI-11 an edited file", () => {
     }
   });
 
+  it("keeps the decoded text verbatim: no run of spaces and no NBSP is folded", () => {
+    const spaced: DesignSpec = generateSystem(
+      resolveParams(
+        {
+          ...paramsOfSpec(spec).params,
+          name: "Harbor  Lights\u00a0Two",
+          oneLiner: "Reads  the\u00a0tide",
+          rules: { do: ["keep  10\u00a0px gaps"], dont: ["stack two shadows"] },
+        },
+        spec.meta.seed,
+      ),
+      spec.meta.seed,
+    );
+    const result = okOf(importDesignMd(withPrimary(designMd(spaced, ORIGIN), spaced, "#aa3355")));
+    expect(result.report.exact).toBe(false);
+    expect(result.spec.meta.name).toBe(spaced.meta.name);
+    expect(result.spec.meta.oneLiner).toBe(spaced.meta.oneLiner);
+    expect(result.spec.rules).toEqual(spaced.rules);
+    expect(result.report.truncated).toEqual([]);
+  });
+
   it("neither grows the rules nor adds backslashes over two export and import rounds", () => {
     let current = TEXTED;
     for (const hex of ["#aa3355", "#335599"]) {

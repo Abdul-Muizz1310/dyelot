@@ -371,6 +371,15 @@ describe("C-IMP-13 buildImport rejects a bad draft", () => {
       [{ direction: { thesis: 5 } }, TypeError],
       [{ direction: { like: [1] } }, TypeError],
       [{ thesis: "a", direction: { thesis: "b" } }, RangeError],
+      [{ verbatim: "yes" }, TypeError],
+      // A direction comes only with verbatim text (a decoded spec's), a thesis only without.
+      [{ direction: { thesis: "b" } }, RangeError],
+      [{ verbatim: true, thesis: "a" }, RangeError],
+      // Verbatim text must already be what a spec holds.
+      [{ verbatim: true, name: " padded" }, RangeError],
+      [{ verbatim: true, oneLiner: "x".repeat(141) }, RangeError],
+      [{ verbatim: true, direction: {} }, RangeError],
+      [{ verbatim: true, do: [""] }, RangeError],
     ];
     for (const [text, kind] of bad) {
       expect(() => buildImport(draft({ text: text as never }))).toThrow(kind);
@@ -410,9 +419,26 @@ describe("buildImport text", () => {
       like: ["harbor charts"],
       unlike: ["neon"],
     };
-    const result = okOf(buildImport(draft({ text: { direction } })));
+    const result = okOf(buildImport(draft({ text: { verbatim: true, direction } })));
     expect(result.spec.direction).toEqual(direction);
     expect(result.report.truncated).toEqual([]);
+  });
+
+  it("passes verbatim text unchanged, where prose text is folded (R3-32)", () => {
+    const text = {
+      name: "Harbor  Lights",
+      oneLiner: "Reads\u00a0the  tide",
+      do: ["keep  10\u00a0px"],
+    };
+    const kept = okOf(buildImport(draft({ text: { verbatim: true, ...text } })));
+    expect(kept.spec.meta.name).toBe(text.name);
+    expect(kept.spec.meta.oneLiner).toBe(text.oneLiner);
+    expect(kept.spec.rules).toEqual({ do: text.do, dont: [] });
+    expect(kept.report.truncated).toEqual([]);
+    const folded = okOf(buildImport(draft({ text })));
+    expect(folded.spec.meta.name).toBe("Harbor Lights");
+    expect(folded.spec.meta.oneLiner).toBe("Reads the tide");
+    expect(folded.spec.rules.do).toEqual(["keep 10 px"]);
   });
 
   it("names an unnamed design Imported design", () => {
