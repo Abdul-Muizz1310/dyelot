@@ -1,6 +1,6 @@
 ---
 name: brief
-version: 1
+version: 2
 temperature: 0.4
 max_tokens: 4000
 ---
@@ -11,5 +11,5 @@ Hues are integers from 0 to 359 on the OKLCH hue wheel. Give a hue only for a sl
 
 Never write a color value, such as a hex code or an rgb(), hsl() or oklch() function.
 Write in plain American English, with no emoji and no exclamation marks.
-Fill only the fields the input supports, and leave the others out.
+Fill every required field, and leave out an optional field only when the input gives no basis for it.
 Reply with the JSON object the schema describes, and nothing else.

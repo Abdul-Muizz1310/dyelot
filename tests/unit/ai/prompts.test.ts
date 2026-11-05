@@ -43,7 +43,7 @@ describe("C-PROMPT-01 PROMPTS", () => {
   it.each(AI_FEATURES)("C-PROMPT-01 %s: the table's values and the file's body", (feature) => {
     const prompt = PROMPTS[feature];
     expect(prompt.name).toBe(feature);
-    expect(prompt.version).toBe(1);
+    expect(prompt.version).toBe(2);
     expect(prompt.temperature).toBe(TABLE[feature].temperature);
     expect(prompt.maxTokens).toBe(TABLE[feature].maxTokens);
     expect(prompt.body).toBe(bodyOf(file(feature)));
@@ -66,7 +66,7 @@ describe("C-PROMPT-01 PROMPTS", () => {
 const SENTENCES = [
   "Never write a color value, such as a hex code or an rgb(), hsl() or oklch() function.",
   "Write in plain American English, with no emoji and no exclamation marks.",
-  "Fill only the fields the input supports, and leave the others out.",
+  "Fill every required field, and leave out an optional field only when the input gives no basis for it.",
 ];
 
 // The first sentence of each file's own line in section 6.2's table, as a spot check of its content.
@@ -88,9 +88,11 @@ const OWN: Readonly<Record<AiFeature, readonly string[]>> = {
     "You read the image and its color clusters.",
     "only by cluster id.",
     "the type vibe and a preset from the schema's lists.",
+    "one to five mood tags",
   ],
   rationale: [
     "You write the reasons behind a design system for its own documentation:",
+    "rules to follow (`do`) and rules to avoid (`dont`)",
     'call it "perceptual contrast (advisory)" and never by any other name, acronym or brand.',
   ],
   critique: [
@@ -125,6 +127,7 @@ describe("C-PROMPT-02 the bodies' words", () => {
   it("C-PROMPT-02 asks for no color value in any body, only for the JSON shape", () => {
     for (const feature of AI_FEATURES) {
       expect(PROMPTS[feature].body).not.toMatch(/#[0-9a-f]{3,8}\b/i);
+      expect(PROMPTS[feature].body).not.toMatch(/\b(?:rgb|hsl|oklch)\(\s*\d/i);
     }
   });
 });

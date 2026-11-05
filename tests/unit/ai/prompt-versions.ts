@@ -6,18 +6,18 @@
 import type { AiFeature } from "@/ai/features";
 
 export const PROMPT_VERSIONS: Readonly<Record<AiFeature, { version: number; sha256: string }>> = {
-  brief: { version: 1, sha256: "291001bcd1c6a2149b2b3a152f8057dcdcd4b578cf563f2eb9e8a408408ab7e1" },
+  brief: { version: 2, sha256: "bc6762b74c2cb36df405b57fa431e0feda351d9540b571e5567e968c0cf7d10f" },
   refine: {
-    version: 1,
-    sha256: "85636e1fed0bf79edb982cbeed778bd2cdf0ee617df55d92c39b879968d15c8d",
+    version: 2,
+    sha256: "54e62ea56276c61e072ad3bb47eb420cb7c454b5aa948a60dc05e8ca043b383f",
   },
-  vibe: { version: 1, sha256: "c5eb8619088dac750154d39229422cf290a93e359fb15d544b2bd617bbddc662" },
+  vibe: { version: 2, sha256: "c0b009ada99a0410496ad2b18a166ada98042b7a42c2ab38dd3626e89b87ba23" },
   rationale: {
-    version: 1,
-    sha256: "b10abb81711e9c1d190c006db15b72d998c11882b0a531689bd04e835982dc97",
+    version: 2,
+    sha256: "ed0e8a1f932922f19daf2d1a26225f463a797ff4fd89357223d806543072dae9",
   },
   critique: {
-    version: 1,
-    sha256: "69d5533eca7623026101a879be5adc613642f8679afd7d34197f5c26698a8c74",
+    version: 2,
+    sha256: "c47601dda1dbd8e5ece5f28418178d939ad799fb4ba075a9f21eeef3a8dcbe97",
   },
 };
