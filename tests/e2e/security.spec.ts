@@ -1,5 +1,4 @@
 import { expect, type Page, test } from "@playwright/test";
-import { API_CSP, cspHeader } from "@/lib/site/csp";
 import { openStudio, settled } from "./studio-support";
 
 // The security flows of docs/specs/04-ai.md, section 14.11 (Task 4.12b): F-SEC4-01 to 05, the nonce
@@ -11,6 +10,14 @@ test.use({ viewport: { width: 1280, height: 800 } });
 
 const STRICT = "strict-origin-when-cross-origin";
 const PERMISSIONS = "language-model=(self), camera=(), microphone=(), geolocation=()";
+/**
+ * 12.1's page policy for a production build, word for word from the spec with the response's nonce
+ * put in: the flows' oracle is the spec's text, never the code that writes the header.
+ */
+const PAGE_POLICY = (nonce: string): string =>
+  `default-src 'self'; base-uri 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai; frame-ancestors 'none'; object-src 'none'; form-action 'self';`;
+/** R4-24's policy for every path under /api/, word for word from the spec. */
+const API_POLICY = "default-src 'none'; frame-ancestors 'none';";
 /** The nonce the proxy makes: the base64 of a UUID, 48 characters (C-PROXY-01). */
 const NONCE_SOURCE = /'nonce-([A-Za-z0-9+/]{48})'/;
 /** Chromium's own line for a document that answers 404 (Task 4.0's probe 2): not a policy error. */
@@ -45,6 +52,15 @@ const scriptTags = (html: string): string[] => html.match(/<script\b[^>]*>/gi) ?
  * only scripts that run, so it needs no nonce (Task 4.0's probe 2: it raises no violation).
  */
 const isDataBlock = (tag: string): boolean => /\btype="application\/(?:ld\+)?json"/i.test(tag);
+
+/**
+ * 12.2: the files the proxy passes through (the metadata routes and the fonts) carry the page
+ * policy too, with a nonce of their own.
+ */
+function expectPagePolicy(headers: Record<string, string>, path: string): void {
+  const policy = headers["content-security-policy"] ?? "";
+  expect(policy, path).toBe(PAGE_POLICY(nonceOf(policy, path)));
+}
 
 /** 12.3's four headers, from next.config.ts, with the route's Referrer-Policy. */
 function expectOtherHeaders(headers: Record<string, string>, path: string, referrer: string) {
@@ -106,7 +122,7 @@ test.describe("12 security headers, robots and the connect pages", () => {
         const policy = headers["content-security-policy"] ?? "";
         const nonce = nonceOf(policy, where);
         // Exactly 12.1's policy for this nonce, in a production build.
-        expect(policy, where).toBe(cspHeader(nonce, { dev: false }));
+        expect(policy, where).toBe(PAGE_POLICY(nonce));
         const parts = directives(policy);
         expect(parts["script-src"], where).toEqual([
           "'self'",
@@ -128,7 +144,7 @@ test.describe("12 security headers, robots and the connect pages", () => {
     const api = await request.get("/api/nope");
     expect(api.status()).toBe(404);
     expect(api.headers()["content-type"]).toMatch(/^text\/html/);
-    expect(api.headers()["content-security-policy"]).toBe(API_CSP);
+    expect(api.headers()["content-security-policy"]).toBe(API_POLICY);
     expect(await api.text()).not.toContain("nonce=");
     expectOtherHeaders(api.headers(), "/api/nope", STRICT);
   });
@@ -138,7 +154,9 @@ test.describe("12 security headers, robots and the connect pages", () => {
   }) => {
     const problems: string[] = [];
     page.on("console", (message) => {
-      if (message.type() === "error") problems.push(`${page.url()}: ${message.text()}`);
+      if (message.type() === "error") {
+        problems.push(`${page.url()}: ${message.text()} [${message.location().url}]`);
+      }
     });
     page.on("pageerror", (error) => problems.push(`${page.url()}: ${error.message}`));
     await watchPolicy(page);
@@ -168,14 +186,18 @@ test.describe("12 security headers, robots and the connect pages", () => {
     await expect(page.locator("[data-lot-id]")).not.toHaveText(lot ?? "");
     expect(await workers(page)).toBe(1);
     expect(await violations(page), "/studio").toEqual([]);
+    // Every line so far, a 404 of any resource included, is a problem on these three pages.
+    expect(problems.splice(0)).toEqual([]);
 
-    // The not-found page too, but for Chromium's own line about the document's 404 status.
+    // The not-found page too, but for Chromium's own line about this document's 404 status.
     const missing = await page.goto("/no-such-page");
     expect(missing?.status()).toBe(404);
     await page.waitForFunction(() => "__next_f" in window);
     await page.waitForLoadState("networkidle");
     expect(await violations(page), "/no-such-page").toEqual([]);
-    expect(problems.filter((line) => !line.includes(NOT_FOUND_LINE))).toEqual([]);
+    // Only the document's own 404, as Chromium reports it for the not-found page itself.
+    const document404 = `${missing?.url()}: ${NOT_FOUND_LINE} (Not Found) [${missing?.url()}]`;
+    expect(problems.filter((line) => line !== document404)).toEqual([]);
   });
 
   test("F-SEC4-03 the proxy passes the files through, and the API answers with R4-24's policy", async ({
@@ -184,6 +206,7 @@ test.describe("12 security headers, robots and the connect pages", () => {
     const robots = await request.get("/robots.txt");
     expect(robots.status()).toBe(200);
     expect(robots.headers()["content-type"]).toMatch(/^text\/plain/);
+    expectPagePolicy(robots.headers(), "/robots.txt");
     const lines = (await robots.text())
       .split("\n")
       .map((line) => line.trim())
@@ -199,6 +222,7 @@ test.describe("12 security headers, robots and the connect pages", () => {
     const sitemap = await request.get("/sitemap.xml");
     expect(sitemap.status()).toBe(200);
     expect(sitemap.headers()["content-type"]).toMatch(/^application\/xml/);
+    expectPagePolicy(sitemap.headers(), "/sitemap.xml");
     const locations = [...(await sitemap.text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(
       (match) => match[1],
     );
@@ -207,14 +231,15 @@ test.describe("12 security headers, robots and the connect pages", () => {
     const font = await request.get("/fonts/geist/geist-latin-wght-normal.woff2");
     expect(font.status()).toBe(200);
     expect(font.headers()["content-type"]).toMatch(/^font\/woff2/);
+    expectPagePolicy(font.headers(), "the font");
 
     const models = await request.get("/api/ai/models");
     expect(models.status()).toBe(200);
-    expect(models.headers()["content-security-policy"]).toBe(API_CSP);
+    expect(models.headers()["content-security-policy"]).toBe(API_POLICY);
     expect(models.headers()["cache-control"]).toBe("no-store");
     const missing = await request.get("/api/nope");
     expect(missing.status()).toBe(404);
-    expect(missing.headers()["content-security-policy"]).toBe(API_CSP);
+    expect(missing.headers()["content-security-policy"]).toBe(API_POLICY);
   });
 
   test("F-SEC4-04 the connect pages stay out of search, and the callback sends no referrer", async ({

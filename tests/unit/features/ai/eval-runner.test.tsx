@@ -90,6 +90,34 @@ describe("R4-32 the on-device eval runner", () => {
     expect(copyProblems(document.body.textContent ?? "")).toEqual([]);
   }, 30_000);
 
+  it("R4-32 makes no request while it runs: neither our /api/ nor OpenRouter, nor any other", async () => {
+    // Every way a page reaches the network, recorded: the runner talks to the on-device model only.
+    const requests: string[] = [];
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        requests.push(`fetch ${String(input)}`);
+        throw new TypeError("the eval runner must not fetch");
+      }),
+    );
+    const open = vi.spyOn(XMLHttpRequest.prototype, "open").mockImplementation(function (
+      this: XMLHttpRequest,
+      _method: string,
+      url: string | URL,
+    ) {
+      requests.push(`xhr ${String(url)}`);
+    });
+    fakeModel("available", () => JSON.stringify(BRIEF_OUT));
+    render(<EvalRunner />);
+    await waitFor(() => expect(status()).toHaveTextContent("Chrome's built-in model is ready."));
+    fireEvent.click(runButton());
+    await waitFor(() => expect(status()).toHaveTextContent(`Done: ${N} of ${N} briefs.`), {
+      timeout: 25_000,
+    });
+    expect(requests).toEqual([]);
+    open.mockRestore();
+  }, 30_000);
+
   it.each([
     [
       "absent",

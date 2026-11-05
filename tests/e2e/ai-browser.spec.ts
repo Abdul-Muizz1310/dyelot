@@ -1161,22 +1161,25 @@ test.describe("R4-53 to R4-57 accessibility of the new sections", () => {
     await expect(explanation(page).getByRole("listitem")).toHaveCount(OUTPUTS.critique.top.length);
   }
 
-  /** The box a click on `control` reaches: its own, joined with its labels' when it has any. */
-  const hitArea = (control: Locator) =>
-    control.evaluate((element) => {
-      const labels = [...((element as HTMLInputElement).labels ?? [])];
-      const boxes = [element, ...labels].map((each) => each.getBoundingClientRect());
-      const width = Math.max(...boxes.map((b) => b.right)) - Math.min(...boxes.map((b) => b.left));
-      const height = Math.max(...boxes.map((b) => b.bottom)) - Math.min(...boxes.map((b) => b.top));
-      return { width, height };
-    });
+  /**
+   * Whether `control` offers a click target of at least 24 × 24 px: its own box, or the box of one
+   * of its labels, which a click also reaches. The gap between a control and its label is no one's
+   * target, so boxes are never joined.
+   */
+  async function meetsTarget(control: Locator): Promise<boolean> {
+    const boxes = await control.evaluate((element) =>
+      [element, ...((element as HTMLInputElement).labels ?? [])].map((each) => {
+        const box = each.getBoundingClientRect();
+        return { width: box.width, height: box.height };
+      }),
+    );
+    return boxes.some((box) => box.width >= 24 && box.height >= 24);
+  }
 
   async function expectTargets(controls: ReadonlyArray<readonly [string, Locator]>, where: string) {
     for (const [name, control] of controls) {
       await expect(control, `${name} (${where})`).toHaveCount(1);
-      const area = await hitArea(control);
-      expect(area.width, `${name} width (${where})`).toBeGreaterThanOrEqual(24);
-      expect(area.height, `${name} height (${where})`).toBeGreaterThanOrEqual(24);
+      expect(await meetsTarget(control), `${name} is a 24 px target (${where})`).toBe(true);
     }
   }
 
@@ -1319,6 +1322,21 @@ test.describe("R4-53 to R4-57 accessibility of the new sections", () => {
       await expectTargets([["Disconnect", panelButton(page, "Disconnect")]], where);
     });
   }
+
+  test("F-A11Y4-03 the target measure counts no gap between a control and its label (a probe)", async ({
+    page,
+  }) => {
+    await page.setContent(`
+      <input id="apart" type="checkbox" style="position:absolute;left:0;top:0;width:16px;height:16px;margin:0">
+      <label for="apart" style="position:absolute;left:40px;top:10px;width:16px;height:20px;overflow:hidden">x</label>
+      <input id="beside" type="checkbox" style="position:absolute;left:0;top:100px;width:16px;height:16px;margin:0">
+      <label for="beside" style="position:absolute;left:24px;top:96px;width:120px;height:24px">Remember</label>
+    `);
+    // Together the box and its label span 56 × 30 px, but neither reaches 24 × 24 px on its own.
+    expect(await meetsTarget(page.locator("#apart"))).toBe(false);
+    // A label of 120 × 24 px is a target of its own, whatever its box measures.
+    expect(await meetsTarget(page.locator("#beside"))).toBe(true);
+  });
 
   test("F-A11Y4-03 /connect and /connect/callback fit 360 px, and their controls are 24 px targets", async ({
     page,

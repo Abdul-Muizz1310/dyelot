@@ -119,6 +119,25 @@ async function interceptOrigin(page: Page, origin: string): Promise<Request[]> {
   return seen;
 }
 
+/**
+ * The forms the key could travel in: its text, URL-encoded, and base64 and base64url. Each encoding
+ * is taken at the three byte alignments, so the key is found inside a longer encoded value too
+ * (Basic credentials, a token), keeping only the characters the key's own bytes decide.
+ */
+function keyForms(key: string): string[] {
+  const forms = new Set([key, encodeURIComponent(key)]);
+  const length = Buffer.byteLength(key);
+  for (let pad = 0; pad < 3; pad++) {
+    const bytes = Buffer.concat([Buffer.alloc(pad, 0x20), Buffer.from(key)]);
+    for (const encoding of ["base64", "base64url"] as const) {
+      // Character i covers bits 6i to 6i + 6: the key alone decides those inside its bytes.
+      const text = bytes.toString(encoding);
+      forms.add(text.slice(Math.ceil((pad * 4) / 3), Math.floor(((pad + length) * 8) / 6)));
+    }
+  }
+  return [...forms];
+}
+
 /** The base64url SHA-256 of a verifier: its S256 challenge. */
 const challengeOf = (verifier: string) => createHash("sha256").update(verifier).digest("base64url");
 
@@ -229,15 +248,20 @@ test.describe("13.6 the connect pages", () => {
     // read from the observed requests; every other request to the origin was intercepted.
     const routed = new Set(intercepted);
     expect(paths(own.filter((request) => !routed.has(request)))).toEqual(["/connect/callback"]);
+    // The key in any of its forms: its text, URL-encoded, base64 or base64url.
+    const forms = keyForms(TEST_KEY);
+    expect(forms.length).toBeGreaterThan(2);
+    const holdsKey = (part: string) => forms.some((form) => part.includes(form));
+    // The forms find the key where an encoding hid it, as Basic credentials would.
+    expect(holdsKey(`Basic ${Buffer.from(`user:${TEST_KEY}`).toString("base64")}`)).toBe(true);
+    expect(holdsKey(`?k=${Buffer.from(`ab${TEST_KEY}`).toString("base64url")}`)).toBe(true);
     for (const request of [...intercepted, ...own]) {
       const headers = JSON.stringify(await request.allHeaders());
-      const leak = [request.url(), headers, request.postData() ?? ""].some((part) =>
-        part.includes(TEST_KEY),
-      );
+      const leak = [request.url(), headers, request.postData() ?? ""].some(holdsKey);
       expect(leak, request.url()).toBe(false);
     }
     // The browser shell never logs it (R4-29).
-    expect(logged.filter((line) => line.includes(TEST_KEY))).toEqual([]);
+    expect(logged.filter(holdsKey)).toEqual([]);
     // The key did reach OpenRouter, so the check above looked for a value that was in play.
     const toOpenRouter = requests.filter((request) =>
       request.url().startsWith("https://openrouter.ai/api/v1/chat/completions"),

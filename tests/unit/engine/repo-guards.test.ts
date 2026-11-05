@@ -11,6 +11,7 @@ import {
 import { builtinModules } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
 import { describe, expect, it } from "vitest";
 import { isFreeSlug } from "@/ai";
 import config from "../../../vitest.config";
@@ -689,8 +690,8 @@ function guard4Problems(candidate: CoverageConfig, exists: (file: string) => boo
       ? coverage.thresholds
       : {}
   ) as Record<string, unknown>;
-  const same = (value: unknown, floors: FloorSet) =>
-    JSON.stringify(value) === JSON.stringify(floors);
+  // The same floors in any key order are the same floors.
+  const same = (value: unknown, floors: FloorSet) => isDeepStrictEqual(value, floors);
   const held = (floors: FloorSet) => `${floors.lines} and ${floors.branches}`;
 
   for (const [name, floor] of Object.entries(SCOPE_FLOORS)) {
@@ -840,6 +841,15 @@ describe("C-GUARD4-10 the AI tests run in core, and section 15's include and flo
     expect(guard4Problems(probe, inRepository)).toEqual([]);
     change(probe);
     expect(guard4Problems(probe, inRepository)).toContain(problem);
+  });
+
+  it("C-GUARD4-10 reads floors whatever their keys' order (a probe)", () => {
+    const probe = configCopy();
+    const thresholds = probe.test.coverage.thresholds;
+    // The same floors, listed in another order, are the same floors.
+    thresholds["src/ai/**"] = { branches: 90, functions: 95, statements: 95, lines: 95 };
+    thresholds["src/server/ai/cap.ts"] = { branches: 85, lines: 90, functions: 90, statements: 90 };
+    expect(guard4Problems(probe, inRepository)).toEqual([]);
   });
 
   it("C-GUARD4-10 reports a named file that does not exist (a probe)", () => {
