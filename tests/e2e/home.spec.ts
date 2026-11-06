@@ -168,7 +168,9 @@ test("the nav marks no link as current on the 404 page", async ({ page }) => {
 // a file through, when next.config.ts drops one of the other headers or the callback's
 // no-referrer (R4-27, R4-33), or when the page policy loosens: another origin in `connect-src`, an
 // inline script without the nonce, a framable page, a plugin object, a form posting elsewhere or
-// `unsafe-eval` in a production build. Section 16 amends M0's test to F-SEC4-01's values.
+// `unsafe-eval` in a production build. Section 16 amends M0's test to F-SEC4-01's values, and
+// docs/specs/05-motion-3d.md's section 16 adds Remotion's host to `connect-src` and the explorer and
+// the motion lab to the paths (R5-58).
 test("every page is served with the security headers and a same-origin policy", async ({
   request,
 }) => {
@@ -179,6 +181,8 @@ test("every page is served with the security headers and a same-origin policy", 
   > = [
     ["/", 200, /^text\/html/, STRICT],
     ["/studio", 200, /^text\/html/, STRICT],
+    ["/explore", 200, /^text\/html/, STRICT],
+    ["/motion", 200, /^text\/html/, STRICT],
     ["/connect/callback", 200, /^text\/html/, "no-referrer"],
     ["/no-such-page", 404, /^text\/html/, STRICT],
     ["/api/nope", 404, /^text\/html/, STRICT],

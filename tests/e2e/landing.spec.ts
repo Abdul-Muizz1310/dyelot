@@ -212,6 +212,68 @@ test("F-HOME5-03 /sitemap.xml lists the four routes in order", async ({ request 
   ]);
 });
 
+/** The text of each link of the nav, in DOM order: the brand tile's, then 7.3's five. */
+const navLinks = (page: Page): Promise<string[]> =>
+  page
+    .getByRole("navigation")
+    .getByRole("link")
+    .evaluateAll((links) => links.map((link) => link.textContent?.trim() ?? ""));
+
+/** The text of each nav link that carries `aria-current="page"`. */
+const currentLinks = (page: Page): Promise<string[]> =>
+  page
+    .getByRole("navigation")
+    .locator('a[aria-current="page"]')
+    .evaluateAll((links) => links.map((link) => link.textContent?.trim() ?? ""));
+
+const NAV = ["dyelot", "home", "studio", "explore", "motion", "github"];
+
+// Breaks when the nav drops, renames or reorders a link, marks another page as current, or marks
+// one on the 404 page (R5-34, 7.3).
+test("F-HOME5-01 the nav lists its five links in order and marks the current page, and none on the 404 page", async ({
+  page,
+  context,
+}) => {
+  for (const [path, current] of [
+    ["/", "home"],
+    ["/explore", "explore"],
+    ["/motion", "motion"],
+  ] as const) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(200);
+    expect(await navLinks(page), path).toEqual(NAV);
+    expect(await currentLinks(page), path).toEqual([current]);
+  }
+
+  // The 404 page on a page of its own: Chromium reports the document's own 404 status as a console
+  // error (as F-SEC4-02 allows), and that line is the only report it may make.
+  const missing = await context.newPage();
+  const reports: string[] = [];
+  missing.on("console", (message) => {
+    if (message.type() === "error") reports.push(`${message.text()} [${message.location().url}]`);
+  });
+  missing.on("pageerror", (error) => reports.push(error.message));
+  await missing.addInitScript(() => {
+    const host = window as unknown as { __violations: string[] };
+    host.__violations = [];
+    document.addEventListener(
+      "securitypolicyviolation",
+      (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
+      true,
+    );
+  });
+  const response = await missing.goto("/no-such-page");
+  expect(response?.status()).toBe(404);
+  expect(await navLinks(missing)).toEqual(NAV);
+  expect(await currentLinks(missing)).toEqual([]);
+  const violations = await missing.evaluate(
+    () => (window as unknown as { __violations: string[] }).__violations,
+  );
+  const document404 = `Failed to load resource: the server responded with a status of 404 (Not Found) [${response?.url()}]`;
+  expect([...reports.filter((line) => line !== document404), ...violations]).toEqual([]);
+  await missing.close();
+});
+
 // Breaks when the five nav links stop fitting one row at a phone's width, or the page scrolls sideways.
 test("the nav's five links fit one row at 360 x 740 with no sideways scroll", async ({ page }) => {
   await page.setViewportSize({ width: 360, height: 740 });

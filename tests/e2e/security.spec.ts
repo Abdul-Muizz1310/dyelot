@@ -1,10 +1,13 @@
-import { expect, type Page, test } from "@playwright/test";
-import { openStudio, settled } from "./studio-support";
+import { expect, type Locator, type Page, test } from "@playwright/test";
+import { button, openStudio, settled, stubSeeds } from "./studio-support";
 
 // The security flows of docs/specs/04-ai.md, section 14.11 (Task 4.12b): F-SEC4-01 to 05, the nonce
 // policy the proxy sends on every page (R4-25, 12.1, 12.2), the other headers of next.config.ts
 // (R4-27, 12.3), robots and the connect pages' metadata (R4-22, 12.4, R4-33), and the dev-only eval
 // page that a production build does not serve (R4-32). They run against the production build.
+// Section 16 of docs/specs/05-motion-3d.md adds /explore and /motion to F-SEC4-01's and F-SEC4-02's
+// pages and Remotion's host to `connect-src` (R5-58); F-SEC5-01 to 03 (Task 5.11a; R5-58, R5-59,
+// I-M5-09) follow them.
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -106,6 +109,8 @@ test.describe("12 security headers, robots and the connect pages", () => {
     const pages: ReadonlyArray<readonly [path: string, status: number]> = [
       ["/", 200],
       ["/studio", 200],
+      ["/explore", 200],
+      ["/motion", 200],
       ["/connect", 200],
       ["/connect/callback", 200],
       ["/no-such-page", 404],
@@ -153,7 +158,7 @@ test.describe("12 security headers, robots and the connect pages", () => {
     expectOtherHeaders(api.headers(), "/api/nope", STRICT);
   });
 
-  test("F-SEC4-02 /, /studio and /connect load under the policy with no console error, and the generate worker starts", async ({
+  test("F-SEC4-02 /, /studio, /explore, /motion and /connect load under the policy with no console error, and the generate worker starts", async ({
     page,
   }) => {
     const problems: string[] = [];
@@ -165,7 +170,7 @@ test.describe("12 security headers, robots and the connect pages", () => {
     page.on("pageerror", (error) => problems.push(`${page.url()}: ${error.message}`));
     await watchPolicy(page);
 
-    for (const path of ["/", "/connect"]) {
+    for (const path of ["/", "/explore", "/motion", "/connect"]) {
       const response = await page.goto(path);
       expect(response?.status(), path).toBe(200);
       // The inline scripts that carry the nonce ran: Next.js's payload queue exists.
@@ -190,7 +195,7 @@ test.describe("12 security headers, robots and the connect pages", () => {
     await expect(page.locator("[data-lot-id]")).not.toHaveText(lot ?? "");
     expect(await workers(page)).toBe(1);
     expect(await violations(page), "/studio").toEqual([]);
-    // Every line so far, a 404 of any resource included, is a problem on these three pages.
+    // Every line so far, a 404 of any resource included, is a problem on these five pages.
     expect(problems.splice(0)).toEqual([]);
 
     // The not-found page too, but for Chromium's own line about this document's 404 status.
@@ -286,5 +291,152 @@ test.describe("12 security headers, robots and the connect pages", () => {
     const html = await response.text();
     expect(html).not.toContain("On-device evaluation");
     expect(html).not.toContain("Run the evaluation");
+  });
+});
+
+// docs/specs/05-motion-3d.md, section 14.11 (Task 5.11a): the M5 pages under 12.2's policy.
+
+/** Every console error and page error `page` reports from now on, with the page's address. */
+function trackProblems(page: Page): string[] {
+  const problems: string[] = [];
+  page.on("console", (message) => {
+    if (message.type() === "error") {
+      problems.push(`${page.url()}: ${message.text()} [${message.location().url}]`);
+    }
+  });
+  page.on("pageerror", (error) => problems.push(`${page.url()}: ${error.message}`));
+  return problems;
+}
+
+/** What each M5 page shows once it has run: the hero's shader, the 3D view, the lab. */
+const RUNNING: Readonly<Record<"/" | "/explore" | "/motion", (page: Page) => Promise<void>>> = {
+  "/": (page) =>
+    expect(page.locator("[data-hero] canvas")).toHaveAttribute("data-flavor", "running"),
+  "/explore": async (page) => {
+    const panel = page.locator("[data-explorer]");
+    await expect(panel).toHaveAttribute("data-explorer-state", "3d");
+    await expect(panel.locator("canvas")).toHaveCount(1);
+  },
+  "/motion": (page) => expect(page.locator("[data-lab]")).toBeAttached(),
+};
+const M5_PAGES = ["/", "/explore", "/motion"] as const;
+
+const flavorDialog = (page: Page): Locator =>
+  page.getByRole("dialog", { name: "Flavor", exact: true });
+
+/** Opens the Flavor dialog over the studio and waits for its preview and its Player to run. */
+async function openFlavorDialog(page: Page): Promise<void> {
+  await button(page, "Flavor").click();
+  const dialog = flavorDialog(page);
+  await expect(dialog).toBeVisible();
+  await expect(dialog.locator("[data-flavor-preview] canvas")).toHaveAttribute(
+    "data-flavor",
+    "running",
+  );
+  await expect(dialog.locator("[data-brand-player]")).toHaveAttribute("data-playing", "true");
+}
+
+test.describe("M5 pages under the policy (R5-58, R5-59)", () => {
+  // Breaks when a page loses 12.2's policy or its fresh nonce, when `connect-src` gains or loses an
+  // origin, or when the policy opens media or WebAssembly.
+  test("F-SEC5-01 each page carries 12.2's policy with a fresh nonce, Remotion's host in connect-src, no media-src and no wasm-unsafe-eval", async ({
+    request,
+  }) => {
+    const pages: ReadonlyArray<readonly [path: string, status: number]> = [
+      ["/", 200],
+      ["/studio", 200],
+      ["/explore", 200],
+      ["/motion", 200],
+      ["/connect", 200],
+      ["/connect/callback", 200],
+      ["/no-such-page", 404],
+    ];
+    for (const [path, status] of pages) {
+      const nonces: string[] = [];
+      for (const load of ["first", "second"]) {
+        const where = `${path} (${load} load)`;
+        const response = await request.get(path);
+        expect(response.status(), where).toBe(status);
+        const policy = response.headers()["content-security-policy"] ?? "";
+        const nonce = nonceOf(policy, where);
+        expect(policy, where).toBe(PAGE_POLICY(nonce));
+        const parts = directives(policy);
+        expect(parts["connect-src"], where).toEqual([
+          "'self'",
+          "https://openrouter.ai",
+          "https://www.remotion.pro",
+        ]);
+        expect(Object.keys(parts), where).not.toContain("media-src");
+        expect(policy, where).not.toContain("'wasm-unsafe-eval'");
+        nonces.push(nonce);
+      }
+      expect(nonces[0], path).not.toBe(nonces[1]);
+    }
+  });
+
+  // Breaks when the hero, the explorer, the lab or the Flavor dialog trips the policy or logs an
+  // error, or when the studio starts a second worker.
+  test("F-SEC5-02 /, /explore, /motion and the studio with the Flavor dialog open run with no console error or violation, one worker before the dialog", async ({
+    page,
+  }) => {
+    const problems = trackProblems(page);
+    await watchPolicy(page);
+    for (const path of M5_PAGES) {
+      const response = await page.goto(path);
+      expect(response?.status(), path).toBe(200);
+      // The inline scripts that carry the nonce ran: Next.js's payload queue exists.
+      await page.waitForFunction(() => "__next_f" in window);
+      await RUNNING[path](page);
+      await page.evaluate(async () => {
+        await document.fonts.ready;
+      });
+      await page.waitForLoadState("networkidle");
+      expect(await violations(page), path).toEqual([]);
+    }
+
+    await stubSeeds(page);
+    await openStudio(page);
+    await expect.poll(() => workers(page)).toBe(1);
+    await page.waitForLoadState("networkidle");
+    expect(await workers(page), "/studio before the dialog").toBe(1);
+    await openFlavorDialog(page);
+    await page.waitForLoadState("networkidle");
+    expect(await violations(page), "/studio with the dialog open").toEqual([]);
+    expect(problems).toEqual([]);
+  });
+
+  // Breaks when a page or the dialog fetches anything from another origin: a font, a CDN script, a
+  // remote asset or an early usage event.
+  test("F-SEC5-03 loading /, /explore in 3D, /motion and the open Flavor dialog requests nothing outside the page's origin", async ({
+    page,
+    baseURL,
+  }) => {
+    const origin = new URL(baseURL ?? "http://localhost").origin;
+    // A data: or blob: URL is read in memory: only these schemes reach a server.
+    const NETWORK = new Set(["http:", "https:", "ws:", "wss:"]);
+    const leaves = (url: URL): boolean => NETWORK.has(url.protocol) && url.origin !== origin;
+    const outside: string[] = [];
+    page.on("request", (request) => {
+      if (leaves(new URL(request.url()))) outside.push(request.url());
+    });
+    // A request that leaves anyway goes no further than the browser (R4-58), and the list keeps it.
+    await page.route(leaves, (route) => route.abort());
+    const problems = trackProblems(page);
+    await watchPolicy(page);
+
+    for (const path of M5_PAGES) {
+      const response = await page.goto(path);
+      expect(response?.status(), path).toBe(200);
+      await RUNNING[path](page);
+      await page.waitForLoadState("networkidle");
+      expect(await violations(page), path).toEqual([]);
+    }
+    await stubSeeds(page);
+    await openStudio(page);
+    await openFlavorDialog(page);
+    await page.waitForLoadState("networkidle");
+    expect(await violations(page), "/studio with the dialog open").toEqual([]);
+    expect(outside).toEqual([]);
+    expect(problems).toEqual([]);
   });
 });
