@@ -518,6 +518,7 @@ test.describe("the explorer", () => {
     await ABORT_CHUNK(page, "THREE.WebGLRenderer");
     await openExplorer(page);
     await expect(panel(page)).toHaveAttribute("data-explorer-state", "flat");
+    await expect(panel(page)).not.toHaveAttribute("data-explorer-reason");
     await expect(
       panel(page).getByText(EXPLORE_LINES["load-failed"], { exact: true }),
     ).toBeVisible();
