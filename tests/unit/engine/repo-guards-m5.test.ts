@@ -407,10 +407,10 @@ const M5_PINS = {
 } as const;
 
 /**
- * Pins another lane adds that this lane's base does not hold yet: Task 5.9b adds `@remotion/player`.
- * A pending pin must be absent, so the rebase that brings one in fails here until it leaves the list.
+ * Pins another lane adds that this lane's base does not hold yet. A pending pin must be absent, so the
+ * rebase that brings one in fails here until it leaves the list; none is pending now.
  */
-const PENDING_PINS: readonly string[] = ["@remotion/player"];
+const PENDING_PINS: readonly string[] = [];
 
 /** The packages R5-60 keeps out of the repository. */
 const M5_EXCLUDED = [
