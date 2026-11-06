@@ -411,7 +411,8 @@ test.describe("the shader loop", () => {
     await expect(preview(page)).toHaveAttribute("data-flavor", "still");
   });
 
-  // Breaks when a browser that encodes no codec keeps the button, or downloads anything.
+  // Breaks when a browser that encodes no codec keeps the button, downloads anything, or loses the
+  // focus the button held.
   test("F-LOOP-05 where no codec encodes, a click ends with the sentence in the button's place", async ({
     page,
   }) => {
@@ -424,6 +425,10 @@ test.describe("the shader loop", () => {
     });
     await expect(recordButton(page)).toHaveCount(0);
     await expect(loopCancel(page)).toHaveCount(0);
+    // The section's heading holds the focus the gone button had.
+    await expect(
+      section(page, "Shader loop").getByRole("heading", { name: "Shader loop", exact: true }),
+    ).toBeFocused();
     expect(downloads).toEqual([]);
   });
 
