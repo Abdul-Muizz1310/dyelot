@@ -15,7 +15,7 @@ type ExportModule = typeof import("@/export");
 let loading: Promise<ExportModule> | null = null;
 
 /** The export entry, loaded once; a failed load is forgotten so that "Try again" asks the network again. */
-function loadExport(): Promise<ExportModule> {
+export function loadExport(): Promise<ExportModule> {
   loading ??= import("@/export").catch((error: unknown) => {
     loading = null;
     throw error;
