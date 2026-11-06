@@ -164,10 +164,11 @@ const SCAFFOLD = '[class^="remotion-scaffold-"]';
 const BRAND_STATUS = '[role="dialog"] section:nth-of-type(2) > [role="status"]';
 
 /**
- * R5-64's render budget, from the click on "Render" in the note to the download: 3 × probe 4's T
- * (5,286 ms).
+ * R5-64's render budget, from the click on "Render" in the note to the download: 3 × the slowest of
+ * probe 4's runs re-measured at Task 5.9c with the real `BrandIntro` (11,777 ms), rounded up to the
+ * next whole second.
  */
-const RENDER_BUDGET = 15_858;
+const RENDER_BUDGET = 36_000;
 
 /**
  * A cap on the render's flows and their slow steps, never a measure: headless Chromium draws the

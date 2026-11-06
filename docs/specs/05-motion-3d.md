@@ -897,6 +897,14 @@ its result is recorded here:
    Player, not by a render); `remotion` `No video config found`, only in its core chunk (loaded with the Player and by a
    render); the web renderer `register-usage-point`, only in the renderer's own chunk (loaded by the render click only).
    None is in a chunk of `/`, `/studio` or `/explore`.
+
+   Amendment (Task 5.9c, controller ruling): the probe rendered a draft of `BrandIntro`, since the real composition
+   did not exist yet, so its time does not hold for the real one, which draws more elements per frame. Re-measured at
+   Task 5.9c with the real `BrandIntro` (`renderBrandVideo` through the privacy note's "Render", F-RENDER-01's path,
+   from that click to the download, solo under the E2E lock, with the dialog's preview and Player running): runs
+   11,777, 11,064 and 11,488 ms at load averages 4.33, 3.73 and 3.63; the render budget is 3 × the slowest, rounded up
+   to the next whole second: 3 × 11,777 = 35,331, so 36,000 ms. As the record budget, it is a hang guard on software
+   rendering, not a product requirement.
 5. **Mediabunny.** `mediabunny` 1.62.0's `CanvasSource` with `quality: new Quality({ bitrate: 4_000_000 })` records 300
    frames of a WebGL2 canvas drawn with `drawAt` to an MP4 under the CSP, with no violation; the probe records the time
    (F-LOOP's timeout is 3 × that) and a marker string found in Mediabunny's chunk and in no chunk of the web renderer's
@@ -2079,7 +2087,8 @@ other case to the task of its subsection. A property case that generates designs
 (`tests/unit/spec/support.ts`), and its file joins `SLOW_CORE_TESTS` or `SLOW_WEB_TESTS` when its measured solo time
 reaches 10 s (R2-31). The flows compute what a page must show by importing `@/engine`, `@/spec` and `@/export` in Node
 (with `tests/e2e/raw-hooks.mjs` for `?raw`). "The render budget" and "the record budget" are 3 × the times probe 4 and
-probe 5 record; the record budget follows probe 5's Task 5.10 amendment (R5-64): 61,000 ms.
+probe 5 record; the record budget follows probe 5's Task 5.10 amendment (R5-64): 61,000 ms, and the render budget
+probe 4's Task 5.9c amendment: 36,000 ms.
 
 ### 14.1 Engine color (Task 5.1)
 
@@ -2534,8 +2543,8 @@ section of a spec now records custom tokens, so a gallery card keeps them.
 
 - **Software WebGL in CI.** Playwright's Chromium draws WebGL2 through SwiftShader, which is slow and may change with a
   Chromium release. The flows assert state, not frames; the render and record budgets are measured at Task 5.0 (the
-  record budget again at Task 5.10, with the real flavor shader) and scaled by 3; F-HERO-09's screenshots compare two
-  runs of one build on one machine.
+  record budget again at Task 5.10, with the real flavor shader, and the render budget at Task 5.9c, with the real
+  composition) and scaled by 3; F-HERO-09's screenshots compare two runs of one build on one machine.
 - **The usage event is the visitor's.** Each render sends the visitor's IP address and dyelot's origin to remotion.pro,
   and nothing in dyelot can stop it; the privacy note says so before the first render of a page load, and the README and
   `/about` (M6) repeat it. A blocked request (an ad blocker) is retried by Remotion three times and never fails the render,
