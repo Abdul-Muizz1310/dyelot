@@ -13,9 +13,10 @@ import { DENSITIES, TEMPLATE_IDS, VISIONS, type View } from "./view";
 // The canvas toolbar (spec sections 7.1 and 7.4): one order in the DOM and for Tab. Below 1024 px
 // the "Inputs" and "Inspector" drawer buttons come first (below 1280 px "Inspector" alone), then
 // the frame switcher, the template switcher, the mode switch, the density group, "Reduce motion",
-// the copy group, the vision group, Undo, Redo, Copy link and Export (R3-34). Below 640 px the five view controls
-// sit in a "View" disclosure in the mode switch's place (F-CANVAS-19). The view settings change the
-// canvas only: no new design and no history entry (C-STORE-29).
+// the copy group, the vision group, Undo, Redo, Copy link, Export (R3-34) and Flavor (R5-51). Below
+// 640 px the five view controls sit in a "View" disclosure in the mode switch's place (F-CANVAS-19).
+// The view settings change the canvas only: no new design and no history entry (C-STORE-29). The
+// status line at the end says when the Flavor dialog's code did not load (13.1).
 
 const COPIES: readonly { value: View["copy"]; label: string }[] = [
   { value: "real", label: "Real copy" },
@@ -40,6 +41,13 @@ type ToolbarProps = {
   copyButton: RefObject<HTMLButtonElement | null>;
   /** "Export", where focus goes back to when the element that opened the dialog is gone. */
   exportButton: RefObject<HTMLButtonElement | null>;
+  /** "Flavor" loads and opens the Flavor dialog (R5-51); focus goes back to it when it closes. */
+  onFlavor(): void;
+  flavorButton: RefObject<HTMLButtonElement | null>;
+  /** The Flavor dialog's code is loading: "Flavor" is `aria-busy`. */
+  flavorBusy: boolean;
+  /** The toolbar's status line: the Flavor dialog's load failure, or "". */
+  status: string;
 };
 
 export function Toolbar({
@@ -52,6 +60,10 @@ export function Toolbar({
   onExport,
   copyButton,
   exportButton,
+  onFlavor,
+  flavorButton,
+  flavorBusy,
+  status,
 }: ToolbarProps) {
   // Below 640 px the five view controls sit in the "View" disclosure (F-CANVAS-19); studio.css
   // shows the button and hides the group there, and lays the group out inline above it.
@@ -180,6 +192,16 @@ export function Toolbar({
       >
         Export
       </button>
+      <button
+        ref={flavorButton}
+        type="button"
+        aria-haspopup="dialog"
+        aria-busy={flavorBusy}
+        onClick={onFlavor}
+        className={TOOL_BUTTON}
+      >
+        Flavor
+      </button>
       {draftsOff && (
         <details className="relative">
           <summary className="inline-flex min-h-7 cursor-pointer list-none items-center rounded-md px-2 font-mono text-fg-muted text-xs hover:text-foreground [&::-webkit-details-marker]:hidden">
@@ -190,6 +212,9 @@ export function Toolbar({
           </p>
         </details>
       )}
+      <p role="status" className="basis-full text-foreground text-xs empty:hidden">
+        {status}
+      </p>
     </section>
   );
 }
