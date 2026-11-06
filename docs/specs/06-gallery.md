@@ -1031,14 +1031,14 @@ statusLeft="dyelot ~/gallery/<slug>" statusRight="muizz-lab · MIT"`, then:
 4. `h2` "Receipt" and a `ul` of the four `summaryLines(summary)`.
 5. `h2` "Scales" and two figures, `data-specimen` each, captioned "Light mode: eight palettes of eleven steps." and "Dark
    mode: eight palettes of eleven steps.", each eight rows of a label and eleven 20 × 20 px swatches, `aria-hidden`.
-6. `h2` "Roles" and two lists ("Light mode", "Dark mode"), each six rows of a swatch, the role's name and its hex in Geist
-   Mono.
+6. `h2` "Roles" and two figures, `data-specimen` each, captioned "Light mode" and "Dark mode", each a list of six rows of
+   a swatch (`aria-hidden`), the role's name and its hex in Geist Mono.
 7. `h2` "Type" and a `table` with the caption "The type ladder" and the columns "Step", "Size", "Line height" and
    "Family": ten rows, caption to display, sizes as "<n> px", the family's name (display or body).
 8. `h2` "Open it": the links "Open in the studio", "Open in the explorer" and "Open in the motion lab" (`entryHref`), the
    button "Copy the studio link" (R6-16) and its status line, and the link "Back to the gallery".
 
-The page holds no color outside the specimens, the swatches of 6 and the chrome (I-M6-06).
+The page holds no color outside its specimens and the chrome (I-M6-06).
 
 ## 8. The share cards (Task 6.3)
 
@@ -1057,8 +1057,9 @@ column with 64 px padding:
 6. "<passed> of <required> required checks pass" (400, 28 px, `INK.foreground`).
 7. The footer: `$ open <host>/gallery/<slug>` and `muizz-lab`, as the M0 card's footer.
 
-`GALLERY_CARD_ALT` is "A design system from dyelot's gallery, with its name, its brief, five of its colors and its
-receipt count."
+The parts sit 16 px apart; with the line on two lines the column fits 630 px, and if it does not, Task 6.3 narrows the
+gaps, never the type sizes. `GALLERY_CARD_ALT` is "A design system from dyelot's gallery, with its name, its one-line
+description, five of its colors and its receipt count."
 
 ### 8.2 The gallery's card
 
@@ -1169,7 +1170,7 @@ encoding) before it decodes.
 
 | `readEntry` | Snapshot | Notice | `entry` | Persist at load |
 |---|---|---|---|---|
-| `color` | fresh, primary locked at the seed, preset `"default"` | none | null | yes |
+| `color` | fresh, the primary locked at the color, preset `"default"` | none | null | yes |
 | `brief` | fresh | none | `{ kind: "brief", text }` | yes |
 | `image` | fresh | none | `{ kind: "image" }` | yes |
 | `malformed` | fresh | `link`, `corrupt`, `fresh` | null | no |
@@ -1230,7 +1231,7 @@ the paragraphs they belong to. No fact on the page shows a ruling id; the table 
 | licenses | Licenses | dyelot is open source under the MIT license. | umbrella §12 |
 | licenses | | Every font family is under the SIL Open Font License, the Apache License 2.0 or the Ubuntu Font License, and dyelot serves each one from its own site, with no request to a font service. | umbrella §6; R2-03 |
 | licenses | | Remotion, which makes the brand video, is source-available under its own license, not open source. It is free for individuals and for companies of up to three people; a company of four or more people needs a Remotion Company License to use it. dyelot uses it as an individual's project. | R5-55; 11.4 of M5 |
-| licenses | | Mediabunny, which records the shader loop, is under the Mozilla Public License 2.0 and is used unmodified. | R5-50; the README's licenses |
+| licenses | | Mediabunny, which records the shader loop, is under the Mozilla Public License 2.0 and is used unmodified. | R5-50; `README.md` |
 | licenses | | The noise in the animated background is the simplex noise of webgl-noise by Ian McEwan and Ashima Arts, under the MIT license; its notice is kept in the code and in the export. | R5-24; `src/flavor/flavor.mjs` |
 | licenses | | Color names come from color-name-list, under the MIT license. | umbrella §5 Names |
 | licenses | | The colors of an image are found with colorthief by Lokesh Dhakar, under the MIT license. | umbrella §5 Image to palette; R4-60 |
@@ -1243,7 +1244,8 @@ the paragraphs they belong to. No fact on the page shows a ruling id; the table 
 | The source on GitHub | `REPOSITORY_URL` (`https://github.com/Abdul-Muizz1310/dyelot`) | licenses, "dyelot is open source…" |
 | Remotion's license | `https://remotion.pro/license` | licenses, "Remotion, which makes…" |
 
-External links open in the same tab and carry `rel="noopener noreferrer"`. No other link is on the page.
+External links open in the same tab and carry `rel="noopener noreferrer"`. No other link is in `main`; the nav and the
+status bar are the frame's.
 
 ## 12. The audits (Tasks 6.10 and 6.12)
 
@@ -1482,7 +1484,7 @@ Tests: `tests/unit/features/about/copy.test.ts`, `tests/e2e/about-page.spec.ts`.
 |---|---|---|---|
 | C-ABOUT6-01 | pass | `ABOUT_INTRO` and `ABOUT_SECTIONS` equal 11.2's table word for word, in order: four sections `math`, `receipt`, `privacy`, `licenses` with their headings, each paragraph's `text` and `restates`; `ABOUT_LINKS` equals 11.3's two rows; all deep-frozen | ruling R6-21 |
 | C-ABOUT6-02 | pass | Copy: no paragraph holds a banned word, `!`, an emoji, "colour", "behaviour", "grey", "centre" or "cancelled", the perceptual formula's trade name that umbrella §5 forbids (in any case), or a host of the never-use list (`bastion.vercel.app`, `paper-trail-backend.onrender.com`, `paper-trail-frontend.vercel.app`, a `-7h27` or `-izzu` host, `abdulmuizz.dev`); every link is `https:` | ruling R6-21, R6-59 |
-| C-ABOUT6-03 | pass | Every `restates` entry is an umbrella section 00-design.md has, a ruling whose `**<id> ·` heading exists in its spec file (`R-` in 01, `R2-` in 02, `R3-` in 03, `R4-` in 04, `R5-` in 05, `R6-` in this file), a DR id 00-design.md names, a section of an earlier spec, or the owner's ruling of 2026-11-05 | ruling R6-21 |
+| C-ABOUT6-03 | pass | Every `restates` entry is an umbrella section 00-design.md has, a ruling whose `**<id> ·` heading exists in its spec file (`R-` in 01, `R2-` in 02, `R3-` in 03, `R4-` in 04, `R5-` in 05, `R6-` in this file), a DR id 00-design.md names, a section of an earlier spec (written "<n.n> of M<k>"), a repository file that exists, or the owner's ruling of 2026-11-05 | ruling R6-21 |
 | C-ABOUT6-04 | pass | The copy's numbers are the code's: 80, 40 and 78 against `CONTRAST_CHECKS` (40 per mode, 39 required per mode); "three shared actions" against `VISITOR_CAP`; 768 pixels against the image worker's JPEG bound; 1.06 and 15.5 against the light targets of `scale.ts`; "seven chips" against the steer chips; 3, 4.5 and 7 against the threshold steps | ruling R6-21 |
 | C-ABOUT6-05 | failure | The check of C-ABOUT6-04 reports a probe copy that says "79 are required" or "four shared actions", naming the paragraph | ruling R6-21 |
 | F-ABOUT6-01 | pass | `/about`: the title "About — dyelot", 11.1's description and the canonical `<origin>/about`; one `h1` "How dyelot works"; the four `h2` in order; every paragraph of `ABOUT_INTRO` and `ABOUT_SECTIONS` shows, in order; the nav's "about" is current | ruling R6-21 |
