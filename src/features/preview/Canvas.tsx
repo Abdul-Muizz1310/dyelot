@@ -14,8 +14,9 @@ import type { View } from "@/features/studio/view";
 import type { DesignSpec } from "@/spec";
 import { feelSpring } from "@/theme/vars";
 import { MotionScope } from "./kit";
+import { useOsReducedMotion } from "./kit/reduced";
 import { Template } from "./templates";
-import { templateTransition } from "./transition";
+import { shownTemplate, templateTransition } from "./transition";
 import { useCanvasFonts } from "./useCanvasFonts";
 import { canvasStyle } from "./vars";
 
@@ -47,7 +48,9 @@ export function Canvas({
   );
   const spring = useMemo(() => feelSpring(spec.motion), [spec.motion]);
   useCanvasFonts(spec.type.families);
-  const template = useDeferredValue(view.template);
+  const deferred = useDeferredValue(view.template);
+  const osReduced = useOsReducedMotion();
+  const template = shownTemplate(deferred, view.template, view.reducedMotion || osReduced);
   const transition = templateTransition(view.reducedMotion);
   const shown = useMemo(() => ({ ...view, template }), [view, template]);
   const frame = useRef<HTMLDivElement>(null);

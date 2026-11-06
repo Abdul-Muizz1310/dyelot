@@ -644,6 +644,8 @@ switch keeps the templates' state (F-CANVAS-07). If probe 2 finds no transition 
 `Canvas` instead holds the shown template in local state set inside `startTransition` from an effect on `view.template`.
 `data-template` reads the shown template. **(decision F1, F2; the name and the reduced props drafter)**
 
+**R5-46 amendment (recorded at Task 5.8a's review).** Under the canvas's "Reduce motion" or the OS setting (`view.reducedMotion || useOsReducedMotion()`) `Canvas` renders `view.template` itself, not the deferred value: the new template mounts in the same commit, with no deferred render and no `startViewTransition` call. Measured reason: no fade shows there, and the deferred re-render of the heavy template made `showTemplate` take 270 to 1760 ms per switch with Reduce motion on, against 35 to 200 ms on the base (F-CANVAS-20 solo, about 40% slower: 12.0 vs 16.6 s); bypassing the deferral when reduced brought it back to base speed. `shownTemplate(deferred, current, instant)` in `transition.ts` makes the choice. F-VT-02 and F-VT-03 now expect zero calls.
+
 **R5-47 · A swatch becomes its token row.** In the inspector's Scales each step's row holds a button named "<palette>
 <step>, <hex>" with `aria-expanded="false"`, at least 24 px tall, and each palette's buttons are one Tab stop (10.2).
 Choosing it, inside `startTransition`, opens that step's token row in place (local React state; one open row at a time;
@@ -1691,6 +1693,8 @@ M2's `[data-template-root]` locators and the templates' height chain stand. `[da
 `template`. `templateTransition(false)` is `{ share: "auto", enter: "auto",
 exit: "auto", default: "none" }` and `templateTransition(true)` the same with `"none"` for the first three; a non-boolean
 is a `TypeError` naming `templateTransition`.
+
+Amended at Task 5.8a's review (R5-46 amendment): `template` above is `shownTemplate(deferred, view.template, view.reducedMotion || osReduced)`, with `deferred = useDeferredValue(view.template)` and `osReduced = useOsReducedMotion()`: under the canvas's "Reduce motion" or the OS setting it is `view.template` and the switch makes no transition call; otherwise it is `deferred`, as written.
 
 ### 10.2 The token row
 

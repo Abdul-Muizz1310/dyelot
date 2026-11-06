@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { templateTransition } from "@/features/preview/transition";
+import { shownTemplate, templateTransition } from "@/features/preview/transition";
 
 // The template switch's transition props (R5-46, section 10.1).
 
@@ -21,5 +21,20 @@ describe("templateTransition", () => {
       expect(() => templateTransition(value as never)).toThrow(TypeError);
       expect(() => templateTransition(value as never)).toThrow(/^templateTransition/);
     }
+  });
+});
+
+describe("shownTemplate", () => {
+  it("C-VT-01 shows the deferred template while motion is allowed", () => {
+    expect(shownTemplate("landing", "dashboard", false)).toBe("landing");
+  });
+
+  it("C-VT-01 shows the current template at once under Reduce motion or the OS setting", () => {
+    expect(shownTemplate("landing", "dashboard", true)).toBe("dashboard");
+  });
+
+  it("C-VT-02 throws a TypeError naming shownTemplate for a non-boolean instant", () => {
+    expect(() => shownTemplate("landing", "dashboard", "yes" as never)).toThrow(TypeError);
+    expect(() => shownTemplate("landing", "dashboard", 1 as never)).toThrow(/^shownTemplate/);
   });
 });

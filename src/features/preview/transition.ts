@@ -1,3 +1,5 @@
+import type { TemplateId } from "@/features/studio/view";
+
 // The template switch's transition props (R5-46, section 10.1): `<ViewTransition>` cross-fades the
 // canvas's template, and the canvas's own "Reduce motion" turns the three animated props off.
 
@@ -26,4 +28,21 @@ export function templateTransition(reduced: boolean): TemplateTransition {
     throw new TypeError(`templateTransition: reduced must be a boolean, got ${typeof reduced}`);
   }
   return reduced ? STILL : ANIMATED;
+}
+
+/**
+ * The template the canvas renders (R5-46, as amended at Task 5.8a's review): the deferred one while
+ * motion is allowed, so React runs the switch as a transition; the current one at once under the
+ * canvas's "Reduce motion" or the OS setting, where no fade shows and a deferred render of the heavy
+ * template only costs time.
+ */
+export function shownTemplate(
+  deferred: TemplateId,
+  current: TemplateId,
+  instant: boolean,
+): TemplateId {
+  if (typeof instant !== "boolean") {
+    throw new TypeError(`shownTemplate: instant must be a boolean, got ${typeof instant}`);
+  }
+  return instant ? current : deferred;
 }

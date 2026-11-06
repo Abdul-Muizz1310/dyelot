@@ -37,9 +37,11 @@ test.describe("template cross-fade", () => {
     await stubSeeds(page);
     await openStudio(page);
     await templateSelect(page).selectOption("dashboard");
-    const record = await recorded(page);
-    expect(record.animations.filter((a) => a.duration > 0)).toEqual([]);
     await expect(canvasFrame(page)).toHaveAttribute("data-template", "dashboard");
+    // Under the OS setting the new template renders in the same commit: no transition call at all.
+    const record = await vtRecord(page);
+    expect(record.calls).toBe(0);
+    expect(record.animations.filter((a) => a.duration > 0)).toEqual([]);
   });
 
   test("F-VT-03 the canvas's Reduce motion skips the cross-fade and keeps the FAQ's open item", async ({
@@ -62,6 +64,7 @@ test.describe("template cross-fade", () => {
     await templateSelect(page).selectOption("settings");
     await expect(canvasFrame(page)).toHaveAttribute("data-template", "settings");
     const record = await vtRecord(page);
+    expect(record.calls).toBe(0);
     expect(
       record.animations.filter((a) => a.pseudo.includes("dyelot-template") && a.duration > 0),
     ).toEqual([]);
