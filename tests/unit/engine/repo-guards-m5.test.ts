@@ -387,3 +387,220 @@ describe("C-GUARD5-05 the landing's client code reaches no core", () => {
     ).not.toEqual(["./hero-cards.json"]);
   });
 });
+
+// C-GUARD5-02 and C-GUARD5-03 (Task 5.6b): R5-60's pins and exclusions, and R5-35's import
+// boundary for three and R3F. Probe 1 kept drei (R5-64), so drei is pinned and on the allow-list.
+
+/** R5-60's exact versions, each in the dependency field that must hold it. */
+const M5_PINS = {
+  dependencies: {
+    three: "0.186.1",
+    "@react-three/fiber": "9.8.2",
+    "@react-three/drei": "10.7.9",
+    remotion: "4.0.539",
+    "@remotion/player": "4.0.539",
+    "@remotion/web-renderer": "4.0.539",
+    mediabunny: "1.62.0",
+    motion: "14.3.0",
+  },
+  devDependencies: { "@types/three": "0.186.0" },
+} as const;
+
+/**
+ * Pins another lane adds that this lane's base does not hold yet: Task 5.9b adds `@remotion/player`.
+ * A pending pin must be absent, so the rebase that brings one in fails here until it leaves the list.
+ */
+const PENDING_PINS: readonly string[] = ["@remotion/player"];
+
+/** The packages R5-60 keeps out of the repository. */
+const M5_EXCLUDED = [
+  "postprocessing",
+  "@react-three/postprocessing",
+  "gsap",
+  "@remotion/cli",
+  "@remotion/three",
+  "lenis",
+  "@paper-design/shaders",
+  "detect-gpu",
+] as const;
+
+const DEPENDENCY_FIELDS = [
+  "dependencies",
+  "devDependencies",
+  "optionalDependencies",
+  "peerDependencies",
+] as const;
+
+/** What breaks R5-60 in `manifest`, a parsed package.json: each problem as one line. */
+function pinProblems(manifest: Record<string, unknown>, pending: readonly string[]): string[] {
+  const fields = Object.fromEntries(
+    DEPENDENCY_FIELDS.map((field) => [field, (manifest[field] ?? {}) as Record<string, string>]),
+  ) as Record<(typeof DEPENDENCY_FIELDS)[number], Record<string, string>>;
+  const declared = (name: string) =>
+    DEPENDENCY_FIELDS.filter((field) => fields[field][name] !== undefined);
+  const problems: string[] = [];
+  for (const [field, pins] of Object.entries(M5_PINS) as [
+    keyof typeof M5_PINS,
+    Record<string, string>,
+  ][]) {
+    for (const [name, version] of Object.entries(pins)) {
+      const where = declared(name);
+      if (pending.includes(name)) {
+        if (where.length > 0) problems.push(`${name}: pending, yet declared`);
+        continue;
+      }
+      if (where.length !== 1 || where[0] !== field) {
+        problems.push(`${name}: in ${where.join(", ") || "no field"}, not ${field} alone`);
+      } else if (fields[field][name] !== version) {
+        problems.push(`${name}: ${fields[field][name]}, not ${version}`);
+      }
+    }
+  }
+  for (const name of M5_EXCLUDED) {
+    if (declared(name).length > 0) problems.push(`${name}: excluded`);
+  }
+  return problems;
+}
+
+describe("C-GUARD5-02 package.json pins R5-60's versions and holds none of its excluded packages", () => {
+  const manifest = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8"));
+
+  it("C-GUARD5-02 pins three, R3F, drei, Remotion, Mediabunny, motion and @types/three exactly", () => {
+    expect(pinProblems(manifest, PENDING_PINS)).toEqual([]);
+    expect(manifest.dependencies.three).toBe("0.186.1");
+    expect(manifest.devDependencies["@types/three"]).toBe("0.186.0");
+  });
+
+  it("C-GUARD5-02 reports a range, a wrong field, a missing pin and each excluded package (a probe)", () => {
+    const exact = {
+      dependencies: { ...M5_PINS.dependencies },
+      devDependencies: { ...M5_PINS.devDependencies },
+    };
+    expect(pinProblems(exact, [])).toEqual([]);
+    expect(
+      pinProblems(
+        { ...exact, dependencies: { ...exact.dependencies, three: "^0.186.1", motion: "14.3.1" } },
+        [],
+      ),
+    ).toEqual(["three: ^0.186.1, not 0.186.1", "motion: 14.3.1, not 14.3.0"]);
+    const { "@react-three/drei": _drei, ...withoutDrei } = exact.dependencies;
+    expect(pinProblems({ ...exact, dependencies: withoutDrei }, [])).toEqual([
+      "@react-three/drei: in no field, not dependencies alone",
+    ]);
+    expect(
+      pinProblems(
+        {
+          dependencies: { ...exact.dependencies, "@types/three": "0.186.0" },
+          devDependencies: {},
+        },
+        [],
+      ),
+    ).toEqual(["@types/three: in dependencies, not devDependencies alone"]);
+    for (const name of M5_EXCLUDED) {
+      expect(
+        pinProblems({ ...exact, optionalDependencies: { [name]: "1.0.0" } }, []),
+        name,
+      ).toEqual([`${name}: excluded`]);
+    }
+    const { "@remotion/player": _player, ...withoutPlayer } = exact.dependencies;
+    expect(pinProblems({ ...exact, dependencies: withoutPlayer }, ["@remotion/player"])).toEqual(
+      [],
+    );
+    expect(pinProblems(exact, ["@remotion/player"])).toEqual([
+      "@remotion/player: pending, yet declared",
+    ]);
+  });
+});
+
+/** R5-35's names, by the specifier that may give them; any other three or R3F specifier gives none. */
+const THREE_NAMES: Readonly<Record<string, readonly string[]>> = {
+  three: [
+    "BufferAttribute",
+    "BufferGeometry",
+    "CatmullRomCurve3",
+    "Color",
+    "DoubleSide",
+    "InstancedMesh",
+    "Matrix4",
+    "MeshBasicMaterial",
+    "Plane",
+    "SphereGeometry",
+    "TubeGeometry",
+    "Vector3",
+  ],
+  "@react-three/fiber": ["Canvas", "useThree"],
+  "@react-three/drei": ["OrbitControls"],
+};
+const EXPLORE_DIR = path.join(ROOT, "src/features/explore");
+
+const isThreeSpecifier = (specifier: string): boolean =>
+  specifier === "three" || specifier.startsWith("three/") || specifier.startsWith("@react-three/");
+
+/** The imports of three, `three/*` and `@react-three/*` in `file` that R5-35 does not allow. */
+function threeImportViolations(file: string, source: string): string[] {
+  const inside = file.startsWith(EXPLORE_DIR + path.sep);
+  return importsOf(file, source).flatMap(({ specifier, names, dynamic }) => {
+    if (!isThreeSpecifier(specifier)) return [];
+    if (!inside) return [`${specifier} outside src/features/explore`];
+    if (dynamic) return [`import("${specifier}")`];
+    const allowed = THREE_NAMES[specifier] ?? [];
+    return names
+      .filter((name) => !allowed.includes(name))
+      .map((name) => `${name} from ${specifier}`);
+  });
+}
+
+describe("C-GUARD5-03 three and R3F are imported only under src/features/explore, and only R5-35's names", () => {
+  it("C-GUARD5-03 finds no other import under src, and the explorer imports the 3D stack", () => {
+    const files = codeFiles(path.join(ROOT, "src"));
+    const bad = files.flatMap((file) =>
+      threeImportViolations(file, readFileSync(file, "utf8")).map(
+        (problem) => `${path.relative(ROOT, file)}: ${problem}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+    const used = files
+      .filter((file) => file.startsWith(EXPLORE_DIR + path.sep))
+      .flatMap((file) => importsOf(file, readFileSync(file, "utf8")))
+      .filter(({ specifier }) => isThreeSpecifier(specifier))
+      .flatMap(({ names }) => names);
+    expect(used).toEqual(expect.arrayContaining(["Canvas", "OrbitControls", "InstancedMesh"]));
+  });
+
+  it("C-GUARD5-03 reports a probe of drei's Text, EffectComposer, a namespace and an import elsewhere", () => {
+    const explore = path.join(EXPLORE_DIR, "Probe.tsx");
+    expect(threeImportViolations(explore, 'import { Text } from "@react-three/drei";')).toEqual([
+      "Text from @react-three/drei",
+    ]);
+    expect(
+      threeImportViolations(
+        explore,
+        'import { EffectComposer } from "@react-three/postprocessing";',
+      ),
+    ).toEqual(["EffectComposer from @react-three/postprocessing"]);
+    expect(
+      threeImportViolations(
+        explore,
+        'import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";',
+      ),
+    ).toEqual(["EffectComposer from three/examples/jsm/postprocessing/EffectComposer.js"]);
+    expect(threeImportViolations(explore, 'import * as THREE from "three";')).toEqual([
+      "* from three",
+    ]);
+    expect(threeImportViolations(explore, 'const three = await import("three");')).toEqual([
+      'import("three")',
+    ]);
+    expect(
+      threeImportViolations(
+        path.join(ROOT, "src/features/studio/Probe.tsx"),
+        'import { Canvas } from "@react-three/fiber";',
+      ),
+    ).toEqual(["@react-three/fiber outside src/features/explore"]);
+    expect(
+      threeImportViolations(
+        explore,
+        'import { Canvas, useThree } from "@react-three/fiber";\nimport { OrbitControls } from "@react-three/drei";\nimport { Color, Plane } from "three";',
+      ),
+    ).toEqual([]);
+  });
+});
