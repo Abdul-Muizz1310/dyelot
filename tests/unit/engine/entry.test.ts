@@ -26,6 +26,7 @@ import {
 import { parseColor } from "@/engine/color/parse";
 import { onFill, ROLE_NAMES, resolveRoles } from "@/engine/color/roles";
 import { STEPS, UnsatisfiableTargetError } from "@/engine/color/scale";
+import { gamutSlice, gamutSolid, SOLID_GAMUTS, solidPosition } from "@/engine/color/solid";
 import {
   FONT_CATALOG,
   fontFiles,
@@ -64,6 +65,30 @@ import { DEFAULT_PARAMS, defaultSpec } from "../spec/support";
 // C-ENTRY-18 live in repo-guards.test.ts.
 
 const ROOT = path.resolve(import.meta.dirname, "../../..");
+
+/**
+ * The 17 runtime names M5 adds to the entry (docs/specs/05-motion-3d.md, section 5.1), each task
+ * delivering its own: 5.1 the first four, 5.2 the motion ones and `withMotion`, 5.3a the flavor ones.
+ */
+const M5_ENGINE_KEYS = [
+  "SOLID_GAMUTS",
+  "gamutSolid",
+  "gamutSlice",
+  "solidPosition",
+  "MOTION_DURATION_NAMES",
+  "MOTION_EASING_NAMES",
+  "MOTION_SPRING_NAMES",
+  "normalizeMotionTokens",
+  "sameMotionTokens",
+  "MOTION_PRESET_IDS",
+  "MOTION_PRESETS",
+  "motionPresetOf",
+  "bezierPoints",
+  "withMotion",
+  "FLAVOR_STEPS",
+  "flavorStops",
+  "flavorSeed",
+].sort();
 
 /** The runtime keys of src/engine/index.ts, section 6.1 (R2-02): the whole set, once every task has landed. */
 const ENGINE_KEYS = [
@@ -133,6 +158,7 @@ const ENGINE_KEYS = [
   "typeScale",
   "typeWeights",
   "wcagRatio",
+  ...M5_ENGINE_KEYS,
 ];
 
 /**
@@ -140,10 +166,14 @@ const ENGINE_KEYS = [
  * choice and color names), so the list is empty and the entry holds the whole set. A key joins the
  * entry only when the full set above names it.
  */
-const PENDING_KEYS: readonly string[] = [];
+const PENDING_KEYS: readonly string[] = M5_ENGINE_KEYS.filter(
+  (key) => !["SOLID_GAMUTS", "gamutSolid", "gamutSlice", "solidPosition"].includes(key),
+);
 
 /** M3's engine key set: the entry's keys before Task 4.6a. */
-const M3_ENGINE_KEYS: readonly string[] = ENGINE_KEYS.filter((key) => key !== "imagePalette");
+const M3_ENGINE_KEYS: readonly string[] = ENGINE_KEYS.filter(
+  (key) => key !== "imagePalette" && !M5_ENGINE_KEYS.includes(key),
+);
 
 const SPEC_KEYS = [
   "DesignSpecSchema",
@@ -237,6 +267,10 @@ describe("the engine entry", () => {
       typeScale,
       typeWeights,
       wcagRatio,
+      SOLID_GAMUTS,
+      gamutSlice,
+      gamutSolid,
+      solidPosition,
     };
     // Every present key has a home entry here, and the pending keys have none until their task lands.
     expect(sorted(Object.keys(homes))).toEqual(sorted(Object.keys(exported)));
@@ -248,9 +282,25 @@ describe("the engine entry", () => {
   it("C-ENTRY4-01 exports imagePalette beside M3's keys, the very function its module exports, and no other new key", () => {
     expect(ENGINE_KEYS).toContain("imagePalette");
     expect(engine.imagePalette).toBe(imagePalette);
-    expect(sorted(Object.keys(engine)).filter((key) => !M3_ENGINE_KEYS.includes(key))).toEqual([
-      "imagePalette",
-    ]);
+    expect(
+      sorted(Object.keys(engine)).filter(
+        (key) => !M3_ENGINE_KEYS.includes(key) && !M5_ENGINE_KEYS.includes(key),
+      ),
+    ).toEqual(["imagePalette"]);
+    expect(sorted(Object.keys(spec))).toEqual(sorted(SPEC_KEYS));
+  });
+
+  it("C-ENTRY5-01 adds the M5 names beside M4's keys, the very objects their modules export", () => {
+    expect(M5_ENGINE_KEYS).toHaveLength(17);
+    expect(sorted(Object.keys(engine))).toEqual(
+      sorted([...M3_ENGINE_KEYS, "imagePalette", ...M5_ENGINE_KEYS]).filter(
+        (key) => !PENDING_KEYS.includes(key),
+      ),
+    );
+    expect(engine.SOLID_GAMUTS).toBe(SOLID_GAMUTS);
+    expect(engine.gamutSolid).toBe(gamutSolid);
+    expect(engine.gamutSlice).toBe(gamutSlice);
+    expect(engine.solidPosition).toBe(solidPosition);
     expect(sorted(Object.keys(spec))).toEqual(sorted(SPEC_KEYS));
   });
 
@@ -313,6 +363,7 @@ describe("frozen tables", () => {
     "PAIRINGS",
     "PAIRING_IDS",
     "PRESET_IDS",
+    "SOLID_GAMUTS",
   ] as const;
 
   it.each(TABLES)("C-ENTRY-05 freezes %s", (name) => {

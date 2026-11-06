@@ -33,6 +33,15 @@ export {
 export { parseColor } from "./color/parse";
 export { onFill, ROLE_NAMES, type RoleName } from "./color/roles";
 export { STEPS, type Step, UnsatisfiableTargetError } from "./color/scale";
+export {
+  type GamutSolid,
+  gamutSlice,
+  gamutSolid,
+  type SlicePoint,
+  SOLID_GAMUTS,
+  type SolidGamut,
+  solidPosition,
+} from "./color/solid";
 export type { Gamut, Hex, Mode, Oklch, Rgb } from "./color/types";
 export {
   FONT_CATALOG,

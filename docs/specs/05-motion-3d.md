@@ -226,7 +226,8 @@ with `c` the largest chroma that stays in the gamut at lightness `l` and that hu
 0.5] with 24 iterations (M1 documents that 24 land within 0.5 / 2^24 of the edge) for `srgb` and `p3`, and for `rec2020`
 a sibling bisection over `oklchToRec2020` with `maxChroma`'s constants (`maxChroma` and `Gamut` stay as they are, so
 M1's `RangeError` for an unknown gamut stands), and `c` rounded with `round6`. `l` lies in [0, 1]; a gray outside the
-gamut gives `c` 0, as `maxChroma` does. `solidPosition` maps an OKLCH color to the explorer's space: OKLab `(L, a, b)`
+gamut gives `c` 0, as `maxChroma` does, and `l` 0 and 1 give `c` 0 at every hue (the gamut closes at black and
+white; `maxChroma`'s tolerance would leave up to 0.012 at black). `solidPosition` maps an OKLCH color to the explorer's space: OKLab `(L, a, b)`
 becomes `x = 2a`, `y = L − 0.5`, `z = 2b`, so the solids are centered on the origin, one unit high, and the sRGB solid's
 widest point lies about 0.65 from the axis. **(decision D2, D4; the iterations and the scale drafter)**
 
@@ -2057,9 +2058,9 @@ Tests: `tests/unit/engine/color/rec2020.test.ts`, `tests/unit/engine/color/solid
 | C-SOLID-08 | pass | `solidPosition({ l: 0.6, c: 0.1, h: 90 })` is `[0, 0.1, 0.2]` and `solidPosition({ l: 0.5, c: 0, h: null })` is `[0, 0, 0]`, within 1e-12 | ruling R5-08 |
 | C-SOLID-09 | failure | `solidPosition(null)` throws `TypeError` and `{ l: NaN, c: 0, h: 0 }` `RangeError`, each naming `solidPosition` | ruling R5-08, R-05 |
 | C-SLICE-01 | pass | `gamutSlice("srgb", 0.6)` holds 360 points, `h` 0 to 359 in order, frozen, each `c` equal to `round6(maxChroma(0.6, h, "srgb", 24))`; `gamutSlice("p3", 0.6)` likewise with `"p3"`; `maxChroma(0.6, 0, "rec2020")` still throws M1's `RangeError` | ruling R5-08 |
-| C-SLICE-02 | pass | At L 0.3, 0.5, 0.7 and 0.9, for every hue, sRGB's `c` ≤ P3's ≤ Rec. 2020's, within 1e-6 | ruling R5-08 |
+| C-SLICE-02 | pass | At L 0.3, 0.5, 0.7 and 0.9, for every hue, sRGB's `c` ≤ P3's and ≤ Rec. 2020's, and P3's ≤ Rec. 2020's + 2e-3, within 1e-6 for the first two (P3's red primary lies about 0.002 outside Rec. 2020 in xy, so the P3 edge passes Rec. 2020's by up to 1.6e-3 near hues 29 to 35 and 194 to 197; the first draft said 1e-6 for all three, which colorjs.io's own conversion refutes) | ruling R5-06, R5-08 |
 | C-SLICE-03 | pass | At L 0 and L 1 every `c` is at most 1e-6, for each gamut | ruling R5-08 |
-| C-SLICE-04 | pass | For Rec. 2020 at L 0.6 and the hues 0, 90, 180 and 270, colorjs.io reads `oklch(0.6 c h)` as inside `rec2020` (ε 1e-6) and `oklch(0.6 c+0.001 h)` as outside | ruling R5-06, R5-08 |
+| C-SLICE-04 | pass | For Rec. 2020 at L 0.6 and the hues 0, 90, 180 and 270, colorjs.io reads `oklch(0.6 c−1e-6 h)` as inside `rec2020` (ε 1e-6) and `oklch(0.6 c+0.001 h)` as outside (round6 can move `c` up by 5e-7, which the 2.4 power turns into 1e-3 of a channel at 0, so the inside probe sits 1e-6 below) | ruling R5-06, R5-08 |
 | C-SLICE-05 | failure | `gamutSlice("srgb", l)` throws `RangeError` for `l` −0.01, 1.01, `NaN` and `Infinity`, and `TypeError` for `"1"`; a gamut of `3` throws `TypeError` and `"rec709"` `RangeError`; each names `gamutSlice` | ruling R5-08, R-05 |
 
 ### 14.2 Engine motion and the studio's params (Task 5.2)
