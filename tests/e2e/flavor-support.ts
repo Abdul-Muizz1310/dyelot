@@ -124,3 +124,30 @@ export async function NO_COMPILE(page: Page): Promise<void> {
     };
   });
 }
+
+/**
+ * `ABORT_CHUNK` answers each `/_next/static/chunks/*.js` request with `route.fetch()` and aborts the
+ * response whose text holds `marker`, until `release()` is called. Install it before `goto`: the
+ * markers are `dyelot.check/1` for `@/export`, "Before the first render" for the Flavor dialog.
+ */
+export async function ABORT_CHUNK(page: Page, marker: string): Promise<{ release(): void }> {
+  let released = false;
+  await page.route("**/_next/static/chunks/*.js", async (route) => {
+    if (released) {
+      await route.continue();
+      return;
+    }
+    const response = await route.fetch();
+    const text = await response.text();
+    if (text.includes(marker)) {
+      await route.abort("failed");
+      return;
+    }
+    await route.fulfill({ response, body: text });
+  });
+  return {
+    release() {
+      released = true;
+    },
+  };
+}
