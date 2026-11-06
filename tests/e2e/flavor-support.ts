@@ -164,3 +164,29 @@ export async function NO_RENDERER(page: Page): Promise<void> {
     };
   });
 }
+
+// Task 5.10: the encoder init scripts of the shader loop's flows.
+
+/**
+ * `NO_ENCODE` makes `VideoEncoder.isConfigSupported` resolve `{ supported: false }` for every
+ * config: the browser has WebCodecs, but encodes no codec (section 4).
+ */
+export async function NO_ENCODE(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    if (typeof VideoEncoder !== "function") return;
+    VideoEncoder.isConfigSupported = async () => ({ supported: false });
+  });
+}
+
+/**
+ * `NO_AVC` makes `VideoEncoder.isConfigSupported` resolve `{ supported: false }` for every codec
+ * string that starts `avc1`, and asks the browser for the rest: AVC never encodes (F-LOOP-03).
+ */
+export async function NO_AVC(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    if (typeof VideoEncoder !== "function") return;
+    const ask = VideoEncoder.isConfigSupported.bind(VideoEncoder);
+    VideoEncoder.isConfigSupported = async (config) =>
+      config.codec.startsWith("avc1") ? { supported: false } : ask(config);
+  });
+}
