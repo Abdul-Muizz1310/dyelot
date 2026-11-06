@@ -18,12 +18,7 @@ export const metadata: Metadata = { alternates: { canonical: "/" } };
 /** One `$ open <target>` link of start.log, as M2's studio link was. */
 function StartLink({ href, label }: { href: string; label: string }) {
   return (
-    <Link
-      href={href}
-      // Task 5.11a removes this once /explore and /motion exist (see AppNav).
-      prefetch={href === "/explore" || href === "/motion" ? false : undefined}
-      className="group block w-fit max-w-full"
-    >
+    <Link href={href} className="group block w-fit max-w-full">
       <Prompt>
         open{" "}
         <span className="text-accent-madder underline-offset-4 group-hover:underline">{label}</span>

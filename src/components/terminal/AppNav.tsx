@@ -58,9 +58,6 @@ export function AppNav({ active }: AppNavProps) {
             <Link
               key={name}
               href={href}
-              // Task 5.11a removes this once /explore and /motion exist: while they 404, a
-              // prefetch of them keeps the network busy and logs a console error.
-              prefetch={href === "/explore" || href === "/motion" ? false : undefined}
               aria-current={active === name ? "page" : undefined}
               className={active === name ? LINK_ACTIVE : LINK_IDLE}
             >
