@@ -1840,7 +1840,7 @@ The "Brand video" section's job runs these states, each shown by 13.3's lines:
 |---|---|---|
 | `idle` | "Render the brand video" (or the no-WebCodecs sentence in its place) | a click: `checking` |
 | `checking` | "Checking this browser…"; the button `aria-busy` | the renderer loads, `pickRenderTarget`: none gives `unsupported`, a target gives `confirm` on the page load's first render, else `rendering`; a failed load gives `load-failed` |
-| `unsupported` | "This browser cannot render the brand video." in the button's place | (final for the page load) |
+| `unsupported` | "This browser cannot render the brand video." in the button's place | (final until the dialog closes, R5-51) |
 | `confirm` | The privacy note (13.4) in the button's place | "Render": `rendering`; "Cancel": `idle`, nothing sent |
 | `rendering` | "Rendering…", "Cancel", the progress bar and the live line | done: `done`; Cancel or the dialog closing: `canceled`; a throw: `failed` |
 | `done`, `canceled`, `failed`, `load-failed` | The button again, with the outcome's line under it | a click: `checking` (an earlier load is reused) |
@@ -1850,6 +1850,10 @@ muted: true, outputTarget: "arraybuffer" }` (the render's own options) and then 
 }`, and gives the first with `canRender` true, else
 null; a throw counts as false. `renderBrandVideo` passes R5-53's options (`defaultProps` and `inputProps` both the props), reads `progress` from
 `onProgress` (0 to 1), awaits `getBlob()`, and gives the bytes. The live line announces 10%, 20%, … 100% at most once each (`nextAnnounced`).
+
+**11.2 amendment (recorded at Task 5.9c's review).** `unsupported` lasts until the dialog closes (R5-51), as the shader
+loop's does: the section's state ends with the dialog, and a press in the next one checks again. The render's job, and
+with it the record button's `wait`, runs from the press through `checking` and `confirm` to the outcome.
 
 ### 11.3 The shader loop
 
