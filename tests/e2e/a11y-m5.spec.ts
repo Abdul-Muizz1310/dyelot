@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test as base, expect, type Locator, type Page } from "@playwright/test";
-import { exportButton, exportDialog, openReady, SPEC_LINK } from "./export-support";
+import { exportButton, exportDialog, fileRows, openReady, SPEC_LINK } from "./export-support";
 import { NO_WEBGL } from "./flavor-support";
 import {
   button,
@@ -58,6 +58,20 @@ async function violations(page: Page, exclude?: string) {
   return (await builder.analyze()).violations;
 }
 
+/** Waits until every finite animation on the page has finished: nothing is caught mid-fade. */
+const settleAnimations = (page: Page): Promise<unknown> =>
+  page.evaluate(() =>
+    Promise.allSettled(
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY,
+        )
+        .map((animation) => animation.finished),
+    ),
+  );
+
 const overflowOf = (page: Page): Promise<number> =>
   page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
@@ -106,7 +120,7 @@ async function openFlavorReduced(page: Page, mode: "light" | "dark"): Promise<vo
     "data-playing",
     "false",
   );
-  await page.waitForTimeout(300);
+  await settleAnimations(page);
 }
 
 for (const viewport of VIEWPORTS) {
@@ -136,8 +150,11 @@ for (const viewport of VIEWPORTS) {
       }) => {
         await page.goto("/explore");
         await in3d(page);
-        if (mode === "Dark") await radio(page, "Dark").check();
-        await page.waitForTimeout(300);
+        if (mode === "Dark") {
+          await radio(page, "Dark").check();
+          await expect(panel(page)).toHaveAttribute("data-mode", "dark");
+        }
+        await settleAnimations(page);
         expect(await violations(page)).toEqual([]);
       });
     }
@@ -171,9 +188,9 @@ for (const viewport of VIEWPORTS) {
       const step = inspectorAside(page).locator("[data-step-button]").first();
       await step.click();
       await expect(step).toHaveAttribute("aria-expanded", "true");
-      await page.waitForTimeout(300);
-      // The canvas's contrast checks belong to the studio's own flows: axe reads the inspector.
-      expect(await violations(page, "[data-canvas]")).toEqual([]);
+      await expect(inspectorAside(page).locator("[data-token-row]")).toBeVisible();
+      await settleAnimations(page);
+      expect(await violations(page)).toEqual([]);
     });
 
     for (const mode of ["light", "dark"] as const) {
@@ -196,7 +213,8 @@ for (const viewport of VIEWPORTS) {
       });
       await toggle.click();
       await expect(toggle).toHaveAttribute("aria-checked", "true");
-      await page.waitForTimeout(300);
+      await expect(fileRows(page)).toHaveCount(29);
+      await settleAnimations(page);
       expect(await violations(page)).toEqual([]);
       await expect(exportButton(page)).toBeAttached();
     });
