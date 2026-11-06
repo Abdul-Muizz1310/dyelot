@@ -50,7 +50,7 @@ const SLOW_CORE_TESTS = [
   "tests/unit/import/fuzz-md.test.ts", // 11.5 s: C-IMP-03, 300 runs of importDesignMd
   "tests/unit/export/zip.test.ts", // 11.2 s: C-ZIP-03, one zip per time zone
   "tests/unit/engine/generate-motion-property.test.ts", // 63 s solo: C-MOT5-08 (100 runs), C-MOT5-RF5 (300 runs)
-  "tests/unit/engine/flavor-property.test.ts", // 24.7 to 26.6 s solo, load 13 to 18: C-STOPS-02 (100 runs)
+  "tests/unit/engine/flavor-property.test.ts", // 12.4 s solo, load 9 to 11: C-STOPS-02 (100 runs)
 ];
 
 /** The slow set's files that run in jsdom, beside the studio's other tests. */
