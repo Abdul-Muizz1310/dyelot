@@ -50,3 +50,35 @@ export function vtRecord(page: Page): Promise<VtRecord> {
       (window as unknown as { __vt: { calls: number; animations: VtRecord["animations"] } }).__vt,
   );
 }
+
+/**
+ * `loseContext` calls `WEBGL_lose_context.loseContext()` on the WebGL context of the canvas at
+ * `selector`. The page keeps the extension object, because a lost context gives no extension, so
+ * `restore()` can call the same object's `restoreContext()` later.
+ */
+export async function loseContext(
+  page: Page,
+  selector: string,
+): Promise<{ restore(): Promise<void> }> {
+  const index = await page.evaluate((target) => {
+    const canvas = document.querySelector(target);
+    if (!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error(`loseContext: no canvas matches ${target}`);
+    }
+    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
+    const extension = gl?.getExtension("WEBGL_lose_context") ?? null;
+    if (extension === null) throw new Error(`loseContext: no WebGL context on ${target}`);
+    const host = window as unknown as { __lostContexts?: WEBGL_lose_context[] };
+    host.__lostContexts ??= [];
+    host.__lostContexts.push(extension);
+    extension.loseContext();
+    return host.__lostContexts.length - 1;
+  }, selector);
+  return {
+    restore: () =>
+      page.evaluate((kept) => {
+        const host = window as unknown as { __lostContexts: WEBGL_lose_context[] };
+        host.__lostContexts[kept]?.restoreContext();
+      }, index),
+  };
+}

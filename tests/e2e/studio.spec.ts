@@ -1670,6 +1670,7 @@ test.describe("7.3 Keyboard", () => {
       button(page, "Redo"),
       button(page, "Copy link"),
       button(page, "Export"),
+      button(page, "Flavor"),
     ];
   }
 
@@ -1742,6 +1743,7 @@ test.describe("7.3 Keyboard", () => {
       button(page, "Redo"),
       button(page, "Copy link"),
       button(page, "Export"),
+      button(page, "Flavor"),
       canvasRegion(page),
     ];
     await focusBody(page);
