@@ -136,7 +136,7 @@ function Ladder({ spec }: { spec: DesignSpec }) {
               y="17"
               width={(bar.exported / 500) * width}
               height="8"
-              className="fill-accent-madder"
+              className="fill-foreground"
             />
           </g>
         ))}
@@ -163,7 +163,7 @@ function Curve({ label, d, guide }: { label: string; d: string; guide?: string }
       {guide !== undefined && (
         <path d={guide} fill="none" stroke="currentColor" strokeDasharray="4 4" opacity="0.3" />
       )}
-      <path d={d} fill="none" strokeWidth="2" className="stroke-accent-madder" />
+      <path d={d} fill="none" strokeWidth="2" className="stroke-foreground" />
     </svg>
   );
 }
@@ -498,7 +498,7 @@ export function LabClient({ initial }: { initial: DesignSpec }) {
 
       <a
         href={pageHref("studio", spec)}
-        className="inline-block text-foreground text-sm underline underline-offset-4 hover:text-accent-madder"
+        className="inline-block text-foreground text-sm underline underline-offset-4 hover:text-fg-muted"
       >
         Open in the studio
       </a>
