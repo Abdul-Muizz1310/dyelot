@@ -1613,6 +1613,9 @@ line", "Rec. 2020: dotted line", and the list "Steps near this lightness" with o
 <hex> · L <l to 2 decimals> · C <c to 3 decimals> · H <h to whole degrees, or none>", or the one item "No step lies within
 0.04 of L 0.60.".
 
+**8.3 amendment (recorded at the final review).** The Rec. 2020 outline is dotted in `--border-bright` (#2a2a3d), the
+chrome's brighter border color, because `--border` (#1e1e2e) is nearly invisible on the panel (#12121a).
+
 ### 8.4 The sentences
 
 `EXPLORE_LINES` (frozen, in `src/features/explore/scene.ts`):

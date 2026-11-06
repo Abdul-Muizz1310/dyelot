@@ -122,7 +122,7 @@ model path is labeled. A model never writes a color value. The [AI spec](docs/sp
 - ✍️ **Rationale and critique** — on an explicit click, a model writes the one-liner, the thesis and the rules into the spec; without a model nothing is written and the export keeps the preset's text. The critique ranks and explains the lint findings, and is shown but never stored
 - 🔀 **Three providers, in order** — Chrome's on-device model when the visitor turns it on (labeled experimental), then the visitor's own OpenRouter key through a PKCE sign-in (`:free` slugs only), then the shared route. If none answers, the rule-based path runs and the page says so
 - 🛡️ **The shared route and its guard** — `POST /api/ai/<feature>` calls OpenRouter's free models with the server key, one tier at a time with 20 s per tier. Before a call it requires a matching `Origin`, reads `GET /key` and refuses below `DYELOT_AI_RESERVE + 3` requests, and it sets a soft cap of 3 actions per visitor in an HMAC-signed cookie. Results are cached per server instance for 24 hours. A `vercel.json` opts the route into request cancellation
-- 🔒 **A nonce CSP** — every page carries a per-request nonce, with `connect-src 'self' https://openrouter.ai`, and model text is rendered as text only
+- 🔒 **A nonce CSP** — every page carries a per-request nonce, with `connect-src 'self' https://openrouter.ai https://www.remotion.pro`, and model text is rendered as text only
 
 ### Live smoke
 
