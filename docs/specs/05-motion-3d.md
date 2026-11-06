@@ -10,6 +10,19 @@
 Status: approved by the owner on 2026-11-06, as written, after one independent review (44 findings and 5 uncertain
 items) and a re-check (1 minor, fixed). The owner accepted the recommendation of every item in section 21.
 
+M5 closed on 2026-11-06. The spec holds 66 rulings and 255 cases in section 14 (163 `C-` cases and 92 `F-` cases); every
+case has a test that carries its id, which C-GUARD5-01 checks. Task 5.0's seven probes all passed on their first form
+(R5-64). The render and record budgets were re-derived from the real composition and shader, because the probes had timed
+stand-ins: 36,000 ms and 61,000 ms, each three times the slowest of three solo runs. Rulings made during the work carry
+"(recorded at Task …'s review)" or "(recorded at the final review)" where they stand. Among them: the deferred template
+switch is skipped under reduced motion, the 3D materials skip tone mapping, an aborted chunk allows exactly two console
+lines (14.11), a Cancel during `finalize()` discards the file, `unsupported` lasts until the dialog closes, and the Player's
+frame is hidden from assistive technology as a picture (13.3). `pnpm gate:full` on `m5-motion` at `f231c94` passed in
+30 min 11 s with 5,197 unit tests (3 skipped) in 266 files and 506 of 506 end-to-end flows, and 98.95% statements, 96.79%
+branches, 99.62% functions and 99.16% lines of coverage, on a 16-core desktop that was also running the owner's own
+applications. The hand check on the deployed site, with one real render, follows the merge and is recorded in the
+knowledge graph.
+
 Section 2 lists the owner's standing rulings and the controller's decisions of 2026-11-06. Section 3 turns each decision
 into rulings R5-01 to R5-66, and section 14 holds 255 cases (163 `C-` and 92 `F-`). A ruling ends with **(decision X#)**
 when it states a controller decision, or **(drafter)** when this spec supplies a rule the decisions leave open; a ruling

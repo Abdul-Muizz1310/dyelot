@@ -183,7 +183,7 @@ WebGL through SwiftShader. The two budgets are hang guards on software WebGL, no
 | The toolbar | 119 px tall in 3 rows at 360 by 740 with "Flavor" added, under a bound of 170 px |
 | The hero designs | Generating six designs took 986 ms warm plus 298 ms for the engine's first call, which is why they are committed data |
 
-The M5 spec lists 255 cases in its section 14 (163 `C-` cases and 92 `F-` cases). The gate numbers of the close are {{M5_GATE}}.
+The M5 spec lists 255 cases in its section 14 (163 `C-` cases and 92 `F-` cases). At the close `pnpm gate:full` passed in 30 min 11 s with 5,197 unit tests (3 skipped) in 266 files and 506 of 506 end-to-end flows.
 The hand check on dyelot.vercel.app, with one real render that sends one usage event, follows the merge, and its result goes into
 the spec's close note.
 
@@ -320,21 +320,21 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | {{M5_GATE}} Vitest tests in {{M5_GATE}} files, in `tests/unit/`, with {{M5_GATE}} skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
+| Unit | 5,197 Vitest tests in 266 files, in `tests/unit/`, with 3 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
 | Slow set | 37 of those files, listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. 25 run in the two slow projects and 12 in the `scan` project. `pnpm gate` leaves them to `pnpm gate:full` and CI |
 | Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) [`03-export.md`](docs/specs/03-export.md) and [`04-ai.md`](docs/specs/04-ai.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows), and 224 of 224 in the M4 spec's section 14 (165 `C-` cases and 59 `F-` cases, checked by C-GUARD4-11). The M5 spec's section 14 lists 255 cases (163 `C-` cases and 92 `F-` cases) for the same rule |
 | Goldens | 15 golden bundles (the 14 presets and the import of `shadcn-neutral.css`), pinned by `tests/golden/export/manifest.json` with each file's path, byte length and SHA-256. The `default` bundle holds 21 files and 409,581 bytes |
 | The generated-design grid | Before any export code existed, a test grid measured 3,808 designs from five fixed grids against the required checks: none threw and none raised a lint error. Its ten test files took 434.9 s in total when each ran alone on a 16-core machine |
 | Property tests | fast-check over arbitrary color strings, every parameter, random seeds, share-link tampering and the studio store's actions |
-| End to end | {{M5_GATE}} Playwright flows on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
+| End to end | 506 Playwright flows on Chromium against `next build` and `next start`, on `/`, `/studio`, `/explore`, `/motion` and the 404 page, with axe on each route, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
 | Measured findings | The fix scan generates 576 designs (288 in sRGB and 288 in Display P3) and finds no C1, C5, N1 or F1 finding at AA. The preset sweep fits all 14 presets into the landing, editorial, dashboard and settings templates at 360 and 768 px and into the three mobile screens: 252 views, none with an overflow or a broken word |
 | Coverage scope | `src/engine/`, `src/spec/`, `src/theme/`, `src/export/`, `src/import/`, `src/lib/site/`, the canvas font loader and the 23 pure helper files of the studio, the preview, the export dialog and the import dialog. The end-to-end tier covers the components and routes |
 | Coverage floors | 80% lines and statements, 75% functions and 70% branches over that scope. `src/engine/`, `src/spec/`, `src/theme/`, the font loader and each pure helper hold 95% lines, statements and functions and 90% branches. `src/export/` and `src/import/` hold 90% and 85% |
 | Coverage at the M2 close | 99.64% statements, 98.65% branches, 100% functions and 99.68% lines over that scope |
 | Coverage at the M3 close | 98.57% statements, 95.8% branches, 99.69% functions and 98.76% lines over the larger scope, measured on a 16-core machine |
 | Coverage at the M4 close | 98.88% statements, 96.65% branches, 99.58% functions and 99.08% lines, from `pnpm gate:full` on `m4-ai` at `f37215a` |
-| Coverage at the M5 close | {{M5_GATE}} |
-| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows). At the M4 close `pnpm gate` took 6 min 27 s (179 unit files, 4,517 tests passed and 3 skipped, 377 flows) and `pnpm gate:full` took 27 min 30 s (218 unit files, 4,713 tests passed and 3 skipped, 377 flows), on a 16-core desktop that was also running the owner's own applications. At the M5 close: {{M5_GATE}} |
+| Coverage at the M5 close | 98.95% statements, 96.79% branches, 99.62% functions and 99.16% lines |
+| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows). At the M4 close `pnpm gate` took 6 min 27 s (179 unit files, 4,517 tests passed and 3 skipped, 377 flows) and `pnpm gate:full` took 27 min 30 s (218 unit files, 4,713 tests passed and 3 skipped, 377 flows), on a 16-core desktop that was also running the owner's own applications. At the M5 close `pnpm gate:full` took 30 min 11 s (266 unit files, 5,197 tests passed and 3 skipped, 506 flows) on the same desktop, again under the owner's load. |
 | Not done in M3 | The templates still load eagerly (M2 final review M-12), and the settings template's top and save bars keep `overflow: hidden` without the clip margin. Both wait for M6 |
 | Not done in M4 | The on-device eval did not run. Three residuals are accepted: a canceled action does not count against a visitor's soft cap (the reserve floor of 37 holds); a "don't" rule that starts with "Avoid" plus a gerund exports as "Don't <gerund>..."; and F-IMP-RF4, M3's 2 s import budget, fails on the measuring machine under heavy desktop load for M3 and M4 alike, with no time added by M4 in interleaved pairs. Section 18 of the M4 spec lists what is deferred |
 | Static checks | Biome, and `tsc` in strict mode |
@@ -382,7 +382,7 @@ rest.
 - **M4, done.** The AI layer, built to the [AI spec](docs/specs/04-ai.md): the brief, the word list, the steer chips, image
   palettes and the vibe, the rationale and the critique, three providers, the shared route and its guard, and the nonce CSP.
   `pnpm gate:full` passed with 4,713 unit tests and 377 of 377 flows, and the live smoke found two of four slugs valid.
-- **M5, done.** Motion and 3D, built to the [motion and 3D spec](docs/specs/05-motion-3d.md): the hero shader and the scroll story, the explorer, the motion lab, two view transitions, and the Flavor dialog with its previews, in-browser render and loop recording, and the flavor files. `pnpm gate:full` passed with {{M5_GATE}}. The hand check on the deployed site, with one real render, follows the merge.
+- **M5, done.** Motion and 3D, built to the [motion and 3D spec](docs/specs/05-motion-3d.md): the hero shader and the scroll story, the explorer, the motion lab, two view transitions, and the Flavor dialog with its previews, in-browser render and loop recording, and the flavor files. `pnpm gate:full` passed with 5,197 unit tests and 506 of 506 end-to-end flows. The hand check on the deployed site, with one real render, follows the merge.
 - **Next.** M6 the gallery and the launch. The milestone table in the spec
   has the details.
 
