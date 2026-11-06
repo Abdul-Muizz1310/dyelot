@@ -147,6 +147,9 @@ const AI_HELPERS = [
   "activity",
 ].map((name) => `src/features/ai/${name}.ts`);
 
+/** The landing's pure helpers (Task 5.5a), held to `PURE_FLOORS` the same way. */
+const LANDING_HELPERS = ["heroes", "story"].map((name) => `src/features/landing/${name}.ts`);
+
 /**
  * The Flavor dialog's helpers (Task 5.3b on, docs/specs/05-motion-3d.md section 15), held to
  * `PURE_FLOORS` the same way: the video lines and helpers, which the hero reads too.
@@ -262,6 +265,7 @@ export default defineConfig({
         ...IMPORT_HELPERS,
         ...AI_HELPERS,
         ...FLAVOR_HELPERS,
+        ...LANDING_HELPERS,
         // The server shell's pieces (M4); handle.ts composes them, and the routes are covered by
         // the flows.
         ...SERVER_FILES,
@@ -289,6 +293,7 @@ export default defineConfig({
             ...IMPORT_HELPERS,
             ...AI_HELPERS,
             ...FLAVOR_HELPERS,
+            ...LANDING_HELPERS,
           ].map((file) => [file, PURE_FLOORS]),
         ),
         ...Object.fromEntries(SERVER_FILES.map((file) => [file, SERVER_FLOORS])),
