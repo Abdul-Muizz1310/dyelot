@@ -23,6 +23,7 @@ import {
   filesUnder,
   type ImportRecord,
   importsOf,
+  inProbe,
   purityViolations,
   ROOT,
   section14,
@@ -175,7 +176,8 @@ describe("C-GUARD5-06 src/flavor is self-contained", () => {
   const files = codeFiles(FLAVOR_DIR);
   const everyFile = readdirSync(FLAVOR_DIR, { recursive: true, withFileTypes: true })
     .filter((entry) => entry.isFile())
-    .map((entry) => path.join(entry.parentPath, entry.name));
+    .map((entry) => path.join(entry.parentPath, entry.name))
+    .filter((file) => !inProbe(file));
 
   it("C-GUARD5-06 reads the checker's extensions", () => {
     expect(SCAN_EXTENSIONS.has(".tsx") && SCAN_EXTENSIONS.has(".mjs")).toBe(true);

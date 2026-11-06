@@ -22,7 +22,14 @@ const CODE_FILE = /\.[cm]?[jt]sx?$/;
  * lists it.
  */
 export const PROBE_DIR = "__entry-probe__";
-export const inProbe = (file: string): boolean => file.split(path.sep).includes(PROBE_DIR);
+/**
+ * The file C-GUARD3-04's Biome probe (tests/unit/engine/repo-guards.test.ts) writes under
+ * src/features for a moment and removes. The M5 guards walk src from another test file, at the same
+ * time, so no walk lists it either.
+ */
+export const GUARD3_04_PROBE = path.join(ROOT, "src/features/guard3-04-probe.ts");
+export const inProbe = (file: string): boolean =>
+  file === GUARD3_04_PROBE || file.split(path.sep).includes(PROBE_DIR);
 
 /** Every code file under `directory`, or none when the folder does not exist yet. */
 export function codeFiles(directory: string): string[] {

@@ -24,6 +24,7 @@ import {
   engineAndSpecFiles,
   exportAndImportFiles,
   filesUnder,
+  GUARD3_04_PROBE,
   IMPORT_DIR,
   IMPURE,
   inProbe,
@@ -986,7 +987,7 @@ const BIOME = path.join(ROOT, "node_modules/.bin/biome");
 
 /** Biome's verdict on `source` written as a file of src/features (the probe is removed after). */
 function lint(source: string): { status: number | null; output: string } {
-  const probe = path.join(ROOT, "src/features/guard3-04-probe.ts");
+  const probe = GUARD3_04_PROBE;
   writeFileSync(probe, source);
   try {
     const r = spawnSync(BIOME, ["lint", probe], { cwd: ROOT, encoding: "utf8" });
@@ -1630,6 +1631,12 @@ describe("the guards' file walks skip the Biome probe folder", () => {
     expect(inProbe(path.join(ROOT, "src", "components", PROBE_DIR, "probe.ts"))).toBe(true);
     expect(inProbe(path.join(ROOT, "src", "components", "probe.ts"))).toBe(false);
     expect(inProbe(path.join(ROOT, "src", "features", "__entry-probe-x__", "a.ts"))).toBe(false);
+  });
+
+  it("lists no C-GUARD3-04 probe file, which this file writes under src/features and removes", () => {
+    expect(inProbe(path.join(ROOT, "src", "features", "guard3-04-probe.ts"))).toBe(true);
+    expect(inProbe(path.join(ROOT, "src", "features", "flavor", "guard3-04-probe.ts"))).toBe(false);
+    expect(inProbe(path.join(ROOT, "src", "features", "guard3-04-probe.tsx"))).toBe(false);
   });
 });
 
