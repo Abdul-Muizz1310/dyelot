@@ -604,3 +604,153 @@ describe("C-GUARD5-03 three and R3F are imported only under src/features/explore
     ).toEqual([]);
   });
 });
+
+// C-GUARD5-04 and C-GUARD5-12 (Task 5.9c): R5-60's import boundary for Remotion and Mediabunny, and
+// R5-59's rule that every flow that can reach the render answers its usage event.
+
+const REMOTION_DIR = path.join(ROOT, "src/flavor/remotion");
+const FLAVOR_FEATURE_DIR = path.join(ROOT, "src/features/flavor");
+
+/** Whether `specifier` names `name` or a path inside it. */
+const names = (specifier: string, name: string): boolean =>
+  specifier === name || specifier.startsWith(`${name}/`);
+
+/** The packages R5-60 lets only the flavor folders import, and the lazy pair only by `import()`. */
+const EAGER_REMOTION = ["remotion", "@remotion/player"] as const;
+const LAZY_VIDEO = ["@remotion/web-renderer", "mediabunny"] as const;
+
+/**
+ * The imports of Remotion and Mediabunny in `file` that R5-60 does not allow: `remotion` and
+ * `@remotion/player` outside `src/flavor/remotion/` and `src/features/flavor/`; `@remotion/web-renderer`
+ * and `mediabunny` outside `src/features/flavor/`, or there in any static form. An `import type`
+ * of the lazy pair is allowed anywhere: the compiler erases it.
+ */
+function remotionImportViolations(file: string, source: string): string[] {
+  const inside = (directory: string) => file.startsWith(directory + path.sep);
+  return importsOf(file, source).flatMap(({ specifier, typeOnly, dynamic }) => {
+    if (EAGER_REMOTION.some((name) => names(specifier, name))) {
+      return inside(REMOTION_DIR) || inside(FLAVOR_FEATURE_DIR)
+        ? []
+        : [`${specifier} outside src/flavor/remotion and src/features/flavor`];
+    }
+    if (!LAZY_VIDEO.some((name) => names(specifier, name)) || typeOnly) return [];
+    if (!inside(FLAVOR_FEATURE_DIR)) return [`${specifier} outside src/features/flavor`];
+    return dynamic ? [] : [`static import of ${specifier}`];
+  });
+}
+
+describe("C-GUARD5-04 Remotion stays in the flavor folders, and the renderer and Mediabunny load by import()", () => {
+  it("C-GUARD5-04 finds no other import under src, and the dialog loads the renderer and Mediabunny lazily", () => {
+    const files = codeFiles(path.join(ROOT, "src"));
+    const bad = files.flatMap((file) =>
+      remotionImportViolations(file, readFileSync(file, "utf8")).map(
+        (problem) => `${path.relative(ROOT, file)}: ${problem}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+    const lazy = files
+      .filter((file) => file.startsWith(FLAVOR_FEATURE_DIR + path.sep))
+      .flatMap((file) => importsOf(file, readFileSync(file, "utf8")))
+      .filter(({ dynamic }) => dynamic)
+      .map(({ specifier }) => specifier);
+    expect(lazy).toEqual(expect.arrayContaining(["@remotion/web-renderer", "mediabunny"]));
+  });
+
+  it("C-GUARD5-04 reports a probe of each: Remotion elsewhere, a static renderer or Mediabunny, an import() elsewhere", () => {
+    const flavor = path.join(FLAVOR_FEATURE_DIR, "Probe.tsx");
+    const studio = path.join(ROOT, "src/features/studio/Probe.tsx");
+    const engine = path.join(ROOT, "src/export/Probe.ts");
+    expect(remotionImportViolations(studio, 'import { Player } from "@remotion/player";')).toEqual([
+      "@remotion/player outside src/flavor/remotion and src/features/flavor",
+    ]);
+    expect(remotionImportViolations(engine, 'import { AbsoluteFill } from "remotion";')).toEqual([
+      "remotion outside src/flavor/remotion and src/features/flavor",
+    ]);
+    expect(remotionImportViolations(studio, 'export { Player } from "@remotion/player";')).toEqual([
+      "@remotion/player outside src/flavor/remotion and src/features/flavor",
+    ]);
+    expect(
+      remotionImportViolations(
+        flavor,
+        'import { renderMediaOnWeb } from "@remotion/web-renderer";',
+      ),
+    ).toEqual(["static import of @remotion/web-renderer"]);
+    expect(remotionImportViolations(flavor, 'import { Output } from "mediabunny";')).toEqual([
+      "static import of mediabunny",
+    ]);
+    expect(remotionImportViolations(flavor, 'export * from "mediabunny";')).toEqual([
+      "static import of mediabunny",
+    ]);
+    expect(remotionImportViolations(flavor, 'import { type Output } from "mediabunny";')).toEqual([
+      "static import of mediabunny",
+    ]);
+    expect(
+      remotionImportViolations(studio, 'const renderer = await import("@remotion/web-renderer");'),
+    ).toEqual(["@remotion/web-renderer outside src/features/flavor"]);
+    expect(remotionImportViolations(studio, 'const media = await import("mediabunny");')).toEqual([
+      "mediabunny outside src/features/flavor",
+    ]);
+    expect(
+      remotionImportViolations(
+        flavor,
+        [
+          'import { Player } from "@remotion/player";',
+          'import { AbsoluteFill } from "remotion";',
+          'import type { Output } from "mediabunny";',
+          'const renderer = await import("@remotion/web-renderer");',
+          'const media = await import("mediabunny");',
+        ].join("\n"),
+      ),
+    ).toEqual([]);
+    expect(
+      remotionImportViolations(
+        path.join(REMOTION_DIR, "Probe.tsx"),
+        'import { Composition } from "remotion";',
+      ),
+    ).toEqual([]);
+    expect(
+      remotionImportViolations(studio, 'import type { CanvasSource } from "mediabunny";'),
+    ).toEqual([]);
+  });
+});
+
+const E2E_DIR = path.join(ROOT, "tests/e2e");
+const RENDER_LABEL = "Render the brand video";
+
+/**
+ * The flow files that hold "Render the brand video" but never call `TELEMETRY(` (R5-59, I-M5-09):
+ * such a flow could click the button with nobody to answer the usage event. A call in a comment
+ * does not count.
+ */
+function telemetryViolations(files: readonly { file: string; source: string }[]): string[] {
+  return files
+    .filter(({ source }) => source.includes(RENDER_LABEL))
+    .filter(({ source }) => !stripComments(source).includes("TELEMETRY("))
+    .map(({ file }) => file);
+}
+
+describe("C-GUARD5-12 every flow file that names the render button answers the usage event", () => {
+  it("C-GUARD5-12 finds every such file under tests/e2e calling TELEMETRY(", () => {
+    const files = codeFiles(E2E_DIR).map((file) => ({
+      file: path.relative(ROOT, file),
+      source: readFileSync(file, "utf8"),
+    }));
+    expect(telemetryViolations(files)).toEqual([]);
+    // The guard is not empty: the render's own flows hold the label.
+    expect(
+      files.filter(({ source }) => source.includes(RENDER_LABEL)).map(({ file }) => file),
+    ).toContain("tests/e2e/flavor.spec.ts");
+  });
+
+  it("C-GUARD5-12 reports a probe file that clicks the button without the call", () => {
+    const click = `await page.getByRole("button", { name: "${RENDER_LABEL}" }).click();`;
+    expect(
+      telemetryViolations([
+        { file: "probe.spec.ts", source: click },
+        { file: "commented.spec.ts", source: `// TELEMETRY(page)\n${click}` },
+        { file: "answered.spec.ts", source: `await TELEMETRY(page);\n${click}` },
+        { file: "unrelated.spec.ts", source: 'await page.goto("/studio");' },
+      ]),
+    ).toEqual(["probe.spec.ts", "commented.spec.ts"]);
+  });
+});
