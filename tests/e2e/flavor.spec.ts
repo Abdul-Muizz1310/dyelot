@@ -73,6 +73,13 @@ const stopsOf = (mode: Mode): string => flavorStops(first(), mode).join(",").toL
 /** R5-64's record budget: 3 × probe 5's 4,693 ms, from the click to the download. */
 const RECORD_BUDGET = 3 * 4_693;
 
+/**
+ * A cap on the shader loop's flows and their slow steps, never a measure: headless Chromium draws
+ * the flavor in software (SwiftShader), so a recording under the desktop's load takes far longer
+ * than on a GPU. Only F-LOOP-01 measures, against the record budget.
+ */
+const RECORDING_CAP = 240_000;
+
 const recordButton = (page: Page): Locator =>
   section(page, "Shader loop").getByRole("button", { name: VIDEO_LINES.record, exact: true });
 const loopCancel = (page: Page): Locator =>
@@ -97,7 +104,10 @@ async function bytesOf(download: Download): Promise<Uint8Array> {
 /** Fails unless the Shader loop section shows "Recording…", its labeled bar and "Cancel". */
 async function expectRecording(page: Page): Promise<void> {
   const loop = section(page, "Shader loop");
-  await expect(loop.getByText(VIDEO_LINES.recording, { exact: true })).toBeVisible();
+  // The first frame comes after Mediabunny's load and the flavor's compile.
+  await expect(loop.getByText(VIDEO_LINES.recording, { exact: true })).toBeVisible({
+    timeout: RECORDING_CAP,
+  });
   await expect(loop.getByRole("progressbar", { name: "Shader loop progress" })).toBeVisible();
   await expect(loopCancel(page)).toBeVisible();
 }
@@ -319,6 +329,9 @@ test.describe("the Flavor dialog", () => {
 });
 
 test.describe("the shader loop", () => {
+  // One recording at a time: software recordings side by side would only slow each other.
+  test.describe.configure({ mode: "default", timeout: RECORDING_CAP });
+
   // Breaks when the recording stops showing its progress, misses the record budget, names or
   // encodes its file wrongly, says nothing when done, or sends a request off the page's origin.
   test("F-LOOP-01 Record the shader loop shows its progress, and an MP4 downloads within the record budget", async ({
@@ -358,7 +371,7 @@ test.describe("the shader loop", () => {
     await expect(recordButton(page)).toHaveCount(0);
     await expect(loopCancel(page)).toBeFocused();
     await loopCancel(page).click();
-    await expect(loopStatus(page)).toHaveText(VIDEO_LINES.canceled);
+    await expect(loopStatus(page)).toHaveText(VIDEO_LINES.canceled, { timeout: RECORDING_CAP });
     await expect(loopCancel(page)).toHaveCount(0);
     await expect(recordButton(page)).toBeFocused();
     expect(downloads).toEqual([]);
@@ -406,7 +419,9 @@ test.describe("the shader loop", () => {
     await openFlavor(page);
     const downloads = recordDownloads(page);
     await recordButton(page).click();
-    await expect(loopStatus(page)).toHaveText(VIDEO_LINES["record-unsupported"]);
+    await expect(loopStatus(page)).toHaveText(VIDEO_LINES["record-unsupported"], {
+      timeout: RECORDING_CAP,
+    });
     await expect(recordButton(page)).toHaveCount(0);
     await expect(loopCancel(page)).toHaveCount(0);
     expect(downloads).toEqual([]);
