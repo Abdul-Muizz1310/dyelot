@@ -148,6 +148,45 @@ describe("recordLoop", () => {
     expectDestroyed(w);
   });
 
+  it("C-DLG-08 an abort during the last add cancels the output and gives canceled", async () => {
+    const w = world();
+    const media = fakeMedia({
+      onAdd: (index) => {
+        if (index === 299) w.controller.abort();
+      },
+    });
+    const outcome = await recordLoop(FLAVOR, depsOf(w, media).deps);
+    expect(outcome).toEqual({ kind: "canceled" });
+    expect(media.sources[0].adds).toHaveLength(300);
+    expect(media.outputs[0].calls).toEqual(["start", "cancel"]);
+    expectDestroyed(w);
+  });
+
+  it("C-DLG-08 an abort during finalize discards the finished file and gives canceled", async () => {
+    const w = world();
+    const media = fakeMedia({ onFinalize: () => w.controller.abort() });
+    const outcome = await recordLoop(FLAVOR, depsOf(w, media).deps);
+    expect(outcome).toEqual({ kind: "canceled" });
+    // A finalized output has nothing left to cancel (1.62.0 only warns): its bytes are dropped.
+    expect(media.outputs[0].calls).toEqual(["start", "finalize"]);
+    expectDestroyed(w);
+  });
+
+  it("C-DLG-08 a fallback from a lost context during the last add cancels the output and gives failed", async () => {
+    const w = world();
+    const media = fakeMedia({
+      onAdd: (index) => {
+        if (index === 299) {
+          w.canvas.dispatchEvent(new Event("webglcontextlost", { cancelable: true }));
+        }
+      },
+    });
+    const outcome = await recordLoop(FLAVOR, depsOf(w, media).deps);
+    expect(outcome).toEqual({ kind: "failed" });
+    expect(media.outputs[0].calls).toEqual(["start", "cancel"]);
+    expectDestroyed(w);
+  });
+
   it("C-DLG-08 a throwing add gives failed", async () => {
     const w = world();
     const media = fakeMedia({

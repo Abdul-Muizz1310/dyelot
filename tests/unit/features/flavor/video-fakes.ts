@@ -103,19 +103,27 @@ export type FakeMedia = {
 /**
  * A Mediabunny. `canEncodeVideo` answers yes for the codecs in `encodes` (by default `avc` only),
  * or throws `encodeError`. `onAdd` runs inside each `CanvasSource.add` with the call's index, before
- * the call returns; a throw there is the call's. `finalize` writes `FILE_BYTES` into the target,
- * unless `emptyBuffer`; `cancel` rejects when `cancelError` is given.
+ * the call returns; a throw there is the call's. `finalize` runs `onFinalize`, then writes
+ * `FILE_BYTES` into the target, unless `emptyBuffer`; `cancel` rejects when `cancelError` is given.
  */
 export function fakeMedia(
   options: {
     encodes?: readonly string[];
     encodeError?: unknown;
     onAdd?: (index: number) => void | Promise<void>;
+    onFinalize?: () => void | Promise<void>;
     emptyBuffer?: boolean;
     cancelError?: unknown;
   } = {},
 ): FakeMedia {
-  const { encodes = ["avc"], encodeError, onAdd, emptyBuffer = false, cancelError } = options;
+  const {
+    encodes = ["avc"],
+    encodeError,
+    onAdd,
+    onFinalize,
+    emptyBuffer = false,
+    cancelError,
+  } = options;
   const asked: { codec: string; options: unknown }[] = [];
   const outputs: FakeOutput[] = [];
   const sources: FakeSource[] = [];
@@ -160,6 +168,7 @@ export function fakeMedia(
     }
     async finalize() {
       this.record.calls.push("finalize");
+      await onFinalize?.();
       if (!emptyBuffer) this.record.target.buffer = Uint8Array.from(FILE_BYTES).buffer;
     }
     async cancel() {
