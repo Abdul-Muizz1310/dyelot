@@ -1647,6 +1647,7 @@ test.describe("7.3 Keyboard", () => {
       radio(page, "Depth", "soft"),
       panelRadio(page, "Density", "comfortable"),
       radio(page, "Motion feel", "brisk"),
+      page.getByRole("link", { name: "Edit in the motion lab", exact: true }),
       ...["Warmer", "Cooler", "Bolder", "Quieter", "Softer", "Sharper", "Airier"].map((name) =>
         button(page, name),
       ),

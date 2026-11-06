@@ -28,6 +28,7 @@ import { BUTTON, PRESSED, PRIMARY_BUTTON } from "./chrome";
 import { Choice, LABEL, Picker, same } from "./controls";
 import { isOneOf } from "./guards";
 import { autoPairingLabel, GAMUT_LABELS, SEED_FIELD_MESSAGE, seedRowHex } from "./inputs";
+import { motionLine, pageHref } from "./pages";
 import { SEED_SLOT } from "./shortcuts";
 import { type StudioStore, useStudio } from "./store";
 import { DENSITIES } from "./view";
@@ -58,6 +59,7 @@ export function InputsPanel({
   const params = useStudio(store, (studio) => studio.params);
   const seed = useStudio(store, (studio) => studio.seed);
   const preset = useStudio(store, (studio) => studio.preset);
+  const spec = useStudio(store, (studio) => studio.spec);
   const density = useStudio(store, (studio) => studio.view.density);
   const { setParams, applyPreset, setView, regenerate } = store.getState();
   // The notes of the selected preset, when it has any (R2-28: none while the design is custom).
@@ -196,6 +198,16 @@ export function InputsPanel({
             options={same(MOTION_FEELS)}
             onChange={(motion) => setParams({ motion })}
           />
+          {/* R5-45: the tokens behind the feel, and the way into the lab with this design. */}
+          <p data-motion-line="" className="text-fg-muted text-xs">
+            {motionLine(spec)}
+          </p>
+          <a
+            href={pageHref("motion", spec)}
+            className="w-fit text-foreground text-sm underline underline-offset-4 hover:text-accent-madder"
+          >
+            Edit in the motion lab
+          </a>
         </Section>
 
         <Section title="Steer">
