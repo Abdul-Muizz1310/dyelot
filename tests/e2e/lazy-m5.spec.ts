@@ -1,5 +1,6 @@
 import { test as base, expect, type Locator, type Page } from "@playwright/test";
 import { VIDEO_LINES } from "@/features/flavor/video";
+import { TELEMETRY } from "./flavor-support";
 import { button, openStudio, stubSeeds } from "./studio-support";
 
 // The laziness flows of docs/specs/05-motion-3d.md, section 14.11 (R5-61, I-M5-04): F-LAZY5-01 to 04
@@ -144,29 +145,12 @@ async function openFlavor(page: Page): Promise<void> {
   await expect(player(page)).toHaveAttribute("data-playing", "true");
 }
 
-/** What `TELEMETRY` gives (section 4): the JSON body of each usage `POST` it answered. */
-type Telemetry = { posts(): readonly unknown[] };
-
 /**
- * `TELEMETRY(page)` (section 4) is Task 5.9c's, in flavor-support.ts. Until that task lands it is
- * read at run time, so this file loads and only the render's flow fails; the rebase onto 5.9c turns
- * this into a static import.
+ * A cap on a video job's slow steps, never a measure: the renderer or Mediabunny loads, then the
+ * browser draws in software (SwiftShader), which the desktop's load slows (as 5.9c's and 5.10's
+ * flows cap them).
  */
-async function TELEMETRY(page: Page): Promise<Telemetry> {
-  const support = (await import("./flavor-support")) as unknown as {
-    TELEMETRY?: (page: Page) => Promise<Telemetry>;
-  };
-  if (support.TELEMETRY === undefined) {
-    throw new Error("TELEMETRY: flavor-support.ts has no TELEMETRY until Task 5.9c lands");
-  }
-  return support.TELEMETRY(page);
-}
-
-/**
- * A cap on the recording's first frame, never a measure: Mediabunny loads, then the flavor compiles
- * and draws in software (SwiftShader), which the desktop's load slows (as 5.10's flows cap it).
- */
-const RECORDING_CAP = 240_000;
+const VIDEO_CAP = 240_000;
 
 test.describe("I-M5-04 heavy code stays lazy", () => {
   // Breaks when the home page's first load pulls in the 3D stack, Remotion or the engine.
@@ -242,13 +226,22 @@ test.describe("I-M5-04 heavy code stays lazy", () => {
     await page.waitForLoadState("networkidle");
     expect(await loaded(scripts, ["renderer", "mediabunny"])).toEqual([]);
     const brand = section(page, "Brand video");
-    await brand.getByRole("button", { name: "Render the brand video", exact: true }).click();
+    const render = brand.getByRole("button", { name: "Render the brand video", exact: true });
+    await expect(render).toBeVisible();
+    // From here the renderer's load and its checks set the flow's length, never its result.
+    test.setTimeout(VIDEO_CAP + 60_000);
+    await render.click();
     const note = brand.getByRole("group", { name: "Before the first render", exact: true });
-    await expect(note).toBeVisible();
+    await expect(note).toBeVisible({ timeout: VIDEO_CAP });
+    // The renderer's marker is in what the click loaded: the positive control for every check of
+    // this file that finds it absent.
     await expectLoaded(scripts, ["renderer", "mediabunny"]);
     await note.getByRole("button", { name: VIDEO_LINES.cancel, exact: true }).click();
     await expect(note).toHaveCount(0);
+    await expect(render).toBeVisible();
+    // Nothing reached remotion.pro: no usage event, and no other request to its host.
     expect(telemetry.posts()).toEqual([]);
+    expect(telemetry.strays()).toEqual([]);
   });
 
   // Breaks when "Record the shader loop" stops loading Mediabunny on its click, or brings the
@@ -264,17 +257,17 @@ test.describe("I-M5-04 heavy code stays lazy", () => {
     const record = loop.getByRole("button", { name: VIDEO_LINES.record, exact: true });
     await expect(record).toBeVisible();
     // From here the recording's own pace sets the flow's length, never its result.
-    test.setTimeout(RECORDING_CAP + 60_000);
+    test.setTimeout(VIDEO_CAP + 60_000);
     await record.click();
     // "Recording…" shows from the first frame, after Mediabunny's load (11.3).
     await expect(loop.getByText(VIDEO_LINES.recording, { exact: true })).toBeVisible({
-      timeout: RECORDING_CAP,
+      timeout: VIDEO_CAP,
     });
     await expectLoaded(scripts, ["mediabunny"]);
     expect(await loaded(scripts, ["renderer"])).toEqual([]);
     await loop.getByRole("button", { name: VIDEO_LINES.cancel, exact: true }).click();
     await expect(loop.getByRole("status")).toHaveText(VIDEO_LINES.canceled, {
-      timeout: RECORDING_CAP,
+      timeout: VIDEO_CAP,
     });
     // The recording's end loads no renderer either: the whole record path stays without it.
     await page.waitForLoadState("networkidle");
