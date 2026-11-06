@@ -166,16 +166,26 @@ export async function recordLoop(
         fellBack = true;
       },
     });
-    for (let frame = 0; frame < LOOP_FRAMES; frame += 1) {
-      if (deps.signal.aborted || fellBack) {
+    /** How the recording ends early: canceled by the signal, failed by a fallback; else null. */
+    const interrupted = (): "canceled" | "failed" | null =>
+      deps.signal.aborted ? "canceled" : fellBack ? "failed" : null;
+    // Checked before each frame and once after the last, so a Cancel or a fallback that comes
+    // during the last `add` still discards the file.
+    for (let frame = 0; frame <= LOOP_FRAMES; frame += 1) {
+      const kind = interrupted();
+      if (kind !== null) {
         await discard(file);
-        return { kind: deps.signal.aborted ? "canceled" : "failed" };
+        return { kind };
       }
+      if (frame === LOOP_FRAMES) break;
       handle.drawAt(frame / LOOP_FRAMES);
       await source.add(frame / FPS, 1 / FPS);
       deps.onProgress((frame + 1) / LOOP_FRAMES);
     }
     await file.finalize();
+    // A Cancel during `finalize()` drops the finished file. A finalized output has nothing left to
+    // cancel (1.62.0's `cancel()` only warns then), so it is not called.
+    if (deps.signal.aborted) return { kind: "canceled" };
     if (target.buffer === null) return { kind: "failed" };
     return { kind: "done", bytes: new Uint8Array(target.buffer), container: picked.container };
   } catch (error) {
