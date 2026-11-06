@@ -163,6 +163,20 @@ describe("renderBrandVideo", () => {
     expect(await running).toEqual({ kind: "canceled" });
   });
 
+  it("C-DLG-06 gives canceled without the bytes when Cancel lands during the finalize, which resolves anyway", async () => {
+    const controller = new AbortController();
+    // 4.0.539 reads the signal no more after the last frame: a Cancel while it finalizes the file
+    // lets the render resolve with the whole file.
+    const renderer = fakeRenderer({ onFinalize: () => controller.abort() });
+    const outcome = await renderBrandVideo(
+      PROPS,
+      MP4,
+      depsFor(renderer.module, controller.signal).deps,
+    );
+    expect(renderer.renders).toHaveLength(1);
+    expect(outcome).toEqual({ kind: "canceled" });
+  });
+
   it("R-05 renderBrandVideo checks every argument's type before the target's values, and starts no load", async () => {
     const { deps, load } = depsFor(fakeRenderer().module);
     const mov = { container: "mov", videoCodec: "h264" };

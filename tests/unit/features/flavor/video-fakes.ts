@@ -26,12 +26,19 @@ export type FakeRenderer = {
  * A web renderer. `canRender` answers `canRenderMediaOnWeb` by container (a throw is thrown, as
  * the real one may); by default every container can render. A render reports a progress of 0.5,
  * then rejects with `error` when one is given, waits for `finish()` when `hold` is set, or
- * resolves at once with `FILE_BYTES`. An aborted signal rejects it as 4.0.539 does.
+ * resolves at once with `FILE_BYTES`. An aborted signal rejects it as 4.0.539 does, up to its last
+ * frame: `onFinalize` runs after the frames, where 4.0.539 finalizes the file and reads the signal
+ * no more, so the render resolves even when it aborts the signal.
  */
 export function fakeRenderer(
-  options: { canRender?: (container: string) => boolean; error?: unknown; hold?: boolean } = {},
+  options: {
+    canRender?: (container: string) => boolean;
+    error?: unknown;
+    hold?: boolean;
+    onFinalize?: () => void;
+  } = {},
 ): FakeRenderer {
-  const { canRender = () => true, error, hold = false } = options;
+  const { canRender = () => true, error, hold = false, onFinalize = () => {} } = options;
   const asked: Record<string, unknown>[] = [];
   const renders: Record<string, unknown>[] = [];
   let finish = () => {};
@@ -58,6 +65,7 @@ export function fakeRenderer(
           signal.addEventListener("abort", () => reject(renderCanceled()), { once: true });
         });
       }
+      onFinalize();
       return { getBlob: async () => new Blob([Uint8Array.from(FILE_BYTES)]), internalState: {} };
     },
   };
