@@ -7,7 +7,8 @@
 > below), as `AGENTS.md` requires. Package facts were read from the npm registry and from the published tarballs on
 > 2026-11-06; Playwright's Chromium facts come from a local probe of the same day.
 
-Status: draft for the owner's approval, 2026-11-06.
+Status: approved by the owner on 2026-11-06, as written, after one independent review (44 findings and 5 uncertain
+items) and a re-check (1 minor, fixed). The owner accepted the recommendation of every item in section 21.
 
 Section 2 lists the owner's standing rulings and the controller's decisions of 2026-11-06. Section 3 turns each decision
 into rulings R5-01 to R5-66, and section 14 holds 255 cases (163 `C-` and 92 `F-`). A ruling ends with **(decision X#)**
@@ -2482,7 +2483,10 @@ section of a spec now records custom tokens, so a gallery card keeps them.
 
 ## 21. Owner approval items
 
-Each item ends with a recommendation: the controller's for items 1 to 7, the drafter's for items 8 to 12.
+Each item ends with a recommendation: the controller's for items 1 to 7, the drafter's for items 8 to 12. The owner's answers
+(2026-11-06): items 1 and 7 approved as recommended (the Free License with its telemetry, `https://www.remotion.pro`
+in `connect-src`, the README note, and one real render in the hand check); items 2 to 6 and 8 to 12 accepted as
+recommended.
 
 1. **Remotion.** dyelot uses Remotion under its Free License as an individual's project, with `licenseKey:
    "free-license"`; each render sends one usage event from the visitor's browser to remotion.pro (IP address and
