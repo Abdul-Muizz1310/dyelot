@@ -330,10 +330,11 @@ export function bufferSize(cssWidth, cssHeight, dpr) {
   if (!(Number.isFinite(dpr) && dpr > 0)) {
     throw new RangeError(`bufferSize: dpr must be finite and above 0, got ${dpr}`);
   }
-  const ratio = Math.min(dpr, MAX_DPR);
-  const width = cssWidth * ratio;
-  const height = cssHeight * ratio;
-  const scale = Math.min(1, MAX_BUFFER.width / width, MAX_BUFFER.height / height);
+  // Adding 0 turns -0 into 0, so a side of 0 divides into +Infinity, never -Infinity.
+  const width = cssWidth + 0;
+  const height = cssHeight + 0;
+  // The ratio and the fit as one factor, chosen before any multiplication, so no product overflows.
+  const scale = Math.min(dpr, MAX_DPR, MAX_BUFFER.width / width, MAX_BUFFER.height / height);
   return {
     width: Math.max(1, Math.round(width * scale)),
     height: Math.max(1, Math.round(height * scale)),

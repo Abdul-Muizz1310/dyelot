@@ -148,6 +148,18 @@ describe("bufferSize", () => {
     expect(bufferSize(640, 360, 0.5)).toEqual({ width: 320, height: 180 });
   });
 
+  it("C-FLAV-04 gives whole sides, never NaN, for a negative zero and for a product past the largest number", () => {
+    expect(bufferSize(-0, 100, 1)).toEqual({ width: 1, height: 100 });
+    expect(bufferSize(100, -0, 1)).toEqual({ width: 100, height: 1 });
+    expect(bufferSize(-0, -0, 1.5)).toEqual({ width: 1, height: 1 });
+    // 1.7e308 × 1.5 overflows to Infinity; the scale is taken before the multiplication.
+    expect(bufferSize(1.7e308, 10, 1.5)).toEqual({ width: 1920, height: 1 });
+    expect(bufferSize(Number.MAX_VALUE, Number.MAX_VALUE, 1.5)).toEqual({
+      width: 1080,
+      height: 1080,
+    });
+  });
+
   it.each([
     ["the width", ["1", 1, 1]],
     ["the height", [1, null, 1]],
