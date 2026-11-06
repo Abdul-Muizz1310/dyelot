@@ -1694,12 +1694,17 @@ test.describe("7.3 Keyboard", () => {
     ];
     const inspectorStops = [
       inspectorAside(page).locator("[data-scroll-area]"),
-      // Each Scales palette is one stop, its focused step's button (13.8 of docs/specs/05-motion-3d.md).
+      // Each Scales palette is one stop, its focused step's button, then the link to the explorer
+      // (13.7, 13.8 and section 16 of docs/specs/05-motion-3d.md).
       ...PALETTE_NAMES.map((name) =>
         inspectorAside(page).locator(
           `[data-palette="${name}"] button[data-step-button][tabindex="0"]`,
         ),
       ),
+      inspectorAside(page).getByRole("link", {
+        name: "See these scales in the explorer",
+        exact: true,
+      }),
       inspectorAside(page).getByRole("button", { name: "Explain the top findings", exact: true }),
       ...findings.map((key) =>
         inspectorAside(page)

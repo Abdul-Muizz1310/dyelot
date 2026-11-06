@@ -151,3 +151,16 @@ export async function ABORT_CHUNK(page: Page, marker: string): Promise<{ release
     },
   };
 }
+
+/**
+ * `NO_RENDERER` makes `WebGL2RenderingContext.prototype.getShaderPrecisionFormat` throw, which three's
+ * renderer calls as it starts (section 4): the context is made, and the renderer still fails. The
+ * error's message starts with "NO_RENDERER", so a flow can name the reports it allows.
+ */
+export async function NO_RENDERER(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    WebGL2RenderingContext.prototype.getShaderPrecisionFormat = () => {
+      throw new Error("NO_RENDERER: getShaderPrecisionFormat is switched off");
+    };
+  });
+}

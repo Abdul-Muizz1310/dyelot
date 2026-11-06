@@ -82,6 +82,9 @@ const paletteStops = (page: Page): Locator[] =>
   PALETTE_NAMES.map((name) =>
     inspector(page).locator(`[data-palette="${name}"] button[data-step-button][tabindex="0"]`),
   );
+/** The Scales section's link to the explorer, the stop after the palettes' (13.7, 13.8). */
+const explorerLink = (page: Page): Locator =>
+  inspector(page).getByRole("link", { name: "See these scales in the explorer", exact: true });
 
 const findingItem = (page: Page, key: string) => inspector(page).locator(`[data-finding="${key}"]`);
 const showMeButton = (page: Page, key: string) =>
@@ -1396,10 +1399,11 @@ test.describe("7.8 Keyboard and motion", () => {
     expect(await seedCalls(page)).toBe(seeds);
     await expect(lotId(page)).toHaveText(lot ?? "");
     await expect(button(page, "Redo")).toHaveAttribute("aria-disabled", "true");
-    // On the ring fixture, Tab from the area reaches "Explain the top findings", the explanation's
-    // fix buttons in list order, then each finding's "Show me" and fix button in order (13.7, section
-    // 16 of docs/specs/04-ai.md). The critique, answered via page.route, ranks a finding with no fix
-    // first and F1 second, so the explanation holds exactly one fix button.
+    // On the ring fixture, Tab from the area reaches each Scales palette's stop and "See these
+    // scales in the explorer" (13.8 of docs/specs/05-motion-3d.md), "Explain the top findings", the
+    // explanation's fix buttons in list order, then each finding's "Show me" and fix button in order
+    // (13.7, section 16 of docs/specs/04-ai.md). The critique, answered via page.route, ranks a
+    // finding with no fix first and F1 second, so the explanation holds exactly one fix button.
     await page.goto("about:blank");
     const ring = ringFixture();
     const findings = lintSpec(ring);
@@ -1429,6 +1433,7 @@ test.describe("7.8 Keyboard and motion", () => {
     expect(cards.length).toBeGreaterThan(5);
     const stops = [
       ...paletteStops(page),
+      explorerLink(page),
       explainFindings(page),
       explanation(page).getByRole("button", { name: "Raise contrast to AAA", exact: true }),
       ...cards,
@@ -1626,13 +1631,15 @@ test("F-INSP-14 F-A11Y-03 at 360 px the inspector drawer is walked by keyboard w
     }
     await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
     await openInspector(page);
-    // Close, the scroll area, each Scales palette's stop, "Explain the top findings", each finding's
-    // "Show me", then "Write the rationale" after the Receipt section (section 16 of
-    // docs/specs/04-ai.md, 13.7, 13.8 of docs/specs/05-motion-3d.md), each with the 2 px madder ring.
+    // Close, the scroll area, each Scales palette's stop, "See these scales in the explorer",
+    // "Explain the top findings", each finding's "Show me", then "Write the rationale" after the
+    // Receipt section (section 16 of docs/specs/04-ai.md, 13.7, 13.8 of docs/specs/05-motion-3d.md),
+    // each with the 2 px madder ring.
     const stops = [
       button(page, "Close inspector"),
       scrollArea(page),
       ...paletteStops(page),
+      explorerLink(page),
       explainFindings(page),
       ...keys.map((key) => showMeButton(page, key)),
       writeRationale(page),
