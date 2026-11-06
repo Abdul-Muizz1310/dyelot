@@ -5,10 +5,12 @@ import { describe, expect, expectTypeOf, it } from "vitest";
 import type {
   DirectionParams,
   Bezier as EntryBezier,
+  FlavorStops as EntryFlavorStops,
   MotionPreset as EntryMotionPreset,
   MotionPresetId as EntryMotionPresetId,
   SpringCurve as EntrySpringCurve,
   Finding,
+  Hex,
   LintedSpec,
 } from "@/engine";
 import * as engine from "@/engine";
@@ -35,6 +37,7 @@ import { parseColor } from "@/engine/color/parse";
 import { onFill, ROLE_NAMES, resolveRoles } from "@/engine/color/roles";
 import { STEPS, UnsatisfiableTargetError } from "@/engine/color/scale";
 import { gamutSlice, gamutSolid, SOLID_GAMUTS, solidPosition } from "@/engine/color/solid";
+import { FLAVOR_STEPS, type FlavorStops, flavorSeed, flavorStops } from "@/engine/flavor";
 import {
   FONT_CATALOG,
   fontFiles,
@@ -179,10 +182,10 @@ const ENGINE_KEYS = [
 ];
 
 /**
- * M5 names whose task has not landed in this checkout (5.3a adds the flavor names). A name
- * leaves the list when its task lands; the list is empty once it has.
+ * Names `ENGINE_KEYS` lists whose task has not landed yet. Tasks 5.1, 5.2 and 5.3a have each
+ * delivered their M5 names, so every name exists and the list is empty.
  */
-const PENDING_KEYS: readonly string[] = ["FLAVOR_STEPS", "flavorStops", "flavorSeed"];
+const PENDING_KEYS: readonly string[] = [];
 
 /** M3's engine key set: the entry's keys before Task 4.6a. */
 const M3_ENGINE_KEYS: readonly string[] = ENGINE_KEYS.filter(
@@ -295,6 +298,9 @@ describe("the engine entry", () => {
       motionPresetOf,
       bezierPoints,
       withMotion,
+      FLAVOR_STEPS,
+      flavorStops,
+      flavorSeed,
     };
     // Every present key has a home entry here, and the pending keys have none until their task lands.
     expect(sorted(Object.keys(homes))).toEqual(sorted(Object.keys(exported)));
@@ -336,6 +342,9 @@ describe("the engine entry", () => {
       motionPresetOf,
       bezierPoints,
       withMotion,
+      FLAVOR_STEPS,
+      flavorStops,
+      flavorSeed,
     };
     const exported: Record<string, unknown> = { ...engine };
     for (const [name, home] of Object.entries(delivered)) expect(exported[name], name).toBe(home);
@@ -347,6 +356,11 @@ describe("the engine entry", () => {
     expectTypeOf<EntryMotionPreset>().toHaveProperty("tokens");
     expectTypeOf<EntryBezier>().toEqualTypeOf<readonly [number, number, number, number]>();
     expectTypeOf<EntrySpringCurve>().toEqualTypeOf<SpringCurve>();
+  });
+
+  it("C-ENTRY5-01 exports the type FlavorStops, five hexes", () => {
+    expectTypeOf<EntryFlavorStops>().toEqualTypeOf<FlavorStops>();
+    expectTypeOf<EntryFlavorStops>().toEqualTypeOf<readonly [Hex, Hex, Hex, Hex, Hex]>();
   });
 
   it.each(["multiply", "runRules", "tryOklchToRgb", "gamutExcess"])(
@@ -409,6 +423,7 @@ describe("frozen tables", () => {
     "PAIRING_IDS",
     "PRESET_IDS",
     "SOLID_GAMUTS",
+    "FLAVOR_STEPS",
   ] as const;
 
   it.each(TABLES)("C-ENTRY-05 freezes %s", (name) => {

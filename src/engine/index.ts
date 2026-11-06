@@ -43,6 +43,7 @@ export {
   solidPosition,
 } from "./color/solid";
 export type { Gamut, Hex, Mode, Oklch, Rgb } from "./color/types";
+export { FLAVOR_STEPS, type FlavorStops, flavorSeed, flavorStops } from "./flavor";
 export {
   FONT_CATALOG,
   type FontCategory,
