@@ -824,7 +824,8 @@ const M5_HELPERS: readonly string[] = [
   ...["heroes", "story", "cycle"].map((name) => `src/features/landing/${name}.ts`),
   ...["scene", "webgl"].map((name) => `src/features/explore/${name}.ts`),
   "src/features/motion/lab.ts",
-  ...["video", "render", "record"].map((name) => `src/features/flavor/${name}.ts`),
+  // `phase.ts` since Task 5.9c's review (section 15).
+  ...["video", "render", "record", "phase"].map((name) => `src/features/flavor/${name}.ts`),
 ];
 
 /** The parts of a Vitest config that C-GUARD5-09 reads. */
@@ -923,9 +924,9 @@ describe("C-GUARD5-09 the new unit folders join a project, and section 15's incl
     expect(guard5Problems(vitestConfig, inRepository)).toEqual([]);
   });
 
-  it("C-GUARD5-09 names section 15's five engine files, four export files and thirteen helpers", () => {
+  it("C-GUARD5-09 names section 15's five engine files, four export files and fourteen helpers", () => {
     expect(M5_FOLDERS.flatMap(([, , files]) => files)).toHaveLength(9);
-    expect(M5_HELPERS).toHaveLength(13);
+    expect(M5_HELPERS).toHaveLength(14);
   });
 
   type Probe = ReturnType<typeof configCopy>;
