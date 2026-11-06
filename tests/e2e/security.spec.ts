@@ -412,15 +412,33 @@ test.describe("M5 pages under the policy (R5-58, R5-59)", () => {
     baseURL,
   }) => {
     const origin = new URL(baseURL ?? "http://localhost").origin;
-    // A data: or blob: URL is read in memory: only these schemes reach a server.
-    const NETWORK = new Set(["http:", "https:", "ws:", "wss:"]);
-    const leaves = (url: URL): boolean => NETWORK.has(url.protocol) && url.origin !== origin;
+    // A data: or blob: URL is read in memory: only these schemes reach a server. A socket belongs to
+    // the origin it upgrades from, so ws: and wss: compare as http: and https:.
+    const SCHEMES: Readonly<Record<string, string>> = {
+      "http:": "http:",
+      "https:": "https:",
+      "ws:": "http:",
+      "wss:": "https:",
+    };
+    const leaves = (url: URL): boolean => {
+      const scheme = SCHEMES[url.protocol];
+      return scheme !== undefined && `${scheme}//${url.host}` !== origin;
+    };
     const outside: string[] = [];
     page.on("request", (request) => {
       if (leaves(new URL(request.url()))) outside.push(request.url());
     });
-    // A request that leaves anyway goes no further than the browser (R4-58), and the list keeps it.
+    // Playwright reports a WebSocket as a `websocket` event, never as a request.
+    page.on("websocket", (socket) => {
+      if (leaves(new URL(socket.url()))) outside.push(socket.url());
+    });
+    // A request or a socket that leaves anyway goes no further than the browser (R4-58), and the
+    // list keeps it.
     await page.route(leaves, (route) => route.abort());
+    await page.routeWebSocket(leaves, (socket) => {
+      outside.push(socket.url());
+      void socket.close();
+    });
     const problems = trackProblems(page);
     await watchPolicy(page);
 

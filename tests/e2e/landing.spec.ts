@@ -243,6 +243,12 @@ test("F-HOME5-01 the nav lists its five links in order and marks the current pag
     expect(response?.status(), path).toBe(200);
     expect(await navLinks(page), path).toEqual(NAV);
     expect(await currentLinks(page), path).toEqual([current]);
+    // The fixture reads only the last document's record: each document's is read before it goes.
+    await page.waitForLoadState("networkidle");
+    expect(
+      await page.evaluate(() => (window as unknown as { __violations: string[] }).__violations),
+      path,
+    ).toEqual([]);
   }
 
   // The 404 page on a page of its own: Chromium reports the document's own 404 status as a console
