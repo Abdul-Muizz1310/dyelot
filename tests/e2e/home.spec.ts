@@ -37,13 +37,16 @@ test("the home page's <title> is the site title from the config", async ({ page 
   await expect(page).toHaveTitle(SITE.title);
 });
 
-// Breaks when the page drops the prompt, the one-liner or the honest status line.
-test("the home page shows the prompt, the one-liner and the work in progress", async ({ page }) => {
+// Breaks when the page drops the prompt or the one-liner, or brings back the stale status line
+// (section 16: "in progress" is gone). Task 5.5b adds the hero's "Palette 1 of 6: Madder." here.
+test("the home page shows the prompt and the one-liner, and no work in progress", async ({
+  page,
+}) => {
   await page.goto("/");
   const main = page.getByRole("main");
   await expect(main).toContainText("$ dyelot");
   await expect(main).toContainText("a palette becomes a design system your coding agent can build");
-  await expect(main).toContainText("in progress: the export bundle");
+  await expect(main).not.toContainText("in progress");
 });
 
 // Breaks when the repository link is dropped, mistyped or points at another repository, or when
@@ -56,9 +59,10 @@ test("the home page links to the repository and shows the address it goes to", a
   await expect(link).toContainText(REPOSITORY.replace("https://", ""));
 });
 
-// F-HOME-01 (docs/specs/02-studio.md, section 7.9). Breaks when the studio link is dropped, renamed or
-// pointed elsewhere, when it leaves the status list beside the repository link, or when the page gains
-// a second top-level heading.
+// F-HOME-01 (docs/specs/02-studio.md, section 7.9, amended by docs/specs/05-motion-3d.md section 16).
+// Breaks when the studio link is dropped, renamed or pointed elsewhere, when it leaves the start.log
+// list beside the repository link and the explorer and motion lab links, or when the page gains a
+// second top-level heading.
 test("F-HOME-01 the home page links to the studio, beside the repository link", async ({
   page,
 }) => {
@@ -70,9 +74,11 @@ test("F-HOME-01 the home page links to the studio, beside the repository link", 
   await expect(studio).toBeVisible();
   await expect(studio).toHaveAttribute("href", "/studio");
   await expect(studio).not.toHaveAttribute("target");
-  // One list holds both links, as siblings.
+  // One list holds the four links, as siblings.
   await expect(
-    main.locator(`div:has(> a[href="/studio"]):has(> a[href="${REPOSITORY}"])`),
+    main.locator(
+      `div:has(> a[href="/studio"]):has(> a[href="/explore"]):has(> a[href="/motion"]):has(> a[href="${REPOSITORY}"])`,
+    ),
   ).toHaveCount(1);
 });
 
@@ -84,19 +90,27 @@ test("F-HOME-02 following the studio link opens the studio", async ({ page }) =>
   await ready(page);
 });
 
-// F-HOME-03 (section 10). Breaks when the sitemap drops the studio, or lists it under another origin.
-test("F-HOME-03 the sitemap lists the studio beside the home page", async ({ request }) => {
+// F-HOME-03 (section 10, amended by docs/specs/05-motion-3d.md section 16). Breaks when the sitemap drops
+// a route, reorders them, or lists one under another origin.
+test("F-HOME-03 the sitemap lists the four routes in order", async ({ request }) => {
   const response = await request.get("/sitemap.xml");
   expect(response.status()).toBe(200);
   const locations = [...(await response.text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(
     (match) => match[1],
   );
-  expect(locations).toEqual(["https://dyelot.vercel.app/", "https://dyelot.vercel.app/studio"]);
+  expect(locations).toEqual([
+    "https://dyelot.vercel.app/",
+    "https://dyelot.vercel.app/studio",
+    "https://dyelot.vercel.app/explore",
+    "https://dyelot.vercel.app/motion",
+  ]);
   expect(SITE.url).toBe("https://dyelot.vercel.app");
 });
 
-// Breaks on any WCAG A or AA violation axe can detect in the rendered page, contrast included.
+// Breaks on any WCAG A or AA violation axe can detect in the rendered page, contrast included. It
+// runs under reduced motion, so no story step is caught mid-fade (section 16, R5-33).
 test("the home page has no accessibility violations", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations).toEqual([]);
@@ -191,7 +205,11 @@ test("every page is served with the security headers and a same-origin policy", 
     const policy = directives(headers["content-security-policy"] ?? "");
     expect(policy["default-src"], path).toEqual(["'self'"]);
     expect(policy["base-uri"], path).toEqual(["'self'"]);
-    expect(policy["connect-src"], path).toEqual(["'self'", "https://openrouter.ai"]);
+    expect(policy["connect-src"], path).toEqual([
+      "'self'",
+      "https://openrouter.ai",
+      "https://www.remotion.pro",
+    ]);
     expect(policy["img-src"], path).toEqual(["'self'", "data:", "blob:"]);
     expect(policy["worker-src"], path).toEqual(["'self'", "blob:"]);
     expect(policy["script-src"], path).toEqual([

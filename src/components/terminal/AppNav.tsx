@@ -2,7 +2,7 @@ import Link from "next/link";
 import { REPOSITORY_URL } from "@/lib/links";
 
 export type AppNavProps = {
-  active?: "home";
+  active?: "home" | "explore" | "motion";
 };
 
 // Links are 32 px tall, above the 24 px WCAG 2.2 minimum, and the active mark sits on the nav's
@@ -32,25 +32,41 @@ function SwatchBook() {
   );
 }
 
-/** The sticky, blurred nav: the brand tile (the same glyph as the icon) and two links. */
+/** The links before "github", in order (7.3); the studio draws no nav, so it is never `active`. */
+const PAGES = [
+  { name: "home", href: "/" },
+  { name: "studio", href: "/studio" },
+  { name: "explore", href: "/explore" },
+  { name: "motion", href: "/motion" },
+] as const;
+
+/** The sticky, blurred nav: the brand tile (the same glyph as the icon) and five links. */
 export function AppNav({ active }: AppNavProps) {
   return (
     <nav className="sticky top-0 z-20 border-b border-border bg-page/80 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between gap-6 px-4 md:px-6">
+      <div className="mx-auto flex h-14 max-w-[1400px] items-center justify-between gap-3 px-4 sm:gap-6 md:px-6">
         <Link href="/" className="flex items-center gap-2 font-mono">
           <span className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-panel text-accent-madder">
             <SwatchBook />
           </span>
-          <span className="text-sm font-semibold tracking-tight text-foreground">dyelot</span>
+          <span className="max-sm:sr-only text-sm font-semibold tracking-tight text-foreground">
+            dyelot
+          </span>
         </Link>
-        <div className="flex items-center gap-5 font-mono text-xs text-fg-muted">
-          <Link
-            href="/"
-            aria-current={active === "home" ? "page" : undefined}
-            className={active === "home" ? LINK_ACTIVE : LINK_IDLE}
-          >
-            home
-          </Link>
+        <div className="flex items-center gap-3 font-mono text-xs text-fg-muted sm:gap-5">
+          {PAGES.map(({ name, href }) => (
+            <Link
+              key={name}
+              href={href}
+              // Task 5.11a removes this once /explore and /motion exist: while they 404, a
+              // prefetch of them keeps the network busy and logs a console error.
+              prefetch={href === "/explore" || href === "/motion" ? false : undefined}
+              aria-current={active === name ? "page" : undefined}
+              className={active === name ? LINK_ACTIVE : LINK_IDLE}
+            >
+              {name}
+            </Link>
+          ))}
           <a href={REPOSITORY_URL} target="_blank" rel="noopener noreferrer" className={LINK_IDLE}>
             github
           </a>

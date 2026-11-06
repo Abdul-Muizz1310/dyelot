@@ -49,7 +49,7 @@ export function cspHeader(nonce: string, options: CspOptions): string {
     "style-src 'self' 'unsafe-inline'",
     `script-src 'self' 'nonce-${nonce}' 'strict-dynamic'${dev ? " 'unsafe-eval'" : ""}`,
     "worker-src 'self' blob:",
-    `connect-src 'self' https://openrouter.ai${dev ? " ws: http://localhost:*" : ""}`,
+    `connect-src 'self' https://openrouter.ai https://www.remotion.pro${dev ? " ws: http://localhost:*" : ""}`,
     "frame-ancestors 'none'",
     "object-src 'none'",
     "form-action 'self'",

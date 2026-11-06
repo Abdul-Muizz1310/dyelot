@@ -11,11 +11,11 @@ test.use({ viewport: { width: 1280, height: 800 } });
 const STRICT = "strict-origin-when-cross-origin";
 const PERMISSIONS = "language-model=(self), camera=(), microphone=(), geolocation=()";
 /**
- * 12.1's page policy for a production build, word for word from the spec with the response's nonce
+ * 12.2's page policy for a production build, word for word from the spec with the response's nonce
  * put in: the flows' oracle is the spec's text, never the code that writes the header.
  */
 const PAGE_POLICY = (nonce: string): string =>
-  `default-src 'self'; base-uri 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai; frame-ancestors 'none'; object-src 'none'; form-action 'self';`;
+  `default-src 'self'; base-uri 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai https://www.remotion.pro; frame-ancestors 'none'; object-src 'none'; form-action 'self';`;
 /** R4-24's policy for every path under /api/, word for word from the spec. */
 const API_POLICY = "default-src 'none'; frame-ancestors 'none';";
 /** The nonce the proxy makes: the base64 of a UUID, 48 characters (C-PROXY-01). */
@@ -121,7 +121,7 @@ test.describe("12 security headers, robots and the connect pages", () => {
         expect(headers["content-type"], where).toMatch(/^text\/html/);
         const policy = headers["content-security-policy"] ?? "";
         const nonce = nonceOf(policy, where);
-        // Exactly 12.1's policy for this nonce, in a production build.
+        // Exactly 12.2's policy for this nonce, in a production build.
         expect(policy, where).toBe(PAGE_POLICY(nonce));
         const parts = directives(policy);
         expect(parts["script-src"], where).toEqual([
@@ -129,7 +129,11 @@ test.describe("12 security headers, robots and the connect pages", () => {
           `'nonce-${nonce}'`,
           "'strict-dynamic'",
         ]);
-        expect(parts["connect-src"], where).toEqual(["'self'", "https://openrouter.ai"]);
+        expect(parts["connect-src"], where).toEqual([
+          "'self'",
+          "https://openrouter.ai",
+          "https://www.remotion.pro",
+        ]);
         expect(parts["form-action"], where).toEqual(["'self'"]);
         // Every script the document runs carries the response's nonce.
         const tags = scriptTags(await response.text()).filter((tag) => !isDataBlock(tag));
@@ -226,7 +230,12 @@ test.describe("12 security headers, robots and the connect pages", () => {
     const locations = [...(await sitemap.text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(
       (match) => match[1],
     );
-    expect(locations).toEqual(["https://dyelot.vercel.app/", "https://dyelot.vercel.app/studio"]);
+    expect(locations).toEqual([
+      "https://dyelot.vercel.app/",
+      "https://dyelot.vercel.app/studio",
+      "https://dyelot.vercel.app/explore",
+      "https://dyelot.vercel.app/motion",
+    ]);
 
     const font = await request.get("/fonts/geist/geist-latin-wght-normal.woff2");
     expect(font.status()).toBe(200);
