@@ -70,8 +70,11 @@ const pauseIn = (page: Page, name: string): Locator =>
 /** The stops the preview names in `data-flavor-stops` for the first design in `mode`. */
 const stopsOf = (mode: Mode): string => flavorStops(first(), mode).join(",").toLowerCase();
 
-/** R5-64's record budget: 3 × probe 5's 4,693 ms, from the click to the download. */
-const RECORD_BUDGET = 3 * 4_693;
+/**
+ * R5-64's record budget, from the click to the download: 3 × the slowest of probe 5's runs re-measured
+ * at Task 5.10 with the real flavor shader (20,036 ms), rounded up to the next whole second.
+ */
+const RECORD_BUDGET = 61_000;
 
 /**
  * A cap on the shader loop's flows and their slow steps, never a measure: headless Chromium draws

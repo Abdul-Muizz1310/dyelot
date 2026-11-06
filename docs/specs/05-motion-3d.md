@@ -908,6 +908,13 @@ its result is recorded here:
    `MediabunnyVideoHandler`: in Mediabunny's chunk, which the record click loads alone and the render click loads beside
    the renderer's, and in no chunk of the web renderer's own code. Whether `preserveDrawingBuffer` was needed was not
    tested; R5-56 keeps it.
+
+   Amendment (Task 5.10, controller ruling): the probe drew a stand-in full-screen-triangle shader, since the flavor
+   shader did not exist yet, so its time does not hold for the real one, which costs about four times as much per frame
+   in SwiftShader. Re-measured at Task 5.10 with the real flavor shader (`recordLoop` through "Record the shader loop",
+   F-LOOP-01's path, solo under the E2E lock): runs 20,036, 17,157 and 17,008 ms at load averages 6.51, 10.97 and 8.78;
+   F-LOOP-01's budget is 3 × the slowest, rounded up to the next whole second: 3 × 20,036 = 60,108, so 61,000 ms. The
+   budget is a hang guard on software WebGL, not a product requirement; on a GPU the recording is far faster.
 6. **Scroll-driven animations.** In Playwright's Chromium, `CSS.supports("animation-timeline: view()")` is true, a
    story step has a computed `animation-timeline` of `view()`, and `page.emulateMedia({ reducedMotion: "reduce" })` leaves
    every step with `animation-name: none`, opacity 1 and no translate. If `supports` is false, F-STORY-01 is skipped with
@@ -2069,7 +2076,7 @@ other case to the task of its subsection. A property case that generates designs
 (`tests/unit/spec/support.ts`), and its file joins `SLOW_CORE_TESTS` or `SLOW_WEB_TESTS` when its measured solo time
 reaches 10 s (R2-31). The flows compute what a page must show by importing `@/engine`, `@/spec` and `@/export` in Node
 (with `tests/e2e/raw-hooks.mjs` for `?raw`). "The render budget" and "the record budget" are 3 × the times probe 4 and
-probe 5 record.
+probe 5 record; the record budget follows probe 5's Task 5.10 amendment (R5-64): 61,000 ms.
 
 ### 14.1 Engine color (Task 5.1)
 
@@ -2523,8 +2530,9 @@ section of a spec now records custom tokens, so a gallery card keeps them.
 ## 19. Risks
 
 - **Software WebGL in CI.** Playwright's Chromium draws WebGL2 through SwiftShader, which is slow and may change with a
-  Chromium release. The flows assert state, not frames; the render and record budgets are measured at Task 5.0 and
-  scaled by 3; F-HERO-09's screenshots compare two runs of one build on one machine.
+  Chromium release. The flows assert state, not frames; the render and record budgets are measured at Task 5.0 (the
+  record budget again at Task 5.10, with the real flavor shader) and scaled by 3; F-HERO-09's screenshots compare two
+  runs of one build on one machine.
 - **The usage event is the visitor's.** Each render sends the visitor's IP address and dyelot's origin to remotion.pro,
   and nothing in dyelot can stop it; the privacy note says so before the first render of a page load, and the README and
   `/about` (M6) repeat it. A blocked request (an ad blocker) is retried by Remotion three times and never fails the render,
