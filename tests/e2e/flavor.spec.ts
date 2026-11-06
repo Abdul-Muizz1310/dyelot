@@ -150,7 +150,8 @@ test.describe("the Flavor dialog", () => {
   });
 
   // Breaks when the Player autoplays under the canvas's Reduce motion, opens anywhere but its
-  // finished picture, shows a control of its own, or its Pause does not start it.
+  // finished picture, shows a control of its own, or its Pause does not start it; or when the still
+  // preview's sentence names the wrong cause (the 6.4 and 13.2 amendments of Task 5.9b's review).
   test("F-FLAVOR-02 with the canvas's Reduce motion on, the Player waits on its finished picture", async ({
     page,
   }) => {
@@ -161,6 +162,13 @@ test.describe("the Flavor dialog", () => {
     await expect(player(page)).toHaveAttribute("data-autoplay", "false");
     await expect(player(page)).toHaveAttribute("data-playing", "false");
     await expect(player(page)).toHaveAttribute("data-mode", "light");
+    // Only the canvas's switch holds the preview still: the sentence names the switch.
+    const backgroundLine = section(page, "Background").getByRole("status");
+    await expect(preview(page)).toHaveAttribute("data-flavor", "still");
+    await expect(backgroundLine).toHaveText(
+      "The background is still because the canvas's Reduce motion switch is on.",
+    );
+    await expect(pauseIn(page, "Background")).toHaveCount(0);
     const props = brandProps(first(), "light");
     const checks = player(page).getByText(
       `${props.checks.passed} of ${props.checks.required} required checks pass`,
@@ -180,6 +188,10 @@ test.describe("the Flavor dialog", () => {
     await pause.click();
     await expect(player(page)).toHaveAttribute("data-playing", "true");
     await expect(pause).toHaveAttribute("aria-pressed", "false");
+    // Once the device asks too, the sentence names the device, with the switch still on.
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(backgroundLine).toHaveText(FLAVOR_LINES.still);
+    await expect(preview(page)).toHaveAttribute("data-flavor", "still");
   });
 
   // Breaks when the Player stops autoplaying, its Pause stops pausing it, or the dialog stops

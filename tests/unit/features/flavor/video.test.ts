@@ -122,6 +122,7 @@ describe("the hosts' lines", () => {
       "context-lost": "The animated background stopped, so a still gradient shows instead.",
       restart: "Restart the animation",
       still: "The background is still because this device asks for reduced motion.",
+      "still-canvas": "The background is still because the canvas's Reduce motion switch is on.",
       pause: "Pause",
     });
     expect(Object.isFrozen(FLAVOR_LINES)).toBe(true);
