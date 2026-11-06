@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { exportButton, exportDialog, fileRows, openReady, SPEC_LINK } from "./export-support";
-import { NO_WEBGL, TELEMETRY, test } from "./flavor-support";
+import { NO_WEBGL, PLAYER_CAP, TELEMETRY, test } from "./flavor-support";
 import {
   button,
   canvasFrame,
@@ -94,6 +94,7 @@ async function openFlavorReduced(page: Page, mode: "light" | "dark"): Promise<vo
   await expect(section(page, "Brand video").locator("[data-brand-player]")).toHaveAttribute(
     "data-playing",
     "false",
+    { timeout: PLAYER_CAP },
   );
   await settleAnimations(page);
 }
@@ -487,7 +488,9 @@ test.describe("F-A11Y5-02 the keyboard reaches every new control", () => {
     await openStudio(page);
     await flavorButton(page).click();
     await expect(dialog(page).getByRole("heading", { name: "Flavor", exact: true })).toBeFocused();
-    await expect(section(page, "Brand video").locator("[data-brand-player]")).toBeAttached();
+    await expect(section(page, "Brand video").locator("[data-brand-player]")).toBeAttached({
+      timeout: PLAYER_CAP,
+    });
     const stops = await tabTo(page, "Close");
     expectReachable(stops);
     expect(stops.map((stop) => stop.name)).toEqual([

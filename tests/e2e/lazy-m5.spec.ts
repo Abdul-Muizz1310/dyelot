@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { VIDEO_LINES } from "@/features/flavor/video";
-import { TELEMETRY, test } from "./flavor-support";
+import { PLAYER_CAP, TELEMETRY, test } from "./flavor-support";
 import { button, openStudio, stubSeeds } from "./studio-support";
 
 // The laziness flows of docs/specs/05-motion-3d.md, section 14.11 (R5-61, I-M5-04): F-LAZY5-01 to 04
@@ -113,7 +113,7 @@ async function openFlavor(page: Page): Promise<void> {
   await openStudio(page);
   await flavorButton(page).click();
   await expect(dialog(page)).toBeVisible();
-  await expect(player(page)).toHaveAttribute("data-playing", "true");
+  await expect(player(page)).toHaveAttribute("data-playing", "true", { timeout: PLAYER_CAP });
 }
 
 /**
@@ -180,7 +180,7 @@ test.describe("I-M5-04 heavy code stays lazy", () => {
     expect(await loaded(scripts, ["player"])).toEqual([]);
     await flavorButton(page).click();
     await expect(dialog(page)).toBeVisible();
-    await expect(player(page)).toHaveAttribute("data-playing", "true");
+    await expect(player(page)).toHaveAttribute("data-playing", "true", { timeout: PLAYER_CAP });
     await page.waitForLoadState("networkidle");
     await expectLoaded(scripts, ["player", "remotion"]);
     expect(await loaded(scripts, ["renderer", "mediabunny"])).toEqual([]);

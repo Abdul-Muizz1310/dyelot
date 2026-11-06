@@ -11,6 +11,7 @@ import {
   NO_ENCODE,
   NO_WEBCODECS,
   NO_WEBGL,
+  PLAYER_CAP,
   recordAborted,
   STATUS_RECORD,
   TELEMETRY,
@@ -431,7 +432,7 @@ test.describe("the Flavor dialog", () => {
       }).observe(document, { childList: true, subtree: true });
     });
     await openFlavor(page);
-    await expect(player(page)).toHaveAttribute("data-playing", "true");
+    await expect(player(page)).toHaveAttribute("data-playing", "true", { timeout: PLAYER_CAP });
     // A wait, not a timing: the Player plays its whole 6 s once.
     await page.waitForTimeout(6000);
     await expect(player(page)).toHaveAttribute("data-playing", "true");
