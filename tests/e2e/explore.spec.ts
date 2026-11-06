@@ -5,7 +5,7 @@ import { SITE } from "@/lib/site/config";
 import { type DesignSpec, encodeSpec } from "@/spec";
 import { DEFAULT_PARAMS } from "../unit/spec/support";
 import { LINK, SPEC } from "./export-support";
-import { NO_RENDERER } from "./flavor-support";
+import { ABORT_CHUNK, loseContext, NO_RENDERER, NO_WEBGL } from "./flavor-support";
 import { lotId, lotOf, openStudio, ready } from "./studio-support";
 
 // Playwright does not read the `?raw` query some engine files import: the hook makes it the text.
@@ -18,67 +18,6 @@ const { cameraPosition, DEFAULT_CAMERA, EXPLORE_LINES, scenePoints, sceneSummary
 // F-EXP5-01 to 10 and F-EXP5-RF2 (Task 5.6b). What the page must show is computed here in Node.
 // Every flow fails on a `securitypolicyviolation` event, a console error or a page error, except
 // the reports F-EXP5-10 allows (14.11).
-
-// Stand-ins for three helpers of tests/e2e/flavor-support.ts whose owners have not landed on this
-// lane's base: `NO_WEBGL` (Task 5.5b), `ABORT_CHUNK` (Task 5.7b) and `loseContext` (Task 5.9b).
-// Each has its owner's name and contract (section 4); the rebase onto those tasks replaces this
-// block with imports from ./flavor-support.
-
-/** `NO_WEBGL`: `getContext` gives null for any `webgl` type (section 4). */
-async function NO_WEBGL(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const original = HTMLCanvasElement.prototype.getContext;
-    HTMLCanvasElement.prototype.getContext = function getContext(
-      this: HTMLCanvasElement,
-      type: string,
-      ...rest: unknown[]
-    ) {
-      if (/webgl/.test(type)) return null;
-      return (original as (...args: unknown[]) => RenderingContext | null).call(
-        this,
-        type,
-        ...rest,
-      );
-    } as typeof original;
-  });
-}
-
-/** `ABORT_CHUNK`: aborts the chunk whose text holds `marker` until `release()` (section 4). */
-async function ABORT_CHUNK(page: Page, marker: string): Promise<{ release(): void }> {
-  let released = false;
-  await page.route("**/_next/static/chunks/*.js", async (route) => {
-    if (released) {
-      await route.continue();
-      return;
-    }
-    const response = await route.fetch();
-    const text = await response.text();
-    if (text.includes(marker)) {
-      await route.abort("failed");
-      return;
-    }
-    await route.fulfill({ response, body: text });
-  });
-  return {
-    release() {
-      released = true;
-    },
-  };
-}
-
-/** `loseContext`: `WEBGL_lose_context.loseContext()` on the canvas at `selector` (section 4). */
-async function loseContext(page: Page, selector: string): Promise<void> {
-  await page.evaluate((target) => {
-    const canvas = document.querySelector(target);
-    if (!(canvas instanceof HTMLCanvasElement)) {
-      throw new Error(`loseContext: no canvas matches ${target}`);
-    }
-    const gl = canvas.getContext("webgl2") ?? canvas.getContext("webgl");
-    const extension = gl?.getExtension("WEBGL_lose_context") ?? null;
-    if (extension === null) throw new Error(`loseContext: no WebGL context on ${target}`);
-    extension.loseContext();
-  }, selector);
-}
 
 /**
  * Each flow records, before the page's scripts run, every policy violation, console error and page
