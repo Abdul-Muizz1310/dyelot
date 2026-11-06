@@ -206,6 +206,9 @@ export async function NO_WEBCODECS(page: Page): Promise<void> {
 /** The usage event the web renderer sends after each render (R5-59, probe 4). */
 const USAGE_POINT = "https://www.remotion.pro/api/track/register-usage-point";
 
+/** Every address of the usage event's host, which `TELEMETRY` routes. */
+const REMOTION_HOST = "https://www.remotion.pro/**";
+
 /** The CORS headers of M4's `answerCrossOrigin` (tests/e2e/ai-support.ts), which R5-59 reuses. */
 const USAGE_CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -219,12 +222,22 @@ const USAGE_CORS = {
  * with M4's CORS headers. The renderer throws on any body without `success` true, and sends the event
  * without awaiting it, so any other answer would be an unhandled rejection in the page. `posts()`
  * gives the JSON body of each `POST` so far; poll it, since the event leaves after the download
- * starts. Install it before `goto`.
+ * starts. Any other request to the host never leaves the browser: it is aborted, and `strays()`
+ * gives each as "<method> <url>", for a flow to fail on (Task 5.9c's review). Install it before
+ * `goto`.
  */
-export async function TELEMETRY(page: Page): Promise<{ posts(): readonly unknown[] }> {
+export async function TELEMETRY(
+  page: Page,
+): Promise<{ posts(): readonly unknown[]; strays(): readonly string[] }> {
   const posts: unknown[] = [];
-  await page.route(USAGE_POINT, async (route) => {
+  const strays: string[] = [];
+  await page.route(REMOTION_HOST, async (route) => {
     const request = route.request();
+    if (request.url() !== USAGE_POINT) {
+      strays.push(`${request.method()} ${request.url()}`);
+      await route.abort("blockedbyclient");
+      return;
+    }
     if (request.method() === "OPTIONS") {
       await route.fulfill({ status: 204, headers: USAGE_CORS });
       return;
@@ -237,7 +250,7 @@ export async function TELEMETRY(page: Page): Promise<{ posts(): readonly unknown
       body: JSON.stringify({ success: true }),
     });
   });
-  return { posts: () => [...posts] };
+  return { posts: () => [...posts], strays: () => [...strays] };
 }
 
 /**

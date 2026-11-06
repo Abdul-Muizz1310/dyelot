@@ -51,7 +51,10 @@ const admits = (allowance: Allowance, logged: Logged): boolean =>
   allowance.pattern.test(logged.text) &&
   (allowance.source === undefined || allowance.source === logged.source);
 
-const test = base.extend<{ watch: Watch }>({
+/** What `TELEMETRY` gives: the usage event's `POST` bodies, and every other request it aborted. */
+type Telemetry = Awaited<ReturnType<typeof TELEMETRY>>;
+
+const test = base.extend<{ watch: Watch; telemetry: Telemetry }>({
   watch: [
     async ({ page }, use) => {
       const errors: Logged[] = [];
@@ -106,6 +109,14 @@ const test = base.extend<{ watch: Watch }>({
     },
     { auto: true },
   ],
+  // The usage event's answer, installed before the flow's `goto`, for every flow that can reach the
+  // render (R5-59, C-GUARD5-12). It fails the flow on any other request to remotion.pro, which it
+  // aborted (R4-58).
+  telemetry: async ({ page }, use) => {
+    const telemetry = await TELEMETRY(page);
+    await use(telemetry);
+    expect(telemetry.strays()).toEqual([]);
+  },
 });
 
 test.use({ viewport: { width: 1280, height: 800 } });
@@ -193,10 +204,21 @@ const toolbarStatus = (page: Page): Locator => page.locator("[data-toolbar] [rol
 /** The download name of the first design's brand video. */
 const brandName = (container: "mp4" | "webm"): string => mediaName(first(), "brand", container);
 
-/** Every hex of the first design that its brand video shows, in both modes, lowercase. */
+/**
+ * Every hex of the first design, lowercase: each step of each palette and each role, in both modes,
+ * and every hex its brand video shows (F-RENDER-01: the usage event holds none of them).
+ */
 function hexesOfFirst(): string[] {
-  const text = JSON.stringify([brandProps(first(), "light"), brandProps(first(), "dark")]);
-  return [...new Set(text.toLowerCase().match(/#[0-9a-f]{6}/g) ?? [])];
+  const { palettes, roles } = first().color;
+  const steps = Object.values(palettes).flatMap((palette) =>
+    [...palette.light, ...palette.dark].map((step) => step.hex),
+  );
+  const brand =
+    JSON.stringify([brandProps(first(), "light"), brandProps(first(), "dark")]).match(
+      /#[0-9a-f]{6}/gi,
+    ) ?? [];
+  const all = [...steps, ...Object.values(roles.light), ...Object.values(roles.dark), ...brand];
+  return [...new Set(all.map((hex) => hex.toLowerCase()))];
 }
 
 /** Keeps every request the page sends to remotion.pro, as "<method> <url>", in order. */
@@ -575,6 +597,35 @@ test.describe("the Flavor dialog's loads and fallbacks", () => {
   });
 });
 
+test.describe("the usage event's answer", () => {
+  // Breaks when TELEMETRY lets a request to remotion.pro other than the usage event reach the
+  // network, or stops recording it (R4-58, I-M5-09; Task 5.9c's review). No case id names it: it
+  // checks the fixture every render flow rests on.
+  test("TELEMETRY aborts and records any other request to remotion.pro", async ({
+    page,
+    watch,
+  }) => {
+    const telemetry = await TELEMETRY(page);
+    expect(telemetry.strays()).toEqual([]);
+    await stubSeeds(page);
+    await openStudio(page);
+    const stray = "https://www.remotion.pro/api/track/other";
+    const reached = await page.evaluate(async (url) => {
+      try {
+        await fetch(url, { method: "POST", body: "{}" });
+        return true;
+      } catch {
+        return false;
+      }
+    }, stray);
+    expect(reached).toBe(false);
+    expect(telemetry.strays()).toEqual([`POST ${stray}`]);
+    expect(telemetry.posts()).toEqual([]);
+    // The browser's line for the aborted request: Playwright's abort reads as the inspector's block.
+    watch.allow(/^Failed to load resource: net::ERR_BLOCKED_BY_CLIENT\.Inspector$/, 1, stray);
+  });
+});
+
 test.describe("the video jobs", () => {
   // One video job at a time across both groups: a software render beside a software recording
   // would slow both past their budgets, as the dialog itself never runs them side by side.
@@ -721,8 +772,8 @@ test.describe("the video jobs", () => {
     // goes unanswered, more than once, or carries the design.
     test("F-RENDER-01 the first render shows the note, then renders an MP4 within the render budget with one usage event", async ({
       page,
+      telemetry,
     }) => {
-      const telemetry = await TELEMETRY(page);
       const status = await STATUS_RECORD(page, BRAND_STATUS);
       const requests = remotionRequests(page);
       await openFlavor(page);
@@ -761,7 +812,9 @@ test.describe("the video jobs", () => {
       });
       const sent = JSON.stringify(post).toLowerCase();
       const hexes = hexesOfFirst();
-      expect(hexes.length).toBeGreaterThan(0);
+      // Every step of eight palettes in two modes, each written as the body would hold it.
+      expect(hexes.length).toBeGreaterThan(8 * 11);
+      expect(hexes.filter((hex) => !/^#[0-9a-f]{6}$/.test(hex))).toEqual([]);
       expect(sent).not.toContain(first().meta.name.toLowerCase());
       expect(hexes.filter((hex) => sent.includes(hex))).toEqual([]);
       expect(requests.filter((request) => request.startsWith("POST "))).toHaveLength(1);
@@ -770,8 +823,8 @@ test.describe("the video jobs", () => {
     // Breaks when the answer to the note leaves with the dialog, or outlives the page load.
     test("F-RENDER-02 a second render on the same page load starts with no note, and a reload shows it again", async ({
       page,
+      telemetry,
     }) => {
-      const telemetry = await TELEMETRY(page);
       await openFlavor(page);
       await openNote(page);
       const downloaded = page.waitForEvent("download", { timeout: RENDERING_CAP });
@@ -803,8 +856,8 @@ test.describe("the video jobs", () => {
     // Breaks when the note's Cancel sends anything, downloads anything or loses the focus.
     test("F-RENDER-03 Cancel in the note brings the render button back with focus, and sends nothing", async ({
       page,
+      telemetry,
     }) => {
-      const telemetry = await TELEMETRY(page);
       const requests = remotionRequests(page);
       await openFlavor(page);
       const downloads = recordDownloads(page);
@@ -822,8 +875,8 @@ test.describe("the video jobs", () => {
     // Breaks when Cancel stops discarding the render, or a canceled render still downloads.
     test("F-RENDER-04 Cancel while rendering says nothing was downloaded, and nothing downloads", async ({
       page,
+      telemetry,
     }) => {
-      const telemetry = await TELEMETRY(page);
       await openFlavor(page);
       const downloads = recordDownloads(page);
       await openNote(page);
@@ -842,8 +895,8 @@ test.describe("the video jobs", () => {
     // Breaks when a browser without WebCodecs keeps either video button, or loads either library.
     test("F-RENDER-05 without WebCodecs both video buttons are replaced by their sentences, and no video library loads", async ({
       page,
+      telemetry,
     }) => {
-      await TELEMETRY(page);
       const chunks = recordChunks(page);
       await NO_WEBCODECS(page);
       await openFlavor(page);
@@ -857,14 +910,15 @@ test.describe("the video jobs", () => {
       expect(await chunks.holding(REMOTION_MARKER)).not.toEqual([]);
       expect(await chunks.holding(RENDERER_MARKER)).toEqual([]);
       expect(await chunks.holding(MEDIABUNNY_MARKER)).toEqual([]);
+      expect(telemetry.posts()).toEqual([]);
     });
 
     // Breaks when a browser that encodes neither codec keeps the button, shows the note, or skips its
     // check's line.
     test("F-RENDER-06 where nothing encodes, a click checks, then says the browser cannot render", async ({
       page,
+      telemetry,
     }) => {
-      const telemetry = await TELEMETRY(page);
       const requests = remotionRequests(page);
       const status = await STATUS_RECORD(page, BRAND_STATUS);
       await NO_ENCODE(page);
@@ -893,8 +947,8 @@ test.describe("the video jobs", () => {
     test("F-RENDER-07 with the renderer's chunk aborted, a click says the tool could not load, and reaches the note after release", async ({
       page,
       watch,
+      telemetry,
     }) => {
-      const telemetry = await TELEMETRY(page);
       const aborted = recordAborted(page);
       const chunk = await ABORT_CHUNK(page, RENDERER_MARKER);
       await openFlavor(page);
@@ -916,8 +970,8 @@ test.describe("the video jobs", () => {
     // render running, downloads its file or keeps its state.
     test("F-RENDER-08 while a render runs the record button waits, and closing the dialog aborts the render", async ({
       page,
+      telemetry,
     }) => {
-      const telemetry = await TELEMETRY(page);
       await openFlavor(page);
       const downloads = recordDownloads(page);
       await openNote(page);
@@ -959,8 +1013,8 @@ test.describe("the video jobs", () => {
     // in both directions).
     test("F-RENDER-08 while a recording runs the render button waits, and starts nothing", async ({
       page,
+      telemetry,
     }) => {
-      const telemetry = await TELEMETRY(page);
       await openFlavor(page);
       await recordButton(page).click();
       await expectRecording(page);
@@ -981,8 +1035,8 @@ test.describe("the video jobs", () => {
     // Breaks when the live region speaks anything but 10% steps during a render, or repeats one.
     test("F-RENDER-09 the live region takes only Rendering lines at 10% steps during a render, none twice", async ({
       page,
+      telemetry,
     }) => {
-      await TELEMETRY(page);
       const status = await STATUS_RECORD(page, BRAND_STATUS);
       await openFlavor(page);
       await openNote(page);
@@ -1001,13 +1055,14 @@ test.describe("the video jobs", () => {
       );
       expect(steps.filter((step) => !(step % 10 === 0 && step >= 10 && step <= 100))).toEqual([]);
       expect(new Set(steps).size).toBe(steps.length);
+      await expect.poll(() => telemetry.posts().length).toBe(1);
     });
 
     // Breaks when a double click on "Render" starts two renders, two usage events or two downloads.
     test("F-RENDER-RF4 a double click on Render in the note starts one render, one usage event and one download", async ({
       page,
+      telemetry,
     }) => {
-      const telemetry = await TELEMETRY(page);
       await openFlavor(page);
       const downloads = recordDownloads(page);
       await openNote(page);
