@@ -475,7 +475,9 @@ export function LabClient({ initial }: { initial: DesignSpec }) {
                     );
                   }}
                 >
-                  <summary className="cursor-pointer py-1 text-fg-muted text-xs">Show {path}</summary>
+                  <summary className="cursor-pointer py-1 text-fg-muted text-xs">
+                    Show {path}
+                  </summary>
                   <pre
                     ref={(element) => {
                       if (element === null) pres.current.delete(path);
