@@ -37,7 +37,7 @@ describe("the moved helpers", () => {
     expect(paramsOfSpec(one).params.rules).toEqual({ do: ["x"], dont: [] });
   });
 
-  it("C-PAR3-03 DIRECTION_PARAM_KEYS lists the text parameters after name", () => {
+  it("C-PAR3-03 DIRECTION_PARAM_KEYS lists the text parameters after name, then motionTokens (R5-14)", () => {
     expect(DIRECTION_PARAM_KEYS).toEqual([
       "primary",
       "secondary",
@@ -57,6 +57,7 @@ describe("the moved helpers", () => {
       "oneLiner",
       "direction",
       "rules",
+      "motionTokens",
     ]);
   });
 

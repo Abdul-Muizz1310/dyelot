@@ -24,6 +24,7 @@ import {
 import { writeHash } from "@/features/studio/url";
 import { type DesignSpec, normalizeSpec, specId } from "@/spec";
 import { withValue } from "../../spec/support";
+import { CUSTOM_TOKENS } from "../../support/motion";
 import { lastPosted, makeStore, type Stub, stubClient } from "./store-support";
 import {
   FRESH_PARAMS,
@@ -191,6 +192,7 @@ describe("setParams", () => {
       oneLiner: "Tide charts for small boats",
       direction: { thesis: "Calm and exact" },
       rules: { do: ["Use one accent"], dont: [] },
+      motionTokens: CUSTOM_TOKENS,
       density: "dense",
       seed: "seed-2",
       preset: "bento",
