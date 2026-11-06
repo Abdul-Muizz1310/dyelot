@@ -75,23 +75,47 @@ const REMOTE_ASSETS = [
 
 /** The text of every JavaScript response a page fetches, kept from the moment it is called. */
 type Scripts = {
-  /** Each response's URL and text, once every response so far has been read. */
+  /**
+   * Each response's URL and text, once every response so far has been read. A body that could not
+   * be read is an error naming its URL: a chunk the flow cannot read is never counted as holding no
+   * marker.
+   */
   read(): Promise<readonly { readonly url: string; readonly text: string }[]>;
 };
 
+type Body =
+  | { readonly url: string; readonly text: string }
+  | { readonly url: string; readonly error: string };
+
 function recordScripts(page: Page): Scripts {
-  const bodies: Promise<{ url: string; text: string }>[] = [];
+  // Each read settles into a body or its failure at once, so a failure waits for `read()` to report
+  // it, never surfacing as an unhandled rejection in between.
+  const bodies: Promise<Body>[] = [];
   page.on("response", (response) => {
     const type = response.headers()["content-type"] ?? "";
     if (!type.includes("javascript")) return;
+    const url = response.url();
     bodies.push(
       response.text().then(
-        (text) => ({ url: response.url(), text }),
-        () => ({ url: response.url(), text: "" }),
+        (text) => ({ url, text }),
+        (error: unknown) => ({
+          url,
+          error: error instanceof Error ? error.message : String(error),
+        }),
       ),
     );
   });
-  return { read: () => Promise.all(bodies) };
+  return {
+    read: async () => {
+      const read = await Promise.all(bodies);
+      return read.map((body) => {
+        if ("error" in body) {
+          throw new Error(`recordScripts: could not read ${body.url}: ${body.error}`);
+        }
+        return body;
+      });
+    },
+  };
 }
 
 /** The libraries of `libraries` whose marker some script so far holds. */
@@ -252,5 +276,8 @@ test.describe("I-M5-04 heavy code stays lazy", () => {
     await expect(loop.getByRole("status")).toHaveText(VIDEO_LINES.canceled, {
       timeout: RECORDING_CAP,
     });
+    // The recording's end loads no renderer either: the whole record path stays without it.
+    await page.waitForLoadState("networkidle");
+    expect(await loaded(scripts, ["renderer"])).toEqual([]);
   });
 });
