@@ -1,4 +1,10 @@
-import { assertRecord, assertString, describeType, isOneOf } from "@/features/studio/guards";
+import {
+  assertRecord,
+  assertString,
+  describeType,
+  isOneOf,
+  isRecord,
+} from "@/features/studio/guards";
 
 // The video helpers of the Flavor dialog (docs/specs/05-motion-3d.md, section 5.8; R5-53, R5-56)
 // and the hosts' sentences of sections 6.4 and 13.3, word for word. The hero shows FLAVOR_LINES
@@ -66,6 +72,38 @@ export function progressLine(job: VideoJob, percent: number): string {
     );
   }
   return `${JOB_WORDS[job]}: ${percent}%.`;
+}
+
+/**
+ * The types of what both video shells are given (section 5.8), each wrong one a TypeError naming
+ * `caller`: `load` and `onProgress` are functions and `signal` an AbortSignal. For the shells.
+ */
+export function assertJobDeps(
+  deps: unknown,
+  caller: string,
+): asserts deps is { load: unknown; signal: AbortSignal; onProgress: unknown } {
+  assertRecord(deps, `${caller}: deps`);
+  for (const key of ["load", "onProgress"]) {
+    if (typeof deps[key] !== "function") {
+      throw new TypeError(
+        `${caller}: deps.${key} must be a function, got ${describeType(deps[key])}`,
+      );
+    }
+  }
+  if (!(deps.signal instanceof AbortSignal)) {
+    throw new TypeError(
+      `${caller}: deps.signal must be an AbortSignal, got ${describeType(deps.signal)}`,
+    );
+  }
+}
+
+/**
+ * How a video job that threw ended (section 5.8): canceled once its signal has aborted, whatever
+ * the error (4.0.539's render then rejects with a plain Error, "renderMediaOnWeb() was
+ * cancelled"), or for an AbortError; failed for any other throw. The error itself is never kept.
+ */
+export function endedBy(error: unknown, signal: AbortSignal): "canceled" | "failed" {
+  return signal.aborted || (isRecord(error) && error.name === "AbortError") ? "canceled" : "failed";
 }
 
 /** "Downloaded <file name>.": the line a finished job leaves. */

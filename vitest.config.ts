@@ -157,9 +157,13 @@ const EXPLORE_HELPERS = ["scene", "webgl"].map((name) => `src/features/explore/$
 
 /**
  * The Flavor dialog's helpers (Task 5.3b on, docs/specs/05-motion-3d.md section 15), held to
- * `PURE_FLOORS` the same way: the video lines and helpers, which the hero reads too.
+ * `PURE_FLOORS` the same way: the video lines and helpers, which the hero reads too, and the
+ * render's and the recording's shells (Task 5.9a), measured against fakes of their libraries.
+ * useVideoJob.ts is covered by the flows.
  */
-const FLAVOR_HELPERS = ["video"].map((name) => `src/features/flavor/${name}.ts`);
+const FLAVOR_HELPERS = ["video", "render", "record"].map(
+  (name) => `src/features/flavor/${name}.ts`,
+);
 
 /**
  * The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name.
