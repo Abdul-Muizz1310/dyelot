@@ -450,7 +450,9 @@ true, nine files join right after `motion/gsap.ts`, in this order, and `receipt.
 
 The bundle then holds 27 to 30 files. Every path keeps R3-09's rules, with `README.md` added to the three capitalized
 names `zipBundle` allows (`DESIGN.md`, `AGENTS.md.snippet`, `SKILL.md`). Every text keeps R3-09's text rules and R3-11's
-JSON layout. **(decision I1; the order inside `flavor/` and `README.md` as a fixed name drafter)**
+JSON layout, so no shipped source holds a line that ends in a space or a tab: the empty line of the webgl-noise notice
+inside `flavor.mjs`'s shader text is `//`, with no space after it (recorded at Task 5.4b, before the golden pinned the
+sources). **(decision I1; the order inside `flavor/` and `README.md` as a fixed name drafter)**
 
 **R5-25 · Videos are not in the zip.** The brand video and the shader loop are separate downloads from the Flavor dialog:
 `BundleFile` stays text, a video is not byte-reproducible across browsers, and a render sends telemetry. The

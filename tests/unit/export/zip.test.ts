@@ -134,10 +134,15 @@ describe("zipBundle failures", () => {
       [{ path: "../x", text: "a\n" }],
       [{ path: "/x", text: "a\n" }],
       [{ path: "A.txt", text: "a\n" }],
+      [{ path: "README.MD", text: "a\n" }],
+      [{ path: "Readme.md", text: "a\n" }],
     ]) {
       expect(bad(files)).toThrow(RangeError);
       expect(bad(files)).toThrow(/zipBundle/);
     }
+    expect(() =>
+      zipBundle({ ...BUNDLE, files: [{ path: "README.md", text: "a\n" }] }),
+    ).not.toThrow();
   });
 
   it("C-ZIP-07: zipName(null) and zipName({}) are TypeErrors naming zipName", () => {

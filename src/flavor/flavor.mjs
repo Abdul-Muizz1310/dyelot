@@ -83,7 +83,7 @@ out vec4 color;
 //               Distributed under the MIT License. See LICENSE file.
 //               https://github.com/ashima/webgl-noise
 //               https://github.com/stegu/webgl-noise
-// 
+//
 
 /*
 Copyright (C) 2011 by Ashima Arts (Simplex noise)

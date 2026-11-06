@@ -1,5 +1,6 @@
 import { readdirSync } from "node:fs";
 import path from "node:path";
+import ts from "typescript";
 
 // The helpers the repository guards share (R5 preflight rulings 14 and 16): moved unchanged from
 // repo-guards.test.ts so the M5 guards import them rather than copy them.
@@ -84,3 +85,66 @@ export const FORBIDDEN: ReadonlyArray<readonly [name: string, pattern: RegExp]> 
   ["Buffer", /\bBuffer\.(?:from|alloc)\b/],
   ["require", /\brequire\(/],
 ];
+
+/** One import of a source file: its specifier, the names it takes and the form it is written in. */
+export type ImportRecord = {
+  readonly specifier: string;
+  readonly names: readonly string[];
+  readonly typeOnly: boolean;
+  readonly dynamic: boolean;
+};
+
+/**
+ * Every import of `source`, read from its syntax tree: static imports, `import type`, `export …
+ * from` and `import()`. `file` only picks the script kind (its extension).
+ */
+export function importsOf(file: string, source: string): readonly ImportRecord[] {
+  const kind = /\.[cm]?tsx$|\.jsx$/.test(file) ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
+  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.ESNext, true, kind);
+  const found: ImportRecord[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isImportDeclaration(node) && ts.isStringLiteral(node.moduleSpecifier)) {
+      const clause = node.importClause;
+      const names: string[] = [];
+      if (clause?.name) names.push("default");
+      const bindings = clause?.namedBindings;
+      if (bindings && ts.isNamespaceImport(bindings)) names.push("*");
+      if (bindings && ts.isNamedImports(bindings)) {
+        for (const element of bindings.elements) {
+          names.push((element.propertyName ?? element.name).text);
+        }
+      }
+      found.push({
+        specifier: node.moduleSpecifier.text,
+        names,
+        typeOnly: clause?.isTypeOnly === true,
+        dynamic: false,
+      });
+    } else if (
+      ts.isExportDeclaration(node) &&
+      node.moduleSpecifier &&
+      ts.isStringLiteral(node.moduleSpecifier)
+    ) {
+      const names =
+        node.exportClause && ts.isNamedExports(node.exportClause)
+          ? node.exportClause.elements.map((element) => (element.propertyName ?? element.name).text)
+          : ["*"];
+      found.push({
+        specifier: node.moduleSpecifier.text,
+        names,
+        typeOnly: node.isTypeOnly,
+        dynamic: false,
+      });
+    } else if (
+      ts.isCallExpression(node) &&
+      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
+      node.arguments[0] &&
+      ts.isStringLiteralLike(node.arguments[0])
+    ) {
+      found.push({ specifier: node.arguments[0].text, names: [], typeOnly: false, dynamic: true });
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  return found;
+}

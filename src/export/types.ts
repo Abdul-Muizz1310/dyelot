@@ -30,8 +30,12 @@ export type Receipt = {
   readonly files: readonly ReceiptFile[];
 };
 
-/** The input of `buildBundle` (section 5.3). */
-export type BundleInput = { readonly spec: DesignSpec; readonly origin: string };
+/** The input of `buildBundle` (section 5.3, R5-24): `flavor` adds the nine files of `flavor/`. */
+export type BundleInput = {
+  readonly spec: DesignSpec;
+  readonly origin: string;
+  readonly flavor?: boolean;
+};
 
 /** A built bundle (section 5.3, R3-12). */
 export type Bundle = {

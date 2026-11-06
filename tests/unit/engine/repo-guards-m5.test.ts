@@ -1,7 +1,8 @@
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { codeFiles, ROOT, stripComments } from "./guard-support";
+import { scanLine } from "@/export/checker/dyelot-check.mjs";
+import { codeFiles, importsOf, ROOT, stripComments } from "./guard-support";
 
 // The M5 repository guards (docs/specs/05-motion-3d.md, section 14, C-GUARD5-nn).
 
@@ -88,5 +89,143 @@ describe("C-GUARD5-08 no video element, no flushSync, no media-src or wasm in th
     const code = stripComments(readFileSync(path.join(ROOT, "src/lib/site/csp.ts"), "utf8"));
     expect(code).not.toContain("media-src");
     expect(code).not.toContain("'wasm-unsafe-eval'");
+  });
+});
+
+// C-GUARD5-06: the shipped sources are self-contained, and the Remotion root is only read as text.
+
+const FLAVOR_DIR = path.join(ROOT, "src/flavor");
+const SRC_DIR = path.join(ROOT, "src");
+const ROOT_TSX = path.join(FLAVOR_DIR, "remotion/root.tsx");
+const SOURCES_FILE = path.join(ROOT, "src/export/flavor-sources.ts");
+
+/** The file an import of `specifier` from `file` names, when it is relative or `@/`. */
+function resolved(file: string, specifier: string): string | null {
+  const bare = specifier.split("?")[0] as string;
+  if (bare.startsWith("@/")) return path.join(SRC_DIR, bare.slice(2));
+  if (bare.startsWith(".")) return path.resolve(path.dirname(file), bare);
+  return null;
+}
+
+/** Imports under `src/flavor/` other than `react`, `remotion` and a path inside the folder. */
+function flavorImportViolations(file: string, source: string): string[] {
+  return importsOf(file, source)
+    .filter(({ specifier }) => {
+      if (specifier === "react" || specifier === "remotion") return false;
+      const target = specifier.startsWith(".") ? resolved(file, specifier) : null;
+      return target === null || !(target + path.sep).startsWith(FLAVOR_DIR + path.sep);
+    })
+    .map(({ specifier }) => specifier);
+}
+
+/** Imports of `root.tsx` in `source` that are not the `?raw` import of the sources file. */
+function rootImportViolations(file: string, source: string): string[] {
+  const without = (target: string) => target.replace(/\.tsx$/, "");
+  return importsOf(file, source)
+    .filter(({ specifier }) => {
+      const target = resolved(file, specifier);
+      if (target === null || without(target) !== without(ROOT_TSX)) return false;
+      return !(file === SOURCES_FILE && specifier.endsWith("?raw"));
+    })
+    .map(({ specifier }) => specifier);
+}
+
+/** The extensions the checker scans, read from its source. */
+const SCAN_LIST = /const SCAN_EXTENSIONS = new Set\(\s*"([^"]+)"/.exec(
+  readFileSync(path.join(ROOT, "src/export/checker/dyelot-check.mjs"), "utf8"),
+)?.[1];
+const SCAN_EXTENSIONS: ReadonlySet<string> = new Set((SCAN_LIST ?? "").split(" "));
+
+/** The lines of `source` on which the checker's scan finds something. */
+function scanFindings(source: string): number[] {
+  return source
+    .split("\n")
+    .flatMap((line, index) => (scanLine(line).findings.length > 0 ? [index + 1] : []));
+}
+
+describe("C-GUARD5-06 src/flavor is self-contained", () => {
+  const files = codeFiles(FLAVOR_DIR);
+  const everyFile = readdirSync(FLAVOR_DIR, { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile())
+    .map((entry) => path.join(entry.parentPath, entry.name));
+
+  it("C-GUARD5-06 reads the checker's extensions", () => {
+    expect(SCAN_EXTENSIONS.has(".tsx") && SCAN_EXTENSIONS.has(".mjs")).toBe(true);
+    expect(SCAN_EXTENSIONS.has(".json")).toBe(false);
+  });
+
+  it("C-GUARD5-06 scans the four sources", () => {
+    expect(files.map((file) => path.relative(FLAVOR_DIR, file)).sort()).toEqual([
+      "flavor-react.tsx",
+      "flavor.mjs",
+      "remotion/brand-intro.tsx",
+      "remotion/root.tsx",
+    ]);
+  });
+
+  it("C-GUARD5-06 imports only react, remotion and files of src/flavor", () => {
+    const bad = files.flatMap((file) =>
+      flavorImportViolations(file, readFileSync(file, "utf8")).map(
+        (specifier) => `${path.relative(ROOT, file)}: ${specifier}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it("C-GUARD5-06 reports a probe of a foreign import", () => {
+    const file = path.join(FLAVOR_DIR, "probe.ts");
+    expect(flavorImportViolations(file, 'import { a } from "@/engine";')).toEqual(["@/engine"]);
+    expect(flavorImportViolations(file, 'import b from "../export/text";')).toEqual([
+      "../export/text",
+    ]);
+    expect(flavorImportViolations(file, 'const c = await import("zod");')).toEqual(["zod"]);
+    expect(
+      flavorImportViolations(
+        file,
+        'import { d } from "react"; import e from "remotion"; export * from "./flavor.mjs";',
+      ),
+    ).toEqual([]);
+  });
+
+  it("C-GUARD5-06 lets only flavor-sources.ts import root.tsx, and with ?raw", () => {
+    const bad = codeFiles(SRC_DIR).flatMap((file) =>
+      rootImportViolations(file, readFileSync(file, "utf8")).map(
+        (specifier) => `${path.relative(ROOT, file)}: ${specifier}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+    const raw = importsOf(SOURCES_FILE, readFileSync(SOURCES_FILE, "utf8")).filter(
+      ({ specifier }) => resolved(SOURCES_FILE, specifier)?.startsWith(ROOT_TSX.slice(0, -4)),
+    );
+    expect(raw.map(({ specifier }) => specifier.endsWith("?raw"))).toEqual([true]);
+  });
+
+  it("C-GUARD5-06 reports a probe that imports root.tsx as code", () => {
+    const other = path.join(SRC_DIR, "features/probe.ts");
+    expect(
+      rootImportViolations(other, 'import { RemotionRoot } from "@/flavor/remotion/root";'),
+    ).toEqual(["@/flavor/remotion/root"]);
+    expect(
+      rootImportViolations(other, 'import text from "@/flavor/remotion/root.tsx?raw";'),
+    ).toEqual(["@/flavor/remotion/root.tsx?raw"]);
+    expect(
+      rootImportViolations(SOURCES_FILE, 'import text from "../flavor/remotion/root";'),
+    ).toEqual(["../flavor/remotion/root"]);
+    expect(
+      rootImportViolations(SOURCES_FILE, 'import text from "../flavor/remotion/root.tsx?raw";'),
+    ).toEqual([]);
+  });
+
+  it("C-GUARD5-06 finds nothing for the checker's scan in any scanned file of src/flavor", () => {
+    const scanned = everyFile.filter((file) => SCAN_EXTENSIONS.has(path.extname(file)));
+    expect(scanned.length).toBe(4);
+    const bad = scanned.flatMap((file) =>
+      scanFindings(readFileSync(file, "utf8")).map(
+        (line) => `${path.relative(ROOT, file)}:${line}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+    expect(scanFindings('const a = "#ff0000";\nconst b = 1;')).toEqual([1]);
+    expect(everyFile.some((file) => file.endsWith("brand.json"))).toBe(true);
   });
 });
