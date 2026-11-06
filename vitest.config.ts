@@ -105,6 +105,7 @@ const STUDIO_HELPERS = [
   "shortcuts",
   "inputs",
   "rebuild",
+  "pages",
 ].map((name) => `src/features/studio/${name}.ts`);
 
 /** The preview's pure helpers (Tasks 2.7 to 2.10a), held to `PURE_FLOORS` the same way. */
@@ -118,6 +119,9 @@ const PREVIEW_HELPERS = [
   "bars",
   "format",
 ].map((name) => `src/features/preview/${name}.ts`);
+
+/** The motion lab's pure helpers (Task 5.7a), held to `PURE_FLOORS` the same way. */
+const MOTION_HELPERS = ["lab"].map((name) => `src/features/motion/${name}.ts`);
 
 /** The export dialog's pure helpers (Task 3.14), held to `PURE_FLOORS` the same way. */
 const EXPORT_HELPERS = ["files"].map((name) => `src/features/export/${name}.ts`);
@@ -247,6 +251,7 @@ export default defineConfig({
         // covered by the flows; inspect.ts holds the inspector's helpers (Task 2.10b).
         ...STUDIO_HELPERS,
         ...PREVIEW_HELPERS,
+        ...MOTION_HELPERS,
         ...EXPORT_HELPERS,
         ...IMPORT_HELPERS,
         ...AI_HELPERS,
@@ -272,6 +277,7 @@ export default defineConfig({
           [
             ...STUDIO_HELPERS,
             ...PREVIEW_HELPERS,
+            ...MOTION_HELPERS,
             ...EXPORT_HELPERS,
             ...IMPORT_HELPERS,
             ...AI_HELPERS,
