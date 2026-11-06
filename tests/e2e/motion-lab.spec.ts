@@ -285,7 +285,19 @@ test.describe("the motion lab", () => {
   test("F-LAB-10 with the export chunk aborted the files stay disabled and editing still works", async ({
     page,
   }) => {
-    await ABORT_CHUNK(page, "dyelot.check/1");
+    const marker = "dyelot.check/1";
+    const errors: { text: string; source: string }[] = [];
+    page.on("console", (message) => {
+      if (message.type() === "error") {
+        errors.push({ text: message.text(), source: message.location().url });
+      }
+    });
+    page.on("pageerror", (error) => errors.push({ text: error.message, source: "page" }));
+    const aborted: string[] = [];
+    page.on("requestfailed", (request) => {
+      if (request.failure()?.errorText === "net::ERR_FAILED") aborted.push(request.url());
+    });
+    await ABORT_CHUNK(page, marker);
     await openLab(page);
     await expect(filesStatus(page)).toHaveText(LOAD_FAILED);
     for (const path of ["motion/motion.css", "motion/motion.ts", "motion/gsap.ts"]) {
@@ -294,6 +306,15 @@ test.describe("the motion lab", () => {
     }
     await field(page, "base (ms)").fill("160");
     await expect(lab(page)).toHaveAttribute("data-preset", "custom");
+    // 14.11's ABORT_CHUNK rule (recorded at Task 5.6b's review): the chunk that holds the marker
+    // failed twice, its request and Turbopack's one retry, each with the browser's line, and nothing
+    // else logged an error.
+    await expect.poll(() => aborted.length).toBe(2);
+    const [chunk = ""] = aborted;
+    expect(aborted).toEqual([chunk, chunk]);
+    expect(await (await page.request.get(chunk)).text()).toContain(marker);
+    const failedLoad = { text: "Failed to load resource: net::ERR_FAILED", source: chunk };
+    await expect.poll(() => errors).toEqual([failedLoad, failedLoad]);
   });
 
   test("F-LAB-RF2 a duration above the cap shows as stored and exports capped", async ({
