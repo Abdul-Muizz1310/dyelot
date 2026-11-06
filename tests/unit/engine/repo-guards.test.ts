@@ -16,92 +16,22 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { isFreeSlug } from "@/ai";
 import config from "../../../vitest.config";
+import {
+  codeFiles,
+  ENGINE_DIR,
+  FORBIDDEN,
+  inProbe,
+  PROBE_DIR,
+  ROOT,
+  SPEC_DIR,
+  stripComments,
+  THEME_DIR,
+} from "./guard-support";
 
 // C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9, with
 // C-REPO-02 and C-REPO-05 amended by R2-25 of docs/specs/02-studio.md, and C-ENTRY-16 to 18. C-REPO-03
 // lives in environment.test.ts, one copy per folder. These M1 guards, as R2-25 leaves them, are
 // C-REPO-M2-04 of the M2 spec, section 6.10; the M2 guards C-REPO-M2-01 to 05 follow them.
-
-const ROOT = path.resolve(import.meta.dirname, "../../..");
-const ENGINE_DIR = path.join(ROOT, "src/engine");
-const SPEC_DIR = path.join(ROOT, "src/spec");
-const THEME_DIR = path.join(ROOT, "src/theme");
-const CODE_FILE = /\.[cm]?[jt]sx?$/;
-
-/**
- * A folder the Biome probes of tests/unit/engine/entry.test.ts write under src for a moment and
- * remove: a file listed while it exists may be gone by the time a guard reads it, so no walk
- * lists it.
- */
-const PROBE_DIR = "__entry-probe__";
-const inProbe = (file: string): boolean => file.split(path.sep).includes(PROBE_DIR);
-
-/** Every code file under `directory`, or none when the folder does not exist yet. */
-function codeFiles(directory: string): string[] {
-  try {
-    return readdirSync(directory, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && CODE_FILE.test(entry.name))
-      .map((entry) => path.join(entry.parentPath, entry.name))
-      .filter((file) => !inProbe(file));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
-}
-
-/**
- * Removes `//` and block comments so a comment that names a forbidden API cannot trip a grep.
- * String and template literals pass through untouched, so a `//` inside "https://…" does not
- * hide the code after it.
- */
-function stripComments(source: string): string {
-  let out = "";
-  let i = 0;
-  while (i < source.length) {
-    const char = source[i];
-    const next = source[i + 1];
-    if (char === "/" && next === "/") {
-      while (i < source.length && source[i] !== "\n") i++;
-    } else if (char === "/" && next === "*") {
-      const end = source.indexOf("*/", i + 2);
-      i = end === -1 ? source.length : end + 2;
-      out += " ";
-    } else if (char === '"' || char === "'" || char === "`") {
-      out += char;
-      i++;
-      while (i < source.length && source[i] !== char) {
-        out += source[i];
-        if (source[i] === "\\") {
-          i++;
-          out += source[i] ?? "";
-        }
-        i++;
-      }
-      out += source[i] ?? "";
-      i++;
-    } else {
-      out += char;
-      i++;
-    }
-  }
-  return out;
-}
-
-// The patterns of C-REPO-01, with the controller's two refinements: `new Date` tolerates any
-// whitespace, and a bare `Date(` call counts as well.
-const FORBIDDEN: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
-  ["Math.random", /Math\.random/],
-  ["new Date", /\bnew\s+Date\b/],
-  ["Date call", /\bDate\s*\(/],
-  ["Date.now, Date.parse or Date.UTC", /\bDate\.(?:now|parse|UTC)\b/],
-  ["window.", /\bwindow\./],
-  ["document.", /\bdocument\./],
-  ["navigator.", /\bnavigator\./],
-  ["web storage", /\b(?:localStorage|sessionStorage|indexedDB)\b/],
-  ["process", /\bprocess\.(?:env|argv|cwd|exit|platform)\b/],
-  ["Buffer", /\bBuffer\.(?:from|alloc)\b/],
-  ["require", /\brequire\(/],
-];
 
 const NODE_MODULES = new Set(builtinModules);
 const FRAMEWORKS = new Set(["react", "react-dom", "next"]);
