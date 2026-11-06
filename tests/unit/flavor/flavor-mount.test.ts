@@ -116,6 +116,39 @@ function expectThrow(run: () => unknown, kind: ErrorConstructor, name: string) {
   expect((caught as Error).message).toMatch(new RegExp(`^${name}: `));
 }
 
+/** An observer's callback, called by hand with stand-in entries. */
+type LateCallback = (entries: readonly object[]) => void;
+
+/**
+ * Records the callback of each IntersectionObserver and ResizeObserver made from now on, so a test
+ * can call it after `disconnect()`, as a late delivery would. Install the browser fakes first.
+ */
+function captureObservers(): { intersect: LateCallback; resize: LateCallback } {
+  const none = (kind: string) => () => {
+    throw new Error(`no ${kind} was made`);
+  };
+  const seen: { intersect: LateCallback; resize: LateCallback } = {
+    intersect: none("IntersectionObserver"),
+    resize: none("ResizeObserver"),
+  };
+  const Intersection = globalThis.IntersectionObserver;
+  globalThis.IntersectionObserver = class extends Intersection {
+    constructor(callback: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+      super(callback, options);
+      seen.intersect = (entries) =>
+        callback(entries as unknown as IntersectionObserverEntry[], this);
+    }
+  };
+  const Resize = globalThis.ResizeObserver;
+  globalThis.ResizeObserver = class extends Resize {
+    constructor(callback: ResizeObserverCallback) {
+      super(callback);
+      seen.resize = (entries) => callback(entries as unknown as ResizeObserverEntry[], this);
+    }
+  };
+  return seen;
+}
+
 /** A value of the wrong type or domain, passed where the types forbid it. */
 const bad = (value: unknown) => value as never;
 
@@ -487,6 +520,25 @@ describe("a lost context and destroy", () => {
     for (const name of ["data-flavor", "data-flavor-reason", "data-flavor-stops"]) {
       expect(canvas.hasAttribute(name), name).toBe(false);
     }
+  });
+
+  it("C-FLAV-17 an observer's late callback after destroy changes nothing", () => {
+    const fakes = installBrowserFakes();
+    const late = captureObservers();
+    const gl = createFakeGl();
+    const { canvas, handle } = mount({}, gl);
+    handle.destroy();
+    const drawn = gl.draws.length;
+    const size = [canvas.width, canvas.height];
+    late.intersect([{ target: canvas, isIntersecting: false }]);
+    late.intersect([{ target: canvas, isIntersecting: true }]);
+    Object.defineProperty(canvas, "clientWidth", { configurable: true, value: 800 });
+    Object.defineProperty(canvas, "clientHeight", { configurable: true, value: 450 });
+    late.resize([{ target: canvas }]);
+    expect(canvas.hasAttribute("data-flavor")).toBe(false);
+    expect(fakes.live().frames).toBe(0);
+    expect([canvas.width, canvas.height]).toEqual(size);
+    expect(gl.draws).toHaveLength(drawn);
   });
 
   it("C-FLAV-17 a second destroy and a setStops after it do nothing and do not throw", () => {

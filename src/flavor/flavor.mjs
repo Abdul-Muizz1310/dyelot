@@ -906,6 +906,7 @@ export function mountFlavor(canvas, options) {
 
   /** Moves to the state that holds now, writing it on the canvas. */
   function refresh() {
+    if (destroyed) return;
     const next = currentState();
     if (next === state) return;
     const previous = state;
@@ -983,6 +984,7 @@ export function mountFlavor(canvas, options) {
   }
 
   function onResize() {
+    if (destroyed) return;
     if (fitBuffer() && state !== "fallback") draw(shown.phase);
   }
 
