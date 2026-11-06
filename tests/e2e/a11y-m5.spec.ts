@@ -26,10 +26,20 @@ const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 test.use({ viewport: DESKTOP });
 
-/** axe's violations under the WCAG A and AA tags, contrast included. */
-async function violations(page: Page, exclude?: string) {
-  const builder = new AxeBuilder({ page }).withTags(AXE_TAGS);
-  if (exclude !== undefined) builder.exclude(exclude);
+/**
+ * The Player's frame: the brand video's own DOM, a picture whose text is part of it, which WCAG 1.4.3
+ * exempts from contrast (13.3's amendment, recorded at the final review). It is `aria-hidden`, and
+ * it is the one part of a page the axe flows leave out.
+ */
+const PLAYER_FRAME = "[data-brand-player] [data-brand-frame]";
+
+/** axe's violations under the WCAG A and AA tags, contrast included, the Player's frame left out. */
+async function violations(page: Page) {
+  // The exclusion covers a hidden picture only: each frame on the page is aria-hidden.
+  for (const frame of await page.locator(PLAYER_FRAME).all()) {
+    await expect(frame).toHaveAttribute("aria-hidden", "true");
+  }
+  const builder = new AxeBuilder({ page }).withTags(AXE_TAGS).exclude(PLAYER_FRAME);
   return (await builder.analyze()).violations;
 }
 
@@ -96,6 +106,11 @@ async function openFlavorReduced(page: Page, mode: "light" | "dark"): Promise<vo
     "false",
     { timeout: PLAYER_CAP },
   );
+  // The Player's frame is a picture hidden from assistive technology; the region keeps its name, and
+  // the wrapper stays exposed for the Player's loading and failure lines (13.3's amendment).
+  const brand = section(page, "Brand video");
+  await expect(brand.locator("[data-brand-frame]")).toHaveAttribute("aria-hidden", "true");
+  await expect(brand.locator("[data-brand-player]")).not.toHaveAttribute("aria-hidden", "true");
   await settleAnimations(page);
 }
 
