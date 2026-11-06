@@ -141,3 +141,29 @@ body::before {
   /* The rule above leaves `transition-property` at `all`. The studio's layout boxes, which must never
    * transition, opt out in src/features/studio/studio.css. */
 }
+
+/* ─────────────────────────────────────────────────────────────
+ * View transitions: only a named element animates; the root swaps at once.
+ * ───────────────────────────────────────────────────────────── */
+
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(root) {
+  display: none;
+}
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-group(.dyelot-morph) {
+  animation-duration: 250ms;
+  animation-timing-function: cubic-bezier(0.2, 0, 0, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

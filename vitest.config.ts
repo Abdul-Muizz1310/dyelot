@@ -118,6 +118,8 @@ const PREVIEW_HELPERS = [
   "tide",
   "bars",
   "format",
+  "transition",
+  "kit/reduced",
 ].map((name) => `src/features/preview/${name}.ts`);
 
 /** The motion lab's pure helpers (Task 5.7a), held to `PURE_FLOORS` the same way. */
