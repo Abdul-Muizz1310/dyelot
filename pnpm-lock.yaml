@@ -38,6 +38,9 @@ importers:
       '@opentelemetry/sdk-trace-base':
         specifier: 2.12.0
         version: 2.12.0(@opentelemetry/api@1.9.1)
+      '@remotion/web-renderer':
+        specifier: 4.0.539
+        version: 4.0.539(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@toon-format/toon':
         specifier: 4.4.0
         version: 4.4.0
@@ -53,6 +56,9 @@ importers:
       lucide-react:
         specifier: 1.59.0
         version: 1.59.0(@types/react@19.3.0)(react@19.3.1)
+      mediabunny:
+        specifier: 1.62.0
+        version: 1.62.0
       motion:
         specifier: 14.3.0
         version: 14.3.0(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
@@ -757,6 +763,21 @@ packages:
     peerDependencies:
       '@opentelemetry/api': ^1.9.0
 
+  '@mediabunny/aac-encoder@1.62.0':
+    resolution: {integrity: sha512-BtGaX3GVGgfQzbqeuqeKAOvHF2lhV70FO3T2orAr4Lr6YklRBOaggfRsKEp93cd6Y7DQab9GFYAuURa1DksCYw==}
+    peerDependencies:
+      mediabunny: ^1.0.0
+
+  '@mediabunny/flac-encoder@1.62.0':
+    resolution: {integrity: sha512-ZxyElacW8o61mydIXVzYClv6E0ULkXcq9Aup+GQGpuaHKaZPF1y8S5gGrs4rFkr1s0bZ7iYGYPxHeGrg7J1yjg==}
+    peerDependencies:
+      mediabunny: ^1.0.0
+
+  '@mediabunny/mp3-encoder@1.62.0':
+    resolution: {integrity: sha512-72yrJXFO+qkFurWzVpkTu7e5yVF6qFB0mmyaMcg7Ztwz5a+bSvuitkaIY82FBk5vM7euCKzFuqVwOzH0YUCcLg==}
+    peerDependencies:
+      mediabunny: ^1.0.0
+
   '@next/env@16.4.3':
     resolution: {integrity: sha512-a7tz1QCcWWkwC/rPJcPMJk/UNRu9CFhDd3OHYE5hddbJrs8BqRTalxI6GlKCWEGzRLHN+S/B7a4PAHCtm25aBQ==}
 
@@ -886,6 +907,15 @@ packages:
     resolution: {integrity: sha512-IaYGml/nSOiZWROfPtuIL7neuu9qDOZ3TNvNljUIrhDMxiGTgPjzj/g9p9RxpS2tSepPDRY+UwAaEeiKtUvIAg==}
     engines: {node: '>=20'}
     hasBin: true
+
+  '@remotion/licensing@4.0.539':
+    resolution: {integrity: sha512-rkKXwA+iISnUma61TudwROPTIEl2MVmiNzdKJNCywkEL379k1FPVuK+P7VeQiAKcVDM9h/Lwq67ZMfdR4r20SA==}
+
+  '@remotion/web-renderer@4.0.539':
+    resolution: {integrity: sha512-pqhxOCDtyxTloosYcw6mOOOQ253qSSfmAkgJlAJ/Yfzovnw6+GeicWsMebgLAdAXp45keWAw1SWWc7KrUFZC9A==}
+    peerDependencies:
+      react: '>=18.0.0'
+      react-dom: '>=18.0.0'
 
   '@rolldown/binding-android-arm-eabi@1.2.16':
     resolution: {integrity: sha512-ia3DwAs0OsMGS7+IConptSiyk9pEXkOx/AbJ2n/lAGxH3QkWQus1t8d7gnAT38FCU2sQu8lUbeR6AiZFv4JxaA==}
@@ -1127,6 +1157,12 @@ packages:
 
   '@types/deep-eql@4.0.2':
     resolution: {integrity: sha512-c9h9dVVMigMPc4bwTvC5dxqtqJZwQPePsWjPlpSOnojbor6pGqdk541lfA7AqFQr5pB1BRdq0juY9db81BwyFw==}
+
+  '@types/dom-mediacapture-transform@0.1.12':
+    resolution: {integrity: sha512-d7/QsLRwF864A5mgIM/YrfiglHoYn7zgCcAoJgW404r+2DwnNr7EBbLnCWpmOMgH8y0te73L1AV6H1bmauaWFw==}
+
+  '@types/dom-webcodecs@0.1.13':
+    resolution: {integrity: sha512-O5hkiFIcjjszPIYyUSyvScyvrBoV3NOEEZx/pMlsu44TKzWNkLVBBxnxJz42in5n3QIolYOcBYFCPZZ0h8SkwQ==}
 
   '@types/estree-jsx@1.0.5':
     resolution: {integrity: sha512-52CcUVNFyfb1A2ALocQw/Dd1BQFNmSdkuC3BkZ6iqhdMfQz7JWOFRuJFloOzjk+6WijU56m9oKXFAXc7o3Towg==}
@@ -1723,6 +1759,9 @@ packages:
 
   mdn-data@2.27.1:
     resolution: {integrity: sha512-9Yubnt3e8A0OKwxYSXyhLymGW4sCufcLG6VdiDdUGVkPhpqLxlvP5vl1983gQjJl3tqbrM731mjaZaP68AgosQ==}
+
+  mediabunny@1.62.0:
+    resolution: {integrity: sha512-D8E8BDxjCyqyrGj074jLRQNgilDW5izJu8o9pg7THMYMIZBL1Fao5hOtdDPDfA+nSnk68tMa8IaCJmz8hSpJpw==}
 
   micromark-core-commonmark@2.0.4:
     resolution: {integrity: sha512-wxEeE8v8XVvOrxn1TZj74qYhAtTQsSqufHVS3uNVyT1MupXxhyaHk8/9xDNPh9BmL77QNDgWTkZ3RsYHB2ry7w==}
@@ -2602,6 +2641,18 @@ snapshots:
       '@langfuse/core': 6.1.1(@opentelemetry/api@1.9.1)
       '@opentelemetry/api': 1.9.1
 
+  '@mediabunny/aac-encoder@1.62.0(mediabunny@1.62.0)':
+    dependencies:
+      mediabunny: 1.62.0
+
+  '@mediabunny/flac-encoder@1.62.0(mediabunny@1.62.0)':
+    dependencies:
+      mediabunny: 1.62.0
+
+  '@mediabunny/mp3-encoder@1.62.0(mediabunny@1.62.0)':
+    dependencies:
+      mediabunny: 1.62.0
+
   '@next/env@16.4.3': {}
 
   '@next/swc-darwin-arm64@16.4.3':
@@ -2704,6 +2755,19 @@ snapshots:
   '@playwright/test@1.64.1':
     dependencies:
       playwright: 1.64.1
+
+  '@remotion/licensing@4.0.539': {}
+
+  '@remotion/web-renderer@4.0.539(react-dom@19.3.1(react@19.3.1))(react@19.3.1)':
+    dependencies:
+      '@mediabunny/aac-encoder': 1.62.0(mediabunny@1.62.0)
+      '@mediabunny/flac-encoder': 1.62.0(mediabunny@1.62.0)
+      '@mediabunny/mp3-encoder': 1.62.0(mediabunny@1.62.0)
+      '@remotion/licensing': 4.0.539
+      mediabunny: 1.62.0
+      react: 19.3.1
+      react-dom: 19.3.1(react@19.3.1)
+      remotion: 4.0.539(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
 
   '@rolldown/binding-android-arm-eabi@1.2.16':
     optional: true
@@ -2874,6 +2938,12 @@ snapshots:
       '@types/ms': 2.1.0
 
   '@types/deep-eql@4.0.2': {}
+
+  '@types/dom-mediacapture-transform@0.1.12':
+    dependencies:
+      '@types/dom-webcodecs': 0.1.13
+
+  '@types/dom-webcodecs@0.1.13': {}
 
   '@types/estree-jsx@1.0.5':
     dependencies:
@@ -3440,6 +3510,11 @@ snapshots:
       '@types/mdast': 4.0.4
 
   mdn-data@2.27.1: {}
+
+  mediabunny@1.62.0:
+    dependencies:
+      '@types/dom-mediacapture-transform': 0.1.12
+      '@types/dom-webcodecs': 0.1.13
 
   micromark-core-commonmark@2.0.4:
     dependencies:
