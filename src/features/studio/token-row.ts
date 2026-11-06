@@ -32,10 +32,8 @@ export type TokenRow = {
   readonly roles: readonly RoleName[];
 };
 
-function assertStep(value: unknown, name: string): asserts value is Step {
-  if (typeof value !== "number") {
-    throw new TypeError(`${name} must be a number, got ${describeType(value)}`);
-  }
+/** A step of `STEPS`; the caller has checked that it is a number. */
+function assertStep(value: number, name: string): asserts value is Step {
   if (!(STEPS as readonly number[]).includes(value)) {
     throw new RangeError(`${name} must be one of ${STEPS.join(", ")}, got ${value}`);
   }

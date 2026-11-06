@@ -70,6 +70,11 @@ describe("tokenRow", () => {
     }
   });
 
+  it("C-VT-04 throws RangeError for a spec whose palette lacks the step", () => {
+    const gutted = { color: { palettes: { primary: { light: [], dark: [] } } } } as never;
+    expect(() => tokenRow(gutted, "light", "primary", 500)).toThrow(RangeError);
+  });
+
   it("C-VT-04 throws TypeError for a wrong type, checked before any domain", () => {
     for (const call of [
       () => tokenRow(null as never, "light", "primary", 500),
