@@ -202,7 +202,7 @@ const NAV = ["dyelot", "home", "studio", "explore", "motion", "github"];
 // one on the 404 page (R5-34, 7.3).
 test("F-HOME5-01 the nav lists its five links in order and marks the current page, and none on the 404 page", async ({
   page,
-  context,
+  watch,
 }) => {
   for (const [path, current] of [
     ["/", "home"],
@@ -213,41 +213,21 @@ test("F-HOME5-01 the nav lists its five links in order and marks the current pag
     expect(response?.status(), path).toBe(200);
     expect(await navLinks(page), path).toEqual(NAV);
     expect(await currentLinks(page), path).toEqual([current]);
-    // The fixture reads only the last document's record: each document's is read before it goes.
+    // Each document's late loads report to the watch before the next navigation.
     await page.waitForLoadState("networkidle");
-    expect(
-      await page.evaluate(() => (window as unknown as { __violations: string[] }).__violations),
-      path,
-    ).toEqual([]);
   }
 
-  // The 404 page on a page of its own: Chromium reports the document's own 404 status as a console
-  // error (as F-SEC4-02 allows), and that line is the only report it may make.
-  const missing = await context.newPage();
-  const reports: string[] = [];
-  missing.on("console", (message) => {
-    if (message.type() === "error") reports.push(`${message.text()} [${message.location().url}]`);
-  });
-  missing.on("pageerror", (error) => reports.push(error.message));
-  await missing.addInitScript(() => {
-    const host = window as unknown as { __violations: string[] };
-    host.__violations = [];
-    document.addEventListener(
-      "securitypolicyviolation",
-      (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
-      true,
-    );
-  });
-  const response = await missing.goto("/no-such-page");
+  // The 404 page: Chromium reports the document's own 404 status as a console error (as F-SEC4-02
+  // allows), and that line, once and from the page's own URL, is the only report it may make.
+  const response = await page.goto("/no-such-page");
   expect(response?.status()).toBe(404);
-  expect(await navLinks(missing)).toEqual(NAV);
-  expect(await currentLinks(missing)).toEqual([]);
-  const violations = await missing.evaluate(
-    () => (window as unknown as { __violations: string[] }).__violations,
+  expect(await navLinks(page)).toEqual(NAV);
+  expect(await currentLinks(page)).toEqual([]);
+  watch.allow(
+    /^Failed to load resource: the server responded with a status of 404 \(Not Found\)$/,
+    1,
+    response?.url() ?? "",
   );
-  const document404 = `Failed to load resource: the server responded with a status of 404 (Not Found) [${response?.url()}]`;
-  expect([...reports.filter((line) => line !== document404), ...violations]).toEqual([]);
-  await missing.close();
 });
 
 // Breaks when the five nav links stop fitting one row at a phone's width, or the page scrolls sideways.
