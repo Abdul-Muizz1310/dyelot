@@ -6,6 +6,7 @@ import {
   lintSpec,
   normalizeSeed,
   PAIRINGS,
+  PALETTE_NAMES,
   PRESET_IDS,
   PRESETS,
   parseColor,
@@ -1691,6 +1692,12 @@ test.describe("7.3 Keyboard", () => {
     ];
     const inspectorStops = [
       inspectorAside(page).locator("[data-scroll-area]"),
+      // Each Scales palette is one stop, its focused step's button (13.8 of docs/specs/05-motion-3d.md).
+      ...PALETTE_NAMES.map((name) =>
+        inspectorAside(page).locator(
+          `[data-palette="${name}"] button[data-step-button][tabindex="0"]`,
+        ),
+      ),
       inspectorAside(page).getByRole("button", { name: "Explain the top findings", exact: true }),
       ...findings.map((key) =>
         inspectorAside(page)

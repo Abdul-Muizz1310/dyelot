@@ -77,6 +77,12 @@ const inspector = (page: Page) => page.locator("aside#studio-inspector");
 const region = (page: Page, name: string) =>
   inspector(page).getByRole("region", { name, exact: true });
 const scrollArea = (page: Page) => inspector(page).locator("[data-scroll-area]");
+/** Each Scales palette's one Tab stop (a roving tabIndex), in palette order (13.8). */
+const paletteStops = (page: Page): Locator[] =>
+  PALETTE_NAMES.map((name) =>
+    inspector(page).locator(`[data-palette="${name}"] button[data-step-button][tabindex="0"]`),
+  );
+
 const findingItem = (page: Page, key: string) => inspector(page).locator(`[data-finding="${key}"]`);
 const showMeButton = (page: Page, key: string) =>
   findingItem(page, key).getByRole("button", { name: "Show me", exact: true });
@@ -1422,6 +1428,7 @@ test.describe("7.8 Keyboard and motion", () => {
     });
     expect(cards.length).toBeGreaterThan(5);
     const stops = [
+      ...paletteStops(page),
       explainFindings(page),
       explanation(page).getByRole("button", { name: "Raise contrast to AAA", exact: true }),
       ...cards,
@@ -1619,12 +1626,13 @@ test("F-INSP-14 F-A11Y-03 at 360 px the inspector drawer is walked by keyboard w
     }
     await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
     await openInspector(page);
-    // Close, the scroll area, "Explain the top findings", each finding's "Show me", then "Write the
-    // rationale" after the Receipt section (section 16 of docs/specs/04-ai.md, 13.7), each with the
-    // 2 px madder ring.
+    // Close, the scroll area, each Scales palette's stop, "Explain the top findings", each finding's
+    // "Show me", then "Write the rationale" after the Receipt section (section 16 of
+    // docs/specs/04-ai.md, 13.7, 13.8 of docs/specs/05-motion-3d.md), each with the 2 px madder ring.
     const stops = [
       button(page, "Close inspector"),
       scrollArea(page),
+      ...paletteStops(page),
       explainFindings(page),
       ...keys.map((key) => showMeButton(page, key)),
       writeRationale(page),

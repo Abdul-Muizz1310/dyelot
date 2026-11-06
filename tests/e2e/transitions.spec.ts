@@ -1,9 +1,10 @@
 import { expect, type Page, test } from "@playwright/test";
+import { tokenRow } from "@/features/studio/token-row";
 import { VT_RECORD, vtRecord } from "./flavor-support";
-import { canvasFrame, openStudio, stubSeeds } from "./studio-support";
+import { canvasFrame, first, inspectorAside, openStudio, stubSeeds } from "./studio-support";
 import { reduceMotion, screenOf, showTemplate, templateSelect } from "./template-support";
 
-// The view transitions of Task 5.8a (docs/specs/05-motion-3d.md, rulings R5-46, R5-48, R5-49).
+// The view transitions of Tasks 5.8a and 5.8b (docs/specs/05-motion-3d.md, rulings R5-46 to R5-49).
 
 const GROUP = "::view-transition-group(dyelot-template)";
 
@@ -126,5 +127,92 @@ test.describe("OS reduced motion mid-animation", () => {
       0,
     );
     await expect(sheet).toBeVisible();
+  });
+});
+
+// The token row of a Scales step (Task 5.8b, ruling R5-47, section 10.2).
+
+const SWATCH = "::view-transition-group(dyelot-swatch-primary-500)";
+
+/** A step's compact or open button in the inspector's Scales. */
+function stepButton(page: Page, palette: string, step: number) {
+  const row = first().color.palettes[palette as "primary"].light.find((s) => s.step === step);
+  return inspectorAside(page).getByRole("button", {
+    name: `${palette} ${step}, ${row?.hex}`,
+    exact: true,
+  });
+}
+
+test.describe("token row", () => {
+  test("F-VT-04 a step opens its token row, the swatch morphs, another step closes it, Escape returns focus", async ({
+    page,
+  }) => {
+    await VT_RECORD(page);
+    await stubSeeds(page);
+    await openStudio(page);
+    await expect(canvasFrame(page)).toHaveAttribute("data-mode", "light");
+    const expected = tokenRow(first(), "light", "primary", 500);
+    await stepButton(page, "primary", 500).click();
+    const row = inspectorAside(page).locator("[data-token-row]");
+    await expect(row).toHaveCount(1);
+    await expect(stepButton(page, "primary", 500)).toHaveAttribute("aria-expanded", "true");
+    await expect(row.locator("code")).toHaveText([
+      expected.token,
+      expected.utility,
+      expected.cssVar,
+    ]);
+    await expect(row).toContainText(expected.hex);
+    await expect(row).toContainText(expected.oklch);
+    await expect(row).toContainText(expected.contrast);
+    await expect(row).toContainText(
+      expected.roles.length > 0
+        ? `Roles: ${expected.roles.join(", ")}`
+        : "Roles: none in light mode.",
+    );
+    await expect(stepButton(page, "primary", 500)).toBeFocused();
+    const record = await recorded(page);
+    expect(record.animations.some((a) => a.pseudo === SWATCH && a.duration === 250)).toBe(true);
+    await stepButton(page, "primary", 600).click();
+    await expect(inspectorAside(page).locator("[data-token-row]")).toHaveCount(1);
+    await expect(stepButton(page, "primary", 500)).toHaveAttribute("aria-expanded", "false");
+    await expect(stepButton(page, "primary", 600)).toHaveAttribute("aria-expanded", "true");
+    await expect(stepButton(page, "primary", 600)).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(inspectorAside(page).locator("[data-token-row]")).toHaveCount(0);
+    await expect(stepButton(page, "primary", 600)).toHaveAttribute("aria-expanded", "false");
+    await expect(stepButton(page, "primary", 600)).toBeFocused();
+  });
+
+  test.describe("with the clipboard", () => {
+    test.use({ permissions: ["clipboard-read", "clipboard-write"] });
+
+    test("F-VT-05 Copy writes the variable and reads Copied; compact steps are 24 px tall", async ({
+      page,
+    }) => {
+      await stubSeeds(page);
+      await openStudio(page);
+      const heights = await inspectorAside(page)
+        .locator("li[data-step] > button")
+        .evaluateAll((buttons) => buttons.map((b) => b.getBoundingClientRect().height));
+      expect(heights).toHaveLength(88);
+      expect(Math.min(...heights)).toBeGreaterThanOrEqual(24);
+      await stepButton(page, "primary", 500).click();
+      const copy = inspectorAside(page).getByRole("button", { name: "Copy var(--primary-500)" });
+      await copy.click();
+      await expect(copy).toHaveText("Copied");
+      expect(await page.evaluate(() => navigator.clipboard.readText())).toBe("var(--primary-500)");
+    });
+  });
+
+  test("F-VT-06 under reduced motion the swatch's animation lasts 0 ms", async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await VT_RECORD(page);
+    await stubSeeds(page);
+    await openStudio(page);
+    await stepButton(page, "primary", 500).click();
+    await expect(inspectorAside(page).locator("[data-token-row]")).toHaveCount(1);
+    const record = await recorded(page);
+    expect(record.animations.some((a) => a.pseudo === SWATCH)).toBe(true);
+    expect(record.animations.filter((a) => a.duration > 0)).toEqual([]);
   });
 });
