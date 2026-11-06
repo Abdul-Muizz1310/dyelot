@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { PLAYER_CAP } from "./flavor-support";
 import { button, openStudio, settled, stubSeeds } from "./studio-support";
 
 // The security flows of docs/specs/04-ai.md, section 14.11 (Task 4.12b): F-SEC4-01 to 05, the nonce
@@ -333,7 +334,9 @@ async function openFlavorDialog(page: Page): Promise<void> {
     "data-flavor",
     "running",
   );
-  await expect(dialog.locator("[data-brand-player]")).toHaveAttribute("data-playing", "true");
+  await expect(dialog.locator("[data-brand-player]")).toHaveAttribute("data-playing", "true", {
+    timeout: PLAYER_CAP,
+  });
 }
 
 test.describe("M5 pages under the policy (R5-58, R5-59)", () => {

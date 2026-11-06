@@ -318,7 +318,7 @@ test.describe("the Flavor dialog", () => {
       await reduceMotion(page).click();
       await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
     });
-    await expect(player(page)).toHaveAttribute("data-autoplay", "false");
+    await expect(player(page)).toHaveAttribute("data-autoplay", "false", { timeout: PLAYER_CAP });
     await expect(player(page)).toHaveAttribute("data-playing", "false");
     await expect(player(page)).toHaveAttribute("data-mode", "light");
     // Only the canvas's switch holds the preview still: the sentence names the switch.
@@ -359,8 +359,8 @@ test.describe("the Flavor dialog", () => {
     page,
   }) => {
     await openFlavor(page);
-    await expect(player(page)).toHaveAttribute("data-autoplay", "true");
-    await expect(player(page)).toHaveAttribute("data-playing", "true");
+    await expect(player(page)).toHaveAttribute("data-autoplay", "true", { timeout: PLAYER_CAP });
+    await expect(player(page)).toHaveAttribute("data-playing", "true", { timeout: PLAYER_CAP });
     const pause = pauseIn(page, "Brand video");
     await expect(pause).toHaveAttribute("aria-pressed", "false");
     await pause.click();
@@ -373,7 +373,7 @@ test.describe("the Flavor dialog", () => {
     await expect(canvasFrame(page)).toHaveAttribute("data-mode", "dark");
     await flavorButton(page).click();
     await expect(preview(page)).toHaveAttribute("data-flavor-stops", stopsOf("dark"));
-    await expect(player(page)).toHaveAttribute("data-mode", "dark");
+    await expect(player(page)).toHaveAttribute("data-mode", "dark", { timeout: PLAYER_CAP });
     await expect(
       player(page).getByText(brandProps(first(), "dark").name, { exact: true }).first(),
     ).toBeVisible();
@@ -408,7 +408,7 @@ test.describe("the Flavor dialog", () => {
     await openFlavor(page);
     await expect(preview(page)).toHaveAttribute("data-flavor", "still");
     await expect(pauseIn(page, "Background")).toHaveCount(0);
-    await expect(player(page)).toHaveAttribute("data-autoplay", "false");
+    await expect(player(page)).toHaveAttribute("data-autoplay", "false", { timeout: PLAYER_CAP });
     await expect(recordButton(page)).toBeEnabled();
     await expect(recordButton(page)).not.toHaveAttribute("aria-disabled", "true");
     await expect(recordButton(page)).toHaveAccessibleDescription(VIDEO_LINES["record-description"]);
@@ -815,7 +815,7 @@ test.describe("the video jobs", () => {
       await expect(renderButton(page)).toHaveCount(0);
       await expect(loopStatus(page)).toHaveText(VIDEO_LINES["record-unsupported"]);
       await expect(recordButton(page)).toHaveCount(0);
-      await expect(player(page)).toBeVisible();
+      await expect(player(page)).toBeVisible({ timeout: PLAYER_CAP });
       await page.waitForLoadState("networkidle");
       // The record is not empty: the Player's Remotion code arrived.
       expect(await chunks.holding(REMOTION_MARKER)).not.toEqual([]);

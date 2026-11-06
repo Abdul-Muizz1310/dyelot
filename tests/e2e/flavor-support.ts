@@ -114,9 +114,9 @@ export const test = base.extend<{ watch: Watch }>({
 });
 
 /**
- * A cap on a flow's one wait for the Flavor dialog's Player to mount and report its state, never a
- * measure: the Player's code loads with the dialog and starts under the desktop's load, at times past
- * the default 5 s (the final review).
+ * A cap on each wait for the Flavor dialog's Player to mount and report its state, never a measure:
+ * the Player's code loads with the dialog and starts under the desktop's load, at times past the
+ * default 5 s (the final review).
  */
 export const PLAYER_CAP = 30_000;
 
