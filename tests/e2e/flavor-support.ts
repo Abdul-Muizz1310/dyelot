@@ -86,22 +86,21 @@ export const test = base.extend<{ watch: Watch }>({
           (window as unknown as { __dyelotWatchSent?: Promise<void>[] }).__dyelotWatchSent ?? [],
         ),
       );
-      const counts = () =>
-        allowed.map((allowance) => errors.filter((logged) => admits(allowance, logged)).length);
-      // An allowed line may still be on its way: wait for each count, never past the poll's limit.
-      await expect.poll(counts).toEqual(allowed.map(({ count }) => count));
-      const unexpected = errors
-        .filter((logged) => !allowed.some((allowance) => admits(allowance, logged)))
-        .map(({ text, source }) => `${text} (${source})`);
-      const strays = (telemetries.get(page) ?? []).flatMap((read) => read());
-      expect({
-        console: unexpected,
-        allowed: counts(),
-        page: pageErrors,
-        rejections,
-        violations,
-        strays,
-      }).toEqual({
+      const report = () => ({
+        console: errors
+          .filter((logged) => !allowed.some((allowance) => admits(allowance, logged)))
+          .map(({ text, source }) => `${text} (${source})`),
+        allowed: allowed.map(
+          (allowance) => errors.filter((logged) => admits(allowance, logged)).length,
+        ),
+        page: [...pageErrors],
+        rejections: [...rejections],
+        violations: [...violations],
+        strays: (telemetries.get(page) ?? []).flatMap((read) => read()),
+      });
+      // An allowed line may still be on its way: the report is read until it holds, never past the
+      // poll's limit, and a report that never holds fails the flow whole.
+      await expect.poll(report).toEqual({
         console: [],
         allowed: allowed.map(({ count }) => count),
         page: [],
