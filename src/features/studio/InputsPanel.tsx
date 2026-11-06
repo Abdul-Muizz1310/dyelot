@@ -204,7 +204,7 @@ export function InputsPanel({
           </p>
           <a
             href={pageHref("motion", spec)}
-            className="w-fit text-foreground text-sm underline underline-offset-4 hover:text-fg-muted"
+            className="inline-flex min-h-6 w-fit items-center text-foreground text-sm underline underline-offset-4 hover:text-fg-muted"
           >
             Edit in the motion lab
           </a>
