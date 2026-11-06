@@ -811,7 +811,17 @@ its result is recorded here:
    `three/examples/jsm/controls/OrbitControls.js`, drei is not installed, and C-GUARD5-03's allow-list drops it. If R3F
    itself raises a violation, M5 stops for the owner.
 
-   Result (date):
+   Result (2026-11-06): pass; drei stays. All seven probes ran in one Playwright 1.64.1 run (its bundled headless
+   Chromium 156.0.8078.4) against `next build` and `next start` of a scratch lane under the nonce CSP with R5-58's
+   `connect-src`; probes 1 to 5 aborted and recorded every request off localhost, and none was made. A scratch
+   `/explore` loaded one `<Canvas>`, a mesh and drei's `OrbitControls` (`enableDamping`, dragged once) through
+   `dynamic(..., { ssr: false })`: zero violations, no console error, no page error. None of the 12 chunks the route
+   fetched holds any of the eight strings (case-insensitive). three, R3F, drei's `OrbitControls` and the scene share one
+   lazy chunk (931,611 bytes). Markers, each in that chunk only of the build's 49 and in no chunk that `/`, `/studio` or
+   the Remotion and Mediabunny probes fetched: three `THREE.WebGLRenderer`, R3F
+   `R3F: Hooks can only be used within the Canvas component`; the three marker is also the 3D chunk's for F-EXP5-10's
+   `ABORT_CHUNK`. The page logs console warnings, not errors: R3F 9.8.2 with three 0.186.1 writes "THREE.Clock: This
+   module has been deprecated. Please use THREE.Timer instead.", and SwiftShader "GPU stall due to ReadPixels".
 2. **A view transition from the store.** In the studio, a `<ViewTransition key>` around the template, keyed by
    `useDeferredValue(view.template)`, with R5-48's CSS; an init script wraps `document.startViewTransition`, counts its
    calls and records the animations at `ready`. Passes when one template switch from the toolbar makes one call, the
@@ -821,14 +831,25 @@ its result is recorded here:
    `startTransition` replaces the deferred value, and the probe runs again on that form; if that fails too, the template
    switch ships without a transition and the owner decides.
 
-   Result (date):
+   Result (2026-11-06): pass with 10.3's CSS as written; R5-48 and 10.3 do not change, and the deferred value stays
+   (R5-46's local-state form is not needed). Choosing "dashboard" in the toolbar made one `startViewTransition` call
+   whose record at `ready` held `::view-transition-group(dyelot-template)` at 250 ms with its `-old` and `-new` fades at
+   250 ms, and on the root only `::view-transition-group(root)` and `::view-transition` at 0 ms (an unnamed animation,
+   not a CSS one); `[data-template-root]` matched one element. With the canvas's "Reduce motion" on, the switch to
+   "settings" still made one call, and its record held only those two animations at 0 ms. Under `emulateMedia` reduce
+   (F-VT-02's setting) the switch to "dashboard" recorded its seven animations, all at 0 ms.
 3. **A raw rule for `*.tsx`.** With R5-23's rule and declaration, a client component and `src/export` each import a
    `.tsx` file with `?raw`; `next build` serves its text byte for byte (same SHA-256), Vitest in `core` and in `web`
    reads the same text, and every other `.tsx` import still compiles and renders. If it fails: a `prebuild` script writes
    `src/export/flavor-sources.generated.ts` holding the four sources as strings, a unit test checks it equals the files,
    and `?raw` is used for `.mjs` only.
 
-   Result (date):
+   Result (2026-11-06): pass; Tasks 5.3a and 5.4b use R5-23's rule, and the fallback is not built. A scratch 540-byte
+   `.tsx` file (quotes, a backslash, a template, a regex and the characters … — × ✓ é) was read with `?raw` by a client
+   component, which also imported it plainly and rendered it, and by `src/export`, served by a route. The route's body,
+   the client's string and the file share the SHA-256
+   `2dbaff196abcce7e4981f9f00ba3edd8f34b9ad85302330ffe1b9afb1011384a`, and Vitest reads the same text in `core` and in
+   `web`. `next build`, `tsc --noEmit`, `/` and `/studio` pass.
 4. **The Player and the web renderer.** `<Player>` with R5-52's props mounts through `dynamic(..., { ssr: false })` in
    a client component with no hydration warning, and while it plays for 6 s there is no `securitypolicyviolation`, no
    console error and no `<audio>` element in the page; it autoplays muted, or the probe records that the browser held it
@@ -841,24 +862,51 @@ its result is recorded here:
    the CSP without the owner. If the render fails headless for a reason of the browser, the render flows stop at the
    privacy note and the call's start, and the hand check (R5-65) proves the rest.
 
-   Result (date):
+   Result (2026-11-06): pass. The Player, with 11.1's props on the draft, mounted with no hydration warning and
+   autoplayed muted (`isMuted()` true, `play` fired, frames advancing at 30 a second to 179 at about 6 s); in 6 s there
+   was no violation, no console error and no `<audio>` element, so the flows can assert `data-playing="true"`.
+   `renderMediaOnWeb` rendered the draft three times (MP4, H.264, muted, `licenseKey: "free-license"`, under R5-58's
+   policy with no other change to the CSP) with zero violations, no unhandled rejection and no page error; each gave a
+   download of about 475 KB whose bytes 4 to 7 read `ftyp` and one `POST` (`event` `"web-render"`, `apiKey` null, `host`
+   the page's origin, `succeeded` true, `isStill` false, `isProduction` true, and an `idempotencyKey`), already counted
+   when the download was read. The route never received an `OPTIONS` request (0 in 3 runs) while each `POST` succeeded,
+   so a flow counts `POST`s only. T = 5,286 ms, from the click to the download with the renderer's lazy load: the runs
+   took 5,286, 5,283 and 5,286 ms at load averages 0.96, 0.89 and 0.82 (16 threads), and the render call alone at most
+   5,182 ms; F-RENDER's timeout is 3 × T = 15,858 ms. Markers: the Player
+   `Some companies are required to obtain a license to use Remotion`, only in the Player's chunk (loaded with the
+   Player, not by a render); `remotion` `No video config found`, only in its core chunk (loaded with the Player and by a
+   render); the web renderer `register-usage-point`, only in the renderer's own chunk (loaded by the render click only).
+   None is in a chunk of `/`, `/studio` or `/explore`.
 5. **Mediabunny.** `mediabunny` 1.62.0's `CanvasSource` with `quality: new Quality({ bitrate: 4_000_000 })` records 300
    frames of a WebGL2 canvas drawn with `drawAt` to an MP4 under the CSP, with no violation; the probe records the time
    (F-LOOP's timeout is 3 × that) and a marker string found in Mediabunny's chunk and in no chunk of the web renderer's
    own code. If `preserveDrawingBuffer` is not needed for a correct frame, R5-56 keeps it anyway.
 
-   Result (date):
+   Result (2026-11-06): pass. With `canEncodeVideo("avc", { width: 1280, height: 720 })` true, 300 frames of a 1280 ×
+   720 WebGL2 canvas (`preserveDrawingBuffer: true`, one uniform per `drawAt`) through `CanvasSource` (`codec: "avc"`,
+   `quality: new Quality({ bitrate: 4_000_000 })`), `Mp4OutputFormat` and `BufferTarget` gave, after `finalize()`, an
+   MP4 of about 4.79 MB whose bytes 4 to 7 read `ftyp`, with no violation, no page error and no request off the page's
+   origin. Time 4,693 ms, from the click to the download with Mediabunny's lazy load: the runs took 4,538, 4,693 and
+   4,404 ms at load averages 0.77, 0.79 and 0.73; F-LOOP's timeout is 3 × 4,693 = 14,079 ms. Marker
+   `MediabunnyVideoHandler`: in Mediabunny's chunk, which the record click loads alone and the render click loads beside
+   the renderer's, and in no chunk of the web renderer's own code. Whether `preserveDrawingBuffer` was needed was not
+   tested; R5-56 keeps it.
 6. **Scroll-driven animations.** In Playwright's Chromium, `CSS.supports("animation-timeline: view()")` is true, a
    story step has a computed `animation-timeline` of `view()`, and `page.emulateMedia({ reducedMotion: "reduce" })` leaves
    every step with `animation-name: none`, opacity 1 and no translate. If `supports` is false, F-STORY-01 is skipped with
    that reason and the final-state cases stand.
 
-   Result (date):
+   Result (2026-11-06): pass; F-STORY-01 runs. `CSS.supports("animation-timeline: view()")` is true. A step under 7.2's
+   CSS reads `animation-name` `story-rise` and `animation-timeline` `view()`, with opacity 0 and `translate` `0px 24px`
+   below the fold, and opacity 1 and `translate` `0px` once scrolled to the center of the view. Under `emulateMedia`
+   reduce it reads `animation-name` `none`, opacity 1 and `translate` `none`.
 7. **The toolbar with "Flavor".** At 360 × 740, with "Flavor" after "Export", the closed toolbar is at most 170 px tall
    (F-CANVAS-19's bound). If it is taller: the bound in F-CANVAS-19 and F-STUD5-03 becomes the measured height, rounded up
    to the next 8 px, and section 16 records the change for the owner.
 
-   Result (date):
+   Result (2026-11-06): pass; the bound stays 170 px, and F-CANVAS-19, F-STUD5-03 and section 16 do not change. With
+   "Flavor" after "Export", the closed toolbar at 360 × 740 (`stubSeeds` and `toolbarRows` as F-CANVAS-19 has them) is
+   119 px tall in 3 rows, and "Flavor" is 49 × 28 px.
 
 Unverified and left to the close or the owner: the real chunk sizes (M6's audit); Remotion 5.0's terms, which are not in
 force (R6, section 3.1). **(decision K1; the fallbacks and the markers drafter)**
