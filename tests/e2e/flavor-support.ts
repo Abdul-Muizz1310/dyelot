@@ -190,3 +190,91 @@ export async function NO_AVC(page: Page): Promise<void> {
       config.codec.startsWith("avc1") ? { supported: false } : ask(config);
   });
 }
+
+// Task 5.9c: the brand video render's init scripts, its usage event's answer and the status recorder.
+
+/**
+ * `NO_WEBCODECS` deletes `window.VideoEncoder`, so the browser has no WebCodecs (section 4): neither
+ * video job can start.
+ */
+export async function NO_WEBCODECS(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    delete (window as unknown as { VideoEncoder?: unknown }).VideoEncoder;
+  });
+}
+
+/** The usage event the web renderer sends after each render (R5-59, probe 4). */
+const USAGE_POINT = "https://www.remotion.pro/api/track/register-usage-point";
+
+/** The CORS headers of M4's `answerCrossOrigin` (tests/e2e/ai-support.ts), which R5-59 reuses. */
+const USAGE_CORS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+  "Access-Control-Allow-Headers": "*",
+};
+
+/**
+ * `TELEMETRY` answers the web renderer's usage event as R5-59 says, so no flow reaches remotion.pro
+ * (I-M5-09): the CORS preflight `OPTIONS` with 204, and the `POST` with 200 `{"success": true}`, both
+ * with M4's CORS headers. The renderer throws on any body without `success` true, and sends the event
+ * without awaiting it, so any other answer would be an unhandled rejection in the page. `posts()`
+ * gives the JSON body of each `POST` so far; poll it, since the event leaves after the download
+ * starts. Install it before `goto`.
+ */
+export async function TELEMETRY(page: Page): Promise<{ posts(): readonly unknown[] }> {
+  const posts: unknown[] = [];
+  await page.route(USAGE_POINT, async (route) => {
+    const request = route.request();
+    if (request.method() === "OPTIONS") {
+      await route.fulfill({ status: 204, headers: USAGE_CORS });
+      return;
+    }
+    if (request.method() === "POST") posts.push(request.postDataJSON());
+    await route.fulfill({
+      status: 200,
+      headers: USAGE_CORS,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true }),
+    });
+  });
+  return { posts: () => [...posts] };
+}
+
+/**
+ * `STATUS_RECORD` keeps every text the element at `selector` takes, in order (section 4): a
+ * `MutationObserver` on the whole document reads the element's text after each change and keeps it
+ * when it differs from the last one kept, so a region that mounts later, or mounts again in a new
+ * dialog, is recorded too. Install it before `goto`; `texts()` reads the record so far.
+ */
+export async function STATUS_RECORD(
+  page: Page,
+  selector: string,
+): Promise<{ texts(): Promise<readonly string[]> }> {
+  await page.addInitScript((target) => {
+    const host = window as unknown as { __statusRecords?: Record<string, string[]> };
+    host.__statusRecords ??= {};
+    const kept: string[] = [];
+    host.__statusRecords[target] = kept;
+    const read = () => {
+      const element = document.querySelector(target);
+      if (element === null) return;
+      const text = element.textContent ?? "";
+      if (kept.length === 0 || kept[kept.length - 1] !== text) kept.push(text);
+    };
+    new MutationObserver(read).observe(document, {
+      childList: true,
+      subtree: true,
+      characterData: true,
+    });
+  }, selector);
+  return {
+    texts: () =>
+      page.evaluate(
+        (target) =>
+          (window as unknown as { __statusRecords: Record<string, string[]> }).__statusRecords[
+            target
+          ] ?? [],
+        selector,
+      ),
+  };
+}

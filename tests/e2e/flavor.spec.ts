@@ -2,7 +2,16 @@ import { readFileSync } from "node:fs";
 import { test as base, type Download, expect, type Locator, type Page } from "@playwright/test";
 import { flavorStops, type Mode } from "@/engine";
 import { doneLine, FLAVOR_LINES, VIDEO_LINES } from "@/features/flavor/video";
-import { loseContext, NO_AVC, NO_ENCODE } from "./flavor-support";
+import {
+  ABORT_CHUNK,
+  loseContext,
+  NO_AVC,
+  NO_ENCODE,
+  NO_WEBCODECS,
+  NO_WEBGL,
+  STATUS_RECORD,
+  TELEMETRY,
+} from "./flavor-support";
 import {
   button,
   canvasFrame,
@@ -12,7 +21,7 @@ import {
   openStudio,
   stubSeeds,
 } from "./studio-support";
-import { reduceMotion } from "./template-support";
+import { reduceMotion, showTemplate } from "./template-support";
 
 // Playwright does not read the `?raw` query some export files import: the hook makes it the text.
 await import("./raw-hooks.mjs");
@@ -20,35 +29,80 @@ const { brandProps, mediaName } = await import("@/export");
 
 // The Flavor dialog's flows of docs/specs/05-motion-3d.md, section 14.11 (R5-51, R5-52, 11.1, 13.1
 // to 13.3, 13.8): F-FLAVOR-01, 02, 03, 05, 08 and F-STUD5-03 (Task 5.9b); the shader loop's
-// recording (R5-56, R5-57, 11.3): F-FLAVOR-06, F-LOOP-01 to 05 and F-LOOP-RF3 (Task 5.10). Every flow
-// fails on a `securitypolicyviolation` event, a console error or a page error (14.11).
+// recording (R5-56, R5-57, 11.3): F-FLAVOR-06, F-LOOP-01 to 05 and F-LOOP-RF3 (Task 5.10); the brand
+// video's render, its privacy note and its usage event (R5-53, R5-54, R5-59, 11.2, 13.3, 13.4):
+// F-RENDER-01 to 09, F-RENDER-RF4, F-FLAVOR-04 and 07 (Task 5.9c). Every flow fails on a
+// `securitypolicyviolation` event, a console error, a page error or an unhandled rejection, except
+// the failed loads 14.11's `ABORT_CHUNK` rule allows. Every flow that can reach the render answers
+// its usage event with `TELEMETRY` first, so none reaches remotion.pro (R5-59, C-GUARD5-12).
 
 /**
- * Each flow records, before the page's scripts run, every policy violation, console error and page
- * error, and fails at its end if any came.
+ * Each flow records, before the page's scripts run, every policy violation, console error, page
+ * error and unhandled rejection, and fails at its end on any that `allow` did not name.
+ * `allow(pattern, count, source)` admits exactly `count` console errors whose text matches `pattern`
+ * and, when `source` is given, whose source URL is `source`: fewer or more fail the flow too (14.11's
+ * `ABORT_CHUNK` rule, as `tests/e2e/explore.spec.ts` reads it).
  */
-const test = base.extend<{ problems: string[] }>({
-  problems: [
+type Watch = { allow(pattern: RegExp, count: number, source?: string): void };
+type Allowance = { readonly pattern: RegExp; readonly count: number; readonly source?: string };
+type Logged = { readonly text: string; readonly source: string };
+
+const admits = (allowance: Allowance, logged: Logged): boolean =>
+  allowance.pattern.test(logged.text) &&
+  (allowance.source === undefined || allowance.source === logged.source);
+
+const test = base.extend<{ watch: Watch }>({
+  watch: [
     async ({ page }, use) => {
-      const problems: string[] = [];
+      const errors: Logged[] = [];
+      const pages: string[] = [];
+      const allowed: Allowance[] = [];
       page.on("console", (message) => {
-        if (message.type() === "error") problems.push(`console: ${message.text()}`);
+        if (message.type() === "error") {
+          errors.push({ text: message.text(), source: message.location().url });
+        }
       });
-      page.on("pageerror", (error) => problems.push(`page: ${error.message}`));
+      page.on("pageerror", (error) => pages.push(error.message));
       await page.addInitScript(() => {
-        const host = window as unknown as { __violations: string[] };
+        const host = window as unknown as { __violations: string[]; __rejections: number };
         host.__violations = [];
+        host.__rejections = 0;
         document.addEventListener(
           "securitypolicyviolation",
           (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
           true,
         );
+        window.addEventListener("unhandledrejection", () => {
+          host.__rejections += 1;
+        });
       });
-      await use(problems);
-      const violations = await page.evaluate(
-        () => (window as unknown as { __violations?: string[] }).__violations ?? [],
+      await use({
+        allow: (pattern, count, source) =>
+          void allowed.push(source === undefined ? { pattern, count } : { pattern, count, source }),
+      });
+      const { violations, rejections } = await page.evaluate(() => {
+        const host = window as unknown as { __violations?: string[]; __rejections?: number };
+        return { violations: host.__violations ?? [], rejections: host.__rejections ?? 0 };
+      });
+      const counts = allowed.map(
+        (allowance) => errors.filter((logged) => admits(allowance, logged)).length,
       );
-      expect([...problems, ...violations.map((each) => `violation: ${each}`)]).toEqual([]);
+      const unexpected = errors
+        .filter((logged) => !allowed.some((allowance) => admits(allowance, logged)))
+        .map(({ text, source }) => `${text} (${source})`);
+      expect({
+        console: unexpected,
+        allowed: counts,
+        page: pages,
+        rejections,
+        violations,
+      }).toEqual({
+        console: [],
+        allowed: allowed.map(({ count }) => count),
+        page: [],
+        rejections: 0,
+        violations: [],
+      });
     },
     { auto: true },
   ],
@@ -91,6 +145,132 @@ const loopStatus = (page: Page): Locator => section(page, "Shader loop").getByRo
 
 /** The download name of the first design's loop. */
 const loopName = (container: "mp4" | "webm"): string => mediaName(first(), "loop", container);
+
+/** The render button's label, which 13.3 gives outside `VIDEO_LINES`. */
+const RENDER_LABEL = "Render the brand video";
+const RENDER_DESCRIPTION = "Makes a 6-second video at 1280 × 720 in this browser.";
+/** The privacy note's heading and paragraph (13.4); the heading is also the dialog chunk's marker. */
+const NOTE_HEADING = "Before the first render";
+const NOTE_TEXT =
+  "The video is made in this browser. Remotion, the video library dyelot uses, sends one usage event to remotion.pro for each render, with your IP address and this site's address. It never sends the video or the design. dyelot cannot turn this off.";
+/** Probe 4's and probe 5's markers (R5-64): the web renderer's own chunk, and Mediabunny's. */
+const RENDERER_MARKER = "register-usage-point";
+const MEDIABUNNY_MARKER = "MediabunnyVideoHandler";
+/** Probe 4's marker of `remotion`'s core chunk, which the Player loads. */
+const REMOTION_MARKER = "No video config found";
+/** The renderer's scaffold, which it appends to `<body>` for a render and removes at its end. */
+const SCAFFOLD = '[class^="remotion-scaffold-"]';
+/** The Brand video section's status region, for `STATUS_RECORD`. */
+const BRAND_STATUS = '[role="dialog"] section:nth-of-type(2) > [role="status"]';
+
+/**
+ * R5-64's render budget, from the click on "Render" in the note to the download: 3 × probe 4's T
+ * (5,286 ms).
+ */
+const RENDER_BUDGET = 15_858;
+
+/**
+ * A cap on the render's flows and their slow steps, never a measure: headless Chromium draws the
+ * composition in software, so a render under the desktop's load takes far longer than on a GPU.
+ * Only F-RENDER-01 measures, against the render budget.
+ */
+const RENDERING_CAP = 240_000;
+
+const brandSection = (page: Page): Locator => section(page, "Brand video");
+const renderButton = (page: Page): Locator =>
+  brandSection(page).getByRole("button", { name: RENDER_LABEL, exact: true });
+const note = (page: Page): Locator =>
+  brandSection(page).getByRole("group", { name: NOTE_HEADING, exact: true });
+const noteButton = (page: Page, name: "Render" | "Cancel"): Locator =>
+  note(page).getByRole("button", { name, exact: true });
+const renderCancel = (page: Page): Locator =>
+  brandSection(page).getByRole("button", { name: VIDEO_LINES.cancel, exact: true });
+const renderStatus = (page: Page): Locator => brandSection(page).getByRole("status");
+/** The toolbar's status line, found while it is empty (hidden) or the dialog makes it inert. */
+const toolbarStatus = (page: Page): Locator => page.locator("[data-toolbar] [role=status]");
+
+/** The download name of the first design's brand video. */
+const brandName = (container: "mp4" | "webm"): string => mediaName(first(), "brand", container);
+
+/** Every hex of the first design that its brand video shows, in both modes, lowercase. */
+function hexesOfFirst(): string[] {
+  const text = JSON.stringify([brandProps(first(), "light"), brandProps(first(), "dark")]);
+  return [...new Set(text.toLowerCase().match(/#[0-9a-f]{6}/g) ?? [])];
+}
+
+/** Keeps every request the page sends to remotion.pro, as "<method> <url>", in order. */
+function remotionRequests(page: Page): string[] {
+  const requests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).hostname.endsWith("remotion.pro")) {
+      requests.push(`${request.method()} ${request.url()}`);
+    }
+  });
+  return requests;
+}
+
+/** Keeps the URL of every request that failed with `net::ERR_FAILED` (an aborted chunk). */
+function recordAborted(page: Page): string[] {
+  const aborted: string[] = [];
+  page.on("requestfailed", (request) => {
+    if (request.failure()?.errorText === "net::ERR_FAILED") aborted.push(request.url());
+  });
+  return aborted;
+}
+
+/**
+ * Checks 14.11's `ABORT_CHUNK` rule once the load has failed: the chunk that holds `marker` failed
+ * twice, its request and Turbopack's one retry, and the flow allows the browser's two lines for it.
+ */
+async function allowAbortedChunk(
+  page: Page,
+  watch: Watch,
+  aborted: readonly string[],
+  marker: string,
+): Promise<void> {
+  await expect.poll(() => aborted.length).toBe(2);
+  const [chunk = ""] = aborted;
+  expect(aborted).toEqual([chunk, chunk]);
+  expect(await (await page.request.get(chunk)).text()).toContain(marker);
+  watch.allow(/^Failed to load resource: net::ERR_FAILED$/, 2, chunk);
+}
+
+/** Keeps the text of every JavaScript chunk the page fetches; `holding(marker)` names those with it. */
+function recordChunks(page: Page): { holding(marker: string): Promise<string[]> } {
+  const fetched: Promise<{ url: string; text: string }>[] = [];
+  page.on("response", (response) => {
+    const url = response.url();
+    if (!/\/_next\/static\/chunks\/[^?]+\.js(\?|$)/.test(url)) return;
+    fetched.push(
+      response.text().then(
+        (text) => ({ url, text }),
+        () => ({ url, text: "" }),
+      ),
+    );
+  });
+  return {
+    holding: async (marker) =>
+      (await Promise.all(fetched))
+        .filter(({ text }) => text.includes(marker))
+        .map(({ url }) => url),
+  };
+}
+
+/** Fails unless the Brand video section shows "Rendering…", its labeled bar and "Cancel". */
+async function expectRendering(page: Page): Promise<void> {
+  const brand = brandSection(page);
+  await expect(brand.getByText(VIDEO_LINES.rendering, { exact: true })).toBeVisible();
+  await expect(brand.getByRole("progressbar", { name: "Brand video progress" })).toBeVisible();
+  await expect(note(page)).toHaveCount(0);
+  await expect(renderButton(page)).toHaveCount(0);
+  await expect(renderCancel(page)).toBeVisible();
+}
+
+/** A click on the render button and its check: the page load's first render opens the note. */
+async function openNote(page: Page): Promise<void> {
+  await renderButton(page).click();
+  await expect(note(page)).toBeVisible({ timeout: RENDERING_CAP });
+}
 
 /** Keeps every download the page starts, in order. */
 function recordDownloads(page: Page): Download[] {
@@ -331,135 +511,514 @@ test.describe("the Flavor dialog", () => {
   });
 });
 
-test.describe("the shader loop", () => {
-  // One recording at a time: software recordings side by side would only slow each other.
-  test.describe.configure({ mode: "default", timeout: RECORDING_CAP });
-
-  // Breaks when the recording stops showing its progress, misses the record budget, names or
-  // encodes its file wrongly, says nothing when done, or sends a request off the page's origin.
-  test("F-LOOP-01 Record the shader loop shows its progress, and an MP4 downloads within the record budget", async ({
+test.describe("the Flavor dialog's loads and fallbacks", () => {
+  // Breaks when a browser without WebGL loses the brand video's render with the shader, keeps a
+  // record button that cannot record, or the studio's canvas stops drawing its templates.
+  test("F-FLAVOR-04 without WebGL the preview falls back, the recording is replaced by its sentence, and the render stays", async ({
     page,
   }) => {
-    const requests: string[] = [];
-    page.on("request", (request) => requests.push(request.url()));
+    await NO_WEBGL(page);
     await openFlavor(page);
-    await expect(recordButton(page)).toHaveAccessibleDescription(VIDEO_LINES["record-description"]);
-    const downloaded = page.waitForEvent("download", { timeout: RECORD_BUDGET });
-    await recordButton(page).click();
-    await expectRecording(page);
-    const download = await downloaded;
-    const name = loopName("mp4");
-    expect(download.suggestedFilename()).toBe(name);
-    const bytes = await bytesOf(download);
-    expect(String.fromCharCode(...bytes.subarray(4, 8))).toBe("ftyp");
-    await expect(loopStatus(page)).toHaveText(doneLine(name));
-    await expect(recordButton(page)).toBeVisible();
-    const origin = new URL(page.url()).origin;
-    const foreign = requests.filter(
-      (url) =>
-        !url.startsWith("data:") && !url.startsWith("blob:") && new URL(url).origin !== origin,
-    );
-    expect(foreign).toEqual([]);
-  });
-
-  // Breaks when Cancel stops discarding the recording, or focus is lost as the controls change.
-  test("F-LOOP-02 Cancel while recording says nothing was downloaded, and nothing downloads", async ({
-    page,
-  }) => {
-    await openFlavor(page);
-    const downloads = recordDownloads(page);
-    await recordButton(page).click();
-    await expectRecording(page);
-    // The record button's place holds "Cancel" now, and focus moved to it.
-    await expect(recordButton(page)).toHaveCount(0);
-    await expect(loopCancel(page)).toBeFocused();
-    await loopCancel(page).click();
-    await expect(loopStatus(page)).toHaveText(VIDEO_LINES.canceled, { timeout: RECORDING_CAP });
-    await expect(loopCancel(page)).toHaveCount(0);
-    await expect(recordButton(page)).toBeFocused();
-    expect(downloads).toEqual([]);
-  });
-
-  // Breaks when the recording stops falling back to WebM where AVC cannot encode.
-  test("F-LOOP-03 where no avc1 codec encodes, the recording downloads a WebM", async ({
-    page,
-  }) => {
-    await NO_AVC(page);
-    await openFlavor(page);
-    const downloaded = page.waitForEvent("download");
-    await recordButton(page).click();
-    await expectRecording(page);
-    const download = await downloaded;
-    const name = loopName("webm");
-    expect(download.suggestedFilename()).toBe(name);
-    const bytes = await bytesOf(download);
-    expect([...bytes.subarray(0, 4)]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
-    await expect(loopStatus(page)).toHaveText(doneLine(name));
-  });
-
-  // Breaks when reduced motion blocks recording, or recording sets the still preview moving.
-  test("F-LOOP-04 under the OS's reduced motion the recording downloads while the preview stays still", async ({
-    page,
-  }) => {
-    await page.emulateMedia({ reducedMotion: "reduce" });
-    await openFlavor(page);
-    await expect(preview(page)).toHaveAttribute("data-flavor", "still");
-    const downloaded = page.waitForEvent("download");
-    await recordButton(page).click();
-    await expectRecording(page);
-    await expect(preview(page)).toHaveAttribute("data-flavor", "still");
-    const download = await downloaded;
-    expect(download.suggestedFilename()).toBe(loopName("mp4"));
-    await expect(loopStatus(page)).toHaveText(doneLine(loopName("mp4")));
-    await expect(preview(page)).toHaveAttribute("data-flavor", "still");
-  });
-
-  // Breaks when a browser that encodes no codec keeps the button, downloads anything, or loses the
-  // focus the button held.
-  test("F-LOOP-05 where no codec encodes, a click ends with the sentence in the button's place", async ({
-    page,
-  }) => {
-    await NO_ENCODE(page);
-    await openFlavor(page);
-    const downloads = recordDownloads(page);
-    await recordButton(page).click();
-    await expect(loopStatus(page)).toHaveText(VIDEO_LINES["record-unsupported"], {
-      timeout: RECORDING_CAP,
-    });
-    await expect(recordButton(page)).toHaveCount(0);
-    await expect(loopCancel(page)).toHaveCount(0);
-    // The section's heading holds the focus the gone button had.
-    await expect(
-      section(page, "Shader loop").getByRole("heading", { name: "Shader loop", exact: true }),
-    ).toBeFocused();
-    expect(downloads).toEqual([]);
-  });
-
-  // Breaks when WebGL lost on the page reaches the recording's own canvas (RF3).
-  test("F-LOOP-RF3 the preview's context lost during a recording falls back, and the recording still downloads", async ({
-    page,
-  }) => {
-    await openFlavor(page);
-    await expect(preview(page)).toHaveAttribute("data-flavor", "running");
-    const downloaded = page.waitForEvent("download");
-    await recordButton(page).click();
-    await expectRecording(page);
-    await loseContext(page, "[data-flavor-preview] canvas");
     await expect(preview(page)).toHaveAttribute("data-flavor", "fallback");
-    await expect(preview(page)).toHaveAttribute("data-flavor-reason", "context-lost");
+    await expect(preview(page)).toHaveAttribute("data-flavor-reason", "no-webgl2");
     await expect(section(page, "Background").getByRole("status")).toHaveText(
-      FLAVOR_LINES["context-lost"],
+      FLAVOR_LINES["no-webgl2"],
     );
-    // The recording was still running after the preview lost its context: its "Cancel" still
-    // shows, and no file has come yet.
-    const name = loopName("mp4");
-    await expect(loopCancel(page)).toBeVisible();
-    await expect(loopStatus(page)).not.toHaveText(doneLine(name));
-    const download = await downloaded;
-    expect(download.suggestedFilename()).toBe(name);
-    const bytes = await bytesOf(download);
-    expect(String.fromCharCode(...bytes.subarray(4, 8))).toBe("ftyp");
-    await expect(loopStatus(page)).toHaveText(doneLine(name));
+    await expect(recordButton(page)).toHaveCount(0);
+    await expect(loopStatus(page)).toHaveText(VIDEO_LINES["record-unsupported"]);
+    await expect(renderButton(page)).toBeVisible();
+    await expect(renderButton(page)).toHaveAccessibleDescription(RENDER_DESCRIPTION);
+    await expect(renderStatus(page)).toHaveText("");
+    await page.keyboard.press("Escape");
+    await expect(dialog(page)).toHaveCount(0);
+    // The canvas's templates need no WebGL: they render as before.
+    await expect(canvasFrame(page).locator("[data-template-root]")).toBeVisible();
+    await expect(await showTemplate(page, "dashboard")).toBeVisible();
+  });
+
+  // Breaks when a dialog chunk that does not arrive opens nothing without saying so, or the failure
+  // is kept so that the next press cannot open the dialog.
+  test("F-FLAVOR-07 with the dialog's chunk aborted, Flavor says the tool could not load, and opens after release", async ({
+    page,
+    watch,
+  }) => {
+    const aborted = recordAborted(page);
+    const chunk = await ABORT_CHUNK(page, NOTE_HEADING);
+    await stubSeeds(page);
+    await openStudio(page);
+    await flavorButton(page).click();
+    await expect(toolbarStatus(page)).toHaveText(VIDEO_LINES["load-failed"]);
+    await expect(dialog(page)).toHaveCount(0);
+    await expect(flavorButton(page)).not.toHaveAttribute("aria-busy", "true");
+    await allowAbortedChunk(page, watch, aborted, NOTE_HEADING);
+    chunk.release();
+    await flavorButton(page).click();
+    await expect(dialog(page)).toBeVisible();
+    await expect(toolbarStatus(page)).toHaveText("");
+    await expect(renderButton(page)).toBeVisible();
+  });
+
+  // Breaks when the Brand video section stays silent while `@/export`, which its Player and its
+  // render need, does not load (Task 5.9b's line; no case id names it, preflight #35).
+  test("the Brand video section says the tool could not load when @/export does not arrive", async ({
+    page,
+    watch,
+  }) => {
+    const marker = "dyelot.check/1";
+    const aborted = recordAborted(page);
+    await ABORT_CHUNK(page, marker);
+    await openFlavor(page);
+    await expect(renderStatus(page)).toHaveText(VIDEO_LINES["load-failed"]);
+    await expect(player(page)).toHaveCount(0);
+    await allowAbortedChunk(page, watch, aborted, marker);
+  });
+});
+
+test.describe("the video jobs", () => {
+  // One video job at a time across both groups: a software render beside a software recording
+  // would slow both past their budgets, as the dialog itself never runs them side by side.
+  test.describe.configure({ mode: "default" });
+
+  test.describe("the shader loop", () => {
+    test.describe.configure({ timeout: RECORDING_CAP });
+
+    // Breaks when the recording stops showing its progress, misses the record budget, names or
+    // encodes its file wrongly, says nothing when done, or sends a request off the page's origin.
+    test("F-LOOP-01 Record the shader loop shows its progress, and an MP4 downloads within the record budget", async ({
+      page,
+    }) => {
+      const requests: string[] = [];
+      page.on("request", (request) => requests.push(request.url()));
+      await openFlavor(page);
+      await expect(recordButton(page)).toHaveAccessibleDescription(
+        VIDEO_LINES["record-description"],
+      );
+      const downloaded = page.waitForEvent("download", { timeout: RECORD_BUDGET });
+      await recordButton(page).click();
+      await expectRecording(page);
+      const download = await downloaded;
+      const name = loopName("mp4");
+      expect(download.suggestedFilename()).toBe(name);
+      const bytes = await bytesOf(download);
+      expect(String.fromCharCode(...bytes.subarray(4, 8))).toBe("ftyp");
+      await expect(loopStatus(page)).toHaveText(doneLine(name));
+      await expect(recordButton(page)).toBeVisible();
+      const origin = new URL(page.url()).origin;
+      const foreign = requests.filter(
+        (url) =>
+          !url.startsWith("data:") && !url.startsWith("blob:") && new URL(url).origin !== origin,
+      );
+      expect(foreign).toEqual([]);
+    });
+
+    // Breaks when Cancel stops discarding the recording, or focus is lost as the controls change.
+    test("F-LOOP-02 Cancel while recording says nothing was downloaded, and nothing downloads", async ({
+      page,
+    }) => {
+      await openFlavor(page);
+      const downloads = recordDownloads(page);
+      await recordButton(page).click();
+      await expectRecording(page);
+      // The record button's place holds "Cancel" now, and focus moved to it.
+      await expect(recordButton(page)).toHaveCount(0);
+      await expect(loopCancel(page)).toBeFocused();
+      await loopCancel(page).click();
+      await expect(loopStatus(page)).toHaveText(VIDEO_LINES.canceled, { timeout: RECORDING_CAP });
+      await expect(loopCancel(page)).toHaveCount(0);
+      await expect(recordButton(page)).toBeFocused();
+      expect(downloads).toEqual([]);
+    });
+
+    // Breaks when the recording stops falling back to WebM where AVC cannot encode.
+    test("F-LOOP-03 where no avc1 codec encodes, the recording downloads a WebM", async ({
+      page,
+    }) => {
+      await NO_AVC(page);
+      await openFlavor(page);
+      const downloaded = page.waitForEvent("download");
+      await recordButton(page).click();
+      await expectRecording(page);
+      const download = await downloaded;
+      const name = loopName("webm");
+      expect(download.suggestedFilename()).toBe(name);
+      const bytes = await bytesOf(download);
+      expect([...bytes.subarray(0, 4)]).toEqual([0x1a, 0x45, 0xdf, 0xa3]);
+      await expect(loopStatus(page)).toHaveText(doneLine(name));
+    });
+
+    // Breaks when reduced motion blocks recording, or recording sets the still preview moving.
+    test("F-LOOP-04 under the OS's reduced motion the recording downloads while the preview stays still", async ({
+      page,
+    }) => {
+      await page.emulateMedia({ reducedMotion: "reduce" });
+      await openFlavor(page);
+      await expect(preview(page)).toHaveAttribute("data-flavor", "still");
+      const downloaded = page.waitForEvent("download");
+      await recordButton(page).click();
+      await expectRecording(page);
+      await expect(preview(page)).toHaveAttribute("data-flavor", "still");
+      const download = await downloaded;
+      expect(download.suggestedFilename()).toBe(loopName("mp4"));
+      await expect(loopStatus(page)).toHaveText(doneLine(loopName("mp4")));
+      await expect(preview(page)).toHaveAttribute("data-flavor", "still");
+    });
+
+    // Breaks when a browser that encodes no codec keeps the button, downloads anything, or loses the
+    // focus the button held.
+    test("F-LOOP-05 where no codec encodes, a click ends with the sentence in the button's place", async ({
+      page,
+    }) => {
+      await NO_ENCODE(page);
+      await openFlavor(page);
+      const downloads = recordDownloads(page);
+      await recordButton(page).click();
+      await expect(loopStatus(page)).toHaveText(VIDEO_LINES["record-unsupported"], {
+        timeout: RECORDING_CAP,
+      });
+      await expect(recordButton(page)).toHaveCount(0);
+      await expect(loopCancel(page)).toHaveCount(0);
+      // The section's heading holds the focus the gone button had.
+      await expect(
+        section(page, "Shader loop").getByRole("heading", { name: "Shader loop", exact: true }),
+      ).toBeFocused();
+      expect(downloads).toEqual([]);
+    });
+
+    // Breaks when WebGL lost on the page reaches the recording's own canvas (RF3).
+    test("F-LOOP-RF3 the preview's context lost during a recording falls back, and the recording still downloads", async ({
+      page,
+    }) => {
+      await openFlavor(page);
+      await expect(preview(page)).toHaveAttribute("data-flavor", "running");
+      const downloaded = page.waitForEvent("download");
+      await recordButton(page).click();
+      await expectRecording(page);
+      await loseContext(page, "[data-flavor-preview] canvas");
+      await expect(preview(page)).toHaveAttribute("data-flavor", "fallback");
+      await expect(preview(page)).toHaveAttribute("data-flavor-reason", "context-lost");
+      await expect(section(page, "Background").getByRole("status")).toHaveText(
+        FLAVOR_LINES["context-lost"],
+      );
+      // The recording was still running after the preview lost its context: its "Cancel" still
+      // shows, and no file has come yet.
+      const name = loopName("mp4");
+      await expect(loopCancel(page)).toBeVisible();
+      await expect(loopStatus(page)).not.toHaveText(doneLine(name));
+      const download = await downloaded;
+      expect(download.suggestedFilename()).toBe(name);
+      const bytes = await bytesOf(download);
+      expect(String.fromCharCode(...bytes.subarray(4, 8))).toBe("ftyp");
+      await expect(loopStatus(page)).toHaveText(doneLine(name));
+    });
+  });
+
+  test.describe("the brand video's render", () => {
+    test.describe.configure({ timeout: RENDERING_CAP });
+
+    // Breaks when the first render skips the note or its focus, sends anything before "Render", misses
+    // the render budget, names or encodes its file wrongly, says nothing when done, or its usage event
+    // goes unanswered, more than once, or carries the design.
+    test("F-RENDER-01 the first render shows the note, then renders an MP4 within the render budget with one usage event", async ({
+      page,
+    }) => {
+      const telemetry = await TELEMETRY(page);
+      const status = await STATUS_RECORD(page, BRAND_STATUS);
+      const requests = remotionRequests(page);
+      await openFlavor(page);
+      await expect(renderButton(page)).toHaveAccessibleDescription(RENDER_DESCRIPTION);
+      await expect(renderStatus(page)).toHaveText("");
+      await openNote(page);
+      await expect(
+        note(page).getByRole("heading", { level: 4, name: NOTE_HEADING, exact: true }),
+      ).toBeFocused();
+      await expect(note(page).getByText(NOTE_TEXT, { exact: true })).toBeVisible();
+      await expect(renderButton(page)).toHaveCount(0);
+      expect(await status.texts()).toContain(VIDEO_LINES.checking);
+      await expect(renderStatus(page)).toHaveText("");
+      expect(requests).toEqual([]);
+      expect(telemetry.posts()).toEqual([]);
+
+      const downloaded = page.waitForEvent("download", { timeout: RENDER_BUDGET });
+      await noteButton(page, "Render").click();
+      await expectRendering(page);
+      await expect(renderCancel(page)).toBeFocused();
+      const download = await downloaded;
+      const name = brandName("mp4");
+      expect(download.suggestedFilename()).toBe(name);
+      const bytes = await bytesOf(download);
+      expect(String.fromCharCode(...bytes.subarray(4, 8))).toBe("ftyp");
+      await expect(renderStatus(page)).toHaveText(doneLine(name));
+      await expect(renderButton(page)).toBeVisible();
+
+      await expect.poll(() => telemetry.posts().length).toBe(1);
+      const [post] = telemetry.posts();
+      expect(post).toMatchObject({
+        event: "web-render",
+        apiKey: null,
+        host: new URL(page.url()).origin,
+        succeeded: true,
+      });
+      const sent = JSON.stringify(post).toLowerCase();
+      const hexes = hexesOfFirst();
+      expect(hexes.length).toBeGreaterThan(0);
+      expect(sent).not.toContain(first().meta.name.toLowerCase());
+      expect(hexes.filter((hex) => sent.includes(hex))).toEqual([]);
+      expect(requests.filter((request) => request.startsWith("POST "))).toHaveLength(1);
+    });
+
+    // Breaks when the answer to the note leaves with the dialog, or outlives the page load.
+    test("F-RENDER-02 a second render on the same page load starts with no note, and a reload shows it again", async ({
+      page,
+    }) => {
+      const telemetry = await TELEMETRY(page);
+      await openFlavor(page);
+      await openNote(page);
+      const downloaded = page.waitForEvent("download", { timeout: RENDERING_CAP });
+      await noteButton(page, "Render").click();
+      await downloaded;
+      await expect(renderStatus(page)).toHaveText(doneLine(brandName("mp4")));
+      await page.keyboard.press("Escape");
+      await expect(dialog(page)).toHaveCount(0);
+
+      await flavorButton(page).click();
+      await expect(dialog(page)).toBeVisible();
+      await renderButton(page).click();
+      await expectRendering(page);
+      await expect(renderCancel(page)).toBeFocused();
+      await renderCancel(page).click();
+      await expect(renderStatus(page)).toHaveText(VIDEO_LINES.canceled, { timeout: RENDERING_CAP });
+
+      await page.reload();
+      await expect(flavorButton(page)).toBeVisible();
+      await flavorButton(page).click();
+      await expect(dialog(page)).toBeVisible();
+      await openNote(page);
+      await noteButton(page, "Cancel").click();
+      await expect(note(page)).toHaveCount(0);
+      // Only the first render finished: a canceled render sends no usage event.
+      await expect.poll(() => telemetry.posts().length).toBe(1);
+    });
+
+    // Breaks when the note's Cancel sends anything, downloads anything or loses the focus.
+    test("F-RENDER-03 Cancel in the note brings the render button back with focus, and sends nothing", async ({
+      page,
+    }) => {
+      const telemetry = await TELEMETRY(page);
+      const requests = remotionRequests(page);
+      await openFlavor(page);
+      const downloads = recordDownloads(page);
+      await openNote(page);
+      await noteButton(page, "Cancel").click();
+      await expect(note(page)).toHaveCount(0);
+      await expect(renderButton(page)).toBeFocused();
+      await expect(renderStatus(page)).toHaveText("");
+      await expect(page.locator(SCAFFOLD)).toHaveCount(0);
+      expect(requests).toEqual([]);
+      expect(telemetry.posts()).toEqual([]);
+      expect(downloads).toEqual([]);
+    });
+
+    // Breaks when Cancel stops discarding the render, or a canceled render still downloads.
+    test("F-RENDER-04 Cancel while rendering says nothing was downloaded, and nothing downloads", async ({
+      page,
+    }) => {
+      const telemetry = await TELEMETRY(page);
+      await openFlavor(page);
+      const downloads = recordDownloads(page);
+      await openNote(page);
+      await noteButton(page, "Render").click();
+      await expectRendering(page);
+      await renderCancel(page).click();
+      await expect(renderStatus(page)).toHaveText(VIDEO_LINES.canceled, { timeout: RENDERING_CAP });
+      await expect(renderCancel(page)).toHaveCount(0);
+      await expect(renderButton(page)).toBeFocused();
+      // The render has ended: the renderer removed its scaffold.
+      await expect(page.locator(SCAFFOLD)).toHaveCount(0);
+      expect(downloads).toEqual([]);
+      expect(telemetry.posts()).toEqual([]);
+    });
+
+    // Breaks when a browser without WebCodecs keeps either video button, or loads either library.
+    test("F-RENDER-05 without WebCodecs both video buttons are replaced by their sentences, and no video library loads", async ({
+      page,
+    }) => {
+      await TELEMETRY(page);
+      const chunks = recordChunks(page);
+      await NO_WEBCODECS(page);
+      await openFlavor(page);
+      await expect(renderStatus(page)).toHaveText(VIDEO_LINES["no-webcodecs"]);
+      await expect(renderButton(page)).toHaveCount(0);
+      await expect(loopStatus(page)).toHaveText(VIDEO_LINES["record-unsupported"]);
+      await expect(recordButton(page)).toHaveCount(0);
+      await expect(player(page)).toBeVisible();
+      await page.waitForLoadState("networkidle");
+      // The record is not empty: the Player's Remotion code arrived.
+      expect(await chunks.holding(REMOTION_MARKER)).not.toEqual([]);
+      expect(await chunks.holding(RENDERER_MARKER)).toEqual([]);
+      expect(await chunks.holding(MEDIABUNNY_MARKER)).toEqual([]);
+    });
+
+    // Breaks when a browser that encodes neither codec keeps the button, shows the note, or skips its
+    // check's line.
+    test("F-RENDER-06 where nothing encodes, a click checks, then says the browser cannot render", async ({
+      page,
+    }) => {
+      const telemetry = await TELEMETRY(page);
+      const requests = remotionRequests(page);
+      const status = await STATUS_RECORD(page, BRAND_STATUS);
+      await NO_ENCODE(page);
+      await openFlavor(page);
+      await renderButton(page).click();
+      await expect(renderStatus(page)).toHaveText(VIDEO_LINES["render-unsupported"], {
+        timeout: RENDERING_CAP,
+      });
+      await expect(renderButton(page)).toHaveCount(0);
+      await expect(note(page)).toHaveCount(0);
+      const texts = await status.texts();
+      expect(texts).toContain(VIDEO_LINES.checking);
+      expect(texts.indexOf(VIDEO_LINES.checking)).toBeLessThan(
+        texts.indexOf(VIDEO_LINES["render-unsupported"]),
+      );
+      // The section's heading holds the focus the gone button had.
+      await expect(
+        brandSection(page).getByRole("heading", { level: 3, name: "Brand video", exact: true }),
+      ).toBeFocused();
+      expect(requests).toEqual([]);
+      expect(telemetry.posts()).toEqual([]);
+    });
+
+    // Breaks when a renderer chunk that does not arrive shows a raw error or no line, or the failure
+    // is kept so that the next click cannot reach the note.
+    test("F-RENDER-07 with the renderer's chunk aborted, a click says the tool could not load, and reaches the note after release", async ({
+      page,
+      watch,
+    }) => {
+      const telemetry = await TELEMETRY(page);
+      const aborted = recordAborted(page);
+      const chunk = await ABORT_CHUNK(page, RENDERER_MARKER);
+      await openFlavor(page);
+      await renderButton(page).click();
+      await expect(renderStatus(page)).toHaveText(VIDEO_LINES["load-failed"], {
+        timeout: RENDERING_CAP,
+      });
+      await expect(renderButton(page)).toBeVisible();
+      await expect(note(page)).toHaveCount(0);
+      await allowAbortedChunk(page, watch, aborted, RENDERER_MARKER);
+      chunk.release();
+      await openNote(page);
+      await noteButton(page, "Cancel").click();
+      await expect(renderButton(page)).toBeFocused();
+      expect(telemetry.posts()).toEqual([]);
+    });
+
+    // Breaks when a render lets the recording start beside it, or closing the dialog leaves the
+    // render running, downloads its file or keeps its state.
+    test("F-RENDER-08 while a render runs the record button waits, and closing the dialog aborts the render", async ({
+      page,
+    }) => {
+      const telemetry = await TELEMETRY(page);
+      await openFlavor(page);
+      const downloads = recordDownloads(page);
+      await openNote(page);
+      await noteButton(page, "Render").click();
+      await expectRendering(page);
+      await expect(page.locator(SCAFFOLD)).toHaveCount(1);
+      await expect(recordButton(page)).toHaveAttribute("aria-disabled", "true");
+      await expect(recordButton(page)).toHaveAccessibleDescription(VIDEO_LINES.wait);
+      // A press on the waiting button starts nothing. Playwright waits for an `aria-disabled` control
+      // to be enabled before it clicks, so the press is forced.
+      await recordButton(page).click({ force: true });
+      await expect(loopStatus(page)).toHaveText("");
+      await expect(loopCancel(page)).toHaveCount(0);
+      await expectRendering(page);
+
+      // The render still runs as the dialog closes.
+      await expect(page.locator(SCAFFOLD)).toHaveCount(1);
+      await page.keyboard.press("Escape");
+      await expect(dialog(page)).toHaveCount(0);
+      // The render has ended: the renderer removed its scaffold, and nothing came of it.
+      await expect(page.locator(SCAFFOLD)).toHaveCount(0, { timeout: RENDERING_CAP });
+      expect(downloads).toEqual([]);
+      expect(telemetry.posts()).toEqual([]);
+
+      await flavorButton(page).click();
+      await expect(dialog(page)).toBeVisible();
+      await expect(renderButton(page)).toBeVisible();
+      await expect(renderButton(page)).not.toHaveAttribute("aria-disabled", "true");
+      await expect(renderButton(page)).toHaveAccessibleDescription(RENDER_DESCRIPTION);
+      await expect(renderStatus(page)).toHaveText("");
+      await expect(recordButton(page)).not.toHaveAttribute("aria-disabled", "true");
+      await expect(recordButton(page)).toHaveAccessibleDescription(
+        VIDEO_LINES["record-description"],
+      );
+      expect(downloads).toEqual([]);
+    });
+
+    // Breaks when a recording lets the render start beside it (preflight ruling 6: the job rule holds
+    // in both directions).
+    test("F-RENDER-08 while a recording runs the render button waits, and starts nothing", async ({
+      page,
+    }) => {
+      const telemetry = await TELEMETRY(page);
+      await openFlavor(page);
+      await recordButton(page).click();
+      await expectRecording(page);
+      await expect(renderButton(page)).toHaveAttribute("aria-disabled", "true");
+      await expect(renderButton(page)).toHaveAccessibleDescription(VIDEO_LINES.wait);
+      // Forced, as F-RENDER-08's other flow forces its press on the waiting button.
+      await renderButton(page).click({ force: true });
+      await expect(note(page)).toHaveCount(0);
+      await expect(renderStatus(page)).toHaveText("");
+      await expect(renderButton(page)).toHaveAttribute("aria-disabled", "true");
+      await loopCancel(page).click();
+      await expect(loopStatus(page)).toHaveText(VIDEO_LINES.canceled, { timeout: RECORDING_CAP });
+      await expect(renderButton(page)).not.toHaveAttribute("aria-disabled", "true");
+      await expect(renderButton(page)).toHaveAccessibleDescription(RENDER_DESCRIPTION);
+      expect(telemetry.posts()).toEqual([]);
+    });
+
+    // Breaks when the live region speaks anything but 10% steps during a render, or repeats one.
+    test("F-RENDER-09 the live region takes only Rendering lines at 10% steps during a render, none twice", async ({
+      page,
+    }) => {
+      await TELEMETRY(page);
+      const status = await STATUS_RECORD(page, BRAND_STATUS);
+      await openFlavor(page);
+      await openNote(page);
+      const before = (await status.texts()).length;
+      const downloaded = page.waitForEvent("download", { timeout: RENDERING_CAP });
+      await noteButton(page, "Render").click();
+      await downloaded;
+      const name = brandName("mp4");
+      await expect(renderStatus(page)).toHaveText(doneLine(name));
+      const during = (await status.texts()).slice(before);
+      expect(during.at(-1)).toBe(doneLine(name));
+      const lines = during.slice(0, -1);
+      expect(lines.length).toBeGreaterThan(0);
+      const steps = lines.map((line) =>
+        Number(/^Rendering: (\d+)%\.$/.exec(line)?.[1] ?? Number.NaN),
+      );
+      expect(steps.filter((step) => !(step % 10 === 0 && step >= 10 && step <= 100))).toEqual([]);
+      expect(new Set(steps).size).toBe(steps.length);
+    });
+
+    // Breaks when a double click on "Render" starts two renders, two usage events or two downloads.
+    test("F-RENDER-RF4 a double click on Render in the note starts one render, one usage event and one download", async ({
+      page,
+    }) => {
+      const telemetry = await TELEMETRY(page);
+      await openFlavor(page);
+      const downloads = recordDownloads(page);
+      await openNote(page);
+      const downloaded = page.waitForEvent("download", { timeout: RENDERING_CAP });
+      await noteButton(page, "Render").dblclick();
+      await downloaded;
+      await expect(renderStatus(page)).toHaveText(doneLine(brandName("mp4")));
+      await expect(renderButton(page)).toBeVisible();
+      await expect(page.locator(SCAFFOLD)).toHaveCount(0);
+      await expect.poll(() => telemetry.posts().length).toBe(1);
+      expect(downloads).toHaveLength(1);
+    });
   });
 });
 
