@@ -112,12 +112,11 @@ export async function renderBrandVideo(
       signal: deps.signal,
       onProgress: ({ progress }) => deps.onProgress(progress),
     });
-    const blob = await result.getBlob();
-    return {
-      kind: "done",
-      bytes: new Uint8Array(await blob.arrayBuffer()),
-      container: known.container,
-    };
+    const bytes = new Uint8Array(await (await result.getBlob()).arrayBuffer());
+    // 4.0.539 reads the signal no more after the last frame, so a Cancel while it finalizes the
+    // file lets the render resolve: the bytes are dropped (R5-53, as R5-56 for the recording).
+    if (deps.signal.aborted) return { kind: "canceled" };
+    return { kind: "done", bytes, container: known.container };
   } catch (error) {
     return { kind: endedBy(error, deps.signal) };
   }
