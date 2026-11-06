@@ -13,7 +13,7 @@
 Status: draft for the owner's approval, 2026-11-07.
 
 Section 2 lists the owner's standing rulings and the controller's decisions of 2026-11-07. Section 3 turns each decision
-into rulings R6-01 to R6-60, and section 14 holds 169 cases (93 `C-` cases and 76 `F-` cases). A ruling ends with
+into rulings R6-01 to R6-60, and section 14 holds 172 cases (94 `C-` cases and 78 `F-` cases). A ruling ends with
 **(decision X#)** when it states a controller decision, or **(drafter)** when this spec supplies a rule the decisions
 leave open; a ruling that does both says which part is which. The owner can overturn any ruling by editing this file
 before the task that uses it starts. Task 6.0 (R6-57) probes every external fact this spec could not verify before any
@@ -97,6 +97,8 @@ short-link service, each family's italic font files, larger chrome text, launch 
 | C1: entry forms are "read once on load and then replaced by the normal `#s=` link after the first commit" | The entry's load counts as that first commit: 300 ms after load the hash is the normal link and the draft holds the design; `#brief=` and `#start=image` open a fresh design too (R6-24) | A design opened from the landing has no commit until the visitor edits it; without this a reload of `#color=` would make another design with a new seed |
 | G2: "the top and save bars use `overflow: clip` with `overflow-clip-margin`" | The clip moves to `.st`, the bars' clipping ancestor (the bars themselves clip nothing); the save bar also sits inside `.st-scroll`, a scroll container, where a clip margin does nothing; probe 6 decides, and a failure drops G2 to section 18 (R6-34) | M3 found that `overflow: clip` on the settings page left axe's contrast check undecided (R3-06), and a scroll container cannot take a clip margin |
 | J1: five probes | Six: probe 6 is the settings template's clip margin (R6-57) | G2 has the one external behavior M3 already saw fail |
+| B4: the entry page links to the studio, the explorer and the lab with `pageHref` | `entryHref(page, link)` builds the same `/<page>#s=<link>` from the committed link (R6-15) | `pageHref` takes a spec and imports `@/spec`; the gallery holds the link, not the spec, and runs no codec per request |
+| B3, B4: "Open in the studio (`/studio#s=<link>`)" on the card and the entry page | The links go to `/gallery/<slug>/open/<page>`, which answers 307 with `Location: /<page>#s=<link>` (R6-14, R6-15); probe 2 checks the browser keeps the fragment, and its failure restores the direct links | 24 direct links put about 345 KB of base64 into `/gallery`'s HTML and inline RSC payload, which hardly compresses and would cost 12.3's mobile goal |
 
 ## 2. Decisions M6 implements
 
@@ -144,6 +146,7 @@ transition, and no `<video>` element exists (R5-02).
 |---|---|---|---|
 | Gallery | `/gallery`, `/gallery?tag=<tag>` | `gallery.json` | No |
 | Gallery entry | `/gallery/<slug>` | `gallery.json` | No |
+| Open links | `/gallery/<slug>/open/<page>`, a 307 to `/<page>#s=<link>` | `gallery.json` | No |
 | Share cards | `/gallery/opengraph-image`, `/gallery/<slug>/opengraph-image` | `cards.json` | No |
 | Start-from section | `/`, under the hero | Nothing; the forms build links on the client | No |
 | Receipt section | `/`, after the story | `receipt-excerpt.json` | No |
@@ -157,7 +160,7 @@ Done when section 20 holds. **(decision A1)**
 leaning not clean. The 1933 and 1934 volumes are likely under US copyright through 2028 and 2029 by URAA restoration, the
 selection and ordering of the 348 combinations is the part a court could protect, and no MIT-labeled dataset documents its
 provenance or a rights check (the controller's research of 2026-11-07, from the US Copyright Office's Compendium,
-section 313.4(K), 17 USC 104A and the datasets' own READMEs; the README's credits record the outcome at the close, R6-50;
+section 313.4(K), 17 USC 104A and the datasets' own READMEs; the README's scope records the outcome at the close, R6-50;
 owner approval item 1). Also out: a gallery of 100 to 200
 model-made briefs (AI02; M6 makes no model call), a share card for an arbitrary studio link (the hash never reaches a
 server, and a 7 KB link in a query exceeds safe scraper lengths; Vercel answers 414 above 14 KB), a short-link service
@@ -177,8 +180,8 @@ Section 18 assigns each. **(decision A2)**
 - Pure, in `src/features/preview/templates/load.ts`: the loaders and the idle preload (in `PREVIEW_HELPERS`).
 - Pure, in `src/export/guards.ts`: `describeType` and `httpsOrigin` (in the export floor).
 - Pure, in `scripts/audit-core.mjs`: the audit's arithmetic, with `// @ts-check`.
-- Shells: the pages `src/app/gallery/page.tsx`, `src/app/gallery/[slug]/page.tsx` and `src/app/about/page.tsx`; the image
-  routes `src/app/gallery/opengraph-image.tsx` and `src/app/gallery/[slug]/opengraph-image.tsx`; the components
+- Shells: the pages `src/app/gallery/page.tsx`, `src/app/gallery/[slug]/page.tsx` and `src/app/about/page.tsx`; the
+  redirect route `src/app/gallery/[slug]/open/[page]/route.ts`; the image routes `src/app/gallery/opengraph-image.tsx` and `src/app/gallery/[slug]/opengraph-image.tsx`; the components
   `src/features/gallery/{GalleryCard,Specimen,CopyLink}.tsx`, `src/features/landing/{StartFrom,ReceiptSection}.tsx` and
   `src/lib/site/gallery-card.tsx`; `scripts/lighthouse.mjs` and `scripts/audit-site.mjs`; and edits to the studio, the
   preview, the flavor dialog and the explorer.
@@ -190,7 +193,8 @@ A3; the file list drafter)**
 `receipt-excerpt.json` (in `src/features/landing/`) are committed, written as R3-11 writes JSON
 (`JSON.stringify(value, null, 2)` and one newline), and checked against their builders in every unit run:
 `GALLERY` must deep-equal `galleryData(ai)` (C-GAL6-02), `GALLERY_CARDS` must deep-equal `galleryCards(GALLERY)`
-(C-CARD6-02), and `RECEIPT_EXCERPT` must deep-equal `receiptExcerpt(<receipt.json of buildBundle({ spec: heroSpec(0),
+(C-CARD6-02, which under the update switch writes `galleryCards(galleryData(ai))`, so it never reads a stale
+`gallery.json`), and `RECEIPT_EXCERPT` must deep-equal `receiptExcerpt(<receipt.json of buildBundle({ spec: heroSpec(0),
 origin: "https://dyelot.vercel.app" })>)` (C-REC6-02). With `DYELOT_UPDATE_GALLERY=1` the three tests write their files
 instead, and each fails before writing when `CI` is set, as C-LAND5-02 does for `hero-cards.json`. When the engine's output
 changes, the goldens, `hero-cards.json` and these three files change together. **(decision A3; the second and third file
@@ -256,7 +260,8 @@ first entry of `findings`, or null). For the first hero design that is "C1:foreg
 `D3` warning on `primary-600` in dark mode (2026-11-07). `RECEIPT_EXCERPT` is the committed result (R6-04). **(decision
 C2; the fields drafter)**
 
-**R6-12 · The entries' words.** Each name is 1 to 24 characters of letters and single spaces; each slug matches
+**R6-12 · The entries' words.** Each name is 1 to 18 characters of letters and single spaces (18 is what fits one line
+at 96 px on the share card, 8.1); each slug matches
 `^[a-z]+(-[a-z]+)*$` and is unique; each brief is plain text of 30 to 100 characters, one sentence ending in a period,
 with no color literal; each hero's line is computed. No name, slug, brief or tag holds a word of the M4 deny list
 (`tests/unit/ai/lexicon-deny.ts`, R4-42), and each passes the copy rules. No entry's link spells, in any case, the
@@ -277,15 +282,20 @@ order. An unknown tag shows every entry and a sentence that does not repeat the 
 **R6-14 · The card.** Each card is an `article` named by its `h2` (the entry's name) holding, in order: the line; the
 tags; the specimen (7.3), framed, the only color on the page; the type pairing's display and body family names; the preset
 label; the receipt line `summaryLines(summary)[0]` ("78 of 78 required contrast checks pass"); the lot; and two links,
-"Open in the studio" (`/studio#s=<link>`) and "Details" (`/gallery/<slug>`), each with the name in its accessible name
-(7.2). The chrome stays achromatic; every number is Geist Mono with tabular numerals. **(decision B3; the order and the
+"Open in the studio" (`/gallery/<slug>/open/studio`, which redirects to `/studio#s=<link>`) and "Details"
+(`/gallery/<slug>`), each with the name after its visible words in its accessible name (7.2). The page holds no link:
+24 links of about 7.2 KB would put about 345 KB into its HTML and its inline RSC payload, and base64 of deflated bytes
+hardly compresses. The chrome stays achromatic; every number is Geist Mono with tabular numerals. **(decision B3; the order and the
 names drafter)**
 
 **R6-15 · `/gallery/[slug]`.** A server page that awaits `params`, looks the slug up with `entryOf` and calls `notFound()`
 for an unknown one, so the 404 page answers. It shows the name, how it was made, the tags, the preset, the lot,
 the receipt summary (all four of `summaryLines`), the scales in light and dark, the six roles in each mode, the type ladder
-by family name, the links "Open in the studio", "Open in the explorer" and "Open in the motion lab" (`/<page>#s=<link>`),
-"Copy the studio link", and a link back to the gallery (7.4). It loads none of the design's fonts. **(decision B4; the
+by family name, the links "Open in the studio", "Open in the explorer" and "Open in the motion lab"
+(`/gallery/<slug>/open/<page>`), "Copy the studio link", and a link back to the gallery (7.4). `GET
+/gallery/<slug>/open/<page>`, for `page` one of `studio`, `explore` and `motion`, answers `307` with the relative
+`Location: /<page>#s=<link>` (`entryHref`), which the browser follows with its fragment; an unknown slug or page answers
+404 through `notFound()`. It loads none of the design's fonts. **(decision B4; the
 layout drafter)**
 
 **R6-16 · Copy the studio link.** A client component taking only the entry's absolute studio link, built on the server as
@@ -302,14 +312,15 @@ words), as the studio's own "Copy link" does. **(decision B4; the words drafter)
 ### Share cards (Task 6.3)
 
 **R6-18 · One card per entry.** `src/app/gallery/[slug]/opengraph-image.tsx` exports `size` (1200 × 630),
-`contentType` `"image/png"` and `alt` `GALLERY_CARD_ALT` (a file's `alt` is one string for every slug,
-`NDOCS/01-app/03-api-reference/03-file-conventions/01-metadata/opengraph-image.md`), awaits `params`, finds the card with
+`contentType` `"image/png"` and `alt` `GALLERY_CARD_ALT`, one string for every slug (a file's static `alt` export is one
+string; a per-slug alt would need `generateImageMetadata`, which puts an `id` segment into the image's URL,
+`NDOCS/01-app/03-api-reference/04-functions/generate-image-metadata.md`), awaits `params`, finds the card with
 `cardOf` (an unknown slug calls `notFound()`), and returns `new ImageResponse(<GalleryShareCard card={card} icon={icon}
 />, { ...size, fonts })` with `shareCardAssets()`'s Geist Mono and icon. The card (8.1) has the M0 card's look: the dot
 grid, the brand row, a `//` comment line, the name as the headline, the line, the strip of five colors, the receipt count
 and the footer.
-Flexbox only, inline styles, no `display: grid` (Satori). The route imports `cards.ts`, `gallery-card.tsx`, `assets.ts`
-and `next/og` and nothing else of the app (C-GUARD6-07). It lives under `/gallery/`, never `/api/`, so robots allow it.
+Flexbox only, inline styles, no `display: grid` (Satori). The route imports only `next/og`, `next/navigation` (for
+`notFound`), `cards.ts`, `gallery-card.tsx`, `assets.ts` and `config.ts` (C-GUARD6-07). It lives under `/gallery/`, never `/api/`, so robots allow it.
 **(decision D1; the layout drafter)**
 
 **R6-19 · The gallery's card.** `src/app/gallery/opengraph-image.tsx` draws the brand row, `// gallery`, the headline "24
@@ -407,15 +418,21 @@ keeps one way into every page that shipped (the page's comment, M5). **(decision
 
 ### Templates (Task 6.7)
 
-**R6-33 · Lazy templates.** `templates/index.tsx` stops importing the six templates. `load.ts` holds one loader per
-template, each a `loadOnce(() => import("./<Name>"))`; `Template` renders the shown template through `React.lazy` of its
-loader inside a `Suspense` whose fallback is the sentence "Loading the template…" (`role="status"`). After the studio's
-first paint, `preloadTemplates(shown, idle)` calls the other five loaders when the browser is idle
-(`requestIdleCallback`, else a 1,000 ms `setTimeout`), so a later switch finds its chunk loaded. A switch with motion
-allowed stays a transition (the deferred value of R5-46), so a template still loading keeps the old one on screen and the
-switch commits once, with one `startViewTransition`; under reduced motion it shows the fallback while it loads. A failed
-load shows "This template could not load." and "Try again", which calls the loader again (its failure is forgotten) and
-mounts a new lazy component; it never shows a raw error. **(decision G1; the strings and the timeout drafter)**
+**R6-33 · Lazy templates.** The landing template, the one every first load shows (the view is never stored, so a load
+always opens on `DEFAULT_VIEW.template`), stays a static import; `templates/index.tsx` stops importing the other five.
+`load.ts` holds one loader per lazy template, each a `loadOnce(() => import("./<Name>"))`, and `Template` renders a lazy
+template through `React.lazy` of its loader. The `Suspense` (fallback: the sentence "Loading the template…",
+`role="status"`) and its error boundary sit in `Canvas.tsx` above the keyed `<ViewTransition>`, inside `MotionScope`, so
+the boundary is already revealed when a switch suspends: React 19.3 keeps the previous screen for a transition that
+suspends inside a revealed boundary, and commits the fallback only for a boundary it mounts in the same render
+(`react-dom-client.development.js`, `shouldRemainOnPreviousScreen`). After the studio's first paint,
+`preloadTemplates("landing", idle)` calls the five loaders when the browser is idle (`requestIdleCallback`, else a 1,000
+ms `setTimeout`), so a later switch finds its chunk loaded. A switch with motion allowed stays a transition (the deferred
+value of R5-46): a template still loading keeps the old one on screen, and the switch commits once, with one
+`startViewTransition`. Under reduced motion the switch is urgent and shows the fallback while it loads. A failed load
+shows "This template could not load." and "Try again", which calls the loader again (its failure is forgotten), mounts a
+new lazy component and resets the boundary; it never shows a raw error. **(decision G1; the eager landing template, the
+boundary's place, the strings and the timeout drafter)**
 
 **R6-34 · The settings template's clip margin.** `.st` takes `overflow: clip` and `overflow-clip-margin: 12px` (the
 `canvas.css` pattern) in place of `overflow: hidden`, so the "Show me" outline of `.st-top` and `.st-save-bar` shows whole
@@ -443,8 +460,8 @@ never share an id. **(decision G5)**
 ### Code fixes (Task 6.9)
 
 **R6-39 · `codeFiles` is never vacuous.** `codeFiles(directory, read = readdirSync)` walks the folder itself, one level at
-a time, never descends into a folder named `PROBE_DIR`, skips `GUARD3_04_PROBE`, and skips a child folder whose read fails
-with `ENOENT` only when it is a probe path; any other read error throws with the path. It throws a `RangeError` naming
+a time, never reads a folder named `PROBE_DIR` (it skips it by name, so a probe that vanishes cannot fail the walk), and
+skips `GUARD3_04_PROBE`; any read error throws with the path. It throws a `RangeError` naming
 `codeFiles` when `directory` is missing or holds no code file, and a `TypeError` for a non-string. **(decision G4, a
 departure in section 1)**
 
@@ -456,9 +473,11 @@ import("@/ai"))` and the like; their behavior (once per page, forgotten after a 
 origin with no path, each message starting with `caller`); `bundle.ts` and `flavor.ts` import both and keep their messages
 word for word. **(decision G5; the module drafter)**
 
-**R6-42 · `storySteps` and `tokenRow` check shapes.** Each checks, before it reads them, that every section it reads is an
+**R6-42 · `storySteps` and `tokenRow` check shapes.** Each checks, before it reads them, the sections 13.5 lists, each an
 object (or an array where it reads one), and throws a `TypeError` naming itself and the path (`storySteps:
-spec.color.params must be an object, got undefined`) instead of a native `TypeError`. **(decision G5)**
+spec.color.params must be an object, got undefined`) instead of a native `TypeError`. The checks cover those paths only:
+`storySteps` also hands the spec to `measureSpec`, `lintSpec` and `summarize`, whose own checks answer for the rest.
+**(decision G5)**
 
 ### Audits (Tasks 6.10 and 6.12)
 
@@ -471,8 +490,11 @@ drafter)**
 (`next build` and `next start`, the nonce CSP on). For each route of `AUDIT_ROUTES` (`/`, `/gallery`, `/gallery/madder`,
 `/about`, `/studio`, `/explore`, `/motion`, `/connect`) and each form factor (`desktop`, `mobile`), one test calls
 `runLighthouse(url, formFactor)` (`scripts/lighthouse.mjs`, 12.1) and fails when `categories.accessibility.score` is
-below 0.95, naming each failing accessibility audit. The tests run serially in one worker. The other three categories are
-recorded, never gated. **(decision F1; the launch a departure in section 1)**
+below 0.95, naming each failing accessibility audit. The file is a Playwright project of its own, `lighthouse`, with
+`dependencies: ["chromium"]` (so it runs after every other flow and shares the CPU with none), `retries: 1`, and its tests
+in order and one at a time in the default mode (a failure skips no later route); the `chromium` project ignores the file.
+The other three categories are recorded, never gated. **(decision F1; the launch a departure in section 1; the project
+drafter)**
 
 **R6-45 · What a run records.** Each run writes `test-results/lighthouse/<route name>-<form factor>.json` with the four
 category scores, the five metrics of 12.2 and the script bytes of `resource-summary`, and attaches it to the test; the
@@ -489,19 +511,22 @@ a static metadata route, in ten interleaved rounds, and the README records each 
 **(decision F3)**
 
 **R6-48 · Real chunk sizes.** The same script loads each route in a fresh Playwright page and sums every script response up
-to the `load` event, as decoded bytes and as transferred bytes; the README records both per route (12.4). **(decision F4;
+to the `load` event, as decoded bytes and as transferred bytes, and also records the HTML document's bytes; the README
+records them per route (12.4). **(decision F4;
 the method drafter)**
 
 ### Security (every task)
 
 **R6-49 · No new surface.** No CSP change and no new `connect-src`; no new runtime dependency; the share-card routes are
-outside `/api/`; the new pages render per request under the nonce CSP like every page (R4-26), and each answers with the
+outside `/api/`; the open route answers only with a relative `Location` to `/studio`, `/explore` or `/motion` built from
+committed data, so it can send a browser nowhere else; the new pages render per request under the nonce CSP like every page (R4-26), and each answers with the
 policy of 12.2 of M5 and no `securitypolicyviolation`. **(decision I)**
 
 ### Docs and knowledge (Task 6.12)
 
 **R6-50 · The README.** An M6 section ("The gallery and finishing today (M6)") after M5's; the Lighthouse table and the
-chunk sizes, measured only; the status says M0 to M6 are done; the scope and the credits (no Wada, why) updated; the "Not
+chunk sizes, measured only; the status says M0 to M6 are done; the scope gains one line that the Sanzo Wada sets are not included, with R6-02's
+reason; the credits list what dyelot uses; the "Not
 done in M3" and "Not done in M4" rows rewritten as items land. **(decision H1)**
 
 **R6-51 · The knowledge graph.** `knowledge/products/product-dyelot.md` in the products contract's format; the root and
@@ -527,8 +552,9 @@ pure floors (section 15). Property cases use seed 6000 plus the task number. **(
 spec id of an earlier fixture changes. **(decision J3)**
 
 **R6-56 · Client imports.** The static value-import graphs of the gallery's client file (`CopyLink.tsx`) and the landing's
-client files (`Hero.tsx`, `StartFrom.tsx`) reach no file under `src/engine`, `src/spec` or `src/export`; `gallery.json`,
-`build.ts` and `defs.ts` are imported as values only by server files and tests (C-GUARD6-04, C-GUARD6-05). **(decision
+client files (`Hero.tsx`, `StartFrom.tsx`) reach no file under `src/engine`, `src/spec` or `src/export`; `gallery.json` is
+imported only by `data.ts`, whose value importers are server files and tests; `build.ts` is imported as a value only by
+tests, and `defs.ts` only by `build.ts` and tests (C-GUARD6-04, C-GUARD6-05). **(decision
 A3, C1)**
 
 **R6-57 · Task 6.0, the probes.** Before any other task, each probe runs and its result is recorded here, in the style of
@@ -536,32 +562,44 @@ R5-64:
 
 1. **Lighthouse under the nonce CSP.** `lighthouse` 13.5.0's Node API, given the debugging port of Playwright's Chromium
    (12.1), audits `/` of `next build` and `next start` at desktop and mobile. Passes when each run returns all four
-   categories with numeric scores and no `runtimeError`, the page logs no `securitypolicyviolation`, and the run takes at
-   most 60 s. The probe records each route's baseline accessibility score at both form factors (all eight routes), the
+   categories with numeric scores and no `runtimeError`, the report's `errors-in-console` lists nothing that names the
+   Content Security Policy, the mobile run's `final-screenshot` decodes to 412 px wide (so Playwright's viewport did not
+   override Lighthouse's emulation), and the run takes at most 60 s. It also runs `/` three times per form factor: if the
+   accessibility score differs between runs (the story's scroll-driven fades can sit mid-way when axe reads contrast),
+   the gate's runs add `--force-prefers-reduced-motion`, and the deployed performance runs keep motion. The probe records each route's baseline accessibility score at both form factors (all eight routes), the
    time of one run, and Chromium's version. Fails when a category is null or a run errors: if the debugging-port launch
    fails, the fallback is Lighthouse's own CLI (`node_modules/.bin/lighthouse`) run by `scripts/lighthouse.mjs` as a child
    process with `CHROME_PATH` set to `chromium.executablePath()` (decision F1's form); if both fail, M6 stops for the
-   owner. A baseline below 95 is not a failure of the probe: it becomes a fix in Task 6.11.
+   owner. A baseline below 95 is not a failure of the probe: on a route M6 builds (`/gallery`, `/gallery/madder`,
+   `/about`) it becomes a fix in the task that builds it; on an M1 to M5 route (`/`, `/studio`, `/explore`, `/motion`,
+   `/connect`) the probe's record (the failing audits and a proposed fix) goes to the owner, and that route waits for a
+   ruling before Task 6.11 changes it.
 
    Result (date):
 
 2. **A per-slug share card.** A scratch `src/app/gallery/[slug]/opengraph-image.tsx` reading a scratch `cards.json` of 24
    entries renders `/gallery/madder/opengraph-image` as `image/png`, 1200 × 630, under the nonce CSP. Passes when it
    renders and `next build` reports no image route over the 500 KB bundle limit. The probe records whether Next serves it
-   statically (prerendered at build) or per request, its `Cache-Control` header, and its bytes. Fails when the build
+   statically (prerendered at build) or per request, its `Cache-Control` header, and its bytes. It also checks that a
+   scratch `route.ts` answering `307` with `Location: /studio#s=<a link>` lands Playwright's Chromium on `/studio` with that
+   hash; if it does not, the cards and the entry page link to `/<page>#s=<link>` directly, as decision B3 wrote, and 12.4
+   records the pages' HTML bytes. Fails when the build
    refuses the route or the image does not render: the fallback is a route handler
    `src/app/gallery/[slug]/card.png/route.ts` with the same tree and `metadata.openGraph.images` set by `generateMetadata` (R6-17 then repeats the title,
    description and URL, which an `openGraph` key replaces, `metadata.ts`'s note).
 
    Result (date):
 
-3. **Lazy templates inside the view transition.** With R6-33's loaders and `Suspense` inside `<ViewTransition>`, in the
-   studio after the idle preload: one template switch from the toolbar makes one `startViewTransition` call and the record
-   at `ready` holds `::view-transition-group(dyelot-template)` (M5's `VT_RECORD`); with `requestIdleCallback` replaced by
-   a no-op, the first load fetches the landing template's chunk and none of the other five (by a marker string per
-   template, which the probe records), and a switch to "dashboard" before its chunk arrives still makes one call, after the
-   chunk lands. Fails when a switch makes two calls or none: the fallback preloads every template right after the first
-   paint (no idle wait) and the probe runs again; if that fails too, the templates stay eager and G1 moves to section 18.
+3. **Lazy templates under the view transition.** With R6-33's loaders and `TemplateBoundary` above the keyed
+   `<ViewTransition>`, in the studio after the idle preload: one template switch from the toolbar makes one
+   `startViewTransition` call and the record at `ready` holds `::view-transition-group(dyelot-template)` (M5's
+   `VT_RECORD`). With `NO_IDLE`, the first load fetches none of the five lazy templates' chunks (by a marker string per
+   template, which the probe records). With `NO_IDLE` and `HOLD_CHUNK` on the dashboard's chunk, a switch to "dashboard"
+   keeps the landing template on screen, `LOADING_RECORD` stays empty, and after `release()` the switch makes one call.
+   The probe also records whether, under the OS's reduced motion, the reveal after the fallback makes a
+   `startViewTransition` call. Fails when a held switch shows the loading sentence, or a switch makes two calls or none:
+   the fallback moves the boundary to wrap `MotionScope` and the probe runs again; if that fails too, the templates stay
+   eager and G1 moves to section 18.
 
    Result (date):
 
@@ -630,7 +668,8 @@ M5's. Every M6 guard that walks a folder walks it with `codeFiles` (R6-39). **(d
 - **I-M6-05 · Accessibility holds by number.** Every public route scores at least 95 in Lighthouse's accessibility
   category at desktop and mobile, and axe finds no violation at the house tags (`AXE_TAGS` of M5).
 - **I-M6-06 · Color only in specimens.** On `/gallery`, `/gallery/<slug>`, `/about` and the new sections of `/`, the only
-  colors outside the achromatic chrome and madder are inside `[data-specimen]`.
+  colors outside the chrome (near-gray, the four house neutrals of `globals.css`, and madder) are inside
+  `[data-specimen]`.
 - **I-M6-07 · M1 to M5 hold.** Every earlier case passes except the changes of section 16, and every golden holds.
 - **I-M6-08 · No test touches the network.**
 
@@ -646,6 +685,10 @@ M5's. Every M6 guard that walks a folder walks it with `codeFiles` (R6-39). **(d
   })`.
 - `NO_IDLE` (`tests/e2e/flavor-support.ts`) is an init script that replaces `requestIdleCallback` with one that never runs
   its callback; `ABORT_CHUNK(page, marker)` and `VT_RECORD` are M5's.
+- `HOLD_CHUNK(page, marker)`, installed before `goto`, answers each `/_next/static/chunks/*.js` request with
+  `route.fetch()` and holds the response whose text holds `marker` until `release()` is called, then fulfills it.
+- `LOADING_RECORD` is an init script whose `MutationObserver` records every time a `[data-template-loading]` element
+  enters the document, so a flow can assert that the loading sentence never appeared, however briefly.
 - `CLIPBOARD_DENY` is an init script that makes `navigator.clipboard.writeText` reject.
 - `STORAGE_DRAFT(spec, preset)` is an init script that writes M2's draft record for `spec` with `preset` before the load.
 - Every new flow file imports `test` from `tests/e2e/flavor-support.ts`, so the watch fixture fails it on any console
@@ -710,7 +753,8 @@ function entryMetadata(entry: GalleryEntry): Metadata;               // R6-17: t
 
 // src/features/gallery/links.ts (R6-14 to R6-16): pure, imports nothing
 type LinkPage = "studio" | "explore" | "motion";
-function entryHref(page: LinkPage, link: string): string;            // `/${page}#s=${link}`
+function entryHref(page: LinkPage, link: string): string;            // `/${page}#s=${link}`, the redirect's Location
+function openHref(slug: string, page: LinkPage): string;             // `/gallery/${slug}/open/${page}`
 function absoluteStudioLink(origin: string, link: string): string;   // `${origin}/studio#s=${link}`
 
 // src/features/gallery/build.ts (R6-06, R6-08): pure; imported as a value only by tests
@@ -738,7 +782,8 @@ Errors: `readTag` takes `undefined`, a string or an array, and anything else is 
 take a string (else a `TypeError`) and give null for an unknown slug. `entriesTagged` takes a `TagChoice` (a non-string is a
 `TypeError`, another string a `RangeError`). `entryHref` checks `page` (one of the three, else a `RangeError`) and `link`
 (a non-empty string of `[A-Za-z0-9_-]` of at most 65,536 characters, else a `RangeError`; a non-string a `TypeError`);
-`absoluteStudioLink` also checks `origin` as `httpsOrigin` does, with its own name. `briefSpec` checks `def` (an object
+`absoluteStudioLink` also checks `origin` as `httpsOrigin` does, with its own name; `openHref` checks `slug` against R6-12's
+pattern and `page` as `entryHref` does. `briefSpec` checks `def` (an object
 with `source: "brief"` and the fields of R6-12) and `ai` (an object whose three names are functions) before it runs;
 `galleryEntry` checks `def.slug` and the spec's sections as `paramsOfSpec` does; `galleryData` is a `TypeError` for an
 `ai` that is not an object; `entryDescription` is a `TypeError` for a non-object and a `RangeError` when its text falls
@@ -754,11 +799,11 @@ const START_BRIEF_MAX = 500;
 const IMAGE_HREF = "/studio#start=image";
 const GALLERY_HREF = "/gallery";
 function colorHref(hex: string): string;     // "#F66C6D" or "f66c6d" -> "/studio#color=f66c6d"
-function briefHref(text: string): string;    // trimmed, 1 to 500 characters, holding a letter -> "/studio#brief=" + encodeURIComponent
+function briefHref(text: string): string;    // well-formed, trimmed, 1 to 500 characters, holding a letter -> "/studio#brief=" + encodeURIComponent
 function briefReady(text: string): boolean;  // whether briefHref accepts it
 const START_LINES: Readonly<Record<string, string>>;   // 9.1, frozen
 
-// src/features/landing/receipt.ts (R6-11): pure, imports nothing at run time (GallerySummary is a type import)
+// src/features/landing/receipt.ts (R6-11): pure; imports ./receipt-excerpt.json and, as a type, GallerySummary
 type ReceiptExcerpt = {
   readonly format: "dyelot.check/1";
   readonly name: string;
@@ -775,7 +820,8 @@ function receiptLines(excerpt: ReceiptExcerpt): readonly string[];   // 9.2's se
 ```
 
 `colorHref` is a `TypeError` for a non-string and a `RangeError` for anything but six hex digits with or without a leading
-`#`. `briefHref` is a `TypeError` for a non-string and a `RangeError` for a text that `briefReady` refuses; `briefReady` is a
+`#`. `briefHref` is a `TypeError` for a non-string and a `RangeError` for a text that `briefReady` refuses, which includes
+text with a lone surrogate (`!text.isWellFormed()`, which `encodeURIComponent` would throw a `URIError` for); `briefReady` is a
 `TypeError` for a non-string. `excerptText` and `receiptLines` are a `TypeError` for a non-object, and `receiptLines` a
 `RangeError` for counts that are not whole numbers. `receiptExcerpt` is a `TypeError` for a non-string and a `RangeError`
 for text that is not JSON, whose `format` is not `dyelot.check/1`, or that lacks `design.name`, `summary`, a non-empty
@@ -811,6 +857,11 @@ function presetView(view: View, preset: PresetId | null): View;   // the preset'
 type StudioEntry = { readonly kind: "brief"; readonly text: string } | { readonly kind: "image" };
 // StudioState gains: readonly entry: StudioEntry | null;
 // StudioActions gains: takeEntry(): StudioEntry | null;   // the entry once, then null
+
+// The shell hands the entry down (R6-24, 10.2)
+// InputsPanel gains the prop: entry?: StudioEntry | null;
+// BriefSection gains the prop: entryText?: string | null;   // when it turns to a string: set the text, focus the textarea
+// ImageSection gains the prop: focusInput?: boolean;        // when it turns true: focus "Choose an image"
 ```
 
 `readEntry` is a `TypeError` for a non-string and never throws for a string. `presetView` checks `view` as `mergeView`
@@ -822,12 +873,13 @@ does and `preset` against `PRESET_IDS` or null.
 // src/features/preview/templates/load.ts (R6-33)
 type TemplateProps = { readonly spec: DesignSpec; readonly view: View };
 type TemplateModule = { readonly default: ComponentType<TemplateProps> };
-const TEMPLATE_LOADERS: Readonly<Record<TemplateId, () => Promise<TemplateModule>>>;   // loadOnce each, frozen
+type LazyTemplateId = Exclude<TemplateId, "landing">;
+const TEMPLATE_LOADERS: Readonly<Record<LazyTemplateId, () => Promise<TemplateModule>>>;   // loadOnce each, frozen
 type IdleScheduler = (run: () => void) => () => void;   // schedules `run`, returns its cancel
 function idleScheduler(win: Pick<Window, "setTimeout" | "clearTimeout"> &
   Partial<Pick<Window, "requestIdleCallback" | "cancelIdleCallback">>): IdleScheduler;
 function preloadTemplates(shown: TemplateId, schedule: IdleScheduler,
-  loaders?: Readonly<Record<TemplateId, () => Promise<unknown>>>): () => void;   // the other five; returns a cancel
+  loaders?: Readonly<Record<LazyTemplateId, () => Promise<unknown>>>): () => void;   // the lazy ones not shown; a cancel
 const TEMPLATE_LINES: Readonly<Record<"loading" | "failed" | "retry", string>>;  // R6-33, frozen
 
 // src/features/flavor/video.ts (R6-35, R6-36): additions
@@ -835,7 +887,7 @@ function brandDescription(props: BrandProps): string;   // 13.1
 // FLAVOR_LINES gains "pause-background" and "pause-video"
 ```
 
-Each template file gains a default export of its component (the named export stays for its tests). `preloadTemplates` is a
+Each lazy template file gains a default export of its component (the named export stays for its tests). `preloadTemplates` is a
 `RangeError` for a `shown` outside `TEMPLATE_IDS` and a `TypeError` for a `schedule` that is not a function; a loader that
 fails is not retried by the preload (the next switch tries it). `brandDescription` checks `props` as `brandProps`' output:
 `name`, `oneLiner` and `lot` strings, `fonts` an object of two strings, `checks` two whole numbers, `palettes` an array
@@ -876,8 +928,8 @@ export function auditTable(rows);                // README markdown, 12.4
 export async function runLighthouse(url, formFactor, options);   // the LHR; options: { timeoutMs }
 ```
 
-`categoryScores`, `auditRecord` and `a11yFailures` are a `TypeError` for an `lhr` that is not an object and a `RangeError`
-for one without `categories` or with a `runtimeError`. `auditPlan` is a `RangeError` for an empty list or a `runs` that is
+`categoryScores`, `auditRecord`, `a11yFailures` and `a11yVerdict` are a `TypeError` for an `lhr` that is not an object,
+and a `RangeError` for one without `categories`, with a `runtimeError`, or whose accessibility score is null. `auditPlan` is a `RangeError` for an empty list or a `runs` that is
 not a whole number from 1 to 10. `median` is a `RangeError` for an empty list or a value that is not a finite number.
 `scriptTotals` is a `TypeError` for a non-array and a `RangeError` for a response without numeric `bytes` and
 `transferred`. `ttfbPlan` is a `RangeError` for an empty list or a `rounds` that is not a whole number from 1 to 100.
@@ -1005,7 +1057,7 @@ bg-panel p-5` box, and in it, in order:
 | Tags | `<p data-tags>` "mood: " and the tags joined by ", " |
 | Specimen | 7.3 |
 | Facts | `<dl>` of four rows: "Type" with "<display> and <body>" (one name when they are the same family), "Preset" with the preset label, "Receipt" with `summaryLines(summary)[0]`, "Lot" with the lot in Geist Mono |
-| Links | "Open in the studio" to `entryHref("studio", link)` and "Details" to `/gallery/<slug>`, each `min-h-8`; the accessible names are "Open <name> in the studio" and "Details of <name>" (a visually hidden span adds the name, so the visible words stay inside the name, WCAG 2.5.3) |
+| Links | "Open in the studio" to `openHref(slug, "studio")` and "Details" to `/gallery/<slug>`, each `min-h-8`; a visually hidden span after the visible words gives the accessible names "Open in the studio, <name>" and "Details of <name>", so each name starts with its visible label (WCAG 2.5.3, axe's `label-content-name-mismatch`) and no two links share a name |
 
 `GalleryCard.tsx` is a server component; the page sends no `gallery.json` to the browser.
 
@@ -1035,7 +1087,7 @@ statusLeft="dyelot ~/gallery/<slug>" statusRight="muizz-lab · MIT"`, then:
    a swatch (`aria-hidden`), the role's name and its hex in Geist Mono.
 7. `h2` "Type" and a `table` with the caption "The type ladder" and the columns "Step", "Size", "Line height" and
    "Family": ten rows, caption to display, sizes as "<n> px", the family's name (display or body).
-8. `h2` "Open it": the links "Open in the studio", "Open in the explorer" and "Open in the motion lab" (`entryHref`), the
+8. `h2` "Open it": the links "Open in the studio", "Open in the explorer" and "Open in the motion lab" (`openHref`), the
    button "Copy the studio link" (R6-16) and its status line, and the link "Back to the gallery".
 
 The page holds no color outside its specimens and the chrome (I-M6-06).
@@ -1045,7 +1097,8 @@ The page holds no color outside its specimens and the chrome (I-M6-06).
 ### 8.1 One entry's card
 
 `GalleryShareCard({ card, icon })`: the M0 card's ground (`INK.background`, `DOT_GRID`, the madder glow) and, in a flex
-column with 64 px padding:
+column with the M0 card's padding (72 px at the sides, so `CONTENT_WIDTH` is 1,056 px), these parts. `share-card.tsx`
+exports `INK`, `DOT_GRID` and `CONTENT_WIDTH`, which it keeps private today; nothing else in it changes.
 
 1. The brand row: the icon at 48 px and "dyelot" (Geist Mono 700, 40 px), as `ShareCard` draws it.
 2. `// gallery/<slug>` (400, 28 px, `INK.muted`).
@@ -1111,7 +1164,8 @@ story, with these parts in order. `RECEIPT_LINES` holds the fixed sentences; `re
    pass, and the linter found <errors>." (`<errors>` is "no error", "1 error" or "<n> errors"), holding a `pre` of
    `excerptText(excerpt.summary)`.
 4. A figure (`data-excerpt="contrast"`) captioned "One of the <checks> contrast checks: <foreground> on <background> in
-   <mode> mode, measured and never rounded.", holding a `pre` of `excerptText(excerpt.contrast)`.
+   <mode> mode, measured, with the ratio cut to four decimals so it never rounds up.", holding a `pre` of
+   `excerptText(excerpt.contrast)`.
 5. A figure (`data-excerpt="finding"`) captioned "One finding of the linter, with the rule it comes from.", holding a
    `pre` of `excerptText(excerpt.finding)`; when `finding` is null, the caption "The linter found nothing to note in this
    design." and no `pre`.
@@ -1132,8 +1186,9 @@ active link's underline sits 2 px below its own box (`after:-bottom-[2px]`) inst
 marks no link (M0's test "the nav marks no link as current on the 404 page" stands).
 
 `src/app/sitemap.ts` returns `sitemapEntries(SITE, galleryRoutes())`, so `/sitemap.xml` lists `/`, `/studio`, `/explore`,
-`/motion`, `/gallery`, `/about` and then the 24 entry pages. `sitemapEntries(site, more = [])` is a `RangeError` for a
-route in `more` that repeats one of `site.routes.sitemap` or that `site.routes.disallow` would disallow.
+`/motion`, `/gallery`, `/about` and then the 24 entry pages. `sitemapEntries(site, more = [])` is a `TypeError` for a
+`more` that is not an array, and a `RangeError` for a route in `more` that does not start with `/`, repeats one of
+`site.routes.sitemap`, or that `site.routes.disallow` would disallow.
 
 ### 9.4 `start.log`
 
@@ -1183,7 +1238,9 @@ for `color`; its history is empty, so Undo does nothing.
 The studio shell takes the entry once, in an effect after its first render: `store.getState().takeEntry()`. For `brief`,
 it opens the inputs drawer when the inputs panel is a drawer (`isDrawer.inputs`, its opener the toolbar's "Inputs"
 button), gives the Brief section the text (its `value`) and focuses its textarea; for `image`, it opens the drawer the same
-way and focuses the Image section's "Choose an image" input. In React's development double-render the second
+way and focuses the Image section's "Choose an image" input. The shell holds the taken entry in its state and passes it
+to `InputsPanel`, which passes `entryText` to `BriefSection` and `focusInput` to `ImageSection` (5.4). In React's
+development double-render the second
 `takeEntry()` returns null, so nothing happens twice.
 
 ### 10.3 The view a loaded design opens with
@@ -1222,14 +1279,15 @@ the paragraphs they belong to. No fact on the page shows a ruling id; the table 
 | privacy | | When you ask for AI, dyelot tries, in order: the model built into Chrome, if you turned it on; your own OpenRouter key, if you connected one; dyelot's shared free quota; then the word list. Each result says which one answered. | R4-30 |
 | privacy | | The model built into Chrome runs on your device, and what you type stays there. Its switch is marked experimental. | R4-31; DR-0039 |
 | privacy | | Your own key stays in this browser tab, unless you choose to remember it on this device, and it never reaches dyelot's server: your browser calls OpenRouter directly, and dyelot records nothing of those calls. | R4-29, R4-33, R4-34 |
-| privacy | | With your key or the shared quota, what an action needs goes to OpenRouter and the model's provider: your brief, your words for Refine, the design's settings and findings, or, for Read the vibe, a copy of your image at most 768 pixels on its longest side. On the shared quota it passes through dyelot's server first. | R4-09, R4-39, R4-45, R4-46, R4-48 to R4-50 |
-| privacy | | On the shared quota, dyelot records each action in Langfuse, a tracing service, to see which free models fail: the messages sent, your brief and your words for Refine among them, and the models' answers. An image is recorded only as its size in bytes and its width and height. | R4-52; the owner's ruling of 2026-11-05 |
+| privacy | | With your key or the shared quota, what an action needs goes to OpenRouter and the model's provider: your brief, your words for Refine, the design's settings and findings, or, for Read the vibe, the image's main colors and a copy of the image at most 768 pixels on its longest side. On the shared quota it passes through dyelot's server first. | R4-09, R4-39, R4-45, R4-46, R4-48 to R4-50 |
+| privacy | | On the shared quota, dyelot records each action in Langfuse, a tracing service, to see which free models fail: the messages sent, your brief, your words for Refine and an image's main colors among them, and the models' answers. An image itself is recorded only as its size in bytes and its width and height. | R4-52; `src/server/ai/trace.ts`; the owner's ruling of 2026-11-05 |
 | privacy | | Each visitor gets three shared actions a day. A signed cookie counts them; it holds the day and the count, and nothing that names you. | R4-18 |
+| privacy | | The shared quota also keeps each answer in its server's memory for up to 24 hours, filed under a hash of the request, so the same request can be answered again without a model call. | R4-19 |
 | privacy | | An image you choose is read in your browser. Nothing of it leaves your device until you press Read the vibe. | R4-46 |
 | privacy | | The brand video is made in your browser by Remotion, the video library dyelot uses. Remotion sends one usage event to remotion.pro for each render, with your IP address and this site's address. It never sends the video or the design, and dyelot cannot turn it off. A note says so before the first render, and recording the shader loop sends nothing. | R5-53 to R5-56 |
-| privacy | | dyelot has no analytics, no advertising and no tracking. A design lives in its link and, as a draft, in this browser's storage; dyelot's server keeps no design. | umbrella §3, §15; R5-58; R6-22 |
+| privacy | | dyelot has no analytics and no advertising, and tracks nothing beyond what this section names. A design lives in its link and, as a draft, in this browser's storage; dyelot's server keeps no design. | umbrella §3, §15; R5-58; R6-22 |
 | licenses | Licenses | dyelot is open source under the MIT license. | umbrella §12 |
-| licenses | | Every font family is under the SIL Open Font License, the Apache License 2.0 or the Ubuntu Font License, and dyelot serves each one from its own site, with no request to a font service. | umbrella §6; R2-03 |
+| licenses | | Every font family dyelot uses is under the SIL Open Font License, and dyelot serves each one from its own site, with no request to a font service. | umbrella §6; R2-03; `src/engine/fonts/catalog.ts` |
 | licenses | | Remotion, which makes the brand video, is source-available under its own license, not open source. It is free for individuals and for companies of up to three people; a company of four or more people needs a Remotion Company License to use it. dyelot uses it as an individual's project. | R5-55; 11.4 of M5 |
 | licenses | | Mediabunny, which records the shader loop, is under the Mozilla Public License 2.0 and is used unmodified. | R5-50; `README.md` |
 | licenses | | The noise in the animated background is the simplex noise of webgl-noise by Ian McEwan and Ashima Arts, under the MIT license; its notice is kept in the code and in the export. | R5-24; `src/flavor/flavor.mjs` |
@@ -1261,17 +1319,21 @@ import { chromium } from "@playwright/test";
 import lighthouse, { desktopConfig } from "lighthouse";
 import { CATEGORIES, FORM_FACTORS } from "./audit-core.mjs";
 
-export async function runLighthouse(url, formFactor, { timeoutMs = 120_000 } = {}) {
-  // formFactor is checked against FORM_FACTORS first (RangeError naming runLighthouse)
+export async function runLighthouse(url, formFactor, options = {}) {
+  const { timeoutMs = 120_000, args = [], launch = (dir, o) => chromium.launchPersistentContext(dir, o) } = options;
+  // url (TypeError) and formFactor (RangeError against FORM_FACTORS) are checked first, each naming runLighthouse
   const dir = mkdtempSync(join(tmpdir(), "dyelot-lh-"));
-  const context = await chromium.launchPersistentContext(dir, {
+  const context = await launch(dir, {
     headless: true,
-    args: ["--remote-debugging-port=0"],
+    viewport: null, // Playwright applies no viewport, so Lighthouse's own screen emulation holds
+    args: ["--remote-debugging-port=0", ...args],
   });
   try {
     const port = await debuggingPort(dir);   // the first line of <dir>/DevToolsActivePort, polled for up to 10 s
     const flags = { port, output: "json", logLevel: "error", onlyCategories: [...CATEGORIES], maxWaitForLoad: 45_000 };
-    const result = await withTimeout(lighthouse(url, flags, formFactor === "desktop" ? desktopConfig : undefined), timeoutMs);
+    const run = lighthouse(url, flags, formFactor === "desktop" ? desktopConfig : undefined);
+    run.catch(() => {}); // a run that loses to the timeout rejects later; this keeps it from going unhandled
+    const result = await withTimeout(run, timeoutMs);
     if (result === undefined) throw new RangeError("runLighthouse: Lighthouse returned no result");
     return result.lhr;
   } finally {
@@ -1281,24 +1343,28 @@ export async function runLighthouse(url, formFactor, { timeoutMs = 120_000 } = {
 }
 ```
 
-Mobile is Lighthouse's default configuration (a mobile screen and simulated slow 4G with four times CPU slowdown); desktop
-is `desktopConfig` (a desktop screen, simulated dense 4G, no CPU slowdown). Both are lab measures in Playwright's bundled
-Chromium.
+Mobile is Lighthouse's default configuration (a 412 px mobile screen and simulated slow 4G with four times CPU
+slowdown); desktop is `desktopConfig` (a desktop screen, simulated dense 4G, no CPU slowdown). Both are lab measures in
+Playwright's bundled Chromium. `args` carries extra Chromium flags (probe 1 may add `--force-prefers-reduced-motion`
+for the gate); `launch` is injectable so a test can see whether a browser was launched.
 
 ### 12.2 The flow
 
-`tests/e2e/lighthouse-m6.spec.ts` configures `test.describe.configure({ mode: "serial" })` and a 180 s timeout per test.
-For each route of `AUDIT_ROUTES` and each form factor, in that order, one test titled with its F-LH6 id, the route and the
-form factor:
+`playwright.config.ts` gains the project `{ name: "lighthouse", testMatch: /lighthouse-m6\.spec\.ts/, dependencies:
+["chromium"], retries: 1, fullyParallel: false }`, and the `chromium` project takes `testIgnore: /lighthouse-m6\.spec\.ts/`.
+The file sets a 180 s timeout per test and keeps the default mode. For each route of `AUDIT_ROUTES` and each form factor,
+in that order, one test titled with its F-LH6 id, the route and the form factor:
 
 1. `const lhr = await runLighthouse(new URL(route, baseURL).href, formFactor)`.
 2. `auditRecord(lhr)` is written to `test-results/lighthouse/<routeName(route)>-<formFactor>.json` and attached.
 3. `expect(lhr.categories.accessibility.score, a11yFailures(lhr).join(", ")).toBeGreaterThanOrEqual(0.95)`.
 
 `auditRecord(lhr)` is `{ url, formFactor, lighthouseVersion, fetchTime, scores: categoryScores(lhr), metrics: { fcp, lcp,
-tbt, cls, si }, scripts: { requests, transferSize } }`: the metrics are the `numericValue`s of
+tbt, cls, si }, scripts: { requests, transferSize }, consoleErrors }`: the metrics are the `numericValue`s of
 `first-contentful-paint`, `largest-contentful-paint`, `total-blocking-time`, `cumulative-layout-shift` and `speed-index`,
-and the scripts come from the `resource-summary` audit's `script` row.
+the scripts come from the `resource-summary` audit's `script` row, and `consoleErrors` is the item list of the
+`errors-in-console` audit (Lighthouse's browser is not the one the watch fixture sees, so a CSP violation during an audit
+shows only there).
 
 ### 12.3 Goals for the deployed site (owner approval item 4)
 
@@ -1327,12 +1393,12 @@ first byte), and section 18 of the next spec or the owner decides; it never bloc
    the nonce CSP (R4-26).
 3. **Chunk sizes.** For each route, a fresh Chromium context loads it and waits for `load`; `scriptTotals` sums every
    response whose request's resource type is `script`: its decoded body length and its transferred size
-   (`request.sizes().responseBodySize`).
+   (`request.sizes().responseBodySize`); and the HTML document's decoded and transferred bytes the same way.
 4. The machine's `os.loadavg()` before and after, and the date.
 
 The README's M6 section records the three tables: Lighthouse medians (route, form factor, the four scores, LCP, TBT,
-CLS), first-byte medians (path, median ms, the difference from `/robots.txt`), and chunk sizes (route, scripts, decoded
-KB, transferred KB), each headed "Measured on <date>" with the load average. Nothing is rounded before the table: scores
+CLS), first-byte medians (path, median ms, the difference from `/robots.txt`), and page weight (route, scripts, script KB
+decoded and transferred, HTML KB decoded and transferred), each headed "Measured on <date>" with the load average. Nothing is rounded before the table: scores
 as 0 to 100 integers as Lighthouse shows them, times in whole milliseconds, sizes in KB to one decimal.
 
 ## 13. The deferred fixes (Tasks 6.7 to 6.9)
@@ -1360,14 +1426,15 @@ contents (06-gallery.md, R6-35)."
 
 ### 13.3 Lazy templates (G1)
 
-`templates/index.tsx` keeps `TEMPLATE_LABELS`, `FIXED_FRAMES` and `Template`, and `Template` renders `<LazyTemplate
-id={view.template} spec={spec} view={view} />`: a component that keeps one `React.lazy` per template id (created from
-`TEMPLATE_LOADERS[id]` on first use, and again after "Try again"), inside `<Suspense fallback={<p role="status"
-data-template-loading>Loading the template…</p>}>` and an error boundary whose fallback is `<div role="alert"
-data-template-failed>` with "This template could not load." and a "Try again" button. Each template file adds `export
-default <Name>`. `Canvas.tsx` starts `preloadTemplates(view.template, idleScheduler(window))` in an effect after its first
-render and cancels it on unmount. `idleScheduler` uses `requestIdleCallback(run, { timeout: 2000 })` when the window has
-it, else `setTimeout(run, 1000)`.
+`templates/index.tsx` keeps `TEMPLATE_LABELS`, `FIXED_FRAMES` and `Template`, imports `Landing` statically, and renders
+any other id as `<LazyTemplate id={view.template} spec={spec} view={view} />`: a component that keeps one `React.lazy`
+per lazy template id (created from `TEMPLATE_LOADERS[id]` on first use, and again after "Try again"). `Canvas.tsx` wraps
+the keyed `<ViewTransition>` (inside `MotionScope`) in `<TemplateBoundary>`: an error boundary whose fallback is `<div
+role="alert" data-template-failed>` with "This template could not load." and a "Try again" button, around `<Suspense
+fallback={<p role="status" data-template-loading>Loading the template…</p>}>`. The boundary is outside the key, so a
+switch never mounts a new one. Each lazy template file adds `export default <Name>`. `Canvas.tsx` starts
+`preloadTemplates("landing", idleScheduler(window))` in an effect after its first render and cancels it on unmount.
+`idleScheduler` uses `requestIdleCallback(run, { timeout: 2000 })` when the window has it, else `setTimeout(run, 1000)`.
 
 ### 13.4 The settings template's clip margin (G2)
 
@@ -1380,9 +1447,8 @@ none of this lands and section 18's row says why.
 ### 13.5 Code fixes (G4, G5)
 
 - `codeFiles` (R6-39) keeps a stack of folders, reads each with `read(folder, { withFileTypes: true })`, pushes child
-  folders whose name is not `PROBE_DIR`, and collects files matching `CODE_FILE` that are not `GUARD3_04_PROBE`; a child
-  read that fails with `ENOENT` on a probe path is skipped, any other failure throws `Error("codeFiles: cannot read
-  <folder>: <code>")`; an empty result is a `RangeError` "codeFiles: <directory> holds no code file".
+  folders whose name is not `PROBE_DIR`, and collects files matching `CODE_FILE` that are not `GUARD3_04_PROBE`; a read
+  that fails throws `Error("codeFiles: cannot read <folder>: <code>")`; an empty result is a `RangeError` "codeFiles: <directory> holds no code file".
 - `src/features/ai/load.ts`, `src/features/export/useBundle.ts` and `src/features/import/ImportDialog.tsx` build their
   loaders with `loadOnce` (R6-40).
 - `src/export/guards.ts` (R6-41); `bundle.ts` calls `httpsOrigin(input.origin, "buildBundle")` and `flavor.ts`
@@ -1421,20 +1487,20 @@ Tests: `tests/unit/features/gallery/defs.test.ts`, `tests/unit/features/gallery/
 | C-GAL6-05 | pass | Every entry rebuilds: `spec = decodeSpec(link)`, then `generateSystem(resolveParams(paramsOfSpec(spec).params, spec.meta.seed), spec.meta.seed, { createdWith: spec.meta.createdWith })` has `specId(spec)`; `lintSpec(spec)` has no error; `exportState(summary, "loaded")` is `"passing"` | ruling R6-10, I-M6-02 |
 | C-GAL6-06 | pass | The six hero entries: `link` equals `HERO_CARDS.cards[i].href` after `/studio#s=`; `specId` is `specId(heroSpec(i))`; `createdWith` `"controls"`; `preset` null and `presetLabel` "Custom"; `line` "One locked seed, <hex of R5-31's row>, and the studio's defaults."; `brief` null and `terms` `[]` | ruling R6-05, 6.3 |
 | C-GAL6-07 | pass | For every entry: `specId` is `specId(decodeSpec(link))` and `lot` is `lotTag(specId)`; `presetLabel` is `PRESETS[preset].label` or "Custom"; `families` are `FONT_CATALOG`'s family names of the spec's three ids; `specimen` holds primary, secondary, accent, neutral and danger in that order, each the light hexes of steps 100, 300, 500, 700 and 900; `scales` hold each mode's 8 × 11 hexes; `roles` hold the six roles of 7.2 of M5 in each mode; `type` holds the ten steps with the spec's sizes and line heights, the display family for `display` and `h1` to `h4` and the body family for the rest, as `dtcg.ts`'s `HEADING_STEPS` assigns them; every hex is lowercase `#rrggbb` | ruling R6-08 |
-| C-GAL6-08 | pass | Words: each name is 1 to 24 characters of letters and single spaces; each slug matches `^[a-z]+(-[a-z]+)*$`, is unique and is the name in lowercase with hyphens; each brief is plain text (`isPlainText`) of 30 to 100 characters ending in one period, with no color literal; no word of `DENY_LIST` (whole words, any case) is in a name, slug, brief or tag; each name, brief and line passes C-GUARD6-08's copy check; no entry's `link` holds C-CONTRAST-12's forbidden four letters in any case | ruling R6-12 |
+| C-GAL6-08 | pass | Words: each name is 1 to 18 characters of letters and single spaces; each slug matches `^[a-z]+(-[a-z]+)*$`, is unique and is the name in lowercase with hyphens; each brief is plain text (`isPlainText`) of 30 to 100 characters ending in one period, with no color literal; no word of `DENY_LIST` (whole words, any case) is in a name, slug, brief or tag; each name, brief and line passes C-GUARD6-08's copy check; no entry's `link` holds C-CONTRAST-12's forbidden four letters in any case | ruling R6-12 |
 | C-GAL6-09 | pass | Coverage: the 18 brief entries' presets hold all 14 `PRESET_IDS`; each entry has one or two tags in `GALLERY_TAGS` order, none twice; the tag counts equal 6.2 (7, 7, 4, 6, 8, 7) | ruling R6-05, R6-07 |
 | C-GAL6-10 | failure | `briefSpec` refuses: a brief holding `#ff0000` (a color) and one matching no term ("Nothing here reads as a mood or a place.") throw `RangeError` naming `briefSpec` and the slug; `briefSpec(null, AI)` and a row of `source: "hero"` throw `TypeError` and `RangeError`; an `ai` without `briefChange` throws `TypeError`; each message starts with `briefSpec`; `galleryData(null)` throws `TypeError` naming `galleryData` | ruling R6-06, R-05 |
 | C-GAL6-11 | pass | `entryDescription(entry)` is "<line> <passed> of <required> required contrast checks pass." for every entry and has 50 to 160 characters; the entry page's metadata has the name as title and `/gallery/<slug>` as canonical | ruling R6-17 |
-| C-GAL6-12 | failure | `entryOf(3)` and `entriesTagged(5)` throw `TypeError`; `entriesTagged("loud")` throws `RangeError`; `entryOf("Madder")`, `entryOf("nope")` and `entryOf("")` give null; `galleryEntry(null, DEFS[0], [])` throws `TypeError` and `galleryEntry(SPEC, { ...DEFS[6], slug: "Bad Slug" }, [])` `RangeError`; `entryDescription(null)` throws `TypeError` and an entry whose line has 130 characters (161 in all) `RangeError`; each message starts with its function's name | ruling R6-08, R6-17, R-05 |
+| C-GAL6-12 | failure | `entryOf(3)` and `entriesTagged(5)` throw `TypeError`; `entriesTagged("loud")` throws `RangeError`; `entryOf("Madder")`, `entryOf("nope")` and `entryOf("")` give null; `galleryEntry(null, DEFS[0], [])` throws `TypeError` and `galleryEntry(SPEC, { ...DEFS[6], slug: "Bad Slug" }, [])` `RangeError`; `entryDescription(null)` throws `TypeError` and an entry whose line has 121 characters (161 in all) `RangeError`; each message starts with its function's name | ruling R6-08, R6-17, R-05 |
 | C-GAL6-13 | pass | `entriesTagged("all")` and `entriesTagged("unknown")` give the 24 entries in order; `entriesTagged("calm")` the seven of 6.2 in `GALLERY_DEFS` order; `galleryRoutes()` gives the 24 `/gallery/<slug>` in order | ruling R6-07, R6-31 |
-| C-GAL6-14 | pass | Property (50 runs, seed 6001): a brief row made of a slug, a name of letters, a seed and 3 to 8 lexicon terms joined by ", " and ending in a period (padded with "and more." to 30 characters), built twice by `briefSpec`, gives one spec id both times, `meta.createdWith` `"lexicon"`, and a spec `DesignSpecSchema` accepts | ruling R6-06, decision J1 |
+| C-GAL6-14 | pass | Property (50 runs, seed 6001): a brief row whose name is 1 to 18 letters, whose slug is that name in lowercase, with a seed string, and whose brief is "A " and lexicon terms joined by ", ", added while the brief stays at most 99 characters, then a period (padded with " and more" before the period to reach 30 characters), passes R6-12's checks; built twice by `briefSpec`, it gives one spec id both times, `meta.createdWith` `"lexicon"`, and a spec `DesignSpecSchema` accepts | ruling R6-06, decision J1 |
 | C-GAL6-RF2 | failure | Drift: `galleryData` with an `ai` whose `matchLexicon` returns another draft for one brief gives data that is not deep-equal to `GALLERY`, and the comparison's message names that entry's slug and says to run the update with `DYELOT_UPDATE_GALLERY=1` | RF2, ruling R6-04 |
 | C-TAG6-01 | pass | `GALLERY_TAGS` is the six of R6-07 in order, frozen; `readTag(undefined)` is `"all"`; `readTag(tag)` is `tag` for each of the six | ruling R6-07 |
 | C-TAG6-02 | failure | `readTag("")`, `readTag("CALM")`, `readTag("calm ")`, `readTag("loud")` and `readTag(["calm", "bold"])` are `"unknown"`; `readTag(5)` and `readTag(null)` throw `TypeError` naming `readTag` | ruling R6-07, R-05 |
-| C-GAL6-15 | pass | `entryHref("studio", L)` is `/studio#s=L`, and likewise for `explore` and `motion`; `absoluteStudioLink("https://dyelot.vercel.app", L)` is `https://dyelot.vercel.app/studio#s=L`, for `L` each entry's link | ruling R6-14, R6-16 |
-| C-GAL6-16 | failure | `entryHref("gallery", L)`, `entryHref("studio", "")`, `entryHref("studio", "a b")` and `entryHref("studio", "x".repeat(65_537))` throw `RangeError`; `entryHref(3, L)` and `entryHref("studio", 3)` `TypeError`; `absoluteStudioLink("http://a.test", L)` and `absoluteStudioLink("https://a.test/x", L)` `RangeError`, `absoluteStudioLink(null, L)` `TypeError`; each names its function | ruling R6-14, R-05 |
+| C-GAL6-15 | pass | `entryHref("studio", L)` is `/studio#s=L`, and likewise for `explore` and `motion`; `openHref("kermes", "motion")` is `/gallery/kermes/open/motion`; `absoluteStudioLink("https://dyelot.vercel.app", L)` is `https://dyelot.vercel.app/studio#s=L`, for `L` each entry's link | ruling R6-14 to R6-16 |
+| C-GAL6-16 | failure | `entryHref("gallery", L)`, `entryHref("studio", "")`, `entryHref("studio", "a b")` and `entryHref("studio", "x".repeat(65_537))` throw `RangeError`; `entryHref(3, L)` and `entryHref("studio", 3)` `TypeError`; `absoluteStudioLink("http://a.test", L)` and `absoluteStudioLink("https://a.test/x", L)` `RangeError`, `absoluteStudioLink(null, L)` `TypeError`; `openHref("Bad Slug", "studio")` and `openHref("kermes", "lab")` throw `RangeError` and `openHref(1, "studio")` `TypeError`; each names its function | ruling R6-14, R6-15, R-05 |
 | C-CARD6-01 | pass | `galleryCards(GALLERY)` gives 24 cards in order, each `{ slug, name, line, strip, passed, required }` with `strip` the five specimen palettes' step-500 hexes in order and the two counts from `summary.contrast` | ruling R6-09 |
-| C-CARD6-02 | pass | `GALLERY_CARDS` (the committed JSON) deep-equals `galleryCards(GALLERY)`; the update switch acts as in C-GAL6-02; `cards.json` is under 16 KB | ruling R6-04, R6-09 |
+| C-CARD6-02 | pass | `GALLERY_CARDS` (the committed JSON) deep-equals `galleryCards(GALLERY)`; with `DYELOT_UPDATE_GALLERY=1` the test writes `galleryCards(galleryData(AI))`, and with `CI` also set it fails before writing; `cards.json` is under 16 KB | ruling R6-04, R6-09 |
 | C-CARD6-03 | failure | `galleryCards(null)` throws `TypeError`; an entry whose specimen lacks `danger` throws `RangeError` naming `galleryCards` and the slug; `cardOf(1)` throws `TypeError`; `cardOf("nope")` gives null | ruling R6-09, R-05 |
 | C-REC6-01 | pass | `receiptExcerpt(RECEIPT_TEXT)`: `format` `"dyelot.check/1"`, `name` "Madder", `checks` 80, `summary` equal to the receipt's, `contrast` equal to its first entry (`C1:foreground/background`, light, required, passing) and `finding` equal to its first finding (`D3`, dark, `primary-600`) | ruling R6-11 |
 | C-REC6-02 | pass | `RECEIPT_EXCERPT` (the committed JSON) deep-equals `receiptExcerpt(RECEIPT_TEXT)`; the update switch acts as in C-GAL6-02; a receipt with `findings: []` gives `finding` null | ruling R6-04, R6-11 |
@@ -1448,18 +1514,20 @@ Tests: `tests/e2e/gallery.spec.ts`, with `tests/e2e/flavor-support.ts`.
 | Id | Kind | Case | Origin |
 |---|---|---|---|
 | F-GAL6-01 | pass | `/gallery`: one `h1` "The gallery"; the intro with 6 and 18; the filter `nav` "Filter by mood" with "all" and the six tags in order, "all" carrying `aria-current="page"`; "All 24 designs."; 24 `[data-gallery-card]` in `GALLERY_DEFS` order by `data-slug`; the nav's "gallery" link is current | ruling R6-13 |
-| F-GAL6-02 | pass | The cards of `madder` and `kermes`: the `h2` name, the line, "mood: bold" and "mood: calm, editorial", 25 specimen swatches whose computed background colors are the specimen's hexes in order, "Host Grotesk" (one name) and "Schibsted Grotesk and Source Serif 4", "Custom" and "Editorial", "78 of 78 required contrast checks pass", the lot; "Open Madder in the studio" with `href` `/studio#s=<link>` and "Details of Madder" with `/gallery/madder` | ruling R6-14, R6-08 |
+| F-GAL6-02 | pass | The cards of `madder` and `kermes`: the `h2` name, the line, "mood: bold" and "mood: calm, editorial", 25 specimen swatches whose computed background colors are the specimen's hexes in order, "Host Grotesk" (one name) and "Schibsted Grotesk and Source Serif 4", "Custom" and "Editorial", "78 of 78 required contrast checks pass", the lot; the link named "Open in the studio, Madder" with `href` `/gallery/madder/open/studio` and "Details of Madder" with `/gallery/madder` | ruling R6-14, R6-08 |
 | F-GAL6-03 | pass | `/gallery?tag=calm`: "7 of 24 designs are tagged calm.", the seven cards of 6.2 in order, "calm" current and "all" not | ruling R6-13, R6-07 |
 | F-GAL6-04 | failure | `/gallery?tag=loud`, `?tag=`, `?tag=calm&tag=bold` and `?tag=%3Cscript%3Ealert(1)%3C%2Fscript%3E`: "That mood is not one of the six, so every design shows.", "All 24 designs.", 24 cards, "all" current; the page's text holds none of the query values; no console error and no dialog | RF2, ruling R6-07, R6-13 |
-| F-GAL6-05 | pass | `/gallery/kermes`: the `h1` "Kermes", the line, "Made from this brief by the studio's word list, with no model. It matched: slow, longform, magazine, serif, warm, paper, burgundy."; the `dl`; the four lines of `summaryLines`; two scale figures of 88 swatches each whose colors are `scales.light` and `scales.dark`; the six roles per mode with their hexes; the type table's ten rows; "Open in the studio", "Open in the explorer" and "Open in the motion lab" with `entryHref` hrefs; "Back to the gallery". `/gallery/madder` says "Made from one seed color with the studio's controls." | ruling R6-15 |
-| F-GAL6-06 | pass | The round trip: on `/gallery`, "Open Kermes in the studio" opens the studio with the name "Kermes", the lot `KERMES.lot` and the preset select on "Editorial"; the Receipt section passes; no "Rebuild from the parameters"; the export dialog's "Download" is enabled and the zip's `receipt.json` holds `design.createdWith` `"lexicon"` and `summary.pass` true | ruling R6-10, I-M6-02, decision B5 |
+| F-GAL6-05 | pass | `/gallery/kermes`: the `h1` "Kermes", the line, "Made from this brief by the studio's word list, with no model. It matched: slow, longform, magazine, serif, warm, paper, burgundy."; the `dl`; the four lines of `summaryLines`; two scale figures of 88 swatches each whose colors are `scales.light` and `scales.dark`; the six roles per mode with their hexes; the type table's ten rows; "Open in the studio", "Open in the explorer" and "Open in the motion lab" with `openHref` hrefs; "Back to the gallery". `/gallery/madder` says "Made from one seed color with the studio's controls." | ruling R6-15 |
+| F-GAL6-06 | pass | The round trip: on `/gallery`, "Open in the studio, Kermes" follows its redirect and opens the studio at `/studio#s=<KERMES.link>` with the name "Kermes", the lot `KERMES.lot` and the preset select on "Editorial"; the Receipt section passes; no "Rebuild from the parameters"; the export dialog's "Download" is enabled and the zip's `receipt.json` holds `design.createdWith` `"lexicon"` and `summary.pass` true | ruling R6-10, I-M6-02, decision B5 |
 | F-GAL6-07 | failure | `/gallery/nope`, `/gallery/Madder` and `/gallery/madder%20` answer 404 with the terminal 404 page; no nav link is current | ruling R6-15 |
 | F-GAL6-08 | pass | With clipboard permission, "Copy the studio link" on `/gallery/kermes` puts `<origin>/studio#s=<KERMES.link>` on the clipboard and the status line reads "Copied the studio link." | ruling R6-16 |
 | F-GAL6-09 | failure | With `CLIPBOARD_DENY`, the press shows a read-only field holding the link, selected, and "Copy blocked. Select the link below."; no console error and no raw error | ruling R6-16, I-M6-04 |
-| F-GAL6-10 | pass | From `/gallery/turquoise`, "Open in the explorer" opens `/explore` whose summary (`[data-explorer-summary]`) names Turquoise, and "Open in the motion lab" opens `/motion` with `#s=<TURQUOISE.link>` and an empty notice line (`[data-lab-notice]`) | ruling R6-15 |
+| F-GAL6-10 | pass | From `/gallery/turquoise`, "Open in the explorer" opens, through its redirect, `/explore` whose summary (`[data-explorer-summary]`) names Turquoise, and "Open in the motion lab" opens `/motion` with `#s=<TURQUOISE.link>` and an empty notice line (`[data-lab-notice]`) | ruling R6-15 |
 | F-GAL6-11 | pass | Metadata: `/gallery` has the title "Gallery — dyelot", 7.1's description and the canonical `<origin>/gallery`; `/gallery/kermes` has "Kermes — dyelot", `entryDescription(KERMES)` and `<origin>/gallery/kermes`, and its `og:image` and `twitter:image` start with `<origin>/gallery/kermes/opengraph-image` | ruling R6-17 |
-| F-GAL6-12 | pass | Color only in specimens: on `/gallery` and `/gallery/kermes`, every element outside `[data-specimen]` has a computed `color`, `background-color` and `border-color` that is transparent, achromatic (OKLCH chroma below 0.02 through the shared sRGB resolver) or madder `#f66c6d` | ruling R6-14, I-M6-06 |
-| F-GAL6-13 | pass | No `/_next/static/chunks/*.js` file that `/gallery` or `/gallery/kermes` loads holds the first 40 characters of any entry's link | ruling R6-56, I-M6-03 |
+| F-GAL6-12 | pass | Color only in specimens: on `/gallery` and `/gallery/kermes`, every element outside `[data-specimen]` has a computed `color`, `background-color` and `border-color` that is transparent, of OKLCH chroma at most 0.02 through the shared sRGB resolver, one of the house neutrals `--fg-muted`, `--border`, `--border-bright` and `--panel` within two codes per channel, or madder `#f66c6d` (M2's F-A11Y-04 allowance, its `chromaOffenders` moved to a shared helper) | ruling R6-14, I-M6-06 |
+| F-GAL6-13 | pass | No `/_next/static/chunks/*.js` file that `/gallery` or `/gallery/kermes` loads holds the first 40 characters of any entry's link, and the HTML of `/gallery` holds none of them | ruling R6-14, R6-56, I-M6-03 |
+| F-GAL6-14 | pass | `GET /gallery/kermes/open/studio`, `/open/explore` and `/open/motion` (no redirect followed) answer `307` with `Location` `entryHref(<page>, KERMES.link)`; `page.goto("/gallery/kermes/open/studio")` ends at `/studio#s=<KERMES.link>` | ruling R6-15 |
+| F-GAL6-15 | failure | `GET /gallery/nope/open/studio`, `/gallery/kermes/open/lab` and `/gallery/Kermes/open/studio` answer 404 and no `Location` | ruling R6-15 |
 
 ### 14.3 The share cards (Task 6.3)
 
@@ -1469,10 +1537,10 @@ Tests: `tests/unit/site/gallery-card.test.tsx`, `tests/e2e/share-cards.spec.ts`.
 |---|---|---|---|
 | C-CARD6-04 | pass | `GalleryShareCard({ card: GALLERY_CARDS.cards[i], icon })`'s element tree, for `kermes` and `terre-verte`: holds `// gallery/<slug>`, the name, the line, five strip blocks whose `backgroundColor`s are `card.strip` in order, "<passed> of <required> required checks pass" and the footer `$ open dyelot.vercel.app/gallery/<slug>`; every element with more than one child sets `display: flex`; no style sets `display: grid`; `GALLERY_CARD_ALT` is 8.1's sentence | ruling R6-18 |
 | C-CARD6-05 | pass | `MosaicShareCard({ cards: GALLERY_CARDS.cards, icon })`: the headline "24 design systems, each with its receipt" with "receipt" in `SITE.accent`; four rows of six tiles in order, each holding five bands colored by its strip; `MOSAIC_ALT` is 8.2's sentence | ruling R6-19 |
-| C-CARD6-RF4 | pass | Fit: for every card, `wrapLines(line, 30 px)` over the card's text width with Geist Mono's advance gives at most two lines, and the name fits one line at 96 px; a probe line of 101 characters is refused by C-GAL6-08's bound before it can reach a card | RF4, ruling R6-12, R6-18 |
+| C-CARD6-RF4 | pass | Fit: for every card, `wrapLines(line.split(" "), Math.floor(CONTENT_WIDTH / (30 * GLYPH_ADVANCE)))` gives at most two lines, and `name.length` is at most `Math.floor(CONTENT_WIDTH / (96 * GLYPH_ADVANCE))` (18); a probe line of 101 characters and a probe name of 19 are refused by C-GAL6-08's bounds before they can reach a card | RF4, ruling R6-12, R6-18 |
 | F-SHARE6-01 | pass | `GET /gallery/madder/opengraph-image` answers 200 with `content-type` `image/png`; the body starts with the PNG signature, its `IHDR` reads 1200 × 630, and it is at most 512 KB | ruling R6-18 |
-| F-SHARE6-02 | pass | Contents: the PNG of `/gallery/kermes/opengraph-image`, drawn on a canvas in a blank page, holds a row of pixels with, left to right, five runs of at least 150 px whose colors are `KERMES`'s strip within ±1 per channel, and its top-left pixel is `#0a0a0a` ±1 | ruling R6-18 |
-| F-SHARE6-03 | pass | `GET /gallery/opengraph-image` answers `image/png`, 1200 × 630; a row of its pixels holds the first card's five strip colors, each as a run of at least 24 px, in order | ruling R6-19 |
+| F-SHARE6-02 | pass | Contents: the PNG of `/gallery/kermes/opengraph-image`, drawn on a canvas in a page of the same origin (after `page.goto("/robots.txt")`, so the canvas is not tainted), holds a row of pixels with, left to right, five runs of at least 150 px whose colors are `KERMES`'s strip within ±1 per channel, and its top-left pixel is `#0a0a0a` ±1 | ruling R6-18 |
+| F-SHARE6-03 | pass | `GET /gallery/opengraph-image` answers `image/png`, 1200 × 630; drawn as F-SHARE6-02 draws it, a row of its pixels holds the first card's five strip colors, each as a run of at least 24 px, in order | ruling R6-19 |
 | F-SHARE6-04 | failure | `GET /gallery/nope/opengraph-image` and `GET /gallery/Madder/opengraph-image` answer 404 and no `image/png` | RF4, ruling R6-18 |
 | F-SHARE6-05 | pass | `/studio`, `/about` and `/` keep the site's card: their `og:image` starts with `<origin>/opengraph-image`; `/robots.txt` disallows only `/api/` and `/connect/callback`, so `/gallery/` and its image routes stay allowed | ruling R6-20, decision D2 |
 
@@ -1483,13 +1551,13 @@ Tests: `tests/unit/features/about/copy.test.ts`, `tests/e2e/about-page.spec.ts`.
 | Id | Kind | Case | Origin |
 |---|---|---|---|
 | C-ABOUT6-01 | pass | `ABOUT_INTRO` and `ABOUT_SECTIONS` equal 11.2's table word for word, in order: four sections `math`, `receipt`, `privacy`, `licenses` with their headings, each paragraph's `text` and `restates`; `ABOUT_LINKS` equals 11.3's two rows; all deep-frozen | ruling R6-21 |
-| C-ABOUT6-02 | pass | Copy: no paragraph holds a banned word, `!`, an emoji, "colour", "behaviour", "grey", "centre" or "cancelled", the perceptual formula's trade name that umbrella §5 forbids (in any case), or a host of the never-use list (`bastion.vercel.app`, `paper-trail-backend.onrender.com`, `paper-trail-frontend.vercel.app`, a `-7h27` or `-izzu` host, `abdulmuizz.dev`); every link is `https:` | ruling R6-21, R6-59 |
+| C-ABOUT6-02 | pass | Copy: no paragraph holds a banned word, `!`, an emoji, "colour", "behaviour", "grey", "centre" or "cancelled", the perceptual formula's trade name that umbrella §5 forbids (in any case), or a host of `NEVER_USE_HOSTS` (`src/lib/site/define.ts`); every link is `https:` | ruling R6-21, R6-59 |
 | C-ABOUT6-03 | pass | Every `restates` entry is an umbrella section 00-design.md has, a ruling whose `**<id> ·` heading exists in its spec file (`R-` in 01, `R2-` in 02, `R3-` in 03, `R4-` in 04, `R5-` in 05, `R6-` in this file), a DR id 00-design.md names, a section of an earlier spec (its number and "of M<k>"), a repository file that exists, or the owner's ruling of 2026-11-05 | ruling R6-21 |
-| C-ABOUT6-04 | pass | The copy's numbers are the code's: 80, 40 and 78 against `CONTRAST_CHECKS` (40 per mode, 39 required per mode); "three shared actions" against `VISITOR_CAP`; 768 pixels against the image worker's JPEG bound; 1.06 and 15.5 against the light targets of `scale.ts`; "seven chips" against the steer chips; 3, 4.5 and 7 against the threshold steps | ruling R6-21 |
+| C-ABOUT6-04 | pass | The copy's numbers are the code's: 80, 40 and 78 against `CONTRAST_CHECKS` (40 per mode, 39 required per mode); "three shared actions" against `VISITOR_CAP`; 768 pixels against the image worker's bound; 1.06 and 15.5 against the light targets of `scale.ts`; "seven chips" against the steer chips; 3, 4.5 and 7 against the threshold steps; 768 against `VIBE_SIDE`; 24 hours against the shared route's cache; every `FONT_CATALOG` entry's license is `OFL-1.1`, as the fonts paragraph says | ruling R6-21 |
 | C-ABOUT6-05 | failure | The check of C-ABOUT6-04 reports a probe copy that says "79 are required" or "four shared actions", naming the paragraph | ruling R6-21 |
 | F-ABOUT6-01 | pass | `/about`: the title "About — dyelot", 11.1's description and the canonical `<origin>/about`; one `h1` "How dyelot works"; the four `h2` in order; every paragraph of `ABOUT_INTRO` and `ABOUT_SECTIONS` shows, in order; the nav's "about" is current | ruling R6-21 |
 | F-ABOUT6-02 | pass | `main` holds exactly two links, "The source on GitHub" (`REPOSITORY_URL`) and "Remotion's license" (`https://remotion.pro/license`), each with `rel="noopener noreferrer"`, placed after their paragraphs | ruling R6-21 |
-| F-ABOUT6-03 | pass | `/about` holds no color but the chrome's achromatic ones and madder (F-GAL6-12's check with no specimen allowed) | ruling R6-21, I-M6-06 |
+| F-ABOUT6-03 | pass | `/about` holds no color but F-GAL6-12's allowance (with no specimen on the page) | ruling R6-21, I-M6-06 |
 
 ### 14.5 The studio's entry hashes (Task 6.5)
 
@@ -1530,8 +1598,8 @@ Tests: `tests/unit/features/landing/start.test.ts`, `tests/unit/features/landing
 | Id | Kind | Case | Origin |
 |---|---|---|---|
 | C-START6-01 | pass | `colorHref("#f66c6d")` and `colorHref("F66C6D")` give `/studio#color=f66c6d`; `briefHref("A tea house at dusk")` gives `/studio#brief=A%20tea%20house%20at%20dusk`; `briefHref("  café + bar  ")` gives `/studio#brief=caf%C3%A9%20%2B%20bar`; `briefReady` is true for those and false for "", "   " and "1234"; `IMAGE_HREF` and `GALLERY_HREF` are R6-27's; `START_LINES` equals 9.1's table, frozen | ruling R6-27, R6-28 |
-| C-START6-02 | failure | `colorHref("#f66c6")`, `colorHref("red")` and `colorHref("#f66c6dff")` throw `RangeError`, `colorHref(5)` `TypeError`; `briefHref("")`, `briefHref("   ")`, `briefHref("1234 #fff")` and `briefHref("a".repeat(501))` throw `RangeError`, `briefHref(null)` and `briefReady(3)` `TypeError`; each names its function | ruling R6-28, R-05 |
-| C-START6-03 | pass | Property (300 runs, seed 6006): for any text with a letter, of 1 to 500 characters after trimming, `readEntry` of the hash `briefHref(text)` builds gives a brief entry whose text is `toPlainText(text, 500).text`; and for any six hex digits, `readEntry` of `colorHref`'s hash gives the color's seed | RF1, ruling R6-23, R6-28 |
+| C-START6-02 | failure | `colorHref("#f66c6")`, `colorHref("red")` and `colorHref("#f66c6dff")` throw `RangeError`, `colorHref(5)` `TypeError`; `briefHref("")`, `briefHref("   ")`, `briefHref("1234")` and `briefHref("a".repeat(501))` and `briefHref("tea \uD800")` (a lone surrogate) throw `RangeError`, `briefHref(null)` and `briefReady(3)` `TypeError`; each names its function | ruling R6-28, R-05 |
+| C-START6-03 | pass | Property (300 runs, seed 6006): for any well-formed text already in NFC (`text === text.normalize("NFC")`), holding a letter, of 1 to 500 characters after trimming, `readEntry` of the hash `briefHref(text)` builds gives a brief entry whose text is `toPlainText(text, 500).text`; and for any six hex digits, `readEntry` of `colorHref`'s hash gives the color's seed | RF1, ruling R6-23, R6-28 |
 | C-REC6-05 | pass | `ReceiptSection` renders the `h2` "The receipt", the opening sentence, three figures whose captions are `receiptLines(RECEIPT_EXCERPT)`'s and whose `pre` texts are `excerptText` of the summary, the contrast entry and the finding, the command `$ node scripts/dyelot-check.mjs` and the closing sentence; no element carries an inline color | ruling R6-29 |
 | C-SITE6-01 | pass | `SITE.routes.sitemap` is the six routes of R6-31; `sitemap()` lists 30 absolute URLs, the six then the 24 entry pages in order; `robots()` is C-SITE4-01's value | ruling R6-31 |
 | C-SITE6-02 | failure | `sitemapEntries(SITE, ["/studio"])` (a repeat), `sitemapEntries(SITE, ["/api/x"])` (disallowed) and `sitemapEntries(SITE, ["gallery"])` (no leading slash) throw `RangeError`, and `sitemapEntries(SITE, "/gallery")` `TypeError`, each naming `sitemapEntries` | ruling R6-31, R-05 |
@@ -1556,16 +1624,16 @@ Tests: `tests/unit/features/preview/load.test.ts`, `tests/e2e/templates-lazy.spe
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-TPL6-01 | pass | `TEMPLATE_LOADERS` has the six `TEMPLATE_IDS`, frozen; each resolves to a module whose `default` is that template's component | ruling R6-33 |
-| C-TPL6-02 | pass | `preloadTemplates("landing", schedule, fakes)` with a fake scheduler calls no loader until the scheduled callback runs, then calls the other five once each in `TEMPLATE_IDS` order; the cancel it returns, called before the run, stops them all; a fake loader that rejects is not called again and leaves no unhandled rejection | ruling R6-33 |
+| C-TPL6-01 | pass | `TEMPLATE_LOADERS` has the five `TEMPLATE_IDS` other than `landing`, frozen; each resolves to a module whose `default` is that template's component | ruling R6-33 |
+| C-TPL6-02 | pass | `preloadTemplates("landing", schedule, fakes)` with a fake scheduler calls no loader until the scheduled callback runs, then calls the five once each in `TEMPLATE_IDS` order; `preloadTemplates("dashboard", …)` calls the four others; the cancel it returns, called before the run, stops them all; a fake loader that rejects is not called again and leaves no unhandled rejection | ruling R6-33 |
 | C-TPL6-03 | pass | `idleScheduler` with `requestIdleCallback` schedules with `{ timeout: 2000 }` and cancels with `cancelIdleCallback`; without it, with `setTimeout(run, 1000)` and `clearTimeout` | ruling R6-33 |
 | C-TPL6-04 | failure | `preloadTemplates("nope", s)` throws `RangeError` and `preloadTemplates("landing", 3)` `TypeError`; `idleScheduler(null)` throws `TypeError`; each names its function; `TEMPLATE_LINES` is R6-33's three strings, frozen | ruling R6-33, R-05 |
-| F-TPL6-01 | pass | With `NO_IDLE`, the studio's first load fetches the landing template's chunk (probe 3's marker) and none of the other five; choosing "dashboard" fetches its chunk and shows `[data-template="dashboard"]` | ruling R6-33, decision G1 |
-| F-TPL6-02 | pass | Without `NO_IDLE`, after the load the other five chunks are fetched with no switch (the response list, polled) | ruling R6-33 |
-| F-TPL6-03 | pass | With `VT_RECORD` and `NO_IDLE`, a switch to "settings" before its chunk arrives makes one `startViewTransition` call whose record holds `::view-transition-group(dyelot-template)`; the old template stays in the canvas until settings shows, and the loading sentence never appears | ruling R6-33, R5-46, probe 3 |
-| F-TPL6-04 | pass | Under `emulateMedia({ reducedMotion: "reduce" })` with `NO_IDLE`, choosing "editorial" shows "Loading the template…" (`role="status"`) and then the template; every animation `VT_RECORD` holds lasts 0 ms | ruling R6-33 |
+| F-TPL6-01 | pass | With `NO_IDLE`, the studio's first load shows the landing template and fetches none of the five lazy templates' chunks (probe 3's markers); choosing "dashboard" fetches its chunk and shows `[data-template="dashboard"]` | ruling R6-33, decision G1 |
+| F-TPL6-02 | pass | Without `NO_IDLE`, after the load the five lazy chunks are fetched with no switch (the response list, polled) | ruling R6-33 |
+| F-TPL6-03 | pass | With `VT_RECORD`, `LOADING_RECORD`, `NO_IDLE` and `HOLD_CHUNK` on the settings chunk, a switch to "settings" keeps `[data-template="landing"]` in the canvas while the chunk is held; after `release()` settings shows, the switch made one `startViewTransition` call whose record holds `::view-transition-group(dyelot-template)`, and `LOADING_RECORD` is empty | ruling R6-33, R5-46, probe 3 |
+| F-TPL6-04 | pass | Under `emulateMedia({ reducedMotion: "reduce" })` with `NO_IDLE` and `HOLD_CHUNK` on the editorial chunk, choosing "editorial" shows "Loading the template…" (`role="status"`); after `release()` the template shows; every animation `VT_RECORD` holds lasts 0 ms | ruling R6-33 |
 | F-TPL6-05 | failure | With `ABORT_CHUNK(page, <the dashboard marker>)` and `NO_IDLE`, choosing "dashboard" shows "This template could not load." and "Try again" (`role="alert"`), no raw error; after `release()`, "Try again" shows the dashboard | ruling R6-33, I-M6-04 |
-| F-TPL6-RF3 | pass | With `NO_IDLE` and motion allowed, choosing "dashboard" and then "mobile" before either chunk arrives ends with `[data-template="mobile"]` shown, at most two `startViewTransition` calls, and no loading sentence | RF3, ruling R6-33 |
+| F-TPL6-RF3 | pass | With `NO_IDLE`, `LOADING_RECORD` and `HOLD_CHUNK` on both chunks, motion allowed, choosing "dashboard" and then "mobile" keeps the landing template on screen; after both are released the canvas shows `[data-template="mobile"]`, at most two `startViewTransition` calls were made, and `LOADING_RECORD` is empty | RF3, ruling R6-33 |
 | F-TPL6-06 | pass | The settings template's bars (if probe 6 keeps G2): F-CANVAS-11's clip-edge check passes for `.st-top` and `.st-save-bar` with scroll containers counted as clip boxes, and F-TPL-27 passes unchanged. If probe 6 drops G2, this row moves to section 18 with it | ruling R6-34, decision G2 |
 
 ### 14.8 Accessibility fixes (Task 6.8)
@@ -1592,13 +1660,13 @@ Tests: `tests/unit/engine/guard-support-m6.test.ts`, `tests/unit/export/guards.t
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-HYG6-01 | pass | `codeFiles` on a temporary tree (`a/b.ts`, `a/c/d.tsx`, `a/e.md`, `a/__entry-probe__/x.ts`) gives exactly `a/b.ts` and `a/c/d.tsx`; on `src` it gives more than 300 files | ruling R6-39 |
+| C-HYG6-01 | pass | `codeFiles` on a temporary tree (`a/b.ts`, `a/c/d.tsx`, `a/e.md`, `a/__entry-probe__/x.ts`) gives exactly `a/b.ts` and `a/c/d.tsx`; on `src` it gives more than 250 files | ruling R6-39 |
 | C-HYG6-02 | failure | `codeFiles` of a missing folder and of a folder holding only `e.md` throws `RangeError` naming `codeFiles`; `codeFiles(3)` throws `TypeError`; a fake `read` that throws `EACCES` for a child folder, or `ENOENT` for a child that is not a probe, makes it throw an error naming that folder | ruling R6-39, decision G4 |
-| C-HYG6-03 | pass | A fake `read` that throws `ENOENT` for `<dir>/__entry-probe__` (gone mid-walk) is skipped, and the walk returns every other file | ruling R6-39 |
-| C-HYG6-04 | pass | `src/features/ai/load.ts`, `src/features/export/useBundle.ts` and `src/features/import/ImportDialog.tsx` each define their loader as `loadOnce(() => import("<entry>"))` (read from the syntax tree) and hold no `loading ??=` memo; `loadAi`, `loadExport` and `loadImport` keep their exported names | ruling R6-40 |
+| C-HYG6-03 | pass | A fake `read` that throws for any path ending in `__entry-probe__` is never called with one, and the walk returns every other file of the tree | ruling R6-39 |
+| C-HYG6-04 | pass | `src/features/ai/load.ts`, `src/features/export/useBundle.ts` and `src/features/import/ImportDialog.tsx` each define their loader as `loadOnce(() => import("<entry>"))` (read from the syntax tree) and hold no `loading ??=` memo; `loadAi`, `loadExport` and `loadImport` keep their names | ruling R6-40 |
 | C-HYG6-05 | pass | `describeType` gives `"null"`, `"array"`, `"number"` and `"object"`; `httpsOrigin("https://a.test", "f")` gives `"https://a.test"`; `bundle.ts` and `flavor.ts` import both from `./guards` and declare neither | ruling R6-41 |
 | C-HYG6-06 | failure | `httpsOrigin(3, "buildBundle")` throws `TypeError` "buildBundle: origin must be a string, got number"; `httpsOrigin("http://a.test", "flavorFiles")` and `httpsOrigin("https://a.test/x", "flavorFiles")` throw `RangeError` "flavorFiles: origin must be an https origin with no path, got <JSON>"; `buildBundle` and `flavorFiles` throw those exact messages for those origins | ruling R6-41, R-05 |
-| C-HYG6-07 | failure | `storySteps({})` throws `TypeError` "storySteps: spec.color must be an object, got undefined"; for each path of 13.5 in order, a spec whose earlier paths hold and whose path is missing (or not an array) throws a `TypeError` naming that path; no message lacks the `storySteps:` start | ruling R6-42 |
+| C-HYG6-07 | failure | `storySteps({})` throws `TypeError` "storySteps: spec.color must be an object, got undefined"; for each path of 13.5 in order, a spec whose earlier paths hold and whose path is missing (or not an array) throws a `TypeError` naming that path; each of those messages starts with `storySteps:` (a spec that passes the listed paths may still meet the engine's own checks) | ruling R6-42 |
 | C-HYG6-08 | failure | `tokenRow({}, "light", "primary", 500)` throws `TypeError` naming `spec.color`; `tokenRow({ color: { palettes: {} } }, ...)` names `spec.color.palettes.primary`; every message starts with `tokenRow:` | ruling R6-42 |
 
 ### 14.10 Audits (Task 6.10)
@@ -1609,7 +1677,7 @@ Tests: `tests/unit/scripts/audit-core.test.ts` with the trimmed reports `tests/u
 | Id | Kind | Case | Origin |
 |---|---|---|---|
 | C-AUD6-01 | pass | `AUDIT_ROUTES`, `FORM_FACTORS`, `A11Y_FLOOR` and `CATEGORIES` are R6-44's values, frozen; `routeName` gives "home", "gallery", "gallery-madder", "about", "studio", "explore", "motion" and "connect" | ruling R6-44 |
-| C-AUD6-02 | pass | On a passing fixture report: `categoryScores` gives the four scores; `auditRecord` gives 12.2's record with the five metrics and the script row; `a11yFailures` is empty and `a11yVerdict` passes | ruling R6-45 |
+| C-AUD6-02 | pass | On a passing fixture report: `categoryScores` gives the four scores; `auditRecord` gives 12.2's record with the five metrics, the script row and `consoleErrors`; `a11yFailures` is empty and `a11yVerdict` passes | ruling R6-45 |
 | C-AUD6-03 | failure | On a fixture whose `color-contrast` and `button-name` fail (accessibility 0.88): `a11yVerdict` fails with score 0.88 and the failures `["button-name", "color-contrast"]`; an audit of weight 0 that fails is not listed | ruling R6-44 |
 | C-AUD6-04 | failure | `categoryScores`, `auditRecord`, `a11yFailures` and `a11yVerdict` each throw `TypeError` for `null`, and `RangeError` for a report without `categories`, one with a `runtimeError` and one whose accessibility score is null, naming the function | ruling R6-44, R-05 |
 | C-AUD6-05 | pass | `auditPlan(["/a", "/b"], ["desktop", "mobile"], 3)` gives 12 items: run 1 `/a` desktop, `/a` mobile, `/b` desktop, `/b` mobile, then run 2 the same, then run 3; `ttfbPlan(["/", "/r", "/g"], 10)` gives 30 items, each round the three paths in order | ruling R6-46, R6-47 |
@@ -1632,7 +1700,7 @@ Tests: `tests/unit/scripts/audit-core.test.ts` with the trimmed reports `tests/u
 | F-LH6-14 | pass | `/motion` at mobile: accessibility at least 0.95 | ruling R6-44 |
 | F-LH6-15 | pass | `/connect` at desktop: accessibility at least 0.95 | ruling R6-44 |
 | F-LH6-16 | pass | `/connect` at mobile: accessibility at least 0.95 | ruling R6-44 |
-| F-LH6-17 | failure | `runLighthouse(<origin>/, "tablet")` rejects with a `RangeError` and `runLighthouse(5, "desktop")` with a `TypeError`, each naming `runLighthouse` and launching no browser | ruling R6-44, R-05 |
+| F-LH6-17 | failure | `runLighthouse(<origin>/, "tablet")` rejects with a `RangeError` and `runLighthouse(5, "desktop")` with a `TypeError`, each naming `runLighthouse`; the `launch` spy passed to both was never called | ruling R6-44, R-05 |
 
 ### 14.11 Composed flows (Task 6.11)
 
@@ -1641,14 +1709,14 @@ Tests: `tests/e2e/a11y-m6.spec.ts`, `tests/e2e/lazy-m6.spec.ts`, `tests/e2e/secu
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| F-A11Y6-01 | pass | axe finds no violation on `/gallery`, `/gallery?tag=calm`, `/gallery/kermes`, `/gallery/turquoise`, `/about` and `/` (scrolled through the start-from and receipt sections, under reduced motion as M0's test runs), at 1280 × 800 and 360 × 740 | ruling R6-13, R6-15, R6-21, R6-27, I-M6-05 |
+| F-A11Y6-01 | pass | axe finds no violation on `/gallery`, `/gallery?tag=calm`, `/gallery/kermes`, `/gallery/turquoise`, `/about` and `/` (scrolled through the start-from and receipt sections, under reduced motion as M0's test runs), at 1280 × 800 and 360 × 740; besides `AXE_TAGS`, the run turns on the rules Lighthouse turns on (`heading-order`, `landmark-one-main`, `link-in-text-block`, `skip-link`, `target-size`, `label-content-name-mismatch` and `identical-links-same-purpose`, from Lighthouse 13.5.0's accessibility gatherer) | ruling R6-13, R6-15, R6-21, R6-27, I-M6-05 |
 | F-A11Y6-02 | pass | At 360 × 740, `/gallery`, `/gallery/kermes`, `/about` and `/` do not scroll sideways (`overflowOf` of M5) | ruling R6-13, R6-15, R6-21, R6-27 |
-| F-A11Y6-03 | pass | Keyboard: on `/gallery`, Tab from the filter's "all" reaches the six tags, then "Open Madder in the studio" and "Details of Madder"; on `/gallery/kermes`, the three open links, "Copy the studio link" and "Back to the gallery" in order; each stop shows the focus ring and a hit area of at least 24 × 24 px | ruling R6-14, R6-15 |
+| F-A11Y6-03 | pass | Keyboard: on `/gallery`, Tab from the filter's "all" reaches the six tags, then "Open in the studio, Madder" and "Details of Madder"; on `/gallery/kermes`, the three open links, "Copy the studio link" and "Back to the gallery" in order; each stop shows the focus ring and a hit area of at least 24 × 24 px | ruling R6-14, R6-15 |
 | F-A11Y6-04 | pass | Each new page has one `h1`, and its headings never skip a level; on `/` the order is `h1`, the hero, the start-from `h2` and `h3`s, the story's `h2` and `h3`s, the receipt's `h2` | ruling R6-27, R6-29 |
-| F-A11Y6-05 | pass | `/` keeps the color rule of I-M6-06 in its new sections: inside `start-from.log` and `[data-receipt]` every color is achromatic or madder | ruling R6-27, R6-29, I-M6-06 |
+| F-A11Y6-05 | pass | `/` keeps the color rule of I-M6-06 in its new sections: inside `start-from.log` and `[data-receipt]` every color passes F-GAL6-12's allowance | ruling R6-27, R6-29, I-M6-06 |
 | F-LAZY6-01 | pass | No chunk that `/gallery`, `/gallery/kermes` or `/about` loads holds the engine's marker `dyelot.engine/1`, the export's `dyelot.check/1`, three's `THREE.WebGLRenderer` or Remotion's `No video config found`; `/` loads none of the engine's, the export's or Remotion's | ruling R6-56, I-M6-03, R5-61 |
-| F-LAZY6-02 | pass | The studio's first load, with `NO_IDLE`, still fetches no chunk of three, R3F, Remotion or Mediabunny (R5-61's markers) and only the landing template's | ruling R6-33, R5-61 |
-| F-SEC6-01 | pass | `/gallery`, `/gallery/kermes` and `/about` answer with 12.2 of M5's policy and a fresh nonce per response, the headers of R4-27, and no `securitypolicyviolation` on load; `/gallery/madder/opengraph-image` answers outside `/api/`'s policy | ruling R6-49 |
+| F-LAZY6-02 | pass | The studio's first load, with `NO_IDLE`, still fetches no chunk of three, R3F, Remotion or Mediabunny (R5-61's markers) and none of the five lazy templates' | ruling R6-33, R5-61 |
+| F-SEC6-01 | pass | `/gallery`, `/gallery/kermes` and `/about` answer with 12.2 of M5's policy and a fresh nonce per response, the headers of R4-27, and no `securitypolicyviolation` on load; `/gallery/madder/opengraph-image` answers outside `/api/`'s policy; every `Location` the open route gives starts with `/studio#s=`, `/explore#s=` or `/motion#s=` | ruling R6-49 |
 | F-SEC6-02 | pass | `connect-src` on every page is exactly `'self' https://openrouter.ai https://www.remotion.pro`; no request from `/gallery`, `/gallery/kermes` or `/about` leaves the origin | ruling R6-22, R6-49 |
 
 ### 14.12 Repository guards (every task)
@@ -1667,8 +1735,9 @@ Tests: `tests/unit/engine/repo-guards-m6.test.ts`, `tests/unit/scripts/gate.test
 | C-GUARD6-08 | pass | Copy: `START_LINES`, `RECEIPT_LINES`, `receiptLines(RECEIPT_EXCERPT)`, `ABOUT_INTRO`, `ABOUT_SECTIONS`, `ABOUT_LINKS`' labels, `TEMPLATE_LINES`, `FLAVOR_LINES`' new keys, `brandDescription` of every entry's `brandProps`, `GALLERY_CARD_ALT`, `MOSAIC_ALT`, every entry's name, brief and line, and the string literals of `GalleryCard.tsx`, `Specimen.tsx`, `CopyLink.tsx`, `StartFrom.tsx`, `ReceiptSection.tsx` and the three page files hold no banned word, no `!`, no emoji, and none of "colour", "behaviour", "cancelled", "grey" or "centre" | ruling R6-59 |
 | C-GUARD6-09 | pass | No analytics: `package.json` holds none of `@vercel/analytics`, `@vercel/speed-insights`, `@sentry/nextjs`, `@sentry/browser`, `posthog-js`, `plausible-tracker`, `mixpanel-browser`, `react-ga4` or a package under `@segment/`; no file under `src` names `googletagmanager.com`, `google-analytics.com`, `plausible.io`, `posthog.com`, `segment.io`, `sentry.io` or `/_vercel/insights`; a probe of each is reported | ruling R6-22 |
 | C-GUARD6-10 | pass | Purity: C-REPO-01's and C-GUARD3-02's scanners list `src/export/guards.ts` and find nothing in it; the same scan finds no DOM, storage, network, clock, randomness, environment or locale API in `src/features/gallery/{tags,defs,data,cards,links,build}.ts`, `src/features/landing/{start,receipt}.ts`, `src/features/about/copy.ts` and `scripts/audit-core.mjs` | ruling R6-03 |
-| C-GUARD6-11 | pass | No file under `tests/unit` but `guard-support.ts` calls `readdirSync` with `recursive`; the guard files walk folders only through `codeFiles` or `filesUnder`; a probe file that does is reported | ruling R6-39, R6-60 |
-| C-GUARD6-12 | pass | No entry's name, slug, brief or tag, no About paragraph and no string of 9.1 or 9.2 holds the perceptual formula's trade name (in any case) or a host of the never-use list | ruling R6-12, R6-21, R6-59 |
+| C-GUARD6-11 | pass | `tests/unit/engine/repo-guards-m6.test.ts` walks folders only through `codeFiles` or `filesUnder` (no `readdirSync` of its own); a probe file that calls `readdirSync` is reported | ruling R6-39, R6-60 |
+| C-GUARD6-12 | pass | No entry's name, slug, brief or tag, no About paragraph and no string of 9.1 or 9.2 holds the perceptual formula's trade name (in any case) or a host of `NEVER_USE_HOSTS` | ruling R6-12, R6-21, R6-59 |
+| C-GUARD6-13 | pass | `playwright.config.ts` holds the `lighthouse` project of 12.2 (its `testMatch`, `dependencies: ["chromium"]`, `retries: 1`, `fullyParallel: false`), and the `chromium` project's `testIgnore` matches `lighthouse-m6.spec.ts` | ruling R6-44 |
 
 ## 15. Coverage
 
@@ -1702,6 +1771,9 @@ written from its row, never from an uncovered-line report.
 | C-SITE5-04 (M5) | `AppNav` renders five links; `active` is `"home" \| "explore" \| "motion"` | Seven links in R6-30's order; `active` adds `"gallery"` and `"about"` (C-SITE6-04) | R6-30 |
 | F-HOME5-04 (M5) | At 360 × 740 the nav's five links share one row | At 360 × 740 the seven links fit in at most two rows (F-NAV6-02); the pages still fit with no sideways scroll | R6-30 |
 | F-HOME-01 (M2, amended in M5) | One `div` holds the studio, explorer, motion lab and repository links | The same `div` also holds the gallery and about links (F-LAND6-07) | R6-32 |
+| F-HOME5-01 (M5) | The nav lists `["dyelot", "home", "studio", "explore", "motion", "github"]` and marks the current page | `["dyelot", "home", "studio", "explore", "motion", "gallery", "about", "github"]`; the marking stands | R6-30 |
+| F-HOME5-03 (M5) | `/sitemap.xml` lists the four routes in order | The 30 URLs of C-SITE6-01, in order | R6-31 |
+| M5's landing test "the nav's five links fit one row at 360 x 740 with no sideways scroll" (`tests/e2e/landing.spec.ts`) | Five links on one row | Seven links in at most two rows, with no sideways scroll (as F-NAV6-02) | R6-30 |
 | C-DLG-04 (M5) | `FLAVOR_LINES` holds 6.4's six keys | Also `"pause-background"` and `"pause-video"` (C-FLAV6-03) | R6-36 |
 | F-A11Y5-02 (M5), "the Flavor dialog's order, ring and hit area" | The stops are "Pause", "Pause", "Render the brand video", "Record the shader loop", "Close" | "Pause the background", "Pause the video", then the same three (F-FIX6-02) | R6-36 |
 | F-FLAVOR-01, F-FLAVOR-02, F-FLAVOR-03, F-FLAVOR-05, F-FLAVOR-06 (M5) | A section's "Pause" is found by the name "Pause" | By "Pause the background" in Background and "Pause the video" in Brand video; each row's assertions stand | R6-36 |
@@ -1711,11 +1783,11 @@ written from its row, never from an uncovered-line report.
 | F-CANVAS-11 (M2), "the outline of a part at a clip edge shows whole" | Leaves out the settings template's top and save bars | Includes `.st-top` and `.st-save-bar`, and counts a scroll container's padding box as a clip box (F-TPL6-06); unchanged if probe 6 drops G2 | R6-34 |
 | C-REPO-M2-03 (M2), C-GUARD4-10 (M4), C-GUARD5-09 (M5) | The coverage include and floors of M5's section 15 | Also section 15's new lists (C-GUARD6-03) | R6-54 |
 | M5's spec 13.3 | The Brand video region keeps its name | Plus the figure and its description of R6-35 (a note in 13.3) | R6-35 |
+| F-VT-01, F-VT-02 (M5) | The switch to "dashboard" comes right after `openStudio` | It comes after the five lazy chunks have loaded (the response list, polled), so the flows test the transition and not the load; their assertions stand | R6-33 |
 
 Every other M1 to M5 case stands as written (I-M6-07), among them C-LAND5-02 (the hero cards), F-HERO-01 to 06 (the
 hero's "Pause" keeps its name, F-FIX6-04), F-A11Y5-01 (axe on `/`, with the new sections inside its page), F-SEC4-01
-and F-SEC4-02 (their page lists stay; F-SEC6-01 covers the new pages), F-TPL-27, F-VT-01 to 07 (one `startViewTransition`
-per switch, now with lazy templates, F-TPL6-03), F-LAZY4-01 and F-LAZY5-01, every golden, and the guards C-GUARD3-01 to
+and F-SEC4-02 (their page lists stay; F-SEC6-01 covers the new pages), F-TPL-27, F-VT-03 to 07, F-LAZY4-01 and F-LAZY5-01, every golden, and the guards C-GUARD3-01 to
 04, C-GUARD4-01 to 12 and C-GUARD5-01 to 12 (each walk now positive by R6-39's construction).
 
 ## 17. Review Focus
@@ -1783,9 +1855,9 @@ switch; `readEntry` takes more forms the same way; `runLighthouse` and `scripts/
   names the entry first, and a seed suffix fixes it.
 - **The word list can change.** A new or reweighted term can move a brief's preset or hues; C-GAL6-03 pins each brief's
   terms and preset, so such a change is seen in the same run.
-- **Font names on the cards.** The catalog's families include Google Sans Flex, Zalando Sans, Hubot Sans and Mona Sans,
-  named after companies or their mascots, and the `m3-expressive` preset's label is "M3 Expressive"; the cards show them
-  as the studio does (owner approval item 10). No entry's own words do.
+- **Font names on the cards.** Twelve catalog families the gallery shows carry a company's name or mascot (owner
+  approval item 10 lists them), and the `m3-expressive` preset's label is "M3 Expressive"; the cards show them as the
+  studio does. No entry's own words do.
 - **A share card may render per request.** If probe 2 finds the per-slug image dynamic, each scraper fetch is one
   function call on Vercel Hobby; 24 entries and occasional scrapers stay far inside the plan's million calls.
 - **Entry hashes replace a draft.** A visitor with a draft who opens `/studio#color=…` loses that draft 300 ms later, as
@@ -1849,9 +1921,12 @@ Each item ends with a recommendation: the controller's for items 1 to 6, the dra
    indexes say nine products across 16 repositories (R6-51). The workspace `CLAUDE.md` also says "15 independent repos"
    and "8 products"; an agent does not edit `CLAUDE.md` without the owner. *Recommendation: approve the README and index
    edits, and either edit `CLAUDE.md` yourself or approve that edit in the close.*
-10. **The cards name font families as the catalog does**, including Google Sans Flex, Zalando Sans, Hubot Sans and Mona
-    Sans, and the preset label "M3 Expressive"; no entry's own name, slug, brief or tag holds a brand (R6-12, section 19).
-    *Recommendation: accept.*
+10. **The cards and entry pages name font families as the catalog does.** Twelve of the families they show carry a
+    company's name or a company's mascot: Google Sans Flex and Google Sans Code (azurite), Zalando Sans and Zalando Sans
+    Expanded (verditer), Hubot Sans and Mona Sans (turquoise), Martian Mono (turquoise's mono), Schibsted Grotesk
+    (realgar, kermes, lapis), Red Hat Text (sepia, fustic), Funnel Display and Funnel Sans (smalt), and Spline Sans and
+    Spline Sans Mono (malachite, gamboge). The preset label "M3 Expressive" shows too. No entry's own name, slug, brief or
+    tag holds a brand (R6-12, section 19). *Recommendation: accept; they are the fonts' published names.*
 11. **Lighthouse lengthens CI** by sixteen runs, about five to ten minutes of the end-to-end job (R6-44).
     *Recommendation: accept.*
 12. **The heroes stay "Custom"**: M5 made them without the automatic pairing, so no preset matches them (6.3);
