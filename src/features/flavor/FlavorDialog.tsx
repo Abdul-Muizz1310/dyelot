@@ -14,7 +14,6 @@ import {
 } from "react";
 import { flavorSeed, flavorStops, type Mode } from "@/engine";
 import { trapTab } from "@/features/a11y/trapTab";
-import { downloadBlob } from "@/features/export/download";
 import { loadExport } from "@/features/export/useBundle";
 import { useOsReducedMotion } from "@/features/preview/kit/reduced";
 import { BUTTON, TOGGLE_BUTTON } from "@/features/studio/chrome";
@@ -24,18 +23,12 @@ import { Flavor } from "@/flavor/flavor-react";
 import { loadOnce } from "@/lib/load-once";
 import { type DesignSpec, specId } from "@/spec";
 import { PrivacyNote } from "./PrivacyNote";
+import { phaseLine } from "./phase";
 import { recordLoop } from "./record";
 import { pickRenderTarget, renderBrandVideo } from "./render";
 import { useVideoJob, type VideoJobs } from "./useVideoJob";
-import {
-  type Container,
-  canMakeVideo,
-  doneLine,
-  FLAVOR_LINES,
-  nextAnnounced,
-  progressLine,
-  VIDEO_LINES,
-} from "./video";
+import { JobButton, RunningRow, useVideoSection, WRAP } from "./VideoSection";
+import { canMakeVideo, FLAVOR_LINES, VIDEO_LINES } from "./video";
 
 // The Flavor dialog (docs/specs/05-motion-3d.md, R5-51, R5-52, sections 13.1 to 13.3): a modal
 // dialog on the export dialog's rules (R3-34): the studio makes the rest of the page inert, focus
@@ -49,9 +42,6 @@ import {
 /** What the dialog says while the Player's code or `@/export` loads, and when the Player fails. */
 const LOADING_LINE = "Loading the preview…";
 const PREVIEW_FAILED_LINE = "The preview could not play here.";
-
-/** Text that wraps anywhere: a long name never makes the dialog scroll sideways. */
-const WRAP = "[overflow-wrap:anywhere]";
 
 const BrandPlayer = dynamic(() => import("./BrandPlayer").then((module) => module.BrandPlayer), {
   ssr: false,
@@ -292,63 +282,6 @@ const loadRenderer = loadOnce(() => import("@remotion/web-renderer"));
 const RENDER_LABEL = "Render the brand video";
 const RENDER_DESCRIPTION = "Makes a 6-second video at 1280 × 720 in this browser.";
 
-/** A running job's progress as shown: the bar's whole percent and the last 10% step announced. */
-type Shown = { readonly percent: number; readonly announced: number };
-
-/**
- * `shown` after a job's `progress` (0 to 1), or the first progress when `shown` is null: the live
- * line moves at most once per 10%. The same object comes back when nothing it shows changes.
- */
-function advanced(shown: Shown | null, progress: number): Shown {
-  const percent = Math.floor(progress * 100);
-  const last = shown?.announced ?? 0;
-  const announced = nextAnnounced(last, progress) ?? last;
-  if (shown !== null && shown.percent === percent && shown.announced === announced) return shown;
-  return { percent, announced };
-}
-
-/**
- * What the Brand video section's render shows (11.2): `checking` while the renderer loads and
- * `pickRenderTarget` runs, `confirm` while the privacy note waits, `rendering` from the render's
- * start with its progress, and each outcome's line under the button.
- */
-type RenderPhase =
-  | {
-      readonly kind:
-        | "idle"
-        | "checking"
-        | "confirm"
-        | "unsupported"
-        | "canceled"
-        | "failed"
-        | "load-failed";
-    }
-  | ({ readonly kind: "rendering" } & Shown)
-  | { readonly kind: "done"; readonly name: string };
-
-/** The line the Brand video section's status region holds in `phase` (13.3). */
-function renderLine(phase: RenderPhase): string {
-  switch (phase.kind) {
-    case "idle":
-    case "confirm":
-      return "";
-    case "checking":
-      return VIDEO_LINES.checking;
-    case "rendering":
-      return phase.announced === 0 ? "" : progressLine("render", phase.announced);
-    case "unsupported":
-      return VIDEO_LINES["render-unsupported"];
-    case "done":
-      return doneLine(phase.name);
-    case "canceled":
-      return VIDEO_LINES.canceled;
-    case "failed":
-      return VIDEO_LINES["render-failed"];
-    case "load-failed":
-      return VIDEO_LINES["load-failed"];
-  }
-}
-
 /**
  * Brand video (13.3, 11.1, 11.2, 13.4): the Player of the design's brand video in the canvas's
  * mode, its "Pause", and "Render the brand video", which renders the same video in this browser and
@@ -376,19 +309,11 @@ function BrandVideo({
   const [failed, setFailed] = useState(false);
   // The dialog is only ever mounted in the browser, after the studio loaded it.
   const [webCodecs] = useState(() => canMakeVideo(window));
-  const [phase, setPhase] = useState<RenderPhase>({ kind: "idle" });
-  const descriptionId = useId();
-  const heading = useRef<HTMLHeadingElement>(null);
-  const renderButton = useRef<HTMLButtonElement>(null);
-  const cancelButton = useRef<HTMLButtonElement>(null);
-  const mounted = useRef(false);
+  const section = useVideoSection("render", () => ({ kind: "idle" }));
   /** The note's answer, while it waits: true for "Render", false for "Cancel". */
   const answer = useRef<((render: boolean) => void) | null>(null);
-  /** The control that takes focus once the next phase shows, when a focused one goes away. */
-  const focusNext = useRef<"render" | "cancel" | "heading" | null>(null);
 
   useEffect(() => {
-    mounted.current = true;
     let live = true;
     loadExport().then(
       (module) => {
@@ -400,39 +325,12 @@ function BrandVideo({
     );
     return () => {
       live = false;
-      mounted.current = false;
     };
   }, []);
   const props = useMemo(
     () => (brand === null ? null : brand.brandProps(spec, mode)),
     [brand, spec, mode],
   );
-
-  // The control takes focus once it shows: an effect of an earlier phase, run after the request,
-  // finds it missing and leaves the request in place.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `phase` is the trigger.
-  useEffect(() => {
-    const next = focusNext.current;
-    if (next === null) return;
-    const target = { render: renderButton, cancel: cancelButton, heading }[next].current;
-    if (target === null) return;
-    focusNext.current = null;
-    target.focus();
-  }, [phase]);
-
-  /** Whether `element` exists and holds focus. */
-  const focused = (element: HTMLElement | null): boolean =>
-    element !== null && document.activeElement === element;
-
-  /** Shows an outcome; focus on "Cancel", or on a button the outcome removes, moves on. */
-  function finish(next: RenderPhase): void {
-    focusNext.current = focused(cancelButton.current)
-      ? "render"
-      : next.kind === "unsupported" && focused(renderButton.current)
-        ? "heading"
-        : null;
-    setPhase(next);
-  }
 
   /** Waits on the privacy note: true once "Render" is pressed; false on "Cancel" or an abort. */
   function ask(signal: AbortSignal): Promise<boolean> {
@@ -445,7 +343,7 @@ function BrandVideo({
       const abort = () => settle(false);
       signal.addEventListener("abort", abort, { once: true });
       answer.current = settle;
-      setPhase({ kind: "confirm" });
+      section.show({ kind: "confirm" });
     });
   }
 
@@ -454,7 +352,7 @@ function BrandVideo({
     // The note's "Cancel": the job ends as canceled, yet the section shows no line (13.4).
     let declined = false;
     const outcome = await jobs.start("render", async (signal) => {
-      setPhase({ kind: "checking" });
+      section.show({ kind: "checking" });
       let renderer: Awaited<ReturnType<typeof loadRenderer>>;
       let exported: ExportModule;
       try {
@@ -476,53 +374,33 @@ function BrandVideo({
         privacy.accept();
         noted = true;
       }
-      if (noted || focused(renderButton.current)) focusNext.current = "cancel";
-      setPhase({ kind: "rendering", percent: 0, announced: 0 });
+      if (noted || section.holds("button")) section.focusNext("cancel");
+      section.show({ kind: "running", percent: 0, announced: 0 });
       return renderBrandVideo(exported.brandProps(spec, mode), target, {
         load: () => Promise.resolve(renderer),
         signal,
-        onProgress: (progress) =>
-          setPhase((current) => {
-            const shown = advanced(current.kind === "rendering" ? current : null, progress);
-            return shown === current ? current : { kind: "rendering", ...shown };
-          }),
+        onProgress: section.progress,
       });
     });
-    // Null: another job held the dialog, and this press started nothing.
-    if (outcome === null) return;
     if (declined) {
-      focusNext.current = "render";
-      setPhase({ kind: "idle" });
+      section.focusNext("button");
+      section.show({ kind: "idle" });
       return;
     }
-    if (outcome.kind !== "done") {
-      finish({ kind: outcome.kind });
-      return;
-    }
-    let name: string;
-    try {
-      name = (await loadExport()).mediaName(spec, "brand", outcome.container);
-    } catch {
-      finish({ kind: "load-failed" });
-      return;
-    }
-    // A dialog closed meanwhile downloads nothing.
-    if (!mounted.current) return;
-    downloadBlob(name, outcome.bytes, VIDEO_TYPES[outcome.container]);
-    finish({ kind: "done", name });
+    await section.deliver(outcome, spec);
   }
 
-  const waiting = jobs.running === "record";
+  const { phase } = section;
   const line =
     phase.kind !== "idle"
-      ? renderLine(phase)
+      ? phaseLine("render", phase)
       : failed
         ? VIDEO_LINES["load-failed"]
         : webCodecs
           ? ""
           : VIDEO_LINES["no-webcodecs"];
   return (
-    <Section title="Brand video" headingRef={heading}>
+    <Section title="Brand video" headingRef={section.heading}>
       {props !== null && (
         <PreviewBoundary>
           <BrandPlayer props={props} mode={mode} reduced={reduced} />
@@ -534,38 +412,23 @@ function BrandVideo({
           onRender={() => answer.current?.(true)}
           onCancel={() => answer.current?.(false)}
         />
-      ) : phase.kind === "rendering" ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm">{VIDEO_LINES.rendering}</p>
-          <progress
-            max={100}
-            value={phase.percent}
-            aria-label="Brand video progress"
-            className="h-2 w-40 accent-foreground"
-          />
-          <button ref={cancelButton} type="button" onClick={jobs.abort} className={BUTTON}>
-            {VIDEO_LINES.cancel}
-          </button>
-        </div>
+      ) : phase.kind === "running" ? (
+        <RunningRow
+          section={section}
+          label={VIDEO_LINES.rendering}
+          barLabel="Brand video progress"
+          onCancel={jobs.abort}
+        />
       ) : (
         webCodecs &&
         phase.kind !== "unsupported" && (
-          <div className="flex flex-col items-start gap-1">
-            <button
-              ref={renderButton}
-              type="button"
-              aria-busy={phase.kind === "checking" ? "true" : undefined}
-              aria-disabled={waiting ? "true" : undefined}
-              aria-describedby={descriptionId}
-              onClick={() => void render()}
-              className={BUTTON}
-            >
-              {RENDER_LABEL}
-            </button>
-            <p id={descriptionId} className={`text-fg-muted text-sm ${WRAP}`}>
-              {waiting ? VIDEO_LINES.wait : RENDER_DESCRIPTION}
-            </p>
-          </div>
+          <JobButton
+            section={section}
+            label={RENDER_LABEL}
+            description={RENDER_DESCRIPTION}
+            waiting={jobs.running === "record"}
+            onPress={() => void render()}
+          />
         )
       )}
       <div role="status" className={`min-h-5 text-sm ${WRAP}`}>
@@ -589,50 +452,6 @@ class PreviewBoundary extends Component<{ children: ReactNode }, { failed: boole
   }
 }
 
-/** The MIME type of each container's `Blob`. */
-const VIDEO_TYPES: Readonly<Record<Container, string>> = Object.freeze({
-  mp4: "video/mp4",
-  webm: "video/webm",
-});
-
-/**
- * What the Shader loop section shows (11.3): `checking` while Mediabunny loads and `pickCodec` runs,
- * `recording` from the first frame with the bar's whole percent and the last 10% step announced,
- * and each outcome's line under the button.
- */
-type LoopPhase =
-  | { readonly kind: "idle" | "checking" | "unsupported" | "canceled" | "failed" | "load-failed" }
-  | ({ readonly kind: "recording" } & Shown)
-  | { readonly kind: "done"; readonly name: string };
-
-/** The line the section's status region holds in `phase` (13.3). */
-function loopLine(phase: LoopPhase): string {
-  switch (phase.kind) {
-    case "idle":
-      return "";
-    case "checking":
-      return VIDEO_LINES.checking;
-    case "recording":
-      return phase.announced === 0 ? "" : progressLine("record", phase.announced);
-    case "unsupported":
-      return VIDEO_LINES["record-unsupported"];
-    case "done":
-      return doneLine(phase.name);
-    case "canceled":
-      return VIDEO_LINES.canceled;
-    case "failed":
-      return VIDEO_LINES["record-failed"];
-    case "load-failed":
-      return VIDEO_LINES["load-failed"];
-  }
-}
-
-/** `phase` after a recording's `progress` (0 to 1): the live line moves at most once per 10%. */
-function advance(phase: LoopPhase, progress: number): LoopPhase {
-  const shown = advanced(phase.kind === "recording" ? phase : null, progress);
-  return shown === phase ? phase : { kind: "recording", ...shown };
-}
-
 /**
  * Shader loop (11.3, 13.3): "Record the shader loop" records one 10-second loop of the design's
  * flavor in the canvas's mode on a detached 1280 by 720 canvas, then downloads it. A click loads
@@ -643,122 +462,52 @@ function advance(phase: LoopPhase, progress: number): LoopPhase {
  */
 function ShaderLoop({ spec, mode, jobs }: { spec: DesignSpec; mode: Mode; jobs: VideoJobs }) {
   // The dialog is only ever mounted in the browser, after the studio loaded it.
-  const [phase, setPhase] = useState<LoopPhase>(() =>
+  const section = useVideoSection("record", () =>
     canMakeVideo(window) && supportsFlavor() ? { kind: "idle" } : { kind: "unsupported" },
   );
-  const descriptionId = useId();
-  const heading = useRef<HTMLHeadingElement>(null);
-  const recordButton = useRef<HTMLButtonElement>(null);
-  const cancelButton = useRef<HTMLButtonElement>(null);
-  const mounted = useRef(false);
-  /** The control that takes focus once the next phase shows, when a focused one goes away. */
-  const focusNext = useRef<"record" | "cancel" | "heading" | null>(null);
-
-  useEffect(() => {
-    mounted.current = true;
-    return () => {
-      mounted.current = false;
-    };
-  }, []);
-
-  // The control takes focus once it shows: an effect of an earlier phase, run after the request,
-  // finds it missing and leaves the request in place.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: `phase` is the trigger.
-  useEffect(() => {
-    const next = focusNext.current;
-    if (next === null) return;
-    const target = { record: recordButton, cancel: cancelButton, heading }[next].current;
-    if (target === null) return;
-    focusNext.current = null;
-    target.focus();
-  }, [phase]);
-
-  /** Whether `element` exists and holds focus. */
-  const focused = (element: HTMLElement | null): boolean =>
-    element !== null && document.activeElement === element;
-
-  /** Shows an outcome; focus on "Cancel", or on a button the outcome removes, moves on. */
-  function finish(next: LoopPhase): void {
-    focusNext.current = focused(cancelButton.current)
-      ? "record"
-      : next.kind === "unsupported" && focused(recordButton.current)
-        ? "heading"
-        : null;
-    setPhase(next);
-  }
 
   async function record(): Promise<void> {
     if (jobs.running !== null) return;
     const flavor = { stops: flavorStops(spec, mode), seed: flavorSeed(specId(spec)) };
     const outcome = await jobs.start("record", (signal) => {
-      setPhase({ kind: "checking" });
+      section.show({ kind: "checking" });
       return recordLoop(flavor, {
         load: () => import("mediabunny"),
         signal,
+        // The recording shows from its first frame: a focused button hands focus to "Cancel".
         onProgress: (progress) => {
-          if (focused(recordButton.current)) focusNext.current = "cancel";
-          setPhase((current) => advance(current, progress));
+          if (section.holds("button")) section.focusNext("cancel");
+          section.progress(progress);
         },
         canvas: () => document.createElement("canvas"),
       });
     });
-    // Null: another job held the dialog, and this press started nothing.
-    if (outcome === null) return;
-    if (outcome.kind !== "done") {
-      finish({ kind: outcome.kind });
-      return;
-    }
-    let name: string;
-    try {
-      name = (await loadExport()).mediaName(spec, "loop", outcome.container);
-    } catch {
-      finish({ kind: "load-failed" });
-      return;
-    }
-    // A dialog closed meanwhile downloads nothing.
-    if (!mounted.current) return;
-    downloadBlob(name, outcome.bytes, VIDEO_TYPES[outcome.container]);
-    finish({ kind: "done", name });
+    await section.deliver(outcome, spec);
   }
 
-  const waiting = jobs.running === "render";
+  const { phase } = section;
   return (
-    <Section title="Shader loop" headingRef={heading}>
-      {phase.kind === "recording" ? (
-        <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm">{VIDEO_LINES.recording}</p>
-          <progress
-            max={100}
-            value={phase.percent}
-            aria-label="Shader loop progress"
-            className="h-2 w-40 accent-foreground"
-          />
-          <button ref={cancelButton} type="button" onClick={jobs.abort} className={BUTTON}>
-            {VIDEO_LINES.cancel}
-          </button>
-        </div>
+    <Section title="Shader loop" headingRef={section.heading}>
+      {phase.kind === "running" ? (
+        <RunningRow
+          section={section}
+          label={VIDEO_LINES.recording}
+          barLabel="Shader loop progress"
+          onCancel={jobs.abort}
+        />
       ) : (
         phase.kind !== "unsupported" && (
-          <div className="flex flex-col items-start gap-1">
-            <button
-              ref={recordButton}
-              type="button"
-              aria-busy={phase.kind === "checking" ? "true" : undefined}
-              aria-disabled={waiting ? "true" : undefined}
-              aria-describedby={descriptionId}
-              onClick={() => void record()}
-              className={BUTTON}
-            >
-              {VIDEO_LINES.record}
-            </button>
-            <p id={descriptionId} className={`text-fg-muted text-sm ${WRAP}`}>
-              {waiting ? VIDEO_LINES.wait : VIDEO_LINES["record-description"]}
-            </p>
-          </div>
+          <JobButton
+            section={section}
+            label={VIDEO_LINES.record}
+            description={VIDEO_LINES["record-description"]}
+            waiting={jobs.running === "render"}
+            onPress={() => void record()}
+          />
         )
       )}
       <div role="status" className={`min-h-5 text-sm ${WRAP}`}>
-        {loopLine(phase)}
+        {phaseLine("record", phase)}
       </div>
     </Section>
   );

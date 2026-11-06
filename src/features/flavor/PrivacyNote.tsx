@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useRef } from "react";
 import { BUTTON } from "@/features/studio/chrome";
+import { WRAP } from "./VideoSection";
 import { VIDEO_LINES } from "./video";
 
 // The privacy note (docs/specs/05-motion-3d.md, R5-54, section 13.4): before the first render of a
@@ -37,7 +38,7 @@ export function PrivacyNote({ onRender, onCancel }: PrivacyNoteProps) {
       >
         Before the first render
       </h4>
-      <p className="text-sm [overflow-wrap:anywhere]">
+      <p className={`text-sm ${WRAP}`}>
         The video is made in this browser. Remotion, the video library dyelot uses, sends one usage
         event to remotion.pro for each render, with your IP address and this site's address. It
         never sends the video or the design. dyelot cannot turn this off.

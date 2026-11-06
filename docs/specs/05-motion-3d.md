@@ -1369,9 +1369,17 @@ type RecordOutcome = RenderOutcome;
 function pickCodec(media: Pick<typeof import("mediabunny"), "canEncodeVideo">):
   Promise<{ readonly codec: "avc" | "vp9" | "vp8"; readonly container: Container } | null>;
 function recordLoop(flavor: { stops: FlavorStops; seed: readonly [number, number] }, deps: RecordDeps): Promise<RecordOutcome>;
+
+// src/features/flavor/phase.ts (11.2, 11.3, 13.3): pure; both sections' phase (Task 5.9c's review)
+type VideoPhase = { readonly kind: "idle" | "checking" | "confirm" | "unsupported" | "canceled" | "failed" | "load-failed" }
+  | { readonly kind: "running"; readonly percent: number; readonly announced: number }
+  | { readonly kind: "done"; readonly name: string };
+function phaseLine(job: VideoJob, phase: VideoPhase): string;            // the section's status line (13.3)
+function progressed(phase: VideoPhase, progress: number): VideoPhase;   // the bar's percent, the step once per 10%
 ```
 
-`FlavorDialog.tsx`, `BrandPlayer.tsx`, `PrivacyNote.tsx` and `useVideoJob.ts` are shells covered by the flows. A failed
+`FlavorDialog.tsx`, `BrandPlayer.tsx`, `PrivacyNote.tsx`, `VideoSection.tsx` (the hook and the two controls both sections
+share) and `useVideoJob.ts` are shells covered by the flows. A failed
 `load()` gives `load-failed`; an `AbortError`, or any throw once `deps.signal` has aborted, gives `canceled`; any other
 throw gives `failed` and is never shown. (4.0.539 rejects a canceled render with a plain `Error`, "renderMediaOnWeb() was
 cancelled", never an `AbortError`, in `dist/esm/index.mjs`, so the shell reads a cancel from its signal; Task 5.9a.)
@@ -2462,13 +2470,13 @@ F-FLAVOR-07 and F-RENDER-07 follow this rule (recorded at Task 5.6b's review).
 | `LANDING_HELPERS`: `src/features/landing/{heroes,story,cycle}.ts`, each by name | 95 | 90 |
 | `EXPLORE_HELPERS`: `src/features/explore/{scene,webgl}.ts`, each by name | 95 | 90 |
 | `MOTION_HELPERS`: `src/features/motion/lab.ts` | 95 | 90 |
-| `FLAVOR_HELPERS`: `src/features/flavor/{video,render,record}.ts`, each by name | 95 | 90 |
+| `FLAVOR_HELPERS`: `src/features/flavor/{video,render,record,phase}.ts`, each by name (`phase.ts` since Task 5.9c's review) | 95 | 90 |
 
 `useOsReducedMotion` in `kit/reduced.ts` is reached by `MotionScope`'s unit render. `src/flavor/**` has no floor: its
 pure parts and its argument checks are C-FLAV and C-BRAND cases, and its WebGL and Remotion paths run only in a real
 browser, in the flows of 14.11. The routes, `Hero.tsx`, `Story.tsx`, `ExploreClient.tsx`, `Explorer3D.tsx`,
-`FlatView.tsx`, `LabClient.tsx`, `Previews.tsx`, `FlavorDialog.tsx`, `BrandPlayer.tsx`, `PrivacyNote.tsx` and
-`useVideoJob.ts` are covered by the flows, not by floors. Each case is written from its row, never from an
+`FlatView.tsx`, `LabClient.tsx`, `Previews.tsx`, `FlavorDialog.tsx`, `BrandPlayer.tsx`, `PrivacyNote.tsx`,
+`VideoSection.tsx` and `useVideoJob.ts` are covered by the flows, not by floors. Each case is written from its row, never from an
 uncovered-line report.
 
 ## 16. Changes to M1 to M4 cases

@@ -164,7 +164,7 @@ const EXPLORE_HELPERS = ["scene", "webgl"].map((name) => `src/features/explore/$
  * render's and the recording's shells (Task 5.9a), measured against fakes of their libraries.
  * useVideoJob.ts is covered by the flows.
  */
-const FLAVOR_HELPERS = ["video", "render", "record"].map(
+const FLAVOR_HELPERS = ["video", "render", "record", "phase"].map(
   (name) => `src/features/flavor/${name}.ts`,
 );
 
