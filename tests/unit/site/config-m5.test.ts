@@ -81,3 +81,36 @@ describe("C-SITE5-05 the build configuration of section 12.3", () => {
     expect(groups.playwright.patterns).toEqual(["playwright", "@playwright/test"]);
   });
 });
+
+// C-SITE5-03 of docs/specs/05-motion-3d.md, section 14.5 (R5-34, 8.1, 9.1), moved to Task 5.11a by the
+// plan's D5: the metadata of the explorer and the motion lab, word for word from the spec.
+
+const EXPLORE_DESCRIPTION =
+  "See a palette in OKLab: the sRGB, Display P3 and Rec. 2020 gamut solids, every step as a point, each scale as a tube, and a lightness slice.";
+const MOTION_DESCRIPTION =
+  "Edit a design's motion: durations, easing curves and springs, with live previews and files for CSS, Motion and GSAP.";
+
+describe("C-SITE5-03 the metadata of /explore and /motion", () => {
+  it("C-SITE5-03 the descriptions of 8.1 and 9.1 run 140 and 116 characters", () => {
+    expect(EXPLORE_DESCRIPTION).toHaveLength(140);
+    expect(MOTION_DESCRIPTION).toHaveLength(116);
+  });
+
+  it("C-SITE5-03 /explore is titled Explorer, with 8.1's description and its own canonical", async () => {
+    const { metadata } = await import("@/app/explore/page");
+    expect(metadata).toEqual({
+      title: "Explorer",
+      description: EXPLORE_DESCRIPTION,
+      alternates: { canonical: "/explore" },
+    });
+  });
+
+  it("C-SITE5-03 /motion is titled Motion lab, with 9.1's description and its own canonical", async () => {
+    const { metadata } = await import("@/app/motion/page");
+    expect(metadata).toEqual({
+      title: "Motion lab",
+      description: MOTION_DESCRIPTION,
+      alternates: { canonical: "/motion" },
+    });
+  });
+});
