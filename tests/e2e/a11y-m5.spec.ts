@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { test as base, expect, type Locator, type Page } from "@playwright/test";
 import { exportButton, exportDialog, fileRows, openReady, SPEC_LINK } from "./export-support";
-import { NO_WEBGL } from "./flavor-support";
+import { NO_WEBGL, TELEMETRY } from "./flavor-support";
 import {
   button,
   canvasFrame,
@@ -123,6 +123,39 @@ async function openFlavorReduced(page: Page, mode: "light" | "dark"): Promise<vo
   await settleAnimations(page);
 }
 
+// The brand video's render section (13.3, 13.4).
+const RENDER_LABEL = "Render the brand video";
+const NOTE_HEADING = "Before the first render";
+const RENDERING_CAP = 240_000;
+const brandSection = (page: Page): Locator => section(page, "Brand video");
+const renderButton = (page: Page): Locator =>
+  brandSection(page).getByRole("button", { name: RENDER_LABEL, exact: true });
+const noteOf = (page: Page): Locator =>
+  brandSection(page).getByRole("group", { name: NOTE_HEADING, exact: true });
+const renderCancel = (page: Page): Locator =>
+  brandSection(page).getByRole("button", { name: "Cancel", exact: true });
+
+/** Opens the Flavor dialog on the first design and the privacy note in it. */
+async function openFlavorWithNote(page: Page): Promise<void> {
+  await stubSeeds(page);
+  await openStudio(page);
+  await flavorButton(page).click();
+  await expect(dialog(page)).toBeVisible();
+  await renderButton(page).click();
+  await expect(noteOf(page)).toBeVisible();
+  await settleAnimations(page);
+}
+
+/** Cancels a running render and waits until it has ended and its scaffold is gone. */
+async function cancelRender(page: Page): Promise<void> {
+  await renderCancel(page).click();
+  await expect(brandSection(page).getByRole("status")).toHaveText(
+    "Canceled. Nothing was downloaded.",
+    { timeout: RENDERING_CAP },
+  );
+  await expect(page.locator('[class^="remotion-scaffold-"]')).toHaveCount(0);
+}
+
 for (const viewport of VIEWPORTS) {
   const at = `${viewport.width} px`;
   test.describe(`axe at ${at}`, () => {
@@ -201,6 +234,36 @@ for (const viewport of VIEWPORTS) {
         expect(await violations(page)).toEqual([]);
       });
     }
+
+    test(`F-A11Y5-01 axe finds no violation in the Flavor dialog with the note shown at ${at}`, async ({
+      page,
+    }) => {
+      await TELEMETRY(page);
+      await openFlavorWithNote(page);
+      expect(await violations(page)).toEqual([]);
+    });
+
+    test(`F-A11Y5-01 axe finds no violation in the Flavor dialog during a render at ${at}`, async ({
+      page,
+    }) => {
+      test.setTimeout(RENDERING_CAP);
+      await TELEMETRY(page);
+      await openFlavorWithNote(page);
+      await noteOf(page).getByRole("button", { name: "Render", exact: true }).click();
+      await expect(brandSection(page).getByText("Rendering…", { exact: true })).toBeVisible({
+        timeout: RENDERING_CAP,
+      });
+      await expect(
+        brandSection(page).getByRole("progressbar", { name: "Brand video progress" }),
+      ).toBeVisible();
+      await expect(renderCancel(page)).toBeVisible();
+      // The renderer's scaffold sits on the page, hidden.
+      const scaffold = page.locator('[class^="remotion-scaffold-"]');
+      await expect(scaffold).toHaveCount(1);
+      expect(await scaffold.evaluate((node) => getComputedStyle(node).visibility)).toBe("hidden");
+      expect(await violations(page)).toEqual([]);
+      await cancelRender(page);
+    });
 
     test(`F-A11Y5-01 axe finds no violation in the export dialog with flavor on at ${at}`, async ({
       page,
@@ -444,6 +507,7 @@ test.describe("F-A11Y5-02 the keyboard reaches every new control", () => {
 
   // Breaks when the open dialog's Tab order leaves 13.8's or its controls lose the ring or hit area.
   test("F-A11Y5-02 the Flavor dialog's order, ring and hit area", async ({ page }) => {
+    await TELEMETRY(page);
     await stubSeeds(page);
     await openStudio(page);
     await flavorButton(page).click();
@@ -454,8 +518,27 @@ test.describe("F-A11Y5-02 the keyboard reaches every new control", () => {
     expect(stops.map((stop) => stop.name)).toEqual([
       "Pause",
       "Pause",
+      "Render the brand video",
       "Record the shader loop",
       "Close",
     ]);
+  });
+
+  // Breaks when the privacy note's heading stops taking focus, its buttons leave the order Render,
+  // Cancel (13.4), or Cancel and Render stop moving focus where the note says.
+  test("F-A11Y5-02 the privacy note's order, and where focus goes", async ({ page }) => {
+    await TELEMETRY(page);
+    await openFlavorWithNote(page);
+    await expect(noteOf(page).getByRole("heading", { name: NOTE_HEADING })).toBeFocused();
+    const stops = await tabTo(page, "Cancel");
+    expect(stops.map((stop) => stop.name)).toEqual(["Render", "Cancel"]);
+    expectReachable(stops);
+    await page.keyboard.press("Enter");
+    await expect(renderButton(page)).toBeFocused();
+    await renderButton(page).press("Enter");
+    await noteOf(page).getByRole("button", { name: "Render", exact: true }).focus();
+    await page.keyboard.press("Enter");
+    await expect(renderCancel(page)).toBeFocused();
+    await cancelRender(page);
   });
 });
