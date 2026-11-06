@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect } from "@playwright/test";
 import {
   closeButton,
   copyButton,
@@ -16,10 +16,13 @@ import {
   SPEC_LINK,
   zipNameOf,
 } from "./export-support";
+import { test } from "./flavor-support";
 import { openStudio } from "./studio-support";
 
 // The export dialog's "Include flavor files" flows of docs/specs/05-motion-3d.md, section 13.5 (Task
-// 5.4c): F-FEX-01 to 04.
+// 5.4c): F-FEX-01 to 04. Every flow fails, through the watch of flavor-support's `test`, on a
+// `securitypolicyviolation` event, a console error, a page error or an unhandled rejection in any
+// document it visits (14.11).
 
 test.use({ viewport: { width: 1280, height: 800 } });
 

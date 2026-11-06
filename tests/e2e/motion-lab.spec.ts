@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { expect, type Locator, type Page, test } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import {
   MOTION_DURATION_NAMES,
   MOTION_EASING_NAMES,
@@ -13,7 +13,7 @@ import { decodeSpec, encodeSpec, specId } from "@/spec";
 import { SITE } from "../../src/lib/site/config";
 import { CUSTOM_TOKENS } from "../unit/support/motion";
 import { LINK as linkOf, SPEC } from "./export-support";
-import { ABORT_CHUNK } from "./flavor-support";
+import { ABORT_CHUNK, allowAbortedChunk, recordAborted, test } from "./flavor-support";
 import { inputsPanel, openStudio } from "./studio-support";
 
 // Playwright does not read the `?raw` query some engine files import: the hook makes it the text.
@@ -23,7 +23,9 @@ const { motionFiles } = await import("@/export");
 const { editTokens, fieldText } = await import("@/features/motion/lab");
 
 // F-LAB-01 to 10 and F-LAB-RF2 of docs/specs/05-motion-3d.md (R5-41 to R5-44, 9.1 to 9.6) and
-// F-STUD5-01 and 02 (R5-45, 13.6).
+// F-STUD5-01 and 02 (R5-45, 13.6). Every flow fails, through the watch of flavor-support's `test`, on
+// a `securitypolicyviolation` event, a console error, a page error or an unhandled rejection in any
+// document it visits, except the failed loads F-LAB-10 allows (14.11's `ABORT_CHUNK` rule).
 
 test.use({ viewport: { width: 1280, height: 900 } });
 
@@ -284,19 +286,10 @@ test.describe("the motion lab", () => {
 
   test("F-LAB-10 with the export chunk aborted the files stay disabled and editing still works", async ({
     page,
+    watch,
   }) => {
     const marker = "dyelot.check/1";
-    const errors: { text: string; source: string }[] = [];
-    page.on("console", (message) => {
-      if (message.type() === "error") {
-        errors.push({ text: message.text(), source: message.location().url });
-      }
-    });
-    page.on("pageerror", (error) => errors.push({ text: error.message, source: "page" }));
-    const aborted: string[] = [];
-    page.on("requestfailed", (request) => {
-      if (request.failure()?.errorText === "net::ERR_FAILED") aborted.push(request.url());
-    });
+    const aborted = recordAborted(page);
     await ABORT_CHUNK(page, marker);
     await openLab(page);
     await expect(filesStatus(page)).toHaveText(LOAD_FAILED);
@@ -307,14 +300,9 @@ test.describe("the motion lab", () => {
     await field(page, "base (ms)").fill("160");
     await expect(lab(page)).toHaveAttribute("data-preset", "custom");
     // 14.11's ABORT_CHUNK rule (recorded at Task 5.6b's review): the chunk that holds the marker
-    // failed twice, its request and Turbopack's one retry, each with the browser's line, and nothing
-    // else logged an error.
-    await expect.poll(() => aborted.length).toBe(2);
-    const [chunk = ""] = aborted;
-    expect(aborted).toEqual([chunk, chunk]);
-    expect(await (await page.request.get(chunk)).text()).toContain(marker);
-    const failedLoad = { text: "Failed to load resource: net::ERR_FAILED", source: chunk };
-    await expect.poll(() => errors).toEqual([failedLoad, failedLoad]);
+    // failed twice, its request and Turbopack's one retry, each with the browser's line, and the
+    // watch fails the flow on any other error.
+    await allowAbortedChunk(page, watch, aborted, marker);
   });
 
   test("F-LAB-RF2 a duration above the cap shows as stored and exports capped", async ({

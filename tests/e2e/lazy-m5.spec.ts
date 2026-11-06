@@ -1,43 +1,14 @@
-import { test as base, expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { VIDEO_LINES } from "@/features/flavor/video";
-import { TELEMETRY } from "./flavor-support";
+import { TELEMETRY, test } from "./flavor-support";
 import { button, openStudio, stubSeeds } from "./studio-support";
 
 // The laziness flows of docs/specs/05-motion-3d.md, section 14.11 (R5-61, I-M5-04): F-LAZY5-01 to 04
 // (Task 5.11a). Each reads the text of every JavaScript response a page fetches and tells the heavy
 // libraries apart by the marker strings of R5-64 (probes 1, 4 and 5), and the engine by its version
-// string. Every flow fails on a `securitypolicyviolation` event, a console error or a page error (14.11).
-
-/**
- * Each flow records, before the page's scripts run, every policy violation, console error and page
- * error, and fails at its end if any came.
- */
-const test = base.extend<{ problems: string[] }>({
-  problems: [
-    async ({ page }, use) => {
-      const problems: string[] = [];
-      page.on("console", (message) => {
-        if (message.type() === "error") problems.push(`console: ${message.text()}`);
-      });
-      page.on("pageerror", (error) => problems.push(`page: ${error.message}`));
-      await page.addInitScript(() => {
-        const host = window as unknown as { __violations: string[] };
-        host.__violations = [];
-        document.addEventListener(
-          "securitypolicyviolation",
-          (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
-          true,
-        );
-      });
-      await use(problems);
-      const violations = await page.evaluate(
-        () => (window as unknown as { __violations?: string[] }).__violations ?? [],
-      );
-      expect([...problems, ...violations.map((each) => `violation: ${each}`)]).toEqual([]);
-    },
-    { auto: true },
-  ],
-});
+// string. Every flow fails, through the watch of flavor-support's `test`, on a
+// `securitypolicyviolation` event, a console error, a page error or an unhandled rejection in any
+// document it visits (14.11).
 
 test.use({ viewport: { width: 1280, height: 800 } });
 

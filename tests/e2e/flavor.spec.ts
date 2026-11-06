@@ -1,14 +1,17 @@
 import { readFileSync } from "node:fs";
-import { test as base, type Download, expect, type Locator, type Page } from "@playwright/test";
+import { type Download, expect, type Locator, type Page } from "@playwright/test";
 import { flavorStops, type Mode } from "@/engine";
 import { doneLine, FLAVOR_LINES, VIDEO_LINES } from "@/features/flavor/video";
 import {
   ABORT_CHUNK,
+  allowAbortedChunk,
+  test as base,
   loseContext,
   NO_AVC,
   NO_ENCODE,
   NO_WEBCODECS,
   NO_WEBGL,
+  recordAborted,
   STATUS_RECORD,
   TELEMETRY,
 } from "./flavor-support";
@@ -31,91 +34,22 @@ const { brandProps, mediaName } = await import("@/export");
 // to 13.3, 13.8): F-FLAVOR-01, 02, 03, 05, 08 and F-STUD5-03 (Task 5.9b); the shader loop's
 // recording (R5-56, R5-57, 11.3): F-FLAVOR-06, F-LOOP-01 to 05 and F-LOOP-RF3 (Task 5.10); the brand
 // video's render, its privacy note and its usage event (R5-53, R5-54, R5-59, 11.2, 13.3, 13.4):
-// F-RENDER-01 to 09, F-RENDER-RF4, F-FLAVOR-04 and 07 (Task 5.9c). Every flow fails on a
-// `securitypolicyviolation` event, a console error, a page error or an unhandled rejection, except
-// the failed loads 14.11's `ABORT_CHUNK` rule allows. Every flow that can reach the render answers
-// its usage event with `TELEMETRY` first, so none reaches remotion.pro (R5-59, C-GUARD5-12).
-
-/**
- * Each flow records, before the page's scripts run, every policy violation, console error, page
- * error and unhandled rejection, and fails at its end on any that `allow` did not name.
- * `allow(pattern, count, source)` admits exactly `count` console errors whose text matches `pattern`
- * and, when `source` is given, whose source URL is `source`: fewer or more fail the flow too (14.11's
- * `ABORT_CHUNK` rule, as `tests/e2e/explore.spec.ts` reads it).
- */
-type Watch = { allow(pattern: RegExp, count: number, source?: string): void };
-type Allowance = { readonly pattern: RegExp; readonly count: number; readonly source?: string };
-type Logged = { readonly text: string; readonly source: string };
-
-const admits = (allowance: Allowance, logged: Logged): boolean =>
-  allowance.pattern.test(logged.text) &&
-  (allowance.source === undefined || allowance.source === logged.source);
+// F-RENDER-01 to 09, F-RENDER-RF4, F-FLAVOR-04 and 07 (Task 5.9c). Every flow fails, through the
+// watch of flavor-support's `test`, on a `securitypolicyviolation` event, a console error, a page
+// error or an unhandled rejection in any document it visits, except the failed loads 14.11's
+// `ABORT_CHUNK` rule allows. Every flow that can reach the render answers its usage event with
+// `TELEMETRY` first, so none reaches remotion.pro (R5-59, C-GUARD5-12), and fails on any other
+// request to its host.
 
 /** What `TELEMETRY` gives: the usage event's `POST` bodies, and every other request it aborted. */
 type Telemetry = Awaited<ReturnType<typeof TELEMETRY>>;
 
-const test = base.extend<{ watch: Watch; telemetry: Telemetry }>({
-  watch: [
-    async ({ page }, use) => {
-      const errors: Logged[] = [];
-      const pages: string[] = [];
-      const allowed: Allowance[] = [];
-      page.on("console", (message) => {
-        if (message.type() === "error") {
-          errors.push({ text: message.text(), source: message.location().url });
-        }
-      });
-      page.on("pageerror", (error) => pages.push(error.message));
-      await page.addInitScript(() => {
-        const host = window as unknown as { __violations: string[]; __rejections: number };
-        host.__violations = [];
-        host.__rejections = 0;
-        document.addEventListener(
-          "securitypolicyviolation",
-          (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
-          true,
-        );
-        window.addEventListener("unhandledrejection", () => {
-          host.__rejections += 1;
-        });
-      });
-      await use({
-        allow: (pattern, count, source) =>
-          void allowed.push(source === undefined ? { pattern, count } : { pattern, count, source }),
-      });
-      const { violations, rejections } = await page.evaluate(() => {
-        const host = window as unknown as { __violations?: string[]; __rejections?: number };
-        return { violations: host.__violations ?? [], rejections: host.__rejections ?? 0 };
-      });
-      const counts = allowed.map(
-        (allowance) => errors.filter((logged) => admits(allowance, logged)).length,
-      );
-      const unexpected = errors
-        .filter((logged) => !allowed.some((allowance) => admits(allowance, logged)))
-        .map(({ text, source }) => `${text} (${source})`);
-      expect({
-        console: unexpected,
-        allowed: counts,
-        page: pages,
-        rejections,
-        violations,
-      }).toEqual({
-        console: [],
-        allowed: allowed.map(({ count }) => count),
-        page: [],
-        rejections: 0,
-        violations: [],
-      });
-    },
-    { auto: true },
-  ],
+const test = base.extend<{ telemetry: Telemetry }>({
   // The usage event's answer, installed before the flow's `goto`, for every flow that can reach the
-  // render (R5-59, C-GUARD5-12). It fails the flow on any other request to remotion.pro, which it
-  // aborted (R4-58).
+  // render (R5-59, C-GUARD5-12). The watch fails the flow on any other request to remotion.pro,
+  // which it aborted (R4-58).
   telemetry: async ({ page }, use) => {
-    const telemetry = await TELEMETRY(page);
-    await use(telemetry);
-    expect(telemetry.strays()).toEqual([]);
+    await use(await TELEMETRY(page));
   },
 });
 
@@ -230,32 +164,6 @@ function remotionRequests(page: Page): string[] {
     }
   });
   return requests;
-}
-
-/** Keeps the URL of every request that failed with `net::ERR_FAILED` (an aborted chunk). */
-function recordAborted(page: Page): string[] {
-  const aborted: string[] = [];
-  page.on("requestfailed", (request) => {
-    if (request.failure()?.errorText === "net::ERR_FAILED") aborted.push(request.url());
-  });
-  return aborted;
-}
-
-/**
- * Checks 14.11's `ABORT_CHUNK` rule once the load has failed: the chunk that holds `marker` failed
- * twice, its request and Turbopack's one retry, and the flow allows the browser's two lines for it.
- */
-async function allowAbortedChunk(
-  page: Page,
-  watch: Watch,
-  aborted: readonly string[],
-  marker: string,
-): Promise<void> {
-  await expect.poll(() => aborted.length).toBe(2);
-  const [chunk = ""] = aborted;
-  expect(aborted).toEqual([chunk, chunk]);
-  expect(await (await page.request.get(chunk)).text()).toContain(marker);
-  watch.allow(/^Failed to load resource: net::ERR_FAILED$/, 2, chunk);
 }
 
 /** Keeps the text of every JavaScript chunk the page fetches; `holding(marker)` names those with it. */
@@ -621,7 +529,9 @@ test.describe("the usage event's answer", () => {
     expect(reached).toBe(false);
     expect(telemetry.strays()).toEqual([`POST ${stray}`]);
     expect(telemetry.posts()).toEqual([]);
-    // The browser's line for the aborted request: Playwright's abort reads as the inspector's block.
+    // The stray this flow sent on purpose, which the watch would fail it on otherwise, and the
+    // browser's line for it: Playwright's abort reads as the inspector's block.
+    watch.allowStray(`POST ${stray}`);
     watch.allow(/^Failed to load resource: net::ERR_BLOCKED_BY_CLIENT\.Inspector$/, 1, stray);
   });
 });

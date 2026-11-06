@@ -1,7 +1,145 @@
-import type { Page } from "@playwright/test";
+import { test as base, expect, type Page } from "@playwright/test";
 
 // Init scripts and readers the M5 flows share (docs/specs/05-motion-3d.md, section 4). Each init script
-// takes the page and installs itself before the next navigation.
+// takes the page and installs itself before the next navigation. The flows' one `test`, with its watch
+// (14.11's preamble), is first.
+
+/**
+ * What a flow allows its watch, before or after the event: `allow(pattern, count, source)` admits
+ * exactly `count` console errors whose text matches `pattern` and, when `source` is given, whose
+ * source URL is `source`: fewer or more fail the flow too. `allowStray(request)` admits one request
+ * `TELEMETRY` aborted, as "<method> <url>", in the order the flow names them.
+ */
+export type Watch = {
+  allow(pattern: RegExp, count: number, source?: string): void;
+  allowStray(request: string): void;
+};
+type Allowance = { readonly pattern: RegExp; readonly count: number; readonly source?: string };
+type Logged = { readonly text: string; readonly source: string };
+
+const admits = (allowance: Allowance, logged: Logged): boolean =>
+  allowance.pattern.test(logged.text) &&
+  (allowance.source === undefined || allowance.source === logged.source);
+
+/** The binding each document reports its policy violations and unhandled rejections through. */
+const WATCH_BINDING = "__dyelotWatch";
+
+/** Each page's `TELEMETRY` stray readers, which its watch reads at the flow's end. */
+const telemetries = new WeakMap<Page, (() => readonly string[])[]>();
+
+/**
+ * The M5 flows' `test` (14.11's preamble, R5-59). Its watch records, from before the page's scripts
+ * run, every policy violation, console error, page error and unhandled rejection in every document
+ * the flow visits: each document reports its violations and rejections to the flow as they happen,
+ * so a navigation loses none. At the flow's end it fails on any that `allow` did not name, and on any
+ * request to remotion.pro that a `TELEMETRY` of the page aborted and `allowStray` did not name. The
+ * allowances 14.11 names are the `ABORT_CHUNK` rule's two failed loads (`allowAbortedChunk`) and the
+ * explorer's lines of R5-39's amendment.
+ */
+export const test = base.extend<{ watch: Watch }>({
+  watch: [
+    async ({ page }, use) => {
+      const errors: Logged[] = [];
+      const pageErrors: string[] = [];
+      const violations: string[] = [];
+      const rejections: string[] = [];
+      const allowed: Allowance[] = [];
+      const allowedStrays: string[] = [];
+      page.on("console", (message) => {
+        if (message.type() === "error") {
+          errors.push({ text: message.text(), source: message.location().url });
+        }
+      });
+      page.on("pageerror", (error) => pageErrors.push(error.message));
+      await page.exposeBinding(WATCH_BINDING, (_source, kind: unknown, detail: unknown) => {
+        (kind === "violation" ? violations : rejections).push(String(detail));
+      });
+      await page.addInitScript((binding) => {
+        type Report = (kind: string, detail: string) => Promise<void>;
+        const host = window as unknown as Record<string, Report | undefined> & {
+          __dyelotWatchSent?: Promise<void>[];
+        };
+        // Each report's promise settles once the flow has it, so the flow's end can wait for them.
+        const sent: Promise<void>[] = [];
+        host.__dyelotWatchSent = sent;
+        const report = (kind: string, detail: string) => {
+          const call = host[binding]?.(kind, detail);
+          if (call !== undefined) sent.push(call.catch(() => {}));
+        };
+        document.addEventListener(
+          "securitypolicyviolation",
+          (event) => report("violation", `${event.violatedDirective} ${event.blockedURI}`),
+          true,
+        );
+        window.addEventListener("unhandledrejection", (event) =>
+          report("rejection", String(event.reason)),
+        );
+      }, WATCH_BINDING);
+      await use({
+        allow: (pattern, count, source) =>
+          void allowed.push(source === undefined ? { pattern, count } : { pattern, count, source }),
+        allowStray: (request) => void allowedStrays.push(request),
+      });
+      // The current document's reports reach the flow before it reads them.
+      await page.evaluate(() =>
+        Promise.all(
+          (window as unknown as { __dyelotWatchSent?: Promise<void>[] }).__dyelotWatchSent ?? [],
+        ),
+      );
+      const counts = () =>
+        allowed.map((allowance) => errors.filter((logged) => admits(allowance, logged)).length);
+      // An allowed line may still be on its way: wait for each count, never past the poll's limit.
+      await expect.poll(counts).toEqual(allowed.map(({ count }) => count));
+      const unexpected = errors
+        .filter((logged) => !allowed.some((allowance) => admits(allowance, logged)))
+        .map(({ text, source }) => `${text} (${source})`);
+      const strays = (telemetries.get(page) ?? []).flatMap((read) => read());
+      expect({
+        console: unexpected,
+        allowed: counts(),
+        page: pageErrors,
+        rejections,
+        violations,
+        strays,
+      }).toEqual({
+        console: [],
+        allowed: allowed.map(({ count }) => count),
+        page: [],
+        rejections: [],
+        violations: [],
+        strays: allowedStrays,
+      });
+    },
+    { auto: true },
+  ],
+});
+
+/** Keeps the URL of every request that failed with `net::ERR_FAILED` (an aborted chunk). */
+export function recordAborted(page: Page): string[] {
+  const aborted: string[] = [];
+  page.on("requestfailed", (request) => {
+    if (request.failure()?.errorText === "net::ERR_FAILED") aborted.push(request.url());
+  });
+  return aborted;
+}
+
+/**
+ * Checks 14.11's `ABORT_CHUNK` rule once the load has failed: the chunk that holds `marker` failed
+ * twice, its request and Turbopack's one retry, and the flow allows the browser's two lines for it.
+ * `aborted` is `recordAborted`'s list, made before the flow's `goto`.
+ */
+export async function allowAbortedChunk(
+  page: Page,
+  watch: Watch,
+  aborted: readonly string[],
+  marker: string,
+): Promise<void> {
+  await expect.poll(() => aborted.length).toBe(2);
+  const [chunk = ""] = aborted;
+  expect(aborted).toEqual([chunk, chunk]);
+  expect(await (await page.request.get(chunk)).text()).toContain(marker);
+  watch.allow(/^Failed to load resource: net::ERR_FAILED$/, 2, chunk);
+}
 
 export type VtRecord = {
   calls: number;
@@ -223,14 +361,17 @@ const USAGE_CORS = {
  * without awaiting it, so any other answer would be an unhandled rejection in the page. `posts()`
  * gives the JSON body of each `POST` so far; poll it, since the event leaves after the download
  * starts. Any other request to the host never leaves the browser: it is aborted, and `strays()`
- * gives each as "<method> <url>", for a flow to fail on (Task 5.9c's review). Install it before
- * `goto`.
+ * gives each as "<method> <url>"; the watch of `test` fails the flow on any (Task 5.9c's review, the
+ * final review). Install it before `goto`.
  */
 export async function TELEMETRY(
   page: Page,
 ): Promise<{ posts(): readonly unknown[]; strays(): readonly string[] }> {
   const posts: unknown[] = [];
   const strays: string[] = [];
+  const readers = telemetries.get(page) ?? [];
+  readers.push(() => [...strays]);
+  telemetries.set(page, readers);
   await page.route(REMOTION_HOST, async (route) => {
     const request = route.request();
     if (request.url() !== USAGE_POINT) {

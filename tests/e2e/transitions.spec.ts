@@ -1,10 +1,12 @@
-import { expect, type Page, test } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 import { tokenRow } from "@/features/studio/token-row";
-import { VT_RECORD, vtRecord } from "./flavor-support";
+import { test, VT_RECORD, vtRecord } from "./flavor-support";
 import { canvasFrame, first, inspectorAside, openStudio, stubSeeds } from "./studio-support";
 import { reduceMotion, screenOf, showTemplate, templateSelect } from "./template-support";
 
 // The view transitions of Tasks 5.8a and 5.8b (docs/specs/05-motion-3d.md, rulings R5-46 to R5-49).
+// Every flow fails, through the watch of flavor-support's `test`, on a `securitypolicyviolation`
+// event, a console error, a page error or an unhandled rejection in any document it visits (14.11).
 
 const GROUP = "::view-transition-group(dyelot-template)";
 

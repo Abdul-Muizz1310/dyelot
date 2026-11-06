@@ -1,6 +1,6 @@
-import { test as base, expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { flavorBackground } from "@/flavor/flavor.mjs";
-import { loseContext, NO_COMPILE, NO_WEBGL } from "./flavor-support";
+import { loseContext, NO_COMPILE, NO_WEBGL, test } from "./flavor-support";
 import { inputsPanel, lotId, lotOf, ready } from "./studio-support";
 
 // Playwright does not read the `?raw` query some engine files import: the hook makes it the text.
@@ -16,39 +16,9 @@ const CARDS = heroCards().cards;
 
 // F-STORY-01 to 05, F-HOME5-02 and F-HOME5-03 of docs/specs/05-motion-3d.md, section 14.11 (R5-33,
 // R5-34, 7.2). The story's text is the first hero design's (Madder, R5-31). F-HERO-01 to 11 and
-// F-HERO-RF1 (Task 5.5b; R5-18, R5-19, R5-32, 6.4, 7.1) follow them. Every flow fails on a
-// `securitypolicyviolation` event, a console error or a page error (14.11).
-
-/**
- * Each flow records, before the page's scripts run, every policy violation, console error and page
- * error, and fails at its end if any came.
- */
-const test = base.extend<{ problems: string[] }>({
-  problems: [
-    async ({ page }, use) => {
-      const problems: string[] = [];
-      page.on("console", (message) => {
-        if (message.type() === "error") problems.push(`console: ${message.text()}`);
-      });
-      page.on("pageerror", (error) => problems.push(`page: ${error.message}`));
-      await page.addInitScript(() => {
-        const host = window as unknown as { __violations: string[] };
-        host.__violations = [];
-        document.addEventListener(
-          "securitypolicyviolation",
-          (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
-          true,
-        );
-      });
-      await use(problems);
-      const violations = await page.evaluate(
-        () => (window as unknown as { __violations?: string[] }).__violations ?? [],
-      );
-      expect([...problems, ...violations.map((each) => `violation: ${each}`)]).toEqual([]);
-    },
-    { auto: true },
-  ],
-});
+// F-HERO-RF1 (Task 5.5b; R5-18, R5-19, R5-32, 6.4, 7.1) follow them. Every flow fails, through the
+// watch of flavor-support's `test`, on a `securitypolicyviolation` event, a console error, a page
+// error or an unhandled rejection in any document it visits (14.11).
 
 test.use({ viewport: { width: 1280, height: 800 } });
 

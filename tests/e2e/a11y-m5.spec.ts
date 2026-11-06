@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { test as base, expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { exportButton, exportDialog, fileRows, openReady, SPEC_LINK } from "./export-support";
-import { NO_WEBGL, TELEMETRY } from "./flavor-support";
+import { NO_WEBGL, TELEMETRY, test } from "./flavor-support";
 import {
   button,
   canvasFrame,
@@ -14,35 +14,10 @@ import {
 import { reduceMotion } from "./template-support";
 
 // M5's accessibility flows of docs/specs/05-motion-3d.md, section 14.11 (Task 5.11b): F-A11Y5-01 to
-// 04 and F-HOME5-04 (R5-01, R5-32, R5-37, R5-38, R5-51, R5-66, 13.8). Every flow fails on a
-// `securitypolicyviolation` event, a console error or a page error.
-
-const test = base.extend<{ problems: string[] }>({
-  problems: [
-    async ({ page }, use) => {
-      const problems: string[] = [];
-      page.on("console", (message) => {
-        if (message.type() === "error") problems.push(`console: ${message.text()}`);
-      });
-      page.on("pageerror", (error) => problems.push(`page: ${error.message}`));
-      await page.addInitScript(() => {
-        const host = window as unknown as { __violations: string[] };
-        host.__violations = [];
-        document.addEventListener(
-          "securitypolicyviolation",
-          (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
-          true,
-        );
-      });
-      await use(problems);
-      const violations = await page.evaluate(
-        () => (window as unknown as { __violations?: string[] }).__violations ?? [],
-      );
-      expect([...problems, ...violations.map((each) => `violation: ${each}`)]).toEqual([]);
-    },
-    { auto: true },
-  ],
-});
+// 04 and F-HOME5-04 (R5-01, R5-32, R5-37, R5-38, R5-51, R5-66, 13.8). Every flow fails, through the
+// watch of flavor-support's `test`, on a `securitypolicyviolation` event, a console error, a page
+// error or an unhandled rejection in any document it visits, and a flow that installs `TELEMETRY`
+// on any request to remotion.pro other than the usage event (14.11, R5-59).
 
 const DESKTOP = { width: 1280, height: 800 };
 const PHONE = { width: 360, height: 740 };

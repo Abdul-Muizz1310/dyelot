@@ -1,11 +1,19 @@
 import { inflateSync } from "node:zlib";
-import { test as base, expect, type Locator, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { gamutSlice, generateSystem, type Mode, PALETTE_NAMES, type SolidGamut } from "@/engine";
 import { SITE } from "@/lib/site/config";
 import { type DesignSpec, encodeSpec } from "@/spec";
 import { DEFAULT_PARAMS } from "../unit/spec/support";
 import { LINK, SPEC } from "./export-support";
-import { ABORT_CHUNK, loseContext, NO_RENDERER, NO_WEBGL } from "./flavor-support";
+import {
+  ABORT_CHUNK,
+  allowAbortedChunk,
+  loseContext,
+  NO_RENDERER,
+  NO_WEBGL,
+  recordAborted,
+  test,
+} from "./flavor-support";
 import { lotId, lotOf, openStudio, ready } from "./studio-support";
 
 // Playwright does not read the `?raw` query some engine files import: the hook makes it the text.
@@ -16,72 +24,9 @@ const { cameraPosition, DEFAULT_CAMERA, EXPLORE_LINES, scenePoints, sceneSummary
 
 // The explorer's flows of docs/specs/05-motion-3d.md, section 14.11 (R5-35 to R5-40, 8.1 to 8.4):
 // F-EXP5-01 to 10 and F-EXP5-RF2 (Task 5.6b). What the page must show is computed here in Node.
-// Every flow fails on a `securitypolicyviolation` event, a console error or a page error, except
-// the reports F-EXP5-10 allows (14.11).
-
-/**
- * Each flow records, before the page's scripts run, every policy violation, console error and page
- * error, and fails at its end on any that `allow` did not name. `allow(pattern, count, source)`
- * admits exactly `count` console errors whose text matches `pattern` and, when `source` is given,
- * whose source URL is `source`: fewer or more fail the flow too.
- */
-type Watch = { allow(pattern: RegExp, count: number, source?: string): void };
-type Allowance = { readonly pattern: RegExp; readonly count: number; readonly source?: string };
-type Logged = { readonly text: string; readonly source: string };
-
-const admits = (allowance: Allowance, logged: Logged): boolean =>
-  allowance.pattern.test(logged.text) &&
-  (allowance.source === undefined || allowance.source === logged.source);
-
-const test = base.extend<{ watch: Watch }>({
-  watch: [
-    async ({ page }, use) => {
-      const errors: Logged[] = [];
-      const pages: string[] = [];
-      const allowed: Allowance[] = [];
-      page.on("console", (message) => {
-        if (message.type() === "error") {
-          errors.push({ text: message.text(), source: message.location().url });
-        }
-      });
-      page.on("pageerror", (error) => pages.push(error.message));
-      await page.addInitScript(() => {
-        const host = window as unknown as { __violations: string[] };
-        host.__violations = [];
-        document.addEventListener(
-          "securitypolicyviolation",
-          (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
-          true,
-        );
-      });
-      await use({
-        allow: (pattern, count, source) =>
-          void allowed.push(source === undefined ? { pattern, count } : { pattern, count, source }),
-      });
-      const violations = await page.evaluate(
-        () => (window as unknown as { __violations?: string[] }).__violations ?? [],
-      );
-      const counts = allowed.map(
-        (allowance) => errors.filter((logged) => admits(allowance, logged)).length,
-      );
-      const unexpected = errors
-        .filter((logged) => !allowed.some((allowance) => admits(allowance, logged)))
-        .map(({ text, source }) => `${text} (${source})`);
-      expect({
-        console: unexpected,
-        allowed: counts,
-        page: pages,
-        violations,
-      }).toEqual({
-        console: [],
-        allowed: allowed.map(({ count }) => count),
-        page: [],
-        violations: [],
-      });
-    },
-    { auto: true },
-  ],
-});
+// Every flow fails, through the watch of flavor-support's `test`, on a `securitypolicyviolation`
+// event, a console error, a page error or an unhandled rejection in any document it visits, except
+// the reports F-EXP5-10 allows (14.11, R5-39's amendment).
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -635,10 +580,7 @@ test.describe("the explorer", () => {
     watch,
   }) => {
     const marker = "THREE.WebGLRenderer";
-    const aborted: string[] = [];
-    page.on("requestfailed", (request) => {
-      if (request.failure()?.errorText === "net::ERR_FAILED") aborted.push(request.url());
-    });
+    const aborted = recordAborted(page);
     await ABORT_CHUNK(page, marker);
     await openExplorer(page);
     await expect(panel(page)).toHaveAttribute("data-explorer-state", "flat");
@@ -649,11 +591,7 @@ test.describe("the explorer", () => {
     await expect(panel(page).locator("canvas")).toHaveCount(0);
     // 14.11's ABORT_CHUNK rule: the chunk that holds the marker failed twice, its request and
     // Turbopack's one retry, each with the browser's line; React reports the caught error once.
-    await expect.poll(() => aborted.length).toBe(2);
-    const [chunk = ""] = aborted;
-    expect(aborted).toEqual([chunk, chunk]);
-    expect(await (await page.request.get(chunk)).text()).toContain(marker);
-    watch.allow(/^Failed to load resource: net::ERR_FAILED$/, 2, chunk);
+    await allowAbortedChunk(page, watch, aborted, marker);
     watch.allow(/^\S+: Explorer3D: the chunk did not load/, 1);
   });
 });
