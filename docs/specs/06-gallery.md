@@ -866,3 +866,510 @@ not a whole number from 1 to 10. `median` is a `RangeError` for an empty list or
 `scriptTotals` is a `TypeError` for a non-array and a `RangeError` for a response without numeric `bytes` and
 `transferred`. `runLighthouse` is a `RangeError` for a form factor outside `FORM_FACTORS` and closes its browser on every
 path.
+
+## 6. The gallery entries (Task 6.1)
+
+### 6.1 The table
+
+Rows 1 to 6 are R5-31's six hero designs by reference, in its order: each is `heroSpec(i)` for row `i + 1`, its seed is
+`hero-<slug>`, its `createdWith` is `"controls"`, and its line is "One locked seed, <its hex>, and the studio's
+defaults." Rows 7 to 24 are brief entries in `PRESET_IDS` order of their preset: each is `briefSpec` of its row (R6-06),
+its seed is `gallery-<slug>`, its `createdWith` is `"lexicon"` and its line is its brief. The terms are what
+`matchLexicon` returned on 2026-11-07, in text order (a suffixed word reads as its term: "frosted" as `frost`,
+"layered" as `layer`). The pairing column gives the display and body families the design ended with.
+
+| # | Slug | Name | Brief, or the hero's line | Terms the word list matched | Preset | Display and body | Tags |
+|---|---|---|---|---|---|---|---|
+| 1 | `madder` | Madder | One locked seed, #f66c6d, and the studio's defaults. | (a hero) | none: "Custom" | Host Grotesk, Host Grotesk | bold |
+| 2 | `weld` | Weld | One locked seed, #e3c23b, and the studio's defaults. | (a hero) | none: "Custom" | Host Grotesk, Host Grotesk | playful, natural |
+| 3 | `verdigris` | Verdigris | One locked seed, #4bae87, and the studio's defaults. | (a hero) | none: "Custom" | Host Grotesk, Host Grotesk | calm, natural |
+| 4 | `woad` | Woad | One locked seed, #0e84b7, and the studio's defaults. | (a hero) | none: "Custom" | Host Grotesk, Host Grotesk | calm, technical |
+| 5 | `logwood` | Logwood | One locked seed, #7652ac, and the studio's defaults. | (a hero) | none: "Custom" | Host Grotesk, Host Grotesk | editorial |
+| 6 | `cochineal` | Cochineal | One locked seed, #cd3f9b, and the studio's defaults. | (a hero) | none: "Custom" | Host Grotesk, Host Grotesk | bold, playful |
+| 7 | `realgar` | Realgar | A balanced, versatile planner for small teams, professional and fast, in orange. | balanced, versatile, professional, fast, orange | `default` | Schibsted Grotesk, Source Serif 4 | technical |
+| 8 | `cinnabar` | Cinnabar | A Swiss grid for an architecture studio, stark and precise, with one red. | swiss, grid, architecture, stark, precise, red | `minimal-swiss` | Host Grotesk, Host Grotesk | bold, technical |
+| 9 | `ochre` | Ochre | A minimal concrete grid, neutral and crisp, with one ochre mark. | minimal, concrete, grid, neutral, crisp, ochre | `minimal-swiss` | Host Grotesk, Host Grotesk | editorial |
+| 10 | `kermes` | Kermes | A slow longform magazine set in serif on warm paper, with burgundy headings. | slow, longform, magazine, serif, warm, paper, burgundy | `editorial` | Schibsted Grotesk, Source Serif 4 | calm, editorial |
+| 11 | `lapis` | Lapis | A formal law journal, classic serif on quiet paper, with navy rules. | formal, law, journal, classic, serif, quiet, paper, navy | `editorial` | Schibsted Grotesk, Source Serif 4 | editorial |
+| 12 | `gamboge` | Gamboge | A loud, confident neo brutalism store page in saturated yellow with sharp edges. | loud, confident, neo brutalism, saturated, yellow, sharp | `neo-brutalism` | Anybody, Albert Sans | bold, playful |
+| 13 | `smalt` | Smalt | A frosted glass landing page for a weather startup, cool azure and high contrast. | frost, glass, landing page, startup, cool, azure, high contrast | `glass` | Funnel Display, Funnel Sans | calm, technical |
+| 14 | `turquoise` | Turquoise | A dense, fast terminal for API work, flat panels and one teal accent. | dense, fast, terminal, api, flat, teal | `dark-dev-tool` | Hubot Sans, Mona Sans | technical |
+| 15 | `safflower` | Safflower | A friendly bento of modular tiles for a mobile app in rose. | friendly, bento, modular, tile, mobile app, rose | `bento` | Commissioner, Commissioner | playful |
+| 16 | `verditer` | Verditer | A slow northern lights gradient for a storefront, vivid and cool. | slow, northern lights, gradient, storefront, vivid, cool | `aurora` | Zalando Sans Expanded, Zalando Sans | calm, natural |
+| 17 | `tyrian` | Tyrian | Neon synthwave, holographic and magenta, playful as the eighties. | neon, synthwave, holographic, magenta, playful, eighties | `retro-futurism` | Unbounded, Golos Text | bold, playful |
+| 18 | `umber` | Umber | A handcrafted leather workshop, warm and layered. | handcrafted, leather, workshop, warm, layer | `tactile` | Big Shoulders, Red Hat Text | natural |
+| 19 | `fustic` | Fustic | An embossed brewery label in warm amber, lit from one side. | embossed, brewery, warm, amber | `tactile` | Big Shoulders, Red Hat Text | bold, natural |
+| 20 | `rhodonite` | Rhodonite | A maximalist poster collage, wild and festive, with fuchsia everywhere. | maximalist, poster, collage, wild, festive, fuchsia | `maximalism` | Gloock, Albert Sans | bold, playful |
+| 21 | `turmeric` | Turmeric | A cozy organic bakery in honey and cream, slow and handmade. | cozy, organic, bakery, honey, cream, slow, handmade | `organic` | Young Serif, Onest | calm, natural |
+| 22 | `terre-verte` | Terre verte | A quiet matcha tea house, slow and handmade. | quiet, matcha, tea house, slow, handmade | `organic` | Young Serif, Onest | calm, natural |
+| 23 | `malachite` | Malachite | A stark pixel bitmap in black and lime, sharp and flat. | stark, pixel, bitmap, black, lime, sharp, flat | `dithering-pixel` | Tiny5, Spline Sans | technical, playful |
+| 24 | `azurite` | Azurite | A bouncy, expressive habit tracker, friendly and animated, in blue. | bouncy, expressive, friendly, animated, blue | `m3-expressive` | Google Sans Flex, Google Sans Flex | playful |
+
+Each brief entry's `presetOf(spec)` equals the preset the brief chose: every field its draft votes for is either the
+preset's own value or a contrast level at or above the preset's, so `touchesPreset` finds nothing and the studio's select
+names the preset (R6-26). Every one of the 24 passed 78 of 78 required contrast checks with no lint error on 2026-11-07,
+and every link is 6,611 to 7,504 characters long after `#s=`.
+
+### 6.2 Coverage
+
+| Preset | Entries |
+|---|---|
+| `default` | realgar |
+| `minimal-swiss` | cinnabar, ochre |
+| `editorial` | kermes, lapis |
+| `neo-brutalism` | gamboge |
+| `glass` | smalt |
+| `dark-dev-tool` | turquoise |
+| `bento` | safflower |
+| `aurora` | verditer |
+| `retro-futurism` | tyrian |
+| `tactile` | umber, fustic |
+| `maximalism` | rhodonite |
+| `organic` | turmeric, terre-verte |
+| `dithering-pixel` | malachite |
+| `m3-expressive` | azurite |
+| none ("Custom") | madder, weld, verdigris, woad, logwood, cochineal |
+
+| Tag | Count | Entries |
+|---|---|---|
+| calm | 7 | verdigris, woad, kermes, smalt, verditer, turmeric, terre-verte |
+| bold | 7 | madder, cochineal, cinnabar, gamboge, tyrian, fustic, rhodonite |
+| editorial | 4 | logwood, ochre, kermes, lapis |
+| technical | 6 | woad, realgar, cinnabar, smalt, turquoise, malachite |
+| playful | 8 | weld, cochineal, gamboge, safflower, tyrian, rhodonite, malachite, azurite |
+| natural | 7 | weld, verdigris, verditer, umber, fustic, turmeric, terre-verte |
+
+The primary hues spread around the wheel: the heroes at 22°, 95°, 165°, 235°, 300° and 345°, and the briefs' word-list hues
+at 10° (rose), 15° (burgundy), 29° (red), 50° (leather), 55° (orange), 75° (amber), 80° (honey, ochre), 100° (yellow),
+128° (matcha and tea house), 130° (lime), 160° (northern lights), 190° (teal), 240° (azure), 260° (blue), 265° (navy),
+330° (magenta) and 340° (fuchsia). Three presets show dark canvases (`dark-dev-tool`, `retro-futurism`,
+`dithering-pixel`), which R6-26 opens in dark mode.
+
+### 6.3 The heroes and the presets
+
+M5 made the heroes with `generateSystem({ ...freshParams(), primary, name }, seed)` and no `resolveParams`, so each holds
+M1's default families (the Host Grotesk pairing) rather than the pairing `choosePairing(seed)` picks, and `presetOf` finds
+no preset for any of them (the `default` preset's families are the automatic pairing's, R3-07). The gallery says "Custom",
+as the studio's select and the receipt's `design.preset: null` do. The heroes stay as M5 committed them: their cards are
+`hero-cards.json`, and each gallery hero's `link` equals its hero card's `href` after `/studio#s=` (C-GAL6-06).
+
+## 7. The gallery pages (Task 6.2)
+
+### 7.1 `/gallery`
+
+Metadata: `pageMetadata(SITE, "/gallery", { title: "Gallery", description: "24 original design systems made by dyelot,
+each with a receipt of its contrast checks. Open any of them in the studio, the explorer or the motion lab." })` (150
+characters). The page: `PageFrame active="gallery" statusLeft="dyelot ~/gallery" statusRight="muizz-lab · MIT"`, then a
+`section` (`max-w-6xl`) holding:
+
+1. `<Prompt>dyelot gallery</Prompt>` and the `h1` "The gallery".
+2. The intro: "Original design systems made by dyelot: <h> from one seed color each, and <b> from a one-sentence brief that the
+   studio's word list read, with no model. Each passes every required check of its receipt. Open one in the studio and
+   make it yours." `<h>` and `<b>` are the counts of hero and brief entries (6 and 18).
+3. The filter: `<nav aria-label="Filter by mood">` with the links "all" (`/gallery`) and each tag (`/gallery?tag=<tag>`),
+   in `GALLERY_TAGS` order, each 32 px tall; the current one carries `aria-current="page"` ("all" for `"all"` and
+   `"unknown"`).
+4. For `"unknown"` only, the sentence "That mood is not one of the six, so every design shows." (the query is never
+   repeated on the page).
+5. The count line: "All 24 designs." for `"all"` and `"unknown"`, else "<n> of 24 designs are tagged <tag>."
+6. The cards: a `ul` of the matching entries in `GALLERY_DEFS` order, one `li` each; one column below 768 px, two from
+   768 px and three from 1280 px.
+
+### 7.2 The card
+
+Each `li` holds `<article aria-labelledby={<id>} data-gallery-card data-slug={slug}>`, a `rounded-xl border border-border
+bg-panel p-5` box, and in it, in order:
+
+| Part | Markup and text |
+|---|---|
+| Name | `<h2 id>` the name, `font-mono text-lg font-semibold` |
+| Line | `<p>` the line, muted |
+| Tags | `<p data-tags>` "mood: " and the tags joined by ", " |
+| Specimen | 7.3 |
+| Facts | `<dl>` of four rows: "Type" with "<display> and <body>" (one name when they are the same family), "Preset" with the preset label, "Receipt" with `summaryLines(summary)[0]`, "Lot" with the lot in Geist Mono |
+| Links | "Open in the studio" to `entryHref("studio", link)` and "Details" to `/gallery/<slug>`, each `min-h-8`; the accessible names are "Open <name> in the studio" and "Details of <name>" (a visually hidden span adds the name, so the visible words stay inside the name, WCAG 2.5.3) |
+
+`GalleryCard.tsx` is a server component; the page sends no `gallery.json` to the browser.
+
+### 7.3 The specimen
+
+`<figure data-specimen>` with a `figcaption` (visually hidden) "Five palettes of <name> in light mode: primary,
+secondary, accent, neutral and danger, at steps 100, 300, 500, 700 and 900." and five rows, one per palette, each a label
+(the palette's name, `font-mono text-xs`, muted) and five swatches of 24 × 24 px, `aria-hidden`, each with a 1 px border
+of `border` and its hex as `background-color`. The specimen is the only place on the card where the design's colors
+appear (I-M6-06).
+
+### 7.4 `/gallery/[slug]`
+
+`generateMetadata({ params })` gives `{ title: name, description: entryDescription(entry), alternates: { canonical:
+"/gallery/<slug>" } }`, and `notFound()` for an unknown slug. The page: `PageFrame active="gallery"
+statusLeft="dyelot ~/gallery/<slug>" statusRight="muizz-lab · MIT"`, then:
+
+1. `<Prompt>dyelot gallery <slug></Prompt>`, the `h1` the name, and the line.
+2. How it was made: for a brief entry "Made from this brief by the studio's word list, with no model. It matched: <terms
+   joined by ", ">."; for a hero "Made from one seed color with the studio's controls."
+3. A `dl`: "Mood" with the tags, "Preset" with the label, "Type" with "<display>, <body> and <mono>" (each family once),
+   "Lot" with the lot.
+4. `h2` "Receipt" and a `ul` of the four `summaryLines(summary)`.
+5. `h2` "Scales" and two figures, `data-specimen` each, captioned "Light mode: eight palettes of eleven steps." and "Dark
+   mode: eight palettes of eleven steps.", each eight rows of a label and eleven 20 × 20 px swatches, `aria-hidden`.
+6. `h2` "Roles" and two lists ("Light mode", "Dark mode"), each six rows of a swatch, the role's name and its hex in Geist
+   Mono.
+7. `h2` "Type" and a `table` with the caption "The type ladder" and the columns "Step", "Size", "Line height" and
+   "Family": ten rows, caption to display, sizes as "<n> px", the family's name (display or body).
+8. `h2` "Open it": the links "Open in the studio", "Open in the explorer" and "Open in the motion lab" (`entryHref`), the
+   button "Copy the studio link" (R6-16) and its status line, and the link "Back to the gallery".
+
+The page holds no color outside the specimens, the swatches of 6 and the chrome (I-M6-06).
+
+## 8. The share cards (Task 6.3)
+
+### 8.1 One entry's card
+
+`GalleryShareCard({ card, icon })`: the M0 card's ground (`INK.background`, `DOT_GRID`, the madder glow) and, in a flex
+column with 64 px padding:
+
+1. The brand row: the icon at 48 px and "dyelot" (Geist Mono 700, 40 px), as `ShareCard` draws it.
+2. `// gallery/<slug>` (400, 28 px, `INK.muted`).
+3. The name (700, 96 px, `INK.foreground`).
+4. The line (400, 30 px, `INK.muted`), wrapped by `wrapLines` into at most two lines (a line of at most 100 characters
+   always fits two at this size).
+5. The strip: five blocks of 200 × 96 px with 8 px gaps and a 12 px radius, each the color of `card.strip` in order,
+   with a 1 px border of `INK.border`.
+6. "<passed> of <required> required checks pass" (400, 28 px, `INK.foreground`).
+7. The footer: `$ open <host>/gallery/<slug>` and `muizz-lab`, as the M0 card's footer.
+
+`GALLERY_CARD_ALT` is "A design system from dyelot's gallery, with its name, its brief, five of its colors and its
+receipt count."
+
+### 8.2 The gallery's card
+
+`MosaicShareCard({ cards, icon })`: the same ground, brand row and footer (`$ open <host>/gallery`), the comment
+`// gallery`, the headline "24 design systems, each with its receipt" (700, 56 px, "receipt" in `SITE.accent`), and a
+mosaic of four rows of six tiles in `GALLERY_DEFS` order, each tile 160 × 40 px made of its card's five strip colors as
+equal bands, with 12 px gaps. `MOSAIC_ALT` is "dyelot's gallery: 24 design systems, each shown as five of its colors."
+
+## 9. The landing (Task 6.6)
+
+### 9.1 The start-from section
+
+`StartFrom.tsx` renders, inside `<TerminalWindow title="start-from.log">`, a `section` named by its `h2` "Start a design
+from" and four groups, each named by an `h3`:
+
+| Key of `START_LINES` | Text | Where |
+|---|---|---|
+| `heading` | Start a design from | `h2` |
+| `color` | a color | `h3` |
+| `colorLabel` | Seed color | label of `<input type="color">`, value `#f66c6d` at first |
+| `colorSubmit` | Open the studio with this color | submit |
+| `brief` | a brief | `h3` |
+| `briefLabel` | Describe the product or mood | label of the `textarea` (`maxLength` 500, 3 rows) |
+| `briefPlaceholder` | A tea house at dusk, calm and exact | placeholder (M4's) |
+| `briefNote` | The studio puts it in its Brief box. Nothing reads it until you press Read the brief there. | under the field |
+| `briefSubmit` | Take this brief to the studio | submit |
+| `briefEmpty` | Write a few words first. | the form's `role="status"` line, after a submit `briefReady` refuses |
+| `image` | an image | `h3` |
+| `imageNote` | The studio finds an image's colors in this browser. Nothing leaves your device until you ask a model to read it. | paragraph |
+| `imageLink` | Open the studio's image drop | link to `IMAGE_HREF` |
+| `gallery` | the gallery | `h3` |
+| `galleryNote` | Original design systems made by dyelot, each with its receipt. | paragraph |
+| `galleryLink` | Browse the gallery | link to `GALLERY_HREF` |
+
+The color input shows its hex beside it in Geist Mono (`<output>` for the input); the brief's counter reads "<n> of 500
+characters", as the studio's does. The color form submits `colorHref(input.value)`; the brief form submits
+`briefHref(text)` when `briefReady(text)`, else it shows `briefEmpty` and keeps focus in the field. Every control is at
+least 32 px tall. Below 768 px the four groups stack; from 768 px they form two columns.
+
+### 9.2 The receipt section
+
+`ReceiptSection.tsx`, a server component, renders `<section aria-labelledby="receipt-heading" data-receipt>` after the
+story, with these parts in order. `RECEIPT_LINES` holds the fixed sentences; `receiptLines(excerpt)` fills the numbers.
+
+1. `h2` "The receipt".
+2. "Every export carries receipt.json, in the format <format>: the measurements of the design, written by the engine that
+   made it. Here are three parts of the receipt of <name>, the design of the story above."
+3. A figure (`data-excerpt="summary"`) captioned "The summary: <requiredPass> of <required> required contrast checks
+   pass, and the linter found <errors>." (`<errors>` is "no error", "1 error" or "<n> errors"), holding a `pre` of
+   `excerptText(excerpt.summary)`.
+4. A figure (`data-excerpt="contrast"`) captioned "One of the <checks> contrast checks: <foreground> on <background> in
+   <mode> mode, measured and never rounded.", holding a `pre` of `excerptText(excerpt.contrast)`.
+5. A figure (`data-excerpt="finding"`) captioned "One finding of the linter, with the rule it comes from.", holding a
+   `pre` of `excerptText(excerpt.finding)`; when `finding` is null, the caption "The linter found nothing to note in this
+   design." and no `pre`.
+6. "The export also holds a checker with no dependencies. A coding agent runs it from the app's root before it
+   finishes:" and a `pre` reading `$ node scripts/dyelot-check.mjs`.
+7. "It checks the theme against receipt.json, measures the <required> required contrast pairs again and scans the source
+   for raw colors and Tailwind palette classes. It prints PASS when the code keeps to the design."
+
+Each `pre` wraps (`white-space: pre-wrap; overflow-wrap: anywhere`), so nothing scrolls sideways at 360 px. The section
+holds no color: the hexes are text.
+
+### 9.3 The nav and the sitemap
+
+`AppNav` (R6-30): the brand tile, then "home", "studio", "explore", "motion", "gallery", "about" and "github". From 640 px
+the links share one row, as today. Below 640 px the links' row takes `flex-wrap` with `justify-end`, a row gap of 0 and a
+column gap of 12 px, at most two rows; the nav's height is `min-h-14` instead of `h-14`, with 4 px of vertical padding; the
+active link's underline sits 2 px below its own box (`after:-bottom-[2px]`) instead of on the nav's border. The 404 page
+marks no link (M0's test "the nav marks no link as current on the 404 page" stands).
+
+`src/app/sitemap.ts` returns `sitemapEntries(SITE, galleryRoutes())`, so `/sitemap.xml` lists `/`, `/studio`, `/explore`,
+`/motion`, `/gallery`, `/about` and then the 24 entry pages. `sitemapEntries(site, more = [])` is a `RangeError` for a
+route in `more` that repeats one of `site.routes.sitemap` or that `site.routes.disallow` would disallow.
+
+### 9.4 `start.log`
+
+The window's lines become: "open the studio", "open the explorer", "open the motion lab", "open the gallery", "open the
+about page" and the repository line, then the cursor (`StartLink` labels "the gallery" and "the about page").
+
+## 10. The studio's entry hashes (Task 6.5)
+
+### 10.1 The grammar
+
+`readEntry(hash)` reads, in order: a hash that does not start with `#color=`, `#brief=` or `#start=` is `none`. Then:
+
+| Hash | Result |
+|---|---|
+| `#color=f66c6d` or `#color=F66C6D` | `entry`, `color`, the seed of `#f66c6d` |
+| `#color=f66c6`, `#color=f66c6d0`, `#color=`, `#color=gg6c6d`, `#color=%23f66c6d`, `#color=#f66c6d` | `malformed` |
+| `#brief=A%20tea%20house%20at%20dusk` | `entry`, `brief`, "A tea house at dusk" |
+| `#brief=caf%C3%A9+%26+bar` | `entry`, `brief`, "café + & bar" |
+| `#brief=`, `#brief=%20%20`, `#brief=%E0%A4%A` (a broken escape) | `malformed` |
+| `#brief=` with a value of more than 6,000 characters, or whose decoded and cleaned text is longer than 500 characters | `malformed` |
+| `#start=image` | `entry`, `image` |
+| `#start=`, `#start=Image`, `#start=brief` | `malformed` |
+| `#s=...`, `#top`, `` (empty), `#colors=f66c6d` | `none` |
+
+The brief's text is `toPlainText(decodeURIComponent(value), 500)`'s text when that result exists and is not truncated;
+`readEntry` checks the raw value's length (at most 6,000 characters, twelve per character for the longest UTF-8
+encoding) before it decodes.
+
+### 10.2 The store and the shell
+
+`createStudioStore`'s first load reads `readHash(location.hash)` first; when it is `none`, it reads
+`readEntry(location.hash)`:
+
+| `readEntry` | Snapshot | Notice | `entry` | Persist at load |
+|---|---|---|---|---|
+| `color` | fresh, primary locked at the seed, preset `"default"` | none | null | yes |
+| `brief` | fresh | none | `{ kind: "brief", text }` | yes |
+| `image` | fresh | none | `{ kind: "image" }` | yes |
+| `malformed` | fresh | `link`, `corrupt`, `fresh` | null | no |
+| `none` | the draft, else fresh (M2) | as M2 | null | no |
+
+"Persist at load" schedules the store's persist as a commit does: 300 ms later `replaceState` writes `#s=<the shown
+design>` and the draft is written. The fresh snapshot of an entry is built as `fresh()` builds one, with the primary added
+for `color`; its history is empty, so Undo does nothing.
+
+The studio shell takes the entry once, in an effect after its first render: `store.getState().takeEntry()`. For `brief`,
+it opens the inputs drawer when the inputs panel is a drawer (`isDrawer.inputs`, its opener the toolbar's "Inputs"
+button), gives the Brief section the text (its `value`) and focuses its textarea; for `image`, it opens the drawer the same
+way and focuses the Image section's "Choose an image" input. In React's development double-render the second
+`takeEntry()` returns null, so nothing happens twice.
+
+### 10.3 The view a loaded design opens with
+
+`presetView(view, preset)` returns `{ ...view, mode: PRESETS[preset].view.mode, density: PRESETS[preset].view.density }`,
+or `view` itself for null. The first load's view is `presetView(DEFAULT_VIEW, first.snapshot.preset)`. `snapshotOf(spec,
+draft)` returns, without a matching draft, the preset `presetOf(spec)`; with one, the draft's stored preset, as today. So:
+a draft of a `dark-dev-tool` design reloads dark and dense; `/studio#s=<turquoise's link>` opens dark and dense with the
+select on "Dark dev tool"; a hero's link opens light with "Custom"; an entry's fresh design opens on `DEFAULT_VIEW`.
+
+## 11. `/about` (Task 6.4)
+
+### 11.1 The page
+
+Metadata: `pageMetadata(SITE, "/about", { title: "About", description: "How dyelot works: the color math, the receipt and
+its checker, what AI sees and what stays in your browser, and the licenses of what it builds on." })` (146 characters).
+The page: `PageFrame active="about" statusLeft="dyelot ~/about" statusRight="muizz-lab · MIT"`, then a `section`
+(`max-w-3xl`) holding `<Prompt>dyelot about</Prompt>`, the `h1` "How dyelot works", `ABOUT_INTRO`, and for each section of
+`ABOUT_SECTIONS` an `h2` (its heading, with `id` its section id) and its paragraphs in order, with the links of 11.3 after
+the paragraphs they belong to. No fact on the page shows a ruling id; the table below holds them.
+
+### 11.2 The copy
+
+| Id | Heading | Paragraph | Restates |
+|---|---|---|---|
+| intro | (none) | dyelot turns one color, a few words or an image into a design system, measures every color it makes and writes the measurements down. This page says how it works, what leaves your browser and whose work it builds on. | umbrella §1 |
+| math | The color math | Every color is stored in OKLCH, a color space whose lightness steps look even to the eye. Each palette has eleven steps, from 50 to 950, in a light mode and a dark mode. | umbrella §4, §5; R-01 |
+| math | | Each step has a target contrast against the page, from 1.06 to 1 for step 50 up to 15.5 to 1 for step 950: against white in light mode, and against a dark gray page in dark mode. The engine searches each step's lightness until the color, brought inside its gamut, meets its target, then picks the 8-bit hex nearest it. Steps 500, 600 and 700 must reach 3, 4.5 and 7 to 1 on that hex. | umbrella §5 Scales and its M1 note; R-06 |
+| math | | WCAG 2.2 contrast is the only pass or fail test, computed without rounding, so 4.499 to 1 fails a 4.5 check. Beside it the studio shows a score labeled "perceptual contrast (advisory)", from dyelot's own MIT implementation of a published formula; it never decides a check. | umbrella §5 Contrast; DR-0038 |
+| math | | Status and chart colors are checked under simulated protanopia, deuteranopia and tritanopia, so they stay apart for people who see color differently. | umbrella §5 Color blindness and its M1 note |
+| math | | The same seed and settings always give the same design. The link holds the whole design, and one design always exports the same bytes. | umbrella §3 Determinism; R-21, R-22 |
+| receipt | The receipt and the checker | Every export carries receipt.json, in the format dyelot.check/1. It holds the 80 contrast checks of the design, 40 in each mode, of which 78 are required; the color-vision checks; whether every color sits inside its gamut; the linter's findings; and a hash of every other file in the export. | umbrella §1 and its M3 note; R3-08, R3-23 |
+| receipt | | The export also carries scripts/dyelot-check.mjs, a checker with no dependencies. A coding agent runs it before it finishes: it checks the theme against the receipt, measures the 78 required contrast pairs again and scans the source for raw colors and Tailwind palette classes. It prints PASS when the code keeps to the design. | R3-24, R3-25; 6.9.1 of M3 |
+| receipt | | The studio will not export a design that fails a required check, so every design that leaves dyelot passes its own receipt. | R3-42 |
+| privacy | AI and privacy | The studio works with no model at all. A word list reads a brief, seven chips steer a design, and the colors of an image are found in your browser. When a model answers, it only chooses settings that the engine checks; it never writes a color value. | umbrella §10; R4-01, R4-07, R4-42, R4-44 |
+| privacy | | When you ask for AI, dyelot tries, in order: the model built into Chrome, if you turned it on; your own OpenRouter key, if you connected one; dyelot's shared free quota; then the word list. Each result says which one answered. | R4-30 |
+| privacy | | The model built into Chrome runs on your device, and what you type stays there. Its switch is marked experimental. | R4-31; DR-0039 |
+| privacy | | Your own key stays in this browser tab, unless you choose to remember it on this device, and it never reaches dyelot's server: your browser calls OpenRouter directly, and dyelot records nothing of those calls. | R4-29, R4-33, R4-34 |
+| privacy | | With your key or the shared quota, what an action needs goes to OpenRouter and the model's provider: your brief, your words for Refine, the design's settings and findings, or, for Read the vibe, a copy of your image at most 768 pixels on its longest side. On the shared quota it passes through dyelot's server first. | R4-09, R4-39, R4-45, R4-46, R4-48 to R4-50 |
+| privacy | | On the shared quota, dyelot records each action in Langfuse, a tracing service, to see which free models fail: the messages sent, your brief and your words for Refine among them, and the models' answers. An image is recorded only as its size in bytes and its width and height. | R4-52; the owner's ruling of 2026-11-05 |
+| privacy | | Each visitor gets three shared actions a day. A signed cookie counts them; it holds the day and the count, and nothing that names you. | R4-18 |
+| privacy | | An image you choose is read in your browser. Nothing of it leaves your device until you press Read the vibe. | R4-46 |
+| privacy | | The brand video is made in your browser by Remotion, the video library dyelot uses. Remotion sends one usage event to remotion.pro for each render, with your IP address and this site's address. It never sends the video or the design, and dyelot cannot turn it off. A note says so before the first render, and recording the shader loop sends nothing. | R5-53 to R5-56 |
+| privacy | | dyelot has no analytics, no advertising and no tracking. A design lives in its link and, as a draft, in this browser's storage; dyelot's server keeps no design. | umbrella §3, §15; R5-58; R6-22 |
+| licenses | Licenses | dyelot is open source under the MIT license. | umbrella §12 |
+| licenses | | Every font family is under the SIL Open Font License, the Apache License 2.0 or the Ubuntu Font License, and dyelot serves each one from its own site, with no request to a font service. | umbrella §6; R2-03 |
+| licenses | | Remotion, which makes the brand video, is source-available under its own license, not open source. It is free for individuals and for companies of up to three people; a company of four or more people needs a Remotion Company License to use it. dyelot uses it as an individual's project. | R5-55; 11.4 of M5 |
+| licenses | | Mediabunny, which records the shader loop, is under the Mozilla Public License 2.0 and is used unmodified. | R5-50; the README's licenses |
+| licenses | | The noise in the animated background is the simplex noise of webgl-noise by Ian McEwan and Ashima Arts, under the MIT license; its notice is kept in the code and in the export. | R5-24; `src/flavor/flavor.mjs` |
+| licenses | | Color names come from color-name-list, under the MIT license. | umbrella §5 Names |
+| licenses | | The colors of an image are found with colorthief by Lokesh Dhakar, under the MIT license. | umbrella §5 Image to palette; R4-60 |
+| licenses | | The 3D explorer was inspired by oklch-picker by Evil Martians, under the MIT license; dyelot uses none of its code. | R5-07; 11.4 of M5 |
+
+### 11.3 The links
+
+| Label | Href | After the paragraph |
+|---|---|---|
+| The source on GitHub | `REPOSITORY_URL` (`https://github.com/Abdul-Muizz1310/dyelot`) | licenses, "dyelot is open source…" |
+| Remotion's license | `https://remotion.pro/license` | licenses, "Remotion, which makes…" |
+
+External links open in the same tab and carry `rel="noopener noreferrer"`. No other link is on the page.
+
+## 12. The audits (Tasks 6.10 and 6.12)
+
+### 12.1 The invocation
+
+`scripts/lighthouse.mjs` (`// @ts-check`):
+
+```js
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { chromium } from "@playwright/test";
+import lighthouse, { desktopConfig } from "lighthouse";
+import { CATEGORIES, FORM_FACTORS } from "./audit-core.mjs";
+
+export async function runLighthouse(url, formFactor, { timeoutMs = 120_000 } = {}) {
+  // formFactor is checked against FORM_FACTORS first (RangeError naming runLighthouse)
+  const dir = mkdtempSync(join(tmpdir(), "dyelot-lh-"));
+  const context = await chromium.launchPersistentContext(dir, {
+    headless: true,
+    args: ["--remote-debugging-port=0"],
+  });
+  try {
+    const port = await debuggingPort(dir);   // the first line of <dir>/DevToolsActivePort, polled for up to 10 s
+    const flags = { port, output: "json", logLevel: "error", onlyCategories: [...CATEGORIES], maxWaitForLoad: 45_000 };
+    const result = await withTimeout(lighthouse(url, flags, formFactor === "desktop" ? desktopConfig : undefined), timeoutMs);
+    if (result === undefined) throw new RangeError("runLighthouse: Lighthouse returned no result");
+    return result.lhr;
+  } finally {
+    await context.close();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+```
+
+Mobile is Lighthouse's default configuration (a mobile screen and simulated slow 4G with four times CPU slowdown); desktop
+is `desktopConfig` (a desktop screen, simulated dense 4G, no CPU slowdown). Both are lab measures in Playwright's bundled
+Chromium.
+
+### 12.2 The flow
+
+`tests/e2e/lighthouse-m6.spec.ts` configures `test.describe.configure({ mode: "serial" })` and a 180 s timeout per test.
+For each route of `AUDIT_ROUTES` and each form factor, in that order, one test titled with its F-LH6 id, the route and the
+form factor:
+
+1. `const lhr = await runLighthouse(new URL(route, baseURL).href, formFactor)`.
+2. `auditRecord(lhr)` is written to `test-results/lighthouse/<routeName(route)>-<formFactor>.json` and attached.
+3. `expect(lhr.categories.accessibility.score, a11yFailures(lhr).join(", ")).toBeGreaterThanOrEqual(0.95)`.
+
+`auditRecord(lhr)` is `{ url, formFactor, lighthouseVersion, fetchTime, scores: categoryScores(lhr), metrics: { fcp, lcp,
+tbt, cls, si }, scripts: { requests, transferSize } }`: the metrics are the `numericValue`s of
+`first-contentful-paint`, `largest-contentful-paint`, `total-blocking-time`, `cumulative-layout-shift` and `speed-index`,
+and the scripts come from the `resource-summary` audit's `script` row.
+
+### 12.3 Goals for the deployed site (owner approval item 4)
+
+Medians of three runs on `https://dyelot.vercel.app`; accessibility is the one gate, and the e2e suite already enforces
+it.
+
+| Routes | Desktop performance | Mobile performance | Accessibility | Best practices | SEO | Desktop CLS |
+|---|---|---|---|---|---|---|
+| `/`, `/gallery`, `/gallery/madder`, `/about` | at least 90 | at least 70 | at least 95 | at least 90 | at least 90 | at most 0.1 |
+| `/studio`, `/explore`, `/motion` | at least 70 | recorded | at least 95 | at least 90 | at least 90 | at most 0.1 |
+| `/connect` | at least 90 | at least 70 | at least 95 | at least 90 | recorded (it is `noindex` by design, R4-22) | at most 0.1 |
+
+A miss is recorded in the README with its cause (for example the hero's shader on mobile, or per-request rendering's
+first byte), and section 18 of the next spec or the owner decides; it never blocks the merge.
+
+### 12.4 The deployed measures and the README
+
+`node scripts/audit-site.mjs [--base <origin>] [--runs <n>]` (defaults `https://dyelot.vercel.app` and 3) writes
+`test-results/audit-site/<YYYY-MM-DD>.json` and prints `auditTable` for the README:
+
+1. **Lighthouse.** `auditPlan(AUDIT_ROUTES, FORM_FACTORS, runs)`: run 1 visits every route at desktop then mobile, then
+   run 2 the same, then run 3; the medians per route, form factor, category and metric.
+2. **First byte.** After one uncounted request per path, ten rounds of `/`, `/robots.txt` and `/gallery` in that order
+   (`ttfbPlan`), each the time from the request's start to its response headers (`fetch` resolving, `cache: "no-store"`);
+   the medians, and the medians of `/` and `/gallery` less that of `/robots.txt`, the cost of per-request rendering under
+   the nonce CSP (R4-26).
+3. **Chunk sizes.** For each route, a fresh Chromium context loads it and waits for `load`; `scriptTotals` sums every
+   response whose request's resource type is `script`: its decoded body length and its transferred size
+   (`request.sizes().responseBodySize`).
+4. The machine's `os.loadavg()` before and after, and the date.
+
+The README's M6 section records the three tables: Lighthouse medians (route, form factor, the four scores, LCP, TBT,
+CLS), first-byte medians (path, median ms, the difference from `/robots.txt`), and chunk sizes (route, scripts, decoded
+KB, transferred KB), each headed "Measured on <date>" with the load average. Nothing is rounded before the table: scores
+as 0 to 100 integers as Lighthouse shows them, times in whole milliseconds, sizes in KB to one decimal.
+
+## 13. The deferred fixes (Tasks 6.7 to 6.9)
+
+### 13.1 The Player's text alternative (G3)
+
+`BrandPlayer`'s wrapper `div` (`data-brand-player`) gains `role="figure"`, `aria-label="Brand video preview"` and
+`aria-describedby={<id>}`; beside it, a `<p id={<id>} className="sr-only">` holds `brandDescription(props)`:
+
+"A six-second video of <name>, with <its one-liner in quotation marks, or nothing when it is empty>: five rows of eleven
+swatches (primary, secondary, accent, neutral and danger), a sample card with a Get started button, and the line
+<passed> of <required> required checks pass, with the lot <lot>. It is set in <display> and <body>."
+
+`<display>` and `<body>` are the first family of each font stack of `props.fonts`, unquoted. With no one-liner the text
+reads "A six-second video of <name>: five rows…". The frame inside stays `aria-hidden` and the axe flows keep their one
+named exclusion (13.3 of M5). Spec 05's 13.3 gains: "Amended in M6: the wrapper is a figure described by the video's
+contents (06-gallery.md, R6-35)."
+
+### 13.2 Focus and names (G5)
+
+- `FLAVOR_LINES` gains `"pause-background": "Pause the background"` and `"pause-video": "Pause the video"`; the dialog's
+  Background section uses the first, `BrandPlayer` the second; `pause` stays "Pause" for the hero.
+- `ExploreClient`'s restart moves focus to the "Turn" slider (`ref`) in the same click handler that bumps `mount`.
+- `FlatView` takes `const id = useId()` and uses `${id}-caption` and `${id}-steps` for `aria-labelledby` and the list.
+
+### 13.3 Lazy templates (G1)
+
+`templates/index.tsx` keeps `TEMPLATE_LABELS`, `FIXED_FRAMES` and `Template`, and `Template` renders `<LazyTemplate
+id={view.template} spec={spec} view={view} />`: a component that keeps one `React.lazy` per template id (created from
+`TEMPLATE_LOADERS[id]` on first use, and again after "Try again"), inside `<Suspense fallback={<p role="status"
+data-template-loading>Loading the template…</p>}>` and an error boundary whose fallback is `<div role="alert"
+data-template-failed>` with "This template could not load." and a "Try again" button. Each template file adds `export
+default <Name>`. `Canvas.tsx` starts `preloadTemplates(view.template, idleScheduler(window))` in an effect after its first
+render and cancels it on unmount. `idleScheduler` uses `requestIdleCallback(run, { timeout: 2000 })` when the window has
+it, else `setTimeout(run, 1000)`.
+
+### 13.4 The settings template's clip margin (G2)
+
+Form A: `.st { overflow: clip; overflow-clip-margin: 12px; }` with the comment the `canvas.css` rule carries. Form B (when
+probe 6 finds the save bar cut by `.st-scroll`): Form A plus `.st-save-bar { bottom: 4px; }` and `.st-scroll {
+padding-bottom: 4px; }`. F-CANVAS-11's clip-edge test then lists `["settings", ".st-top"]` and `["settings",
+".st-save-bar"]`, and its check also treats a scroll container's padding box as a clip box. When probe 6 rules G2 out,
+none of this lands and section 18's row says why.
+
+### 13.5 Code fixes (G4, G5)
+
+- `codeFiles` (R6-39) keeps a stack of folders, reads each with `read(folder, { withFileTypes: true })`, pushes child
+  folders whose name is not `PROBE_DIR`, and collects files matching `CODE_FILE` that are not `GUARD3_04_PROBE`; a child
+  read that fails with `ENOENT` on a probe path is skipped, any other failure throws `Error("codeFiles: cannot read
+  <folder>: <code>")`; an empty result is a `RangeError` "codeFiles: <directory> holds no code file".
+- `src/features/ai/load.ts`, `src/features/export/useBundle.ts` and `src/features/import/ImportDialog.tsx` build their
+  loaders with `loadOnce` (R6-40).
+- `src/export/guards.ts` (R6-41); `bundle.ts` calls `httpsOrigin(input.origin, "buildBundle")` and `flavor.ts`
+  `httpsOrigin(origin, "flavorFiles")`, with the messages of today: "<caller>: origin must be a string, got <type>" and
+  "<caller>: origin must be an https origin with no path, got <JSON>".
+- `storySteps` checks `spec.color`, `spec.color.params`, `spec.color.palettes`, `spec.color.palettes.primary`,
+  `spec.color.palettes.primary.light` (an array), `spec.color.roles`, `spec.color.roles.light`, `spec.type`,
+  `spec.type.families`, `spec.space` and `spec.space.scale` (an array), in that order; `tokenRow` checks `spec.color`,
+  `spec.color.palettes`, `spec.color.palettes[palette]`, `spec.color.palettes[palette][mode]` (an array),
+  `spec.color.roles` and `spec.color.roles[mode]`, after its argument checks. Each failure is a `TypeError` "<function>:
+  <path> must be an object, got <type>" (or "an array").
