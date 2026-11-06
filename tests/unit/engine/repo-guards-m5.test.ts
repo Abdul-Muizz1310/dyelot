@@ -1,8 +1,29 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
+import { isDeepStrictEqual } from "node:util";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
+import { MOTION_PRESET_IDS, MOTION_PRESETS, withMotion } from "@/engine";
 import { scanLine } from "@/export/checker/dyelot-check.mjs";
-import { codeFiles, type ImportRecord, importsOf, ROOT, stripComments } from "./guard-support";
+import { EXPLORE_LINES } from "@/features/explore/scene";
+import { FLAVOR_LINES, VIDEO_LINES } from "@/features/flavor/video";
+import { presetLine, readField, type TokenPath } from "@/features/motion/lab";
+import { motionLine } from "@/features/studio/pages";
+import vitestConfig from "../../../vitest.config";
+import { copyProblems } from "../ai/copy-rules";
+import { SPEC } from "../export/golden-support";
+import { CUSTOM_TOKENS } from "../support/motion";
+import {
+  codeFiles,
+  coreViolations,
+  engineAndSpecFiles,
+  exportAndImportFiles,
+  type ImportRecord,
+  importsOf,
+  purityViolations,
+  ROOT,
+  stripComments,
+} from "./guard-support";
 
 // The M5 repository guards (docs/specs/05-motion-3d.md, section 14, C-GUARD5-nn).
 
@@ -752,5 +773,486 @@ describe("C-GUARD5-12 every flow file that names the render button answers the u
         { file: "unrelated.spec.ts", source: 'await page.goto("/studio");' },
       ]),
     ).toEqual(["probe.spec.ts", "commented.spec.ts"]);
+  });
+});
+
+// C-GUARD5-09 (Task 5.11a, R5-62): the new unit folders join a Vitest project, and section 15's
+// include and floors hold, each named file existing. The rows are written from section 15, not read
+// back from vitest.config.ts, so a list the config drops is still asked for. C-GUARD4-10 keeps
+// M4's scope and floors.
+
+type Floors = { lines: number; statements: number; functions: number; branches: number };
+const floorsOf = (main: number, branches: number): Floors => ({
+  lines: main,
+  statements: main,
+  functions: main,
+  branches,
+});
+
+/** Section 15's whole coverage scope. */
+const SCOPE_FLOORS: Floors = { lines: 80, statements: 80, functions: 75, branches: 70 };
+/** R5-62's test folders, each with the project that runs it. */
+const PROJECT_FOLDERS: ReadonlyArray<readonly [folder: string, project: "web" | "core"]> = [
+  ["tests/unit/flavor", "web"],
+  ["tests/unit/features/landing", "web"],
+  ["tests/unit/features/explore", "web"],
+  ["tests/unit/features/motion", "web"],
+  ["tests/unit/features/flavor", "web"],
+  ["tests/unit/engine", "core"],
+  ["tests/unit/export", "core"],
+];
+/** Section 15's two folders that gain files in M5, with their floors and their new files. */
+const M5_FOLDERS: ReadonlyArray<readonly [glob: string, floors: Floors, files: readonly string[]]> =
+  [
+    [
+      "src/engine/**",
+      floorsOf(95, 90),
+      ["color/rec2020", "color/solid", "flavor", "tokens/motion-presets", "tokens/bezier"].map(
+        (name) => `src/engine/${name}.ts`,
+      ),
+    ],
+    [
+      "src/export/**",
+      floorsOf(90, 85),
+      ["flavor", "brand", "media", "flavor-sources"].map((name) => `src/export/${name}.ts`),
+    ],
+  ];
+/** Section 15's helpers, each measured by name at 95 and 90. */
+const M5_HELPERS: readonly string[] = [
+  ...["pages", "token-row"].map((name) => `src/features/studio/${name}.ts`),
+  ...["transition", "kit/reduced"].map((name) => `src/features/preview/${name}.ts`),
+  ...["heroes", "story", "cycle"].map((name) => `src/features/landing/${name}.ts`),
+  ...["scene", "webgl"].map((name) => `src/features/explore/${name}.ts`),
+  "src/features/motion/lab.ts",
+  ...["video", "render", "record"].map((name) => `src/features/flavor/${name}.ts`),
+];
+
+/** The parts of a Vitest config that C-GUARD5-09 reads. */
+type ProjectsConfig = {
+  test?: {
+    projects?: unknown;
+    coverage?: { include?: unknown; thresholds?: unknown };
+  };
+};
+type Project = { test?: { name?: string; include?: string[]; exclude?: string[] } };
+
+const strings = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((each): each is string => typeof each === "string") : [];
+
+/** Whether `project` runs the test file `file`: an include matches it and no exclude does. */
+function runs(project: Project | undefined, file: string): boolean {
+  const matches = (globs: unknown) => strings(globs).some((glob) => path.matchesGlob(file, glob));
+  return matches(project?.test?.include) && !matches(project?.test?.exclude);
+}
+
+/**
+ * Every way `candidate` misses R5-62 and section 15, named; an empty list when it holds them all.
+ * `exists` says whether a path is in the repository.
+ */
+function guard5Problems(candidate: ProjectsConfig, exists: (file: string) => boolean): string[] {
+  const problems: string[] = [];
+  const projects: Project[] = Array.isArray(candidate.test?.projects)
+    ? (candidate.test.projects as Project[])
+    : [];
+  const named = (name: string) => projects.find((project) => project.test?.name === name);
+  for (const [folder, project] of PROJECT_FOLDERS) {
+    if (!exists(folder)) problems.push(`${folder} does not exist`);
+    // A file at the top of the folder and one below it, in each extension a test takes.
+    const probes = ["probe.test.ts", "probe.test.tsx", "deep/probe.test.ts"].map(
+      (name) => `${folder}/${name}`,
+    );
+    if (!probes.every((file) => runs(named(project), file))) {
+      problems.push(`${project} does not run ${folder}/**`);
+    }
+  }
+
+  const coverage = candidate.test?.coverage;
+  const include = strings(coverage?.include);
+  const thresholds = (
+    typeof coverage?.thresholds === "object" && coverage.thresholds !== null
+      ? coverage.thresholds
+      : {}
+  ) as Record<string, unknown>;
+  const held = (floors: Floors) => `${floors.lines} and ${floors.branches}`;
+  for (const [name, floor] of Object.entries(SCOPE_FLOORS)) {
+    if (thresholds[name] !== floor) {
+      problems.push(`the whole scope's ${name} floor is ${String(thresholds[name])}, not ${floor}`);
+    }
+  }
+  for (const [glob, floors, files] of M5_FOLDERS) {
+    if (!include.includes(glob)) problems.push(`coverage does not measure ${glob}`);
+    if (!isDeepStrictEqual(thresholds[glob], floors)) {
+      problems.push(`${glob} is not held to ${held(floors)}`);
+    }
+    for (const file of files) if (!exists(file)) problems.push(`${file} does not exist`);
+  }
+  for (const file of M5_HELPERS) {
+    if (!include.includes(file)) problems.push(`coverage does not measure ${file}`);
+    if (!isDeepStrictEqual(thresholds[file], floorsOf(95, 90))) {
+      problems.push(`${file} is not held to 95 and 90`);
+    }
+    if (!exists(file)) problems.push(`${file} does not exist`);
+  }
+  return problems;
+}
+
+/** A plain copy of the parts of the real config that C-GUARD5-09 reads, for a probe to change. */
+function configCopy(): {
+  test: {
+    projects: Project[];
+    coverage: { include: string[]; thresholds: Record<string, unknown> };
+  };
+} {
+  return JSON.parse(
+    JSON.stringify({
+      test: {
+        projects: vitestConfig.test?.projects,
+        coverage: {
+          include: vitestConfig.test?.coverage?.include,
+          thresholds: vitestConfig.test?.coverage?.thresholds,
+        },
+      },
+    }),
+  );
+}
+
+const inRepository = (file: string): boolean => existsSync(path.join(ROOT, file));
+
+describe("C-GUARD5-09 the new unit folders join a project, and section 15's include and floors hold", () => {
+  it("C-GUARD5-09 finds no gap in vitest.config.ts, and each named file exists", () => {
+    expect(guard5Problems(vitestConfig, inRepository)).toEqual([]);
+  });
+
+  it("C-GUARD5-09 names section 15's five engine files, four export files and thirteen helpers", () => {
+    expect(M5_FOLDERS.flatMap(([, , files]) => files)).toHaveLength(9);
+    expect(M5_HELPERS).toHaveLength(13);
+  });
+
+  type Probe = ReturnType<typeof configCopy>;
+  const projectOf = (probe: Probe, name: string) =>
+    probe.test.projects.find((each) => each.test?.name === name);
+  it.each<[string, (probe: Probe) => void, string]>([
+    [
+      "web excluding tests/unit/flavor",
+      (probe) => {
+        const web = projectOf(probe, "web");
+        if (web?.test) web.test.exclude = [...(web.test.exclude ?? []), "tests/unit/flavor/**"];
+      },
+      "web does not run tests/unit/flavor/**",
+    ],
+    [
+      "web excluding the explorer's tests",
+      (probe) => {
+        const web = projectOf(probe, "web");
+        if (web?.test) {
+          web.test.exclude = [...(web.test.exclude ?? []), "tests/unit/features/explore/**"];
+        }
+      },
+      "web does not run tests/unit/features/explore/**",
+    ],
+    [
+      "the export tests moved out of core",
+      (probe) => {
+        const core = projectOf(probe, "core");
+        if (core?.test?.include) {
+          core.test.include = core.test.include.filter(
+            (glob) => !glob.startsWith("tests/unit/export/"),
+          );
+        }
+      },
+      "core does not run tests/unit/export/**",
+    ],
+    [
+      "no web project",
+      (probe) => {
+        probe.test.projects = probe.test.projects.filter((each) => each.test?.name !== "web");
+      },
+      "web does not run tests/unit/features/landing/**",
+    ],
+    [
+      "a whole-scope floor of 70 functions",
+      (probe) => {
+        probe.test.coverage.thresholds.functions = 70;
+      },
+      "the whole scope's functions floor is 70, not 75",
+    ],
+    [
+      "src/export/** at 85 and 80",
+      (probe) => {
+        probe.test.coverage.thresholds["src/export/**"] = floorsOf(85, 80);
+      },
+      "src/export/** is not held to 90 and 85",
+    ],
+    [
+      "a flavor helper left out of the scope",
+      (probe) => {
+        probe.test.coverage.include = probe.test.coverage.include.filter(
+          (glob) => glob !== "src/features/flavor/record.ts",
+        );
+      },
+      "coverage does not measure src/features/flavor/record.ts",
+    ],
+    [
+      "a landing helper at the export floors",
+      (probe) => {
+        probe.test.coverage.thresholds["src/features/landing/cycle.ts"] = floorsOf(90, 85);
+      },
+      "src/features/landing/cycle.ts is not held to 95 and 90",
+    ],
+  ])("C-GUARD5-09 reports the probe: %s", (_name, change, problem) => {
+    const probe = configCopy();
+    expect(guard5Problems(probe, inRepository)).toEqual([]);
+    change(probe);
+    expect(guard5Problems(probe, inRepository)).toContain(problem);
+  });
+
+  it("C-GUARD5-09 reports a named file or folder that does not exist (a probe)", () => {
+    const gone = new Set(["src/engine/color/solid.ts", "tests/unit/features/motion"]);
+    const missing = (file: string) => !gone.has(file) && inRepository(file);
+    expect(guard5Problems(configCopy(), missing)).toEqual([
+      "tests/unit/features/motion does not exist",
+      "src/engine/color/solid.ts does not exist",
+    ]);
+  });
+});
+
+// C-GUARD5-10 (Task 5.11a, R5-66): the copy rules hold in every exported copy table and in the strings
+// of the seven files the row names: no banned word, no exclamation mark, no emoji, and none of the
+// British spellings (tests/unit/ai/copy-rules.ts holds the rules; the row's five spellings are
+// among its list).
+
+const COPY_FILES = [
+  "src/features/landing/Story.tsx",
+  "src/features/landing/Hero.tsx",
+  "src/features/motion/LabClient.tsx",
+  "src/features/motion/Previews.tsx",
+  "src/features/explore/ExploreClient.tsx",
+  "src/features/flavor/FlavorDialog.tsx",
+  "src/features/flavor/PrivacyNote.tsx",
+] as const;
+
+/** One field of each kind the lab bounds, so `readField` gives each kind's sentence. */
+const BOUND_PATHS: readonly TokenPath[] = [
+  { kind: "duration", name: "fast" },
+  { kind: "easing", name: "standard", index: 0 },
+  { kind: "easing", name: "standard", index: 1 },
+  { kind: "spring", name: "snappy", field: "visualDuration" },
+  { kind: "spring", name: "snappy", field: "bounce" },
+];
+
+/** LAB_BOUNDS' sentences, as `readField` gives them for an empty field of each kind. */
+function boundSentences(): string[] {
+  return BOUND_PATHS.map((each) => {
+    const read = readField(each, "");
+    if (read.ok) throw new Error(`readField read "" as ${read.value}`);
+    return read.message;
+  });
+}
+
+/** Every copy table the row names, as [where, text] pairs. */
+function copyTables(): [where: string, text: string][] {
+  const tokenSets = [
+    ...MOTION_PRESET_IDS.map((id) => [id, MOTION_PRESETS[id].tokens] as const),
+    ["CUSTOM_TOKENS", CUSTOM_TOKENS] as const,
+  ];
+  return [
+    ...Object.entries(FLAVOR_LINES).map(([key, text]) => [`FLAVOR_LINES.${key}`, text]),
+    ...Object.entries(VIDEO_LINES).map(([key, text]) => [`VIDEO_LINES.${key}`, text]),
+    ...Object.entries(EXPLORE_LINES).map(([key, text]) => [`EXPLORE_LINES.${key}`, text]),
+    ...boundSentences().map((text, i) => [`LAB_BOUNDS sentence ${i + 1}`, text]),
+    ...MOTION_PRESET_IDS.flatMap((id) => [
+      [`MOTION_PRESETS.${id}.label`, MOTION_PRESETS[id].label],
+      [`MOTION_PRESETS.${id}.note`, MOTION_PRESETS[id].note],
+    ]),
+    ...tokenSets.flatMap(([name, tokens]) => [
+      [`presetLine(${name})`, presetLine(tokens)],
+      [`motionLine(${name})`, motionLine(withMotion(SPEC, tokens))],
+    ]),
+  ] as [string, string][];
+}
+
+/**
+ * The strings of a source file, read from its syntax tree: string and template literals and JSX
+ * text. Module specifiers (of `import`, `export … from` and `import()`) and directives are code,
+ * not copy.
+ */
+function sourceStrings(file: string, source: string): string[] {
+  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.TSX);
+  const found: string[] = [];
+  const isSpecifier = (node: ts.Node): boolean => {
+    const parent = node.parent;
+    return (
+      ((ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) &&
+        parent.moduleSpecifier === node) ||
+      (ts.isCallExpression(parent) &&
+        parent.expression.kind === ts.SyntaxKind.ImportKeyword &&
+        parent.arguments[0] === node) ||
+      (ts.isExpressionStatement(parent) && ts.isSourceFile(parent.parent))
+    );
+  };
+  const visit = (node: ts.Node): void => {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      if (!isSpecifier(node)) found.push(node.text);
+    } else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
+      found.push(node.text);
+    } else if (ts.isJsxText(node)) {
+      const text = node.text.trim();
+      if (text !== "") found.push(text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  return found;
+}
+
+/** Every rule each text breaks, as "<where>: <problem> in <text>". */
+const copyFindings = (texts: readonly (readonly [where: string, text: string])[]): string[] =>
+  texts.flatMap(([where, text]) =>
+    copyProblems(text).map((problem) => `${where}: ${problem} in ${JSON.stringify(text)}`),
+  );
+
+describe("C-GUARD5-10 the M5 copy holds no banned word, no exclamation mark, no emoji and no British spelling", () => {
+  it("C-GUARD5-10 reads every table: the video, flavor and explorer lines, the lab's sentences, the presets and the lines", () => {
+    const tables = copyTables();
+    expect(tables.length).toBe(
+      Object.keys(FLAVOR_LINES).length +
+        Object.keys(VIDEO_LINES).length +
+        Object.keys(EXPLORE_LINES).length +
+        5 +
+        2 * MOTION_PRESET_IDS.length +
+        2 * (MOTION_PRESET_IDS.length + 1),
+    );
+    expect(new Set(boundSentences()).size).toBe(4);
+    expect(tables.some(([, text]) => text === "Motion tokens: custom.")).toBe(true);
+    expect(tables.some(([, text]) => text === "Custom tokens: no preset matches.")).toBe(true);
+  });
+
+  it("C-GUARD5-10 finds nothing in the copy tables", () => {
+    expect(copyFindings(copyTables())).toEqual([]);
+  });
+
+  it.each(COPY_FILES)("C-GUARD5-10 finds nothing in the strings of %s", (file) => {
+    const full = path.join(ROOT, file);
+    expect(existsSync(full), `${file} exists`).toBe(true);
+    const strings = sourceStrings(full, readFileSync(full, "utf8"));
+    expect(strings.length).toBeGreaterThan(0);
+    expect(copyFindings(strings.map((text) => [file, text] as const))).toEqual([]);
+  });
+
+  it("C-GUARD5-10 reports a probe of each rule, in a table and in a file's strings", () => {
+    expect(
+      copyFindings([
+        ["probe", "Simply pick a color."],
+        ["probe", "Just one"],
+        ["probe", "An easy start"],
+        ["probe", "Obviously so"],
+        ["probe", "Basically done"],
+        ["probe", "Done!"],
+        ["probe", "Done \u{1F389}"],
+        ["probe", "The colour"],
+        ["probe", "Its behaviour"],
+        ["probe", "Render cancelled."],
+        ["probe", "A grey step"],
+        ["probe", "The centre"],
+      ]).map((finding) => finding.split(" in ")[0]),
+    ).toEqual([
+      'probe: banned word "simply"',
+      'probe: banned word "just"',
+      'probe: banned word "easy"',
+      'probe: banned word "obviously"',
+      'probe: banned word "basically"',
+      "probe: exclamation mark",
+      "probe: emoji",
+      'probe: British "colour"',
+      'probe: British "behaviour"',
+      'probe: British "cancelled"',
+      'probe: British "grey"',
+      'probe: British "centre"',
+    ]);
+    const probe = path.join(ROOT, "src/features/flavor/Probe.tsx");
+    const source = [
+      '"use client";',
+      'import { a } from "./easy!";',
+      'const b = () => import("./grey");',
+      'const line = "Just render it";',
+      `const note = \`The \${b} colour\`;`,
+      "export const P = () => <p>Done!</p>;",
+    ].join("\n");
+    expect(sourceStrings(probe, source)).toEqual(["Just render it", "The ", " colour", "Done!"]);
+  });
+});
+
+// C-GUARD5-11 (Task 5.11a, R5-04, I-M5-05): the purity guards C-REPO-01 (src/engine and src/spec)
+// and C-GUARD3-02 (src/export and src/import) scan the new pure files, and find nothing in them. The
+// guards' lists and scanners come from guard-support.ts, as the guards themselves read them.
+
+const M5_ENGINE_FILES = M5_FOLDERS[0][2];
+const M5_EXPORT_FILES = M5_FOLDERS[1][2];
+
+/** The files each purity guard scans, as absolute paths. */
+type PurityLists = { readonly repo01: readonly string[]; readonly guard302: readonly string[] };
+
+/** Every way the purity guards miss the M5 files, named; `read` gives a file's text. */
+function purityProblems(lists: PurityLists, read: (file: string) => string): string[] {
+  const problems: string[] = [];
+  const scan = (
+    files: readonly string[],
+    list: readonly string[],
+    guard: string,
+    violations: (source: string) => string[],
+  ) => {
+    for (const file of files) {
+      const full = path.join(ROOT, file);
+      if (!list.includes(full)) {
+        problems.push(`${guard} does not scan ${file}`);
+        continue;
+      }
+      for (const name of violations(read(full))) problems.push(`${file}: ${name}`);
+    }
+  };
+  scan(M5_ENGINE_FILES, lists.repo01, "C-REPO-01", purityViolations);
+  scan(M5_EXPORT_FILES, lists.guard302, "C-GUARD3-02", coreViolations);
+  return problems;
+}
+
+const readText = (file: string): string => readFileSync(file, "utf8");
+const realLists = (): PurityLists => ({
+  repo01: engineAndSpecFiles(),
+  guard302: exportAndImportFiles(),
+});
+
+describe("C-GUARD5-11 the purity guards scan the new pure files and find nothing in them", () => {
+  it("C-GUARD5-11 finds each new engine file in C-REPO-01's list and each new export file in C-GUARD3-02's, all pure", () => {
+    expect(purityProblems(realLists(), readText)).toEqual([]);
+  });
+
+  it("C-GUARD5-11 reports a list that leaves a file out (a probe)", () => {
+    const lists = realLists();
+    const without = (list: readonly string[], file: string) =>
+      list.filter((each) => each !== path.join(ROOT, file));
+    expect(
+      purityProblems(
+        {
+          repo01: without(lists.repo01, "src/engine/color/rec2020.ts"),
+          guard302: without(lists.guard302, "src/export/flavor-sources.ts"),
+        },
+        readText,
+      ),
+    ).toEqual([
+      "C-REPO-01 does not scan src/engine/color/rec2020.ts",
+      "C-GUARD3-02 does not scan src/export/flavor-sources.ts",
+    ]);
+  });
+
+  it("C-GUARD5-11 reports an impure line in an engine file and in an export file (a probe)", () => {
+    const impure: Readonly<Record<string, string>> = {
+      [path.join(ROOT, "src/engine/tokens/bezier.ts")]: "export const t = Date.now();",
+      [path.join(ROOT, "src/export/media.ts")]: "export const r = await fetch(url);",
+    };
+    const read = (file: string) => impure[file] ?? readText(file);
+    expect(purityProblems(realLists(), read)).toEqual([
+      "src/engine/tokens/bezier.ts: Date.now, Date.parse or Date.UTC",
+      "src/export/media.ts: fetch",
+    ]);
   });
 });

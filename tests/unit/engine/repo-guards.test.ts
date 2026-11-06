@@ -8,7 +8,6 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { builtinModules } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
@@ -18,12 +17,20 @@ import { isFreeSlug } from "@/ai";
 import config from "../../../vitest.config";
 import {
   codeFiles,
+  coreViolations,
   ENGINE_DIR,
-  FORBIDDEN,
+  EXPORT_DIR,
+  engineAndSpecFiles,
+  exportAndImportFiles,
+  IMPORT_DIR,
+  IMPURE,
   inProbe,
+  isForbiddenSpecifier,
   PROBE_DIR,
+  purityViolations,
   ROOT,
   SPEC_DIR,
+  specifiers,
   stripComments,
   THEME_DIR,
 } from "./guard-support";
@@ -32,35 +39,6 @@ import {
 // C-REPO-02 and C-REPO-05 amended by R2-25 of docs/specs/02-studio.md, and C-ENTRY-16 to 18. C-REPO-03
 // lives in environment.test.ts, one copy per folder. These M1 guards, as R2-25 leaves them, are
 // C-REPO-M2-04 of the M2 spec, section 6.10; the M2 guards C-REPO-M2-01 to 05 follow them.
-
-const NODE_MODULES = new Set(builtinModules);
-const FRAMEWORKS = new Set(["react", "react-dom", "next"]);
-
-/** Module specifiers named by `import … from`, `import "…"`, `import("…")` and `export … from`. */
-function specifiers(source: string): string[] {
-  const found: string[] = [];
-  for (const match of source.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"']+)["']/g)) {
-    found.push(match[1]);
-  }
-  return found;
-}
-
-/** An import from `node:…`, a Node built-in, React or Next. */
-function isForbiddenSpecifier(specifier: string): boolean {
-  if (specifier.startsWith("node:")) return true;
-  const root = specifier.split("/")[0];
-  return NODE_MODULES.has(specifier) || NODE_MODULES.has(root) || FRAMEWORKS.has(root);
-}
-
-/** The names of the forbidden APIs and imports in one source file, comments aside. */
-function purityViolations(source: string): string[] {
-  const code = stripComments(source);
-  const found = FORBIDDEN.filter(([, pattern]) => pattern.test(code)).map(([name]) => name);
-  for (const specifier of specifiers(code)) {
-    if (isForbiddenSpecifier(specifier)) found.push(`import "${specifier}"`);
-  }
-  return found;
-}
 
 /** Whether `specifier`, written in `file`, points into src/spec. */
 function importsFromSpec(file: string, specifier: string): boolean {
@@ -71,7 +49,7 @@ function importsFromSpec(file: string, specifier: string): boolean {
 }
 
 describe("C-REPO-01 the pure core uses no impure API", () => {
-  const files = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)];
+  const files = engineAndSpecFiles();
 
   it("scans real files, so the grep cannot pass by looking at nothing", () => {
     expect(codeFiles(ENGINE_DIR).length).toBeGreaterThan(0);
@@ -804,8 +782,6 @@ describe("C-GUARD4-10 the AI tests run in core, and section 15's include and flo
 // import cores load only through a dynamic import, and stay pure. Section 16 of docs/specs/04-ai.md
 // amends C-GUARD3-01, 03 and 04 (R4-04): the AI core, src/ai, is the third such core.
 
-const EXPORT_DIR = path.join(ROOT, "src/export");
-const IMPORT_DIR = path.join(ROOT, "src/import");
 const AI_DIR = path.join(ROOT, "src/ai");
 const APP_DIRS = ["src/features", "src/app", "src/components", "src/lib"].map((folder) =>
   path.join(ROOT, folder),
@@ -889,34 +865,8 @@ describe("C-GUARD3-01 app code reaches the export, import and AI cores only thro
   });
 });
 
-/** The names of the I-M3-02 APIs in comment-free code. */
-const IMPURE: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
-  ["Date", /\bDate\b/],
-  ["Math.random", /Math\.random/],
-  ["getRandomValues", /getRandomValues/],
-  ["performance", /\bperformance\b/],
-  ["Intl", /\bIntl\b/],
-  ["toLocale", /toLocale/],
-  ["localeCompare", /localeCompare/],
-  ["document", /\bdocument\b/],
-  ["window", /\bwindow\b/],
-  ["localStorage", /\blocalStorage\b/],
-  ["sessionStorage", /\bsessionStorage\b/],
-  ["fetch", /\bfetch\b/],
-  ["XMLHttpRequest", /\bXMLHttpRequest\b/],
-];
-
-function coreViolations(source: string): string[] {
-  const code = stripComments(source);
-  const found = IMPURE.filter(([, pattern]) => pattern.test(code)).map(([name]) => name);
-  if (/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']node:/.test(code)) {
-    found.push("node: import");
-  }
-  return found;
-}
-
 describe("C-GUARD3-02 src/export and src/import stay pure", () => {
-  const files = [...codeFiles(EXPORT_DIR), ...codeFiles(IMPORT_DIR)];
+  const files = exportAndImportFiles();
   const CHECKER = path.join(EXPORT_DIR, "checker/dyelot-check.mjs");
 
   it("scans real files, the checker among them", () => {

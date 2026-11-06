@@ -1,14 +1,18 @@
 import { readdirSync } from "node:fs";
+import { builtinModules } from "node:module";
 import path from "node:path";
 import ts from "typescript";
 
 // The helpers the repository guards share (R5 preflight rulings 14 and 16): moved unchanged from
-// repo-guards.test.ts so the M5 guards import them rather than copy them.
+// repo-guards.test.ts so the M5 guards import them rather than copy them. C-REPO-01's and
+// C-GUARD3-02's scanners and file lists live here too, for C-GUARD5-11 to read (Task 5.11a).
 
 export const ROOT = path.resolve(import.meta.dirname, "../../..");
 export const ENGINE_DIR = path.join(ROOT, "src/engine");
 export const SPEC_DIR = path.join(ROOT, "src/spec");
 export const THEME_DIR = path.join(ROOT, "src/theme");
+export const EXPORT_DIR = path.join(ROOT, "src/export");
+export const IMPORT_DIR = path.join(ROOT, "src/import");
 const CODE_FILE = /\.[cm]?[jt]sx?$/;
 
 /**
@@ -84,6 +88,74 @@ export const FORBIDDEN: ReadonlyArray<readonly [name: string, pattern: RegExp]> 
   ["process", /\bprocess\.(?:env|argv|cwd|exit|platform)\b/],
   ["Buffer", /\bBuffer\.(?:from|alloc)\b/],
   ["require", /\brequire\(/],
+];
+
+const NODE_MODULES = new Set(builtinModules);
+const FRAMEWORKS = new Set(["react", "react-dom", "next"]);
+
+/** Module specifiers named by `import … from`, `import "…"`, `import("…")` and `export … from`. */
+export function specifiers(source: string): string[] {
+  const found: string[] = [];
+  for (const match of source.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"']+)["']/g)) {
+    found.push(match[1]);
+  }
+  return found;
+}
+
+/** An import from `node:…`, a Node built-in, React or Next. */
+export function isForbiddenSpecifier(specifier: string): boolean {
+  if (specifier.startsWith("node:")) return true;
+  const root = specifier.split("/")[0];
+  return NODE_MODULES.has(specifier) || NODE_MODULES.has(root) || FRAMEWORKS.has(root);
+}
+
+/** C-REPO-01's scanner: the names of the forbidden APIs and imports in one file, comments aside. */
+export function purityViolations(source: string): string[] {
+  const code = stripComments(source);
+  const found = FORBIDDEN.filter(([, pattern]) => pattern.test(code)).map(([name]) => name);
+  for (const specifier of specifiers(code)) {
+    if (isForbiddenSpecifier(specifier)) found.push(`import "${specifier}"`);
+  }
+  return found;
+}
+
+/** The files C-REPO-01 scans: every code file of src/engine and src/spec. */
+export const engineAndSpecFiles = (): string[] => [
+  ...codeFiles(ENGINE_DIR),
+  ...codeFiles(SPEC_DIR),
+];
+
+/** The names of the I-M3-02 APIs in comment-free code (C-GUARD3-02). */
+export const IMPURE: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
+  ["Date", /\bDate\b/],
+  ["Math.random", /Math\.random/],
+  ["getRandomValues", /getRandomValues/],
+  ["performance", /\bperformance\b/],
+  ["Intl", /\bIntl\b/],
+  ["toLocale", /toLocale/],
+  ["localeCompare", /localeCompare/],
+  ["document", /\bdocument\b/],
+  ["window", /\bwindow\b/],
+  ["localStorage", /\blocalStorage\b/],
+  ["sessionStorage", /\bsessionStorage\b/],
+  ["fetch", /\bfetch\b/],
+  ["XMLHttpRequest", /\bXMLHttpRequest\b/],
+];
+
+/** C-GUARD3-02's scanner: the I-M3-02 APIs and `node:` imports in one file, comments aside. */
+export function coreViolations(source: string): string[] {
+  const code = stripComments(source);
+  const found = IMPURE.filter(([, pattern]) => pattern.test(code)).map(([name]) => name);
+  if (/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']node:/.test(code)) {
+    found.push("node: import");
+  }
+  return found;
+}
+
+/** The files C-GUARD3-02 scans: every code file of src/export and src/import. */
+export const exportAndImportFiles = (): string[] => [
+  ...codeFiles(EXPORT_DIR),
+  ...codeFiles(IMPORT_DIR),
 ];
 
 /** One import of a source file: its specifier, the names it takes and the form it is written in. */
