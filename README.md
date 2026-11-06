@@ -1,9 +1,9 @@
 # 🎨 `dyelot`
 
 > 🧾 **A palette becomes a design system your coding agent can build.**
-> M0 to M4 are done: the shell, a tested color engine and spec model, the studio, the export bundle with its receipt, checker and import, and the AI layer: a brief, a word list, steer chips, image palettes, a rationale and a critique. Motion and 3D come next.
+> M0 to M5 are done: the shell, a tested color engine and spec model, the studio, the export bundle with its receipt, checker and import, the AI layer, and motion and 3D: a hero shader, a scroll story, a 3D explorer, a motion lab, two view transitions and the Flavor dialog. The gallery and the launch come next.
 
-📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🎛️ [Studio spec](docs/specs/02-studio.md) · 📦 [Export spec](docs/specs/03-export.md) · 🤖 [AI spec](docs/specs/04-ai.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
+📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🎛️ [Studio spec](docs/specs/02-studio.md) · 📦 [Export spec](docs/specs/03-export.md) · 🤖 [AI spec](docs/specs/04-ai.md) · 🎞️ [Motion and 3D spec](docs/specs/05-motion-3d.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
 
 ![next](https://img.shields.io/badge/Next.js-16.4-black?style=flat-square&logo=next.js)
 ![react](https://img.shields.io/badge/React-19.3-149eca?style=flat-square&logo=react&logoColor=white)
@@ -37,7 +37,7 @@ the full reasoning.
 The goal comes from the [design spec](docs/specs/00-design.md). M1 built the engine underneath the second and fifth
 bullets. M2 built the studio, which puts the second and third in front of a visitor. M3 built the fourth and fifth bullets
 and the import of an existing DESIGN.md. M4 built the brief, the image drop and the refine-in-words steps of the first bullet,
-with a rule-based path for each. The next sections say what each does today.
+with a rule-based path for each. M5 built the motion and 3D pieces and the flavor files of the fifth bullet. The next sections say what each does today.
 
 - 🎨 **Start from anything** — a color, a few words, an image, a curated system or an existing DESIGN.md
 - 🧮 **Computed, accessible systems** — color roles and scales for light and dark mode, plus type, space, shape, depth and motion, solved for WCAG 2.2 contrast
@@ -140,12 +140,62 @@ The on-device eval was not run: no Chrome with the built-in model was available 
 
 ---
 
+## The motion and 3D layer today (M5)
+
+Every moving piece has a still form that reduced motion gets, and every piece that needs WebGL2 or WebCodecs has a fallback with
+a sentence. The [motion and 3D spec](docs/specs/05-motion-3d.md) has every ruling and case.
+
+- **The hero shader** — `/` paints a shader from five solved steps of a design, mixed in OKLab, so every color it shows is a step of the design. Six hero designs, named after historical dyes (Madder, Weld, Verdigris, Woad, Logwood and Cochineal), are committed data that a unit test rebuilds with `generateSystem`, and "Next palette" cycles them. Without WebGL2, or after a lost context or a shader failure, a CSS background and a sentence take its place; under reduced motion it draws one still frame
+- **The scroll story** — five steps in which one design assembles itself, driven by CSS scroll-driven animations. The last step is the receipt's count. Under reduced motion every step shows its final state
+- **The 3D explorer** — `/explore` places the design's 88 steps (8 palettes of 11) as points, with 8 tubes, inside the sRGB, Display P3 and Rec. 2020 gamut solids, in one lazy chunk with one viewport. A flat SVG view with a lightness slice is always shown, labeled sliders give the keyboard the same control, and a browser without WebGL2 keeps the flat view with a sentence
+- **The motion lab** — `/motion` edits the design's seven durations, four easings and three springs, starts from one of five presets, previews them with the `motion` kit, exports the three motion files and opens the studio with the edited tokens. A design edited here carries them in the optional `motionTokens` parameter and gets a new spec id; every other design keeps its id
+- **Two view transitions** — the studio's template switch cross-fades, and a step of the inspector's Scales expands in place into a token row with its Tailwind token, its class and a Copy button for the CSS variable. Reduced motion takes both to 0 s
+- **The Flavor dialog** — a toolbar button after Export opens a preview of the shader and a preview of the brand video, a 1280 by 720 composition of 180 frames in a Remotion `<Player>` with one Pause button
+- **Render the brand video** — in the browser, to MP4 (H.264) or WebM (VP8), muted, as a download. The button shows when the browser has WebCodecs, and a browser that cannot render says so
+- **Record the shader loop** — 300 frames of the shader as a seamless loop, written to MP4 or WebM by Mediabunny, as a download. Reduced motion does not block it, because a visitor asks for it
+- **Flavor files in the export** — the export dialog's "Include flavor files" switch, off by default, adds nine text files under `flavor/`, so the bundle holds 27 to 30 files: the shader as a vanilla module and a React component, its CSS fallback, a palette file, and the Remotion source with its own README. A video is not a zip entry, because a render sends a usage event and is not byte-reproducible across browsers
+
+### Licenses for reusers
+
+- **Remotion is not MIT.** It is source-available under its own license: free for individuals and for companies of up to 3 people, and companies of 4 or more people need a Remotion Company License. The terms are at [remotion.pro/license](https://remotion.pro/license). dyelot uses it as an individual's project with `licenseKey: "free-license"`. The exported `flavor/remotion/` source carries a "Built with Remotion" header, and its README says the same
+- **Mediabunny is MPL-2.0**, used unmodified
+- **The 2D simplex noise** in `src/flavor/flavor.mjs` is adapted from stegu/webgl-noise under the MIT license, with its notice kept in the file and in the export
+- **dyelot's own code stays MIT**
+
+### Privacy of the brand video
+
+Rendering the brand video runs in the visitor's browser. Remotion sends one usage event per render to remotion.pro, with the
+visitor's IP address and the site's origin, and never the video or the design. dyelot cannot turn it off. A note says so before
+the first render of each page load, and Cancel on the note sends nothing. Recording the shader loop sends nothing. The content
+security policy's `connect-src` names `https://www.remotion.pro` for this event and nothing else beyond OpenRouter.
+
+### Measured on 2026-11-06
+
+All of these come from the spec's probes, run on a production build under the nonce CSP in Playwright's Chromium 156, which draws
+WebGL through SwiftShader. The two budgets are hang guards on software WebGL, not product requirements.
+
+| Probe | Result |
+|---|---|
+| The explorer's chunk | three, React Three Fiber, drei's `OrbitControls` and the scene share one lazy chunk of 931,611 bytes. None of the 12 chunks the route fetched holds a remote-asset string, the probe made no request off localhost, and none of the heavy libraries appears in a chunk of `/` or `/studio` |
+| A brand video render | 5,286 ms from click to download, with the renderer's lazy load, over three runs of 5,283 to 5,286 ms; about 475 KB of MP4. One usage `POST` per render, no `OPTIONS` request. The render flows' timeout is 3 times that, 15,858 ms |
+| A shader loop recording | 20,036 ms at worst over three runs (20,036, 17,157 and 17,008 ms) with the real shader, giving a budget of 61,000 ms. An earlier probe with a stand-in shader took 4,693 ms and an MP4 of about 4.79 MB, and the real shader costs about four times as much per frame in SwiftShader |
+| A view transition | One `startViewTransition` call per template switch, the group animation at 250 ms and the root at 0 ms; with reduced motion every animation is at 0 ms |
+| The toolbar | 119 px tall in 3 rows at 360 by 740 with "Flavor" added, under a bound of 170 px |
+| The hero designs | Generating six designs took 986 ms warm plus 298 ms for the engine's first call, which is why they are committed data |
+
+The M5 spec lists 255 cases in its section 14 (163 `C-` cases and 92 `F-` cases). The gate numbers of the close are {{M5_GATE}}.
+The hand check on dyelot.vercel.app, with one real render that sends one usage event, follows the merge, and its result goes into
+the spec's close note.
+
+---
+
 ## 🔧 Architecture
 
 The planned layers and their rules are in the [design spec](docs/specs/00-design.md#3-architecture).
 The shell, the pure core, the studio and the export exist today: `generateSystem`, `lintSpec`, `themeVars`, the live previews,
 `measureSpec`, `buildBundle` and the importers in the diagram below, and the AI layer: the schemas, the word list and the
-router in `src/ai/`, with its server and browser shells in `src/server/ai/` and `src/features/ai/`.
+router in `src/ai/`, with its server and browser shells in `src/server/ai/` and `src/features/ai/`; and motion and 3D: the shipped
+sources in `src/flavor/`, and the landing, the explorer, the lab and the Flavor dialog in `src/features/`.
 
 ```mermaid
 flowchart LR
@@ -170,7 +220,7 @@ flowchart LR
 
 ```text
 src/
-├── app/                    routes (/ and /studio), metadata files and the error boundaries
+├── app/                    routes (/, /studio, /explore and /motion), metadata files and the error boundaries
 ├── components/terminal/    the house shell: nav, window, prompt, status bar
 ├── engine/                 the pure core: generateSystem, the presets and the linter
 │   ├── color/              parsing, conversion, gamut, contrast, scales, palettes, roles, charts, names
@@ -179,6 +229,7 @@ src/
 │   └── lint/               the 20 color rules and the 4 taste rules
 ├── spec/                   the dyelot.spec/1 schema, canonical form, spec id and share-link codec
 ├── ai/                     the pure AI core: schemas, prompts, the word list, the request builder and the cascade plan
+├── flavor/                 the shipped sources: the shader module, its React wrapper and the Remotion composition, which the export carries byte for byte
 ├── export/                 buildBundle and one writer per file, the receipt, the zip and the checker's source
 │   └── checker/            dyelot-check.mjs, the zero-dependency script that the bundle carries
 ├── import/                 importDesignMd and importShadcnCss, loaded only through import()
@@ -187,6 +238,10 @@ src/
 │   ├── studio/             the studio: store, worker, links, drafts, inputs, toolbar and inspector
 │   ├── preview/            the canvas, the preview kit and the six templates
 │   ├── ai/                 the browser shell of the AI layer: the router, the providers and the steer chips
+│   ├── landing/            the hero, the scroll story and the six hero designs
+│   ├── explore/            the 3D explorer and its flat view
+│   ├── motion/             the motion lab
+│   ├── flavor/             the Flavor dialog: previews, the brand video render and the loop recording
 │   ├── export/             the export dialog: file list, preview, copy and download
 │   ├── import/             the import dialog: the form, the file picker and the notices
 │   └── fonts/              the FontFace loader for the canvas fonts
@@ -202,7 +257,8 @@ docs/specs/
 ├── 01-color-engine.md      the M1 spec: the engine, the spec model and the linter
 ├── 02-studio.md            the M2 spec: the studio, its templates and its gates
 ├── 03-export.md            the M3 spec: the bundle, the receipt, the checker and import
-└── 04-ai.md                the M4 spec: the AI layer, the shared route and its guard
+├── 04-ai.md                the M4 spec: the AI layer, the shared route and its guard
+└── 05-motion-3d.md         the M5 spec: the shader, the explorer, the lab, transitions and flavor
 scripts/
 ├── copy-fonts.mjs          copies the canvas fonts into public/fonts/ before dev and build
 └── render-icons.mjs        renders the raster icons from src/app/icon.svg
@@ -249,6 +305,7 @@ directory to the icon script to write the files there instead of in place.
 | Concern | Choice |
 |---|---|
 | App | Next.js 16.4 App Router, React 19.3, TypeScript strict |
+| Motion and 3D | three 0.186.1, `@react-three/fiber` 9.8.2 and `@react-three/drei` 10.7.9 (for `OrbitControls` only) in one lazy chunk; `motion` 14.3.0; `remotion`, `@remotion/player` and `@remotion/web-renderer` 4.0.539; `mediabunny` 1.62.0; no `postprocessing` and no GSAP |
 | Style | Tailwind 4.3, the portfolio's dark terminal tokens, Geist and Geist Mono, one madder accent |
 | Color | OKLCH and WCAG 2.2 contrast, in a pure TypeScript engine |
 | Spec | zod 4 in jitless mode (no `eval` under the CSP), fflate for the share link and the zip |
@@ -263,20 +320,21 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | 4,716 Vitest tests in 218 files, in `tests/unit/`, with 3 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
+| Unit | {{M5_GATE}} Vitest tests in {{M5_GATE}} files, in `tests/unit/`, with {{M5_GATE}} skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
 | Slow set | 37 of those files, listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. 25 run in the two slow projects and 12 in the `scan` project. `pnpm gate` leaves them to `pnpm gate:full` and CI |
-| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) [`03-export.md`](docs/specs/03-export.md) and [`04-ai.md`](docs/specs/04-ai.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows), and 224 of 224 in the M4 spec's section 14 (165 `C-` cases and 59 `F-` cases, checked by C-GUARD4-11) |
+| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) [`03-export.md`](docs/specs/03-export.md) and [`04-ai.md`](docs/specs/04-ai.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows), and 224 of 224 in the M4 spec's section 14 (165 `C-` cases and 59 `F-` cases, checked by C-GUARD4-11). The M5 spec's section 14 lists 255 cases (163 `C-` cases and 92 `F-` cases) for the same rule |
 | Goldens | 15 golden bundles (the 14 presets and the import of `shadcn-neutral.css`), pinned by `tests/golden/export/manifest.json` with each file's path, byte length and SHA-256. The `default` bundle holds 21 files and 409,581 bytes |
 | The generated-design grid | Before any export code existed, a test grid measured 3,808 designs from five fixed grids against the required checks: none threw and none raised a lint error. Its ten test files took 434.9 s in total when each ran alone on a 16-core machine |
 | Property tests | fast-check over arbitrary color strings, every parameter, random seeds, share-link tampering and the studio store's actions |
-| End to end | 377 Playwright flows on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
+| End to end | {{M5_GATE}} Playwright flows on Chromium against `next build` and `next start`, on `/`, `/studio` and the 404 page, with axe on each route, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
 | Measured findings | The fix scan generates 576 designs (288 in sRGB and 288 in Display P3) and finds no C1, C5, N1 or F1 finding at AA. The preset sweep fits all 14 presets into the landing, editorial, dashboard and settings templates at 360 and 768 px and into the three mobile screens: 252 views, none with an overflow or a broken word |
 | Coverage scope | `src/engine/`, `src/spec/`, `src/theme/`, `src/export/`, `src/import/`, `src/lib/site/`, the canvas font loader and the 23 pure helper files of the studio, the preview, the export dialog and the import dialog. The end-to-end tier covers the components and routes |
 | Coverage floors | 80% lines and statements, 75% functions and 70% branches over that scope. `src/engine/`, `src/spec/`, `src/theme/`, the font loader and each pure helper hold 95% lines, statements and functions and 90% branches. `src/export/` and `src/import/` hold 90% and 85% |
 | Coverage at the M2 close | 99.64% statements, 98.65% branches, 100% functions and 99.68% lines over that scope |
 | Coverage at the M3 close | 98.57% statements, 95.8% branches, 99.69% functions and 98.76% lines over the larger scope, measured on a 16-core machine |
 | Coverage at the M4 close | 98.88% statements, 96.65% branches, 99.58% functions and 99.08% lines, from `pnpm gate:full` on `m4-ai` at `f37215a` |
-| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows). At the M4 close `pnpm gate` took 6 min 27 s (179 unit files, 4,517 tests passed and 3 skipped, 377 flows) and `pnpm gate:full` took 27 min 30 s (218 unit files, 4,713 tests passed and 3 skipped, 377 flows), on a 16-core desktop that was also running the owner's own applications |
+| Coverage at the M5 close | {{M5_GATE}} |
+| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows). At the M4 close `pnpm gate` took 6 min 27 s (179 unit files, 4,517 tests passed and 3 skipped, 377 flows) and `pnpm gate:full` took 27 min 30 s (218 unit files, 4,713 tests passed and 3 skipped, 377 flows), on a 16-core desktop that was also running the owner's own applications. At the M5 close: {{M5_GATE}} |
 | Not done in M3 | The templates still load eagerly (M2 final review M-12), and the settings template's top and save bars keep `overflow: hidden` without the clip margin. Both wait for M6 |
 | Not done in M4 | The on-device eval did not run. Three residuals are accepted: a canceled action does not count against a visitor's soft cap (the reserve floor of 37 holds); a "don't" rule that starts with "Avoid" plus a gerund exports as "Don't <gerund>..."; and F-IMP-RF4, M3's 2 s import budget, fails on the measuring machine under heavy desktop load for M3 and M4 alike, with no time added by M4 in interleaved pairs. Section 18 of the M4 spec lists what is deferred |
 | Static checks | Biome, and `tsc` in strict mode |
@@ -324,7 +382,8 @@ rest.
 - **M4, done.** The AI layer, built to the [AI spec](docs/specs/04-ai.md): the brief, the word list, the steer chips, image
   palettes and the vibe, the rationale and the critique, three providers, the shared route and its guard, and the nonce CSP.
   `pnpm gate:full` passed with 4,713 unit tests and 377 of 377 flows, and the live smoke found two of four slugs valid.
-- **Next.** M5 motion and 3D, M6 the gallery and the launch. The milestone table in the spec
+- **M5, done.** Motion and 3D, built to the [motion and 3D spec](docs/specs/05-motion-3d.md): the hero shader and the scroll story, the explorer, the motion lab, two view transitions, and the Flavor dialog with its previews, in-browser render and loop recording, and the flavor files. `pnpm gate:full` passed with {{M5_GATE}}. The hand check on the deployed site, with one real render, follows the merge.
+- **Next.** M6 the gallery and the launch. The milestone table in the spec
   has the details.
 
 `main` deploys to [dyelot.vercel.app](https://dyelot.vercel.app).
@@ -335,7 +394,12 @@ rest.
 
 MIT — see [LICENSE](LICENSE). Geist Mono is vendored under the SIL Open Font License
 (`src/lib/site/fonts/OFL.txt`), and the nav glyph is lucide's swatch-book (ISC). The 40 canvas font families are
-copied from their Fontsource packages under the SIL Open Font License, each with its license text.
+copied from their Fontsource packages under the SIL Open Font License, each with its license text. Remotion and Mediabunny carry
+the terms in [Licenses for reusers](#licenses-for-reusers), and the shader's noise carries stegu/webgl-noise's MIT notice.
+
+### Credits
+
+The 3D explorer takes its idea from oklch-picker (MIT, Evil Martians). No code was taken from it: the gamut mesh is dyelot's own.
 
 ---
 
