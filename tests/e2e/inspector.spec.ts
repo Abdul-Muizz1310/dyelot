@@ -1431,6 +1431,33 @@ test.describe("7.8 Keyboard and motion", () => {
         : [show];
     });
     expect(cards.length).toBeGreaterThan(5);
+    // An open token row adds its "Copy" after its button (13.8, section 16 of
+    // docs/specs/05-motion-3d.md): Enter on the primary palette's stop opens its row and keeps focus,
+    // Tab reaches "Copy var(--primary-<step>)" and then the secondary palette's stop, and Escape in
+    // the row closes it with focus back on the step.
+    const [, primary, secondary] = paletteStops(page);
+    if (primary === undefined || secondary === undefined) {
+      throw new Error("F-INSP-14: the Scales section has no primary or secondary stop");
+    }
+    const step = await primary.evaluate((element) => element.closest("li")?.dataset.step);
+    const copy = inspector(page).getByRole("button", {
+      name: `Copy var(--primary-${step})`,
+      exact: true,
+    });
+    await primary.focus();
+    await page.keyboard.press("Enter");
+    await expect(primary).toHaveAttribute("aria-expanded", "true");
+    await expect(primary).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(copy).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(secondary).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(copy).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(inspector(page).locator("[data-token-row]")).toHaveCount(0);
+    await expect(primary).toHaveAttribute("aria-expanded", "false");
+    await expect(primary).toBeFocused();
     const stops = [
       ...paletteStops(page),
       explorerLink(page),
