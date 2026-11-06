@@ -2058,6 +2058,14 @@ progress".
 
 **Shader loop.** "Record the shader loop", described by `record-description`, and the same pattern of lines.
 
+**13.3 amendment (recorded at the final review).** The Player's composition DOM is a video frame, and WCAG 1.4.3 exempts
+text that is part of a picture with significant other visual content: axe had read the brand video's own text mid-fade
+(for example "untitled" at 2.01:1, #b6b5b5 on #fdfdfd) and failed F-A11Y5-01 at random. `BrandPlayer` gives the Player a
+component that wraps `BrandIntro` in `<div aria-hidden="true" data-brand-frame>`, so assistive technology skips the
+frame, and `brand-intro.tsx` stays byte for byte as its golden pinned it. The "Brand video" region keeps its name, and the
+Player's loading and failure lines and its "Pause" stay outside the hidden frame. F-A11Y5-01's axe runs leave out
+`[data-brand-player] [data-brand-frame]` and nothing else, and check that each such frame is `aria-hidden`.
+
 ### 13.4 The privacy note
 
 In the render button's place: a group labeled by its heading "Before the first render" (an `h4` with `tabIndex={-1}`,

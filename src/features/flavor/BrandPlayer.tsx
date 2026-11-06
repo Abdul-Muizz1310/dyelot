@@ -16,6 +16,20 @@ import { FLAVOR_LINES } from "./video";
 /** The last frame, the finished picture: where a reduced-motion preview opens. */
 const LAST_FRAME = BRAND_INTRO.durationInFrames - 1;
 
+/**
+ * The composition as the Player shows it: a video frame, hidden from assistive technology, since its
+ * text is part of the picture (WCAG 1.4.3; 13.3's amendment, recorded at the final review). The
+ * wrapper fills the Player's frame, so `BrandIntro`, which stays as its golden pinned it, draws as
+ * before; the Player's loading and failure lines sit outside it.
+ */
+function BrandFrame(props: BrandProps) {
+  return (
+    <div aria-hidden="true" data-brand-frame="" style={{ position: "absolute", inset: 0 }}>
+      <BrandIntro {...props} />
+    </div>
+  );
+}
+
 export type BrandPlayerProps = {
   /** `brandProps(spec, mode)`, memoized on the spec and the mode by the dialog. */
   readonly props: BrandProps;
@@ -66,7 +80,7 @@ export function BrandPlayer({ props, mode, reduced }: BrandPlayerProps) {
       >
         <Player
           ref={player}
-          component={BrandIntro}
+          component={BrandFrame}
           inputProps={props}
           durationInFrames={BRAND_INTRO.durationInFrames}
           fps={BRAND_INTRO.fps}
