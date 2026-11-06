@@ -5,6 +5,7 @@ import { useEffect, useEffectEvent, useId, useRef, useState } from "react";
 import type { Bundle } from "@/export";
 import { trapTab } from "@/features/a11y/trapTab";
 import { BUTTON, PRIMARY_BUTTON, TOGGLE_BUTTON, TOOL_BUTTON } from "@/features/studio/chrome";
+import { ChromeSwitch } from "@/features/studio/controls";
 import { type StudioStore, useStudio } from "@/features/studio/store";
 import { downloadBlob } from "./download";
 import {
@@ -41,9 +42,23 @@ type ExportDialogProps = {
   onClose(): void;
   /** "Fix in the inspector" and "Show the findings": the studio closes the dialog and shows the Findings section. */
   onShowFindings(): void;
+  /** "Include flavor files" (R5-29): the studio holds it for the page load, so a reopened dialog keeps it. */
+  flavor: boolean;
+  onFlavorChange(flavor: boolean): void;
 };
 
-export function ExportDialog({ store, open, onClose, onShowFindings }: ExportDialogProps) {
+const FLAVOR_LABEL = "Include flavor files";
+const FLAVOR_NOTE =
+  "Adds the animated background, its CSS fallback and the Remotion source of the brand video: nine text files.";
+
+export function ExportDialog({
+  store,
+  open,
+  onClose,
+  onShowFindings,
+  flavor,
+  onFlavorChange,
+}: ExportDialogProps) {
   // The dialog stays mounted while it fades out; under reduced motion it leaves at once. A dialog
   // that never opened mounts nothing, so the export code stays unloaded (I-M3-09).
   const [mounted, setMounted] = useState(false);
@@ -56,16 +71,33 @@ export function ExportDialog({ store, open, onClose, onShowFindings }: ExportDia
     return () => clearTimeout(timer);
   }, [open]);
   if (!open && (!mounted || reducedMotion())) return null;
-  return <Shell store={store} open={open} onClose={onClose} onShowFindings={onShowFindings} />;
+  return (
+    <Shell
+      store={store}
+      open={open}
+      onClose={onClose}
+      onShowFindings={onShowFindings}
+      flavor={flavor}
+      onFlavorChange={onFlavorChange}
+    />
+  );
 }
 
-function Shell({ store, open, onClose, onShowFindings }: ExportDialogProps) {
+function Shell({
+  store,
+  open,
+  onClose,
+  onShowFindings,
+  flavor,
+  onFlavorChange,
+}: ExportDialogProps) {
   const spec = useStudio(store, (studio) => studio.spec);
   const generating = useStudio(store, (studio) => studio.status.phase === "generating");
   const provenance = useStudio(store, (studio) => studio.provenance);
   const outcome = useStudio(store, (studio) => studio.outcome);
   const reasonId = useId();
-  const bundle = useBundle(spec, generating);
+  const flavorNoteId = useId();
+  const bundle = useBundle(spec, generating, flavor);
   const headingId = useId();
   const heading = useRef<HTMLHeadingElement>(null);
   const panel = useRef<HTMLDivElement>(null);
@@ -204,6 +236,20 @@ function Shell({ store, open, onClose, onShowFindings }: ExportDialogProps) {
               ))}
             </ul>
           </>
+        )}
+        {(bundle.state === "ready" || bundle.state === "loading") && (
+          <div className="space-y-1">
+            <ChromeSwitch
+              label={FLAVOR_LABEL}
+              checked={flavor}
+              describedBy={flavorNoteId}
+              onToggle={() => onFlavorChange(!flavor)}
+              className="inline-flex min-h-6 items-center gap-2 text-left text-foreground text-xs"
+            />
+            <p id={flavorNoteId} className="text-fg-muted text-xs">
+              {FLAVOR_NOTE}
+            </p>
+          </div>
         )}
         {passing && file !== undefined && bundle.zip !== undefined && (
           <>

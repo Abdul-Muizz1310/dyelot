@@ -77,6 +77,8 @@ function StudioShell({ store }: { store: StudioStore }) {
   const importButton = useRef<HTMLButtonElement>(null);
   const importOpener = useRef<HTMLElement | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  // "Include flavor files" of the export dialog (R5-29): held while the page stays open, never stored.
+  const [exportFlavor, setExportFlavor] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   // The Flavor dialog (R5-51): its module once loaded, whether it is open, whether its code is
   // loading, and the toolbar's line when it did not load. The privacy answer (R5-54) lasts for the
@@ -346,6 +348,8 @@ function StudioShell({ store }: { store: StudioStore }) {
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           onShowFindings={showFindings}
+          flavor={exportFlavor}
+          onFlavorChange={setExportFlavor}
         />
         <ImportDialog
           store={store}

@@ -52,6 +52,9 @@ if (SITE.url !== ORIGIN) throw new Error("export-support: SITE.url is not the ex
 
 /** The bundle the page must build for a spec. */
 export const bundleOf = (spec: typeof SPEC) => buildBundle({ spec, origin: ORIGIN });
+/** The bundle with the flavor files (R5-24): 29 files for `SPEC`. */
+export const flavorBundleOf = (spec: typeof SPEC) =>
+  buildBundle({ spec, origin: ORIGIN, flavor: true });
 /** The zip name the page must offer for a spec. */
 export const zipNameOf = (spec: typeof SPEC): string => zipName(bundleOf(spec));
 /** The zip bytes the page must produce for a spec. */

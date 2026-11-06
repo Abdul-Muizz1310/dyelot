@@ -2459,6 +2459,8 @@ uncovered-line report.
 | F-CANVAS-19 (M2, amended in M3) | The Tab order ends Undo, Redo, Copy link, Export | It ends Undo, Redo, Copy link, Export, Flavor; the closed toolbar at 360 × 740 is still at most 170 px tall | R5-51 |
 | F-KEY-11 (M2, amended in M3 and M4) | The inspector's stops run from its scroll area to each finding's actions, as 13.7 of M4 orders them | The Scales section adds one stop per palette and then "See these scales in the explorer" before the role table; the inputs panel adds "Edit in the motion lab" after "Motion feel" | R5-45, R5-47 |
 | F-INSP-14 (M2, amended in M3 and M4) | Every inspector control is reachable by keyboard | Also each Scales step (one stop per palette, the arrows within) and the token row's "Copy" | R5-47 |
+| F-A11Y3-02 (M3) | Tab from the dialog's heading backwards reaches "Close", and forwards reaches the "Preview DESIGN.md" button | Forwards it reaches the switch "Include flavor files", which follows the summary and precedes the file list | R5-29 |
+| F-A11Y3-04 (M3) | The Tab order is each file's "Preview" and "Copy", the preview region, "Download" and "Close" | It starts with "Include flavor files" | R5-29 |
 | C-ZIP-06 (M3) | Only `DESIGN.md`, `AGENTS.md.snippet` and `SKILL.md` may hold capitals; `A.txt` is a `RangeError` | `README.md` joins them; `A.txt`, `README.MD` and `Readme.md` stay `RangeError` | R5-24 |
 | C-BND-02 (M3) | Every file of every golden matches R3-09's path rule with the three fixed names | With `README.md` as a fourth fixed name, for the `default-flavor` golden | R5-24 |
 | C-BND-06 (M3) | The 15 `GOLDENS` equal the manifest | The 16, `default-flavor` added (C-FEX-14) | R5-27 |
