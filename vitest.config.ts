@@ -148,6 +148,12 @@ const AI_HELPERS = [
 ].map((name) => `src/features/ai/${name}.ts`);
 
 /**
+ * The Flavor dialog's helpers (Task 5.3b on, docs/specs/05-motion-3d.md section 15), held to
+ * `PURE_FLOORS` the same way: the video lines and helpers, which the hero reads too.
+ */
+const FLAVOR_HELPERS = ["video"].map((name) => `src/features/flavor/${name}.ts`);
+
+/**
  * The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name.
  * langfuse.ts and deps.ts, the routes and the proxy are covered by the flows instead.
  */
@@ -255,6 +261,7 @@ export default defineConfig({
         ...EXPORT_HELPERS,
         ...IMPORT_HELPERS,
         ...AI_HELPERS,
+        ...FLAVOR_HELPERS,
         // The server shell's pieces (M4); handle.ts composes them, and the routes are covered by
         // the flows.
         ...SERVER_FILES,
@@ -281,6 +288,7 @@ export default defineConfig({
             ...EXPORT_HELPERS,
             ...IMPORT_HELPERS,
             ...AI_HELPERS,
+            ...FLAVOR_HELPERS,
           ].map((file) => [file, PURE_FLOORS]),
         ),
         ...Object.fromEntries(SERVER_FILES.map((file) => [file, SERVER_FLOORS])),
