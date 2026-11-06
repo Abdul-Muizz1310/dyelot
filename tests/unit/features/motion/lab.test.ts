@@ -51,15 +51,15 @@ describe("LAB_BOUNDS", () => {
 
 describe("readField", () => {
   it.each([
-    ["C-LAB-02 reads 200 for a duration", BASE, "200", 200],
-    ["C-LAB-02 trims and rounds a duration", BASE, " 12.4 ", 12],
-    ["C-LAB-02 rounds an x to its step", X1, "0.333", 0.33],
-    ["C-LAB-02 reads U+2212 as a minus", Y1, "−0.5", -0.5],
-    ["C-LAB-02 reads a spring's duration of 2", SPRING_DURATION, "2", 2],
-    ["C-LAB-02 reads a spring's duration of 0.05", SPRING_DURATION, "0.05", 0.05],
-    ["C-LAB-02 reads a bounce of 1", SPRING_BOUNCE, "1", 1],
-    ["C-LAB-02 writes a zero without a sign", Y1, "-0", 0],
-  ])("%s", (_title, path, text, value) => {
+    ["reads 200 for a duration", BASE, "200", 200],
+    ["trims and rounds a duration", BASE, " 12.4 ", 12],
+    ["rounds an x to its step", X1, "0.333", 0.33],
+    ["reads U+2212 as a minus", Y1, "−0.5", -0.5],
+    ["reads a spring's duration of 2", SPRING_DURATION, "2", 2],
+    ["reads a spring's duration of 0.05", SPRING_DURATION, "0.05", 0.05],
+    ["reads a bounce of 1", SPRING_BOUNCE, "1", 1],
+    ["writes a zero without a sign", Y1, "-0", 0],
+  ])("C-LAB-02 %s", (_title, path, text, value) => {
     const result = readField(path, text);
     expect(result).toEqual({ ok: true, value });
     if (result.ok) expect(Object.is(result.value, value)).toBe(true);
