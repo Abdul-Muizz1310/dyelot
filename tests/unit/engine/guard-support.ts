@@ -1,11 +1,12 @@
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { builtinModules } from "node:module";
 import path from "node:path";
 import ts from "typescript";
 
 // The helpers the repository guards share (R5 preflight rulings 14 and 16): moved unchanged from
 // repo-guards.test.ts so the M5 guards import them rather than copy them. C-REPO-01's and
-// C-GUARD3-02's scanners and file lists live here too, for C-GUARD5-11 to read (Task 5.11a).
+// C-GUARD3-02's scanners and file lists live here too, for C-GUARD5-11 to read (Task 5.11a), and
+// C-GUARD4-11's case-id readers, for C-GUARD5-01 to read (Task 5.12).
 
 export const ROOT = path.resolve(import.meta.dirname, "../../..");
 export const ENGINE_DIR = path.join(ROOT, "src/engine");
@@ -220,3 +221,99 @@ export function importsOf(file: string, source: string): readonly ImportRecord[]
   visit(tree);
   return found;
 }
+
+// C-GUARD4-11's readers (docs/specs/04-ai.md, section 14.10, R4-59), which C-GUARD5-01 runs on the
+// M5 spec (R5-62): moved from repo-guards.test.ts, with the spec's path a parameter.
+
+/** A case row of section 14: its id alone in the first cell. */
+export const CASE_ROW = /^\| ([CF]-[A-Z0-9]+-[A-Z0-9]+) \|/gm;
+
+/** Section 14 of the spec at `file`, whose text is `spec`: from its heading to section 15's. */
+export function section14(spec: string, file: string): string {
+  const start = spec.indexOf("\n## 14. ");
+  const end = spec.indexOf("\n## 15. ", start);
+  if (start === -1 || end === -1) throw new Error(`section14: ${file} lost section 14 or 15`);
+  return spec.slice(start, end);
+}
+
+/** The ids of section 14's case rows, in the spec's order. */
+export function caseIds(section: string): string[] {
+  return [...section.matchAll(CASE_ROW)].map((match) => match[1] ?? "");
+}
+
+/** The titles of the calls whose name `callee` matches, read from the source's syntax tree. */
+export function testTitles(source: string, file: string, callee: RegExp): string[] {
+  const tree = ts.createSourceFile(
+    file,
+    source,
+    ts.ScriptTarget.Latest,
+    false,
+    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
+  );
+  const titles: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isCallExpression(node)) {
+      const name = calleeName(node.expression);
+      const title = name !== null && callee.test(name) ? titleText(node.arguments[0]) : null;
+      if (title !== null) titles.push(title);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  return titles;
+}
+
+/** A call's name: `it`, `it.each` for `it.each(…)(…)`, `test.describe`; null for anything else. */
+function calleeName(node: ts.Expression): string | null {
+  if (ts.isIdentifier(node)) return node.text;
+  if (ts.isCallExpression(node)) return calleeName(node.expression);
+  if (ts.isPropertyAccessExpression(node)) {
+    const base = calleeName(node.expression);
+    return base === null ? null : `${base}.${node.name.text}`;
+  }
+  return null;
+}
+
+/** A title's text: a string or template literal, a template with `{}` for each value, or a `+` of them. */
+function titleText(node: ts.Expression | undefined): string | null {
+  if (node === undefined) return null;
+  if (ts.isStringLiteralLike(node)) return node.text;
+  if (ts.isTemplateExpression(node)) {
+    return node.head.text + node.templateSpans.map((span) => `{}${span.literal.text}`).join("");
+  }
+  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
+    const left = titleText(node.left);
+    const right = titleText(node.right);
+    return left === null || right === null ? null : left + right;
+  }
+  return null;
+}
+
+/** The ids no title carries: a C- id in none of `unit`, an F- id in none of `e2e`. */
+export function unnamedCases(
+  ids: readonly string[],
+  unit: readonly string[],
+  e2e: readonly string[],
+): string[] {
+  return ids.filter((id) => {
+    // The id whole: no letter, digit or hyphen right before or after it.
+    const pattern = new RegExp(`(?<![A-Z0-9-])${id}(?![A-Z0-9])`);
+    return !(id.startsWith("C-") ? unit : e2e).some((title) => pattern.test(title));
+  });
+}
+
+/** A unit title: `describe` or `it`, with Vitest's modifiers and `.each(…)`. */
+export const UNIT_TITLE =
+  /^(?:describe|it)(?:\.(?:each|skip|only|concurrent|sequential|runIf|skipIf|todo|fails))*$/;
+/** An end-to-end title: Playwright's `test` and its modifiers, never `test.describe`. */
+export const E2E_TITLE = /^test(?:\.(?:skip|only|fixme|fail|slow))*$/;
+
+/** Every file under `folder` whose name `pattern` matches. */
+export function filesUnder(folder: string, pattern: RegExp): string[] {
+  return readdirSync(path.join(ROOT, folder), { recursive: true, withFileTypes: true })
+    .filter((entry) => entry.isFile() && pattern.test(entry.name))
+    .map((entry) => path.join(entry.parentPath, entry.name));
+}
+
+export const titlesIn = (files: readonly string[], callee: RegExp): string[] =>
+  files.flatMap((file) => testTitles(readFileSync(file, "utf8"), file, callee));

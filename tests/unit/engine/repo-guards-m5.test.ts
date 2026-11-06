@@ -14,15 +14,22 @@ import { copyProblems } from "../ai/copy-rules";
 import { SPEC } from "../export/golden-support";
 import { CUSTOM_TOKENS } from "../support/motion";
 import {
+  caseIds,
   codeFiles,
   coreViolations,
+  E2E_TITLE,
   engineAndSpecFiles,
   exportAndImportFiles,
+  filesUnder,
   type ImportRecord,
   importsOf,
   purityViolations,
   ROOT,
+  section14,
   stripComments,
+  titlesIn,
+  UNIT_TITLE,
+  unnamedCases,
 } from "./guard-support";
 
 // The M5 repository guards (docs/specs/05-motion-3d.md, section 14, C-GUARD5-nn).
@@ -1255,5 +1262,42 @@ describe("C-GUARD5-11 the purity guards scan the new pure files and find nothing
       "src/engine/tokens/bezier.ts: Date.now, Date.parse or Date.UTC",
       "src/export/media.ts: fetch",
     ]);
+  });
+});
+
+// C-GUARD5-01 (Task 5.12, R5-62): C-GUARD4-11's method with this milestone's spec. Every case of
+// section 14 of docs/specs/05-motion-3d.md carries its id in a test title, a C- id in a `describe` or
+// `it` title under tests/unit and an F- id in a `test` title under tests/e2e. The ids are read from
+// section 14's rows, so the count is the spec's, never a fixed number, and a case added to the spec
+// without its test fails here. The readers are C-GUARD4-11's own, in guard-support.ts.
+
+const M5_SPEC = "docs/specs/05-motion-3d.md";
+
+describe("C-GUARD5-01 every case of section 14 carries its id in a test title", () => {
+  const section = section14(readFileSync(path.join(ROOT, M5_SPEC), "utf8"), M5_SPEC);
+  const ids = caseIds(section);
+  const unit = titlesIn(filesUnder("tests/unit", /\.test\.tsx?$/), UNIT_TITLE);
+  const e2e = titlesIn(filesUnder("tests/e2e", /\.spec\.ts$/), E2E_TITLE);
+
+  it("C-GUARD5-01 reads the ids from section 14's rows, one per case row, each once", () => {
+    const rows = section.split("\n").filter((line) => /^\| [CF]-/.test(line));
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids).toHaveLength(rows.length);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(expect.arrayContaining(["C-COL5-01", "C-GUARD5-01", "F-A11Y5-01"]));
+    // Section 13's and 15's text is not section 14's.
+    expect(section.startsWith("\n## 14. Cases")).toBe(true);
+    expect(section).not.toContain("\n## 15. ");
+  });
+
+  it("C-GUARD5-01 finds each C- id in a unit title and each F- id in an end-to-end title", () => {
+    expect(unit.length).toBeGreaterThan(0);
+    expect(e2e.length).toBeGreaterThan(0);
+    expect(unnamedCases(ids, unit, e2e)).toEqual([]);
+  });
+
+  it("C-GUARD5-01 reports a probe list's ids that no title carries", () => {
+    const probe = [...ids, "C-PROBE5-01", "F-PROBE5-01"];
+    expect(unnamedCases(probe, unit, e2e)).toEqual(["C-PROBE5-01", "F-PROBE5-01"]);
   });
 });

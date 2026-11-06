@@ -11,17 +11,19 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { isFreeSlug } from "@/ai";
 import config from "../../../vitest.config";
 import {
+  caseIds,
   codeFiles,
   coreViolations,
+  E2E_TITLE,
   ENGINE_DIR,
   EXPORT_DIR,
   engineAndSpecFiles,
   exportAndImportFiles,
+  filesUnder,
   IMPORT_DIR,
   IMPURE,
   inProbe,
@@ -30,9 +32,14 @@ import {
   purityViolations,
   ROOT,
   SPEC_DIR,
+  section14,
   specifiers,
   stripComments,
   THEME_DIR,
+  testTitles,
+  titlesIn,
+  UNIT_TITLE,
+  unnamedCases,
 } from "./guard-support";
 
 // C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9, with
@@ -1853,104 +1860,14 @@ describe("C-GUARD4-12 vercel.json opts the AI route, and only it, into request c
 // C-GUARD4-11 of docs/specs/04-ai.md, section 14.10 (R4-59, section 20): every case of section 14
 // carries its id in a test title, a C- id in a `describe` or `it` title under tests/unit and an F-
 // id in a `test` title under tests/e2e. The ids are read from section 14's rows, so the count is
-// the spec's, never a fixed number, and a case added to the spec without its test fails here.
-
-/** A case row of section 14: its id alone in the first cell. */
-const CASE_ROW = /^\| ([CF]-[A-Z0-9]+-[A-Z0-9]+) \|/gm;
-
-/** Section 14 of the M4 spec: from its heading to section 15's. */
-function section14(spec: string): string {
-  const start = spec.indexOf("\n## 14. ");
-  const end = spec.indexOf("\n## 15. ", start);
-  if (start === -1 || end === -1)
-    throw new Error("section14: docs/specs/04-ai.md lost section 14 or 15");
-  return spec.slice(start, end);
-}
-
-/** The ids of section 14's case rows, in the spec's order. */
-function caseIds(section: string): string[] {
-  return [...section.matchAll(CASE_ROW)].map((match) => match[1] ?? "");
-}
-
-/** The titles of the calls whose name `callee` matches, read from the source's syntax tree. */
-function testTitles(source: string, file: string, callee: RegExp): string[] {
-  const tree = ts.createSourceFile(
-    file,
-    source,
-    ts.ScriptTarget.Latest,
-    false,
-    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  );
-  const titles: string[] = [];
-  const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node)) {
-      const name = calleeName(node.expression);
-      const title = name !== null && callee.test(name) ? titleText(node.arguments[0]) : null;
-      if (title !== null) titles.push(title);
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(tree);
-  return titles;
-}
-
-/** A call's name: `it`, `it.each` for `it.each(…)(…)`, `test.describe`; null for anything else. */
-function calleeName(node: ts.Expression): string | null {
-  if (ts.isIdentifier(node)) return node.text;
-  if (ts.isCallExpression(node)) return calleeName(node.expression);
-  if (ts.isPropertyAccessExpression(node)) {
-    const base = calleeName(node.expression);
-    return base === null ? null : `${base}.${node.name.text}`;
-  }
-  return null;
-}
-
-/** A title's text: a string or template literal, a template with `{}` for each value, or a `+` of them. */
-function titleText(node: ts.Expression | undefined): string | null {
-  if (node === undefined) return null;
-  if (ts.isStringLiteralLike(node)) return node.text;
-  if (ts.isTemplateExpression(node)) {
-    return node.head.text + node.templateSpans.map((span) => `{}${span.literal.text}`).join("");
-  }
-  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-    const left = titleText(node.left);
-    const right = titleText(node.right);
-    return left === null || right === null ? null : left + right;
-  }
-  return null;
-}
-
-/** The ids no title carries: a C- id in none of `unit`, an F- id in none of `e2e`. */
-function unnamedCases(
-  ids: readonly string[],
-  unit: readonly string[],
-  e2e: readonly string[],
-): string[] {
-  return ids.filter((id) => {
-    // The id whole: no letter, digit or hyphen right before or after it.
-    const pattern = new RegExp(`(?<![A-Z0-9-])${id}(?![A-Z0-9])`);
-    return !(id.startsWith("C-") ? unit : e2e).some((title) => pattern.test(title));
-  });
-}
-
-/** A unit title: `describe` or `it`, with Vitest's modifiers and `.each(…)`. */
-const UNIT_TITLE =
-  /^(?:describe|it)(?:\.(?:each|skip|only|concurrent|sequential|runIf|skipIf|todo|fails))*$/;
-/** An end-to-end title: Playwright's `test` and its modifiers, never `test.describe`. */
-const E2E_TITLE = /^test(?:\.(?:skip|only|fixme|fail|slow))*$/;
-
-/** Every file under `folder` whose name `pattern` matches. */
-function filesUnder(folder: string, pattern: RegExp): string[] {
-  return readdirSync(path.join(ROOT, folder), { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && pattern.test(entry.name))
-    .map((entry) => path.join(entry.parentPath, entry.name));
-}
-
-const titlesIn = (files: readonly string[], callee: RegExp): string[] =>
-  files.flatMap((file) => testTitles(readFileSync(file, "utf8"), file, callee));
+// the spec's, never a fixed number, and a case added to the spec without its test fails here. Its
+// readers live in guard-support.ts, which C-GUARD5-01 shares (Task 5.12).
 
 describe("C-GUARD4-11 every case of section 14 carries its id in a test title", () => {
-  const section = section14(readFileSync(path.join(ROOT, "docs/specs/04-ai.md"), "utf8"));
+  const section = section14(
+    readFileSync(path.join(ROOT, "docs/specs/04-ai.md"), "utf8"),
+    "docs/specs/04-ai.md",
+  );
   const ids = caseIds(section);
   const unit = titlesIn(filesUnder("tests/unit", /\.test\.tsx?$/), UNIT_TITLE);
   const e2e = titlesIn(filesUnder("tests/e2e", /\.spec\.ts$/), E2E_TITLE);
