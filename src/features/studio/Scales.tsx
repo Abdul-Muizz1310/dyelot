@@ -6,6 +6,7 @@ import {
   startTransition,
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   ViewTransition,
@@ -13,6 +14,7 @@ import {
 import { type Mode, PALETTE_NAMES, type PaletteName, STEPS, type Step } from "@/engine";
 import type { DesignSpec } from "@/spec";
 import { PanelSection } from "./PanelSection";
+import { pageHref } from "./pages";
 import { swatchName, tokenRow } from "./token-row";
 import type { Highlight } from "./view";
 
@@ -20,7 +22,8 @@ import type { Highlight } from "./view";
 // its 11 steps for the canvas's mode, one step per line: the number, a swatch, the hex and the WCAG
 // ratio against the page. Each line is one button; choosing it opens that step's token row in place
 // (R5-47), one at a time, the swatch morphing. The swatch is data (`data-swatch`), the only color
-// here. A step "show me" picks carries `data-show-me-cell`, which highlight.css outlines.
+// here. A step "show me" picks carries `data-show-me-cell`, which highlight.css outlines. After the
+// palettes, a link opens the design in the explorer (13.7 of docs/specs/05-motion-3d.md).
 
 type Palette = DesignSpec["color"]["palettes"][PaletteName];
 type Open = { readonly palette: PaletteName; readonly step: Step };
@@ -48,6 +51,7 @@ export const Scales = memo(function Scales({
   // The step whose compact or open button takes focus once the next commit lands.
   const focusAfter = useRef<Open | null>(null);
   const root = useRef<HTMLDivElement>(null);
+  const explorer = useMemo(() => pageHref("explore", spec), [spec]);
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: runs once per change of the open step.
   useLayoutEffect(() => {
@@ -88,6 +92,12 @@ export const Scales = memo(function Scales({
           />
         ))}
       </div>
+      <a
+        href={explorer}
+        className="inline-flex min-h-6 w-fit items-center text-foreground text-xs underline underline-offset-4 hover:text-fg-muted"
+      >
+        See these scales in the explorer
+      </a>
     </PanelSection>
   );
 });

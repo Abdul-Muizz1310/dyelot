@@ -589,6 +589,14 @@ not load. Reload the page to try again."; React reports the caught error with on
 allow.
 **(decision D6; the loading text departs, section 1; the sentences drafter)**
 
+Amended at Task 5.6b (R5-39 amendment): React's report is not the only console error those two flows meet. A renderer
+that fails as it starts also logs three's own line, `THREE.WebGLRenderer: <the error's message>`, which three 0.186.1
+writes before it rethrows; a chunk that fails to load also logs the browser's `Failed to load resource: net::ERR_FAILED`
+twice, once for the request and once for Turbopack's one retry 200 to 600 ms later. F-EXP5-10 allows exactly these and
+nothing else: with `NO_RENDERER`, three's line and React's report; with `ABORT_CHUNK`, the two failed loads and React's
+report. After a chunk that fails to load the panel reads `flat` with no `data-explorer-reason`, since 8.3 names only
+`no-webgl2` and `context-lost`.
+
 **R5-40 · The data.** `/explore#s=<link>` reads the hash with `readHash`; with no hash the explorer shows the server
 default (R5-31). A bad hash on load shows the default with the studio's decode sentence (`bannerFor`'s message) followed
 by "The explorer shows the default design instead." A `hashchange` loads the new design; a bad one keeps the current
@@ -2353,7 +2361,7 @@ Tests: `tests/e2e/landing.spec.ts`, `tests/e2e/explore.spec.ts`, `tests/e2e/moti
 | F-EXP5-08 | pass | `data-damping` is `true`, and under `emulateMedia` reduce `false` | ruling R5-38, I-M5-02 |
 | F-EXP5-09 | pass | In the studio on `LINK(SPEC)`, "See these scales in the explorer" opens `/explore` showing `SPEC`, and its "Open in the studio" returns to a studio with `SPEC`'s lot | ruling R5-40 |
 | F-EXP5-RF2 | pass | `/explore#s=<encodeSpec(RICH_P3)>` starts with "Display P3" checked; with the slice moved to `P3_L`, the flat view draws that step's dot farther from the center than the sRGB outline at its hue (both read from the SVG), and the dot's list item names it | RF2, ruling R5-36, R5-37 |
-| F-EXP5-10 | failure | With `NO_RENDERER`, the panel reads `flat` with reason `no-webgl2` and its sentence, and no `canvas` stays in it; the flow allows the one `console.error` React writes for the caught error; with the 3D chunk aborted by `ABORT_CHUNK` instead, the panel reads `flat` with "The 3D view could not load. Reload the page to try again." | ruling R5-39, I-M5-03 |
+| F-EXP5-10 | failure | With `NO_RENDERER`, the panel reads `flat` with reason `no-webgl2` and its sentence, and no `canvas` stays in it; the flow allows the `console.error` React writes for the caught error and three's own `THREE.WebGLRenderer:` line; with the 3D chunk aborted by `ABORT_CHUNK` instead, the panel reads `flat` with "The 3D view could not load. Reload the page to try again.", and the flow allows React's report and the browser's two `Failed to load resource` lines (R5-39 amendment) | ruling R5-39, I-M5-03 |
 | F-LAB-01 | pass | `/motion` shows the first hero design's tokens in the fields (50 to 500, the easings and springs), "dyelot" with `aria-pressed="true"`, `data-preset` `dyelot`, the preset line of C-LAB-09, the three files, and "Copy" and "Download" enabled once loaded | ruling R5-41, R5-44 |
 | F-LAB-02 | pass | "Gentle" sets every field to the preset's values and `data-preset` `gentle`; the hash then decodes (polled) to `withMotion(<the hero's spec>, gentle)`; "Open in the studio" opens a studio whose motion line reads "Motion tokens: Gentle preset." | ruling R5-41, R5-45 |
 | F-LAB-03 | pass | Typing 160 into "base (ms)" and leaving it sets `data-preset` `custom`, the line "Custom tokens: no preset matches.", the ladder's base label, and `--duration-base: 160ms;` in the shown `motion.css` | ruling R5-41, R5-42 |
@@ -2458,7 +2466,7 @@ uncovered-line report.
 | F-HOME-01 (M2) | One `div` holds the studio link and the repository link | The same `div` (in `start.log`) also holds the explorer and motion lab links | R5-32 |
 | F-CANVAS-19 (M2, amended in M3) | The Tab order ends Undo, Redo, Copy link, Export | It ends Undo, Redo, Copy link, Export, Flavor; the closed toolbar at 360 × 740 is still at most 170 px tall | R5-51 |
 | F-KEY-11 (M2, amended in M3 and M4) | The inspector's stops run from its scroll area to each finding's actions, as 13.7 of M4 orders them | The Scales section adds one stop per palette and then "See these scales in the explorer" before the role table; the inputs panel adds "Edit in the motion lab" after "Motion feel" | R5-45, R5-47 |
-| F-INSP-14 (M2, amended in M3 and M4) | Every inspector control is reachable by keyboard | Also each Scales step (one stop per palette, the arrows within) and the token row's "Copy" | R5-47 |
+| F-INSP-14 (M2, amended in M3 and M4) | Every inspector control is reachable by keyboard | Also each Scales step (one stop per palette, the arrows within), then "See these scales in the explorer" after the palettes' stops (13.7, 13.8), and the token row's "Copy" | R5-40, R5-47 |
 | F-A11Y3-02 (M3) | Tab from the dialog's heading backwards reaches "Close", and forwards reaches the "Preview DESIGN.md" button | Forwards it reaches the switch "Include flavor files", which follows the summary and precedes the file list | R5-29 |
 | F-A11Y3-04 (M3) | The Tab order is each file's "Preview" and "Copy", the preview region, "Download" and "Close" | It starts with "Include flavor files" | R5-29 |
 | C-ZIP-06 (M3) | Only `DESIGN.md`, `AGENTS.md.snippet` and `SKILL.md` may hold capitals; `A.txt` is a `RangeError` | `README.md` joins them; `A.txt`, `README.MD` and `Readme.md` stay `RangeError` | R5-24 |
