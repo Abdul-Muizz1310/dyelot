@@ -1,5 +1,6 @@
+import { inflateSync } from "node:zlib";
 import { test as base, expect, type Locator, type Page } from "@playwright/test";
-import { gamutSlice, generateSystem, type Mode, type SolidGamut } from "@/engine";
+import { gamutSlice, generateSystem, type Mode, PALETTE_NAMES, type SolidGamut } from "@/engine";
 import { SITE } from "@/lib/site/config";
 import { type DesignSpec, encodeSpec } from "@/spec";
 import { DEFAULT_PARAMS } from "../unit/spec/support";
@@ -10,9 +11,8 @@ import { lotId, lotOf, openStudio, ready } from "./studio-support";
 // Playwright does not read the `?raw` query some engine files import: the hook makes it the text.
 await import("./raw-hooks.mjs");
 const { defaultDesign } = await import("@/features/landing/heroes");
-const { EXPLORE_LINES, scenePoints, sceneSummary, sliceSteps } = await import(
-  "@/features/explore/scene"
-);
+const { cameraPosition, DEFAULT_CAMERA, EXPLORE_LINES, scenePoints, sceneSummary, sliceSteps } =
+  await import("@/features/explore/scene");
 
 // The explorer's flows of docs/specs/05-motion-3d.md, section 14.11 (R5-35 to R5-40, 8.1 to 8.4):
 // F-EXP5-01 to 10 and F-EXP5-RF2 (Task 5.6b). What the page must show is computed here in Node.
@@ -190,6 +190,146 @@ const dotFills = (page: Page): Promise<string[]> =>
     .locator("circle[data-dot]")
     .evaluateAll((dots) => dots.map((dot) => dot.getAttribute("fill") ?? ""));
 
+type Point = ReturnType<typeof scenePoints>[number];
+type Vec = readonly [number, number, number];
+
+const sub = (a: Vec, b: Vec): Vec => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+const dot = (a: Vec, b: Vec): number => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+const cross = (a: Vec, b: Vec): Vec => [
+  a[1] * b[2] - a[2] * b[1],
+  a[2] * b[0] - a[0] * b[2],
+  a[0] * b[1] - a[1] * b[0],
+];
+const unit = (a: Vec): Vec => {
+  const length = Math.hypot(...a);
+  return [a[0] / length, a[1] / length, a[2] / length];
+};
+
+/** A step as the default camera draws it on a `width` × `height` canvas (8.3: fov 40, at the origin). */
+type Placed = {
+  readonly point: Point;
+  readonly x: number;
+  readonly y: number;
+  readonly depth: number;
+  /** Canvas pixels per unit at the step's depth. */
+  readonly scale: number;
+  readonly radius: number;
+};
+
+function place(point: Point, width: number, height: number): Placed {
+  const eye = cameraPosition(DEFAULT_CAMERA);
+  const forward = unit([-eye[0], -eye[1], -eye[2]]);
+  const right = unit(cross(forward, [0, 1, 0]));
+  const up = cross(right, forward);
+  const offset = sub(point.position, eye);
+  const depth = dot(offset, forward);
+  const scale = height / (2 * depth * Math.tan((20 * Math.PI) / 180));
+  return {
+    point,
+    x: width / 2 + dot(offset, right) * scale,
+    y: height / 2 - dot(offset, up) * scale,
+    depth,
+    scale,
+    radius: (point.seed ? 0.035 : 0.02) * scale,
+  };
+}
+
+/** The distance from `p` to the segment from `a` to `b`, on the canvas. */
+function segmentDistance(p: Placed, a: Placed, b: Placed): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const t = Math.max(
+    0,
+    Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)),
+  );
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+/**
+ * The largest step sphere whose center pixel nothing else covers: no nearer sphere, no tube that can
+ * pass in front of it (a tube is 0.006 thick; 4 px allow for its curve), well inside the canvas.
+ */
+function clearSphere(points: readonly Point[], width: number, height: number): Placed | undefined {
+  const placed = points.map((point) => place(point, width, height));
+  const segments = PALETTE_NAMES.flatMap((palette) => {
+    const scale = placed.filter(({ point }) => point.palette === palette);
+    return scale.slice(1).map((end, i) => [scale[i] as Placed, end] as const);
+  });
+  const clear = placed.filter((p) => {
+    const margin = p.radius + 2;
+    if (p.radius < 3 || p.x < margin || p.y < margin) return false;
+    if (p.x > width - margin || p.y > height - margin) return false;
+    const covered = placed.some(
+      (q) => q !== p && q.depth < p.depth && Math.hypot(q.x - p.x, q.y - p.y) < q.radius + 2,
+    );
+    if (covered) return false;
+    return segments.every(([a, b]) => {
+      // Its own tube runs inside it, and stays behind it while both neighbors are farther away.
+      if (a === p || b === p) return (a === p ? b : a).depth > p.depth;
+      if (Math.min(a.depth, b.depth) > p.depth) return true;
+      return segmentDistance(p, a, b) > 4 + 0.006 * p.scale;
+    });
+  });
+  return clear.sort((a, b) => b.radius - a.radius)[0];
+}
+
+/** The color of pixel (x, y) of an 8-bit, non-interlaced RGB or RGBA PNG, as a screenshot gives it. */
+function pngPixel(png: Buffer, x: number, y: number): Vec {
+  let width = 0;
+  let channels = 0;
+  const parts: Buffer[] = [];
+  for (let at = 8; at < png.length; ) {
+    const length = png.readUInt32BE(at);
+    const type = png.toString("latin1", at + 4, at + 8);
+    const body = png.subarray(at + 8, at + 8 + length);
+    if (type === "IHDR") {
+      width = body.readUInt32BE(0);
+      const [depth, color, , , interlace] = body.subarray(8, 13);
+      if (depth !== 8 || interlace !== 0 || (color !== 2 && color !== 6)) {
+        throw new Error(`pngPixel: depth ${depth}, color type ${color}, interlace ${interlace}`);
+      }
+      channels = color === 6 ? 4 : 3;
+    } else if (type === "IDAT") {
+      parts.push(body);
+    }
+    at += 12 + length;
+  }
+  const raw = inflateSync(Buffer.concat(parts));
+  const stride = width * channels;
+  let previous = new Uint8Array(stride);
+  for (let row = 0; row <= y; row++) {
+    const start = row * (stride + 1);
+    const filter = raw[start];
+    const line = new Uint8Array(raw.subarray(start + 1, start + 1 + stride));
+    for (let i = 0; i < stride; i++) {
+      const left = i >= channels ? (line[i - channels] ?? 0) : 0;
+      const above = previous[i] ?? 0;
+      const corner = i >= channels ? (previous[i - channels] ?? 0) : 0;
+      const guess = left + above - corner;
+      const nearest =
+        Math.abs(guess - left) <= Math.abs(guess - above) &&
+        Math.abs(guess - left) <= Math.abs(guess - corner)
+          ? left
+          : Math.abs(guess - above) <= Math.abs(guess - corner)
+            ? above
+            : corner;
+      const predicted = [0, left, above, (left + above) >> 1, nearest][filter ?? 0] ?? 0;
+      line[i] = ((line[i] ?? 0) + predicted) & 0xff;
+    }
+    previous = line;
+  }
+  const at = x * channels;
+  return [previous[at] ?? 0, previous[at + 1] ?? 0, previous[at + 2] ?? 0];
+}
+
+/** The largest channel difference between a pixel and a hex. */
+const offBy = (pixel: Vec, hex: string): number =>
+  Math.max(
+    ...[0, 1, 2].map((i) =>
+      Math.abs(pixel[i] - Number.parseInt(hex.slice(1 + 2 * i, 3 + 2 * i), 16)),
+    ),
+  );
+
 test.describe("the explorer", () => {
   // Breaks when the page stops drawing the default design in 3D with its counts, or loses 8.1's
   // metadata, heading or flat view.
@@ -227,6 +367,38 @@ test.describe("the explorer", () => {
     ).toEqual(["srgb", "p3", "rec2020"]);
     await expect(radio(page, "sRGB")).toBeChecked();
     await expect(radio(page, "Light")).toBeChecked();
+  });
+
+  // Breaks when the 3D view stops drawing a step in its own hex: tone mapping, a lit material or a
+  // color space that shifts it (I-M5-01, R5-36, recorded at Task 5.6b's review).
+  test("F-EXP5-01 I-M5-01 an unclipped step sphere shows its own hex, with no tone mapping", async ({
+    page,
+  }) => {
+    await openExplorer(page);
+    await in3d(page);
+    // At L 0 the slice cuts the whole solid away, so nothing see-through lies over a sphere.
+    await slider(page, "Lightness slice").focus();
+    await page.keyboard.press("Home");
+    await expect(panel(page)).toHaveAttribute("data-slice", "0.00");
+    const canvas = panel(page).locator("canvas");
+    await canvas.scrollIntoViewIfNeeded();
+    const box = await canvas.boundingBox();
+    if (box === null) throw new Error("I-M5-01: the canvas has no box");
+    const target = clearSphere(scenePoints(DEFAULT, "light"), box.width, box.height);
+    expect(target, "some step sphere must lie in the clear").toBeDefined();
+    if (target === undefined) return;
+    const { hex, palette, step } = target.point;
+    const x = Math.floor(target.x);
+    const y = Math.floor(target.y);
+    // Section 4's tolerance for a pixel read back: ±1 per channel. A miss reads as the pixel shown.
+    await expect
+      .poll(async () => {
+        const pixel = pngPixel(await canvas.screenshot(), x, y);
+        const shown = `#${pixel.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+        const off = offBy(pixel, hex);
+        return { step: `${palette} ${step}`, hex, shown: off <= 1 || `${shown}, off by ${off}` };
+      })
+      .toEqual({ step: `${palette} ${step}`, hex, shown: true });
   });
 
   // Breaks when a gamut, the slice or the mode stops reaching the 3D view's attributes, its
