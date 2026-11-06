@@ -8,16 +8,16 @@ import {
   BufferGeometry,
   CatmullRomCurve3,
   Color,
-  DoubleSide,
   InstancedMesh,
   Matrix4,
-  MeshBasicMaterial,
+  type MeshBasicMaterial,
   Plane,
   SphereGeometry,
   TubeGeometry,
   Vector3,
 } from "three";
 import { gamutSolid, PALETTE_NAMES, type SolidGamut } from "@/engine";
+import { solidMaterial, stepMaterial, tubeMaterial } from "./materials";
 import { type Camera, cameraOf, cameraPosition, type ScenePoint } from "./scene";
 
 // The explorer's 3D view (spec R5-35 to R5-39, 8.2, 8.3): the one file that imports three and R3F,
@@ -53,7 +53,6 @@ const SEED_RADIUS = 0.035;
 const TUBE_RADIUS = 0.006;
 const TUBE_SEGMENTS = 64;
 const TUBE_SIDES = 8;
-const SOLID_OPACITY = 0.35;
 const TUBE_STEP = 500;
 const ORIGIN: [number, number, number] = [0, 0, 0];
 
@@ -91,7 +90,7 @@ function scaleTubes(points: readonly ScenePoint[]): Tube[] {
     return {
       palette,
       geometry: new TubeGeometry(curve, TUBE_SEGMENTS, TUBE_RADIUS, TUBE_SIDES, false),
-      material: new MeshBasicMaterial({ color: new Color(middle.hex) }),
+      material: tubeMaterial(middle.hex),
     };
   });
 }
@@ -128,23 +127,14 @@ function Scene({
 }: Pick<Explorer3DProps, "points" | "gamut" | "slice" | "onDrawn">) {
   const invalidate = useThree((state) => state.invalidate);
   const [sphere] = useState(() => new SphereGeometry(1, 16, 12));
-  const [pointMaterial] = useState(() => new MeshBasicMaterial());
+  const [pointMaterial] = useState(stepMaterial);
   const spheres = useMemo(
     () => stepSpheres(points, sphere, pointMaterial),
     [points, sphere, pointMaterial],
   );
   const tubes = useMemo(() => scaleTubes(points), [points]);
   const solid = useMemo(() => solidGeometry(gamut), [gamut]);
-  const [material] = useState(
-    () =>
-      new MeshBasicMaterial({
-        vertexColors: true,
-        transparent: true,
-        opacity: SOLID_OPACITY,
-        depthWrite: false,
-        side: DoubleSide,
-      }),
-  );
+  const [material] = useState(solidMaterial);
 
   useEffect(() => () => spheres.dispose(), [spheres]);
   useEffect(
