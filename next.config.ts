@@ -3,11 +3,14 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   // `import text from "./file.mjs?raw"` is the file's text: the export layer ships the checker script
   // byte for byte and reads it through `CHECKER_SOURCE` (spec R3-39). The prompt files of
-  // src/ai/prompts are read the same way (R4-27, R4-51). Vitest handles `?raw` itself.
+  // src/ai/prompts are read the same way (R4-27, R4-51), and so are the flavor's sources, the
+  // `.tsx` ones included (R5-05, R5-23). The query condition keeps every other import of these
+  // files compiling as code. Vitest handles `?raw` itself.
   turbopack: {
     rules: {
       "*.mjs": { condition: { query: /[?&]raw(?=&|$)/ }, type: "raw" },
       "*.md": { condition: { query: /[?&]raw(?=&|$)/ }, type: "raw" },
+      "*.tsx": { condition: { query: /[?&]raw(?=&|$)/ }, type: "raw" },
     },
   },
   // The headers every route shares, the house pattern from inkthread-frontend. The policy is not

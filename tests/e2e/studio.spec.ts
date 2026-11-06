@@ -6,6 +6,7 @@ import {
   lintSpec,
   normalizeSeed,
   PAIRINGS,
+  PALETTE_NAMES,
   PRESET_IDS,
   PRESETS,
   parseColor,
@@ -1646,6 +1647,7 @@ test.describe("7.3 Keyboard", () => {
       radio(page, "Depth", "soft"),
       panelRadio(page, "Density", "comfortable"),
       radio(page, "Motion feel", "brisk"),
+      page.getByRole("link", { name: "Edit in the motion lab", exact: true }),
       ...["Warmer", "Cooler", "Bolder", "Quieter", "Softer", "Sharper", "Airier"].map((name) =>
         button(page, name),
       ),
@@ -1669,6 +1671,7 @@ test.describe("7.3 Keyboard", () => {
       button(page, "Redo"),
       button(page, "Copy link"),
       button(page, "Export"),
+      button(page, "Flavor"),
     ];
   }
 
@@ -1691,6 +1694,17 @@ test.describe("7.3 Keyboard", () => {
     ];
     const inspectorStops = [
       inspectorAside(page).locator("[data-scroll-area]"),
+      // Each Scales palette is one stop, its focused step's button, then the link to the explorer
+      // (13.7, 13.8 and section 16 of docs/specs/05-motion-3d.md).
+      ...PALETTE_NAMES.map((name) =>
+        inspectorAside(page).locator(
+          `[data-palette="${name}"] button[data-step-button][tabindex="0"]`,
+        ),
+      ),
+      inspectorAside(page).getByRole("link", {
+        name: "See these scales in the explorer",
+        exact: true,
+      }),
       inspectorAside(page).getByRole("button", { name: "Explain the top findings", exact: true }),
       ...findings.map((key) =>
         inspectorAside(page)
@@ -1735,6 +1749,7 @@ test.describe("7.3 Keyboard", () => {
       button(page, "Redo"),
       button(page, "Copy link"),
       button(page, "Export"),
+      button(page, "Flavor"),
       canvasRegion(page),
     ];
     await focusBody(page);

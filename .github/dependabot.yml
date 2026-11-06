@@ -14,7 +14,10 @@ updates:
     # package and lifts half a pair, which fails in a way that never names the
     # cause: a react/react-dom skew breaks every component suite, and a
     # playwright skew reports "No tests found". Exact names, not prefixes, so
-    # "react" cannot sweep in react-is.
+    # "react" cannot sweep in react-is. The Remotion packages move together
+    # with the mediabunny version @remotion/web-renderer depends on, and three
+    # with its types and the two @react-three packages
+    # (docs/specs/05-motion-3d.md, R5-60 and section 12.3).
     groups:
       react:
         patterns:
@@ -26,6 +29,18 @@ updates:
         patterns:
           - "playwright"
           - "@playwright/test"
+      remotion:
+        patterns:
+          - "remotion"
+          - "@remotion/player"
+          - "@remotion/web-renderer"
+          - "mediabunny"
+      three:
+        patterns:
+          - "three"
+          - "@types/three"
+          - "@react-three/fiber"
+          - "@react-three/drei"
     ignore:
       # TypeScript 7 ships no JavaScript compiler API. Next 16.2 needed one;
       # Next 16.4 type-checks with the project's tsc CLI by default

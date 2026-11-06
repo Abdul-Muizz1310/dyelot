@@ -7,18 +7,18 @@ const NONCE = "bm9uY2Utbm9uY2Utbm9uY2U=";
 
 /** Section 12.1's string for `dev: false`, written out with its nonce. */
 const PRODUCTION =
-  "default-src 'self'; base-uri 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-bm9uY2Utbm9uY2Utbm9uY2U=' 'strict-dynamic'; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai; frame-ancestors 'none'; object-src 'none'; form-action 'self';";
+  "default-src 'self'; base-uri 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-bm9uY2Utbm9uY2Utbm9uY2U=' 'strict-dynamic'; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai https://www.remotion.pro; frame-ancestors 'none'; object-src 'none'; form-action 'self';";
 
 /** The same, with `'unsafe-eval'` after `'strict-dynamic'` and the development `connect-src`. */
 const DEVELOPMENT =
-  "default-src 'self'; base-uri 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-bm9uY2Utbm9uY2Utbm9uY2U=' 'strict-dynamic' 'unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai ws: http://localhost:*; frame-ancestors 'none'; object-src 'none'; form-action 'self';";
+  "default-src 'self'; base-uri 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-bm9uY2Utbm9uY2Utbm9uY2U=' 'strict-dynamic' 'unsafe-eval'; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai https://www.remotion.pro ws: http://localhost:*; frame-ancestors 'none'; object-src 'none'; form-action 'self';";
 
-describe("C-CSP-01 cspHeader writes section 12.1's policy", () => {
-  it("C-CSP-01 gives 12.1's string exactly for dev: false", () => {
+describe("C-CSP-01 cspHeader writes section 12.2's policy", () => {
+  it("C-CSP-01 gives 12.2's string exactly (C-SITE5-01) for dev: false", () => {
     expect(cspHeader(NONCE, { dev: false })).toBe(PRODUCTION);
   });
 
-  it("C-CSP-01 adds 'unsafe-eval' and the development connect-src sources for dev: true", () => {
+  it("C-CSP-01 and C-SITE5-01 add 'unsafe-eval' and the development connect-src sources for dev: true", () => {
     expect(cspHeader(NONCE, { dev: true })).toBe(DEVELOPMENT);
   });
 

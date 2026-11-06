@@ -11,6 +11,7 @@ import {
   type Lockable,
   MOTION_FEELS,
   NEUTRAL_TINTS,
+  normalizeMotionTokens,
   normalizeSeed,
   type Oklch,
   PAIRING_IDS,
@@ -34,10 +35,14 @@ export { freshParams, paramsOfSpec, resolveParams } from "@/engine";
 type DeepPartial<T> = { [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K] };
 
 /** A change of parameters: `type` merges by key, and a key set to undefined is removed (`pairing: undefined` means auto). */
-export type ParamsPatch = DeepPartial<Omit<DirectionParams, "direction" | "rules">> & {
+export type ParamsPatch = DeepPartial<
+  Omit<DirectionParams, "direction" | "rules" | "motionTokens">
+> & {
   /** Like `name`: a value sets the field, `undefined` removes it (R3-03). */
   readonly direction?: DirectionParams["direction"] | undefined;
   readonly rules?: DirectionParams["rules"] | undefined;
+  /** Replaces the whole set; `undefined` removes it (R5-14). */
+  readonly motionTokens?: DirectionParams["motionTokens"] | undefined;
 };
 
 /**
@@ -61,6 +66,7 @@ export const DIRECTION_PARAM_KEYS: readonly (keyof DirectionParams)[] = Object.f
   "oneLiner",
   "direction",
   "rules",
+  "motionTokens",
 ]);
 
 const PARAM_KEYS: ReadonlySet<string> = new Set(DIRECTION_PARAM_KEYS);
@@ -157,6 +163,8 @@ export function parseParams(value: unknown): DirectionParams | null {
   if (!textFieldsFit(oneLiner, direction, rules)) return null;
   const type = parseType(value.type);
   if (type === null) return null;
+  const tokens = parseMotionTokens(value.motionTokens);
+  if (tokens === null) return null;
   const seeds: Partial<Record<Lockable, Oklch>> = {};
   for (const slot of LOCKABLE) {
     if (value[slot] === undefined) continue;
@@ -183,7 +191,19 @@ export function parseParams(value: unknown): DirectionParams | null {
     ...(rules === undefined || isEmptyRules(rules)
       ? {}
       : { rules: rules as DirectionParams["rules"] }),
+    ...(tokens === undefined ? {} : { motionTokens: tokens }),
   };
+}
+
+/** Motion tokens as a draft holds them (R5-14): absent, or the set `normalizeMotionTokens` accepts; null otherwise. */
+function parseMotionTokens(value: unknown): DirectionParams["motionTokens"] | undefined | null {
+  if (value === undefined) return undefined;
+  try {
+    return normalizeMotionTokens(value as never);
+  } catch (error) {
+    if (error instanceof TypeError || error instanceof RangeError) return null;
+    throw error;
+  }
 }
 
 /** JSON with sorted keys and undefined left out: equal text means equal plain data. */
@@ -322,6 +342,7 @@ export function mergeParams(
     oneLiner,
     direction,
     rules,
+    motionTokens,
     type,
     ...choices
   } = patch;
@@ -348,6 +369,11 @@ export function mergeParams(
   if (Object.hasOwn(patch, "pairing")) {
     const { pairing: _old, ...rest } = next;
     next = pairing === undefined ? rest : { ...rest, pairing };
+  }
+  if (Object.hasOwn(patch, "motionTokens")) {
+    const { motionTokens: _old, ...rest } = next;
+    if (motionTokens !== undefined) assertRecord(motionTokens, `${caller}: patch.motionTokens`);
+    next = motionTokens === undefined ? rest : { ...rest, motionTokens };
   }
   for (const [key, value] of [
     ["name", name],

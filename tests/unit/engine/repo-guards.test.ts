@@ -8,129 +8,45 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
-import { builtinModules } from "node:module";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { isFreeSlug } from "@/ai";
 import config from "../../../vitest.config";
+import {
+  caseIds,
+  codeFiles,
+  coreViolations,
+  E2E_TITLE,
+  ENGINE_DIR,
+  EXPORT_DIR,
+  engineAndSpecFiles,
+  exportAndImportFiles,
+  filesUnder,
+  GUARD3_04_PROBE,
+  IMPORT_DIR,
+  IMPURE,
+  inProbe,
+  isForbiddenSpecifier,
+  PROBE_DIR,
+  purityViolations,
+  ROOT,
+  SPEC_DIR,
+  section14,
+  specifiers,
+  stripComments,
+  THEME_DIR,
+  testTitles,
+  titlesIn,
+  UNIT_TITLE,
+  unnamedCases,
+} from "./guard-support";
 
 // C-REPO-01, C-REPO-02, C-REPO-04 and C-REPO-05 of docs/specs/01-color-engine.md, section 6.9, with
 // C-REPO-02 and C-REPO-05 amended by R2-25 of docs/specs/02-studio.md, and C-ENTRY-16 to 18. C-REPO-03
 // lives in environment.test.ts, one copy per folder. These M1 guards, as R2-25 leaves them, are
 // C-REPO-M2-04 of the M2 spec, section 6.10; the M2 guards C-REPO-M2-01 to 05 follow them.
-
-const ROOT = path.resolve(import.meta.dirname, "../../..");
-const ENGINE_DIR = path.join(ROOT, "src/engine");
-const SPEC_DIR = path.join(ROOT, "src/spec");
-const THEME_DIR = path.join(ROOT, "src/theme");
-const CODE_FILE = /\.[cm]?[jt]sx?$/;
-
-/**
- * A folder the Biome probes of tests/unit/engine/entry.test.ts write under src for a moment and
- * remove: a file listed while it exists may be gone by the time a guard reads it, so no walk
- * lists it.
- */
-const PROBE_DIR = "__entry-probe__";
-const inProbe = (file: string): boolean => file.split(path.sep).includes(PROBE_DIR);
-
-/** Every code file under `directory`, or none when the folder does not exist yet. */
-function codeFiles(directory: string): string[] {
-  try {
-    return readdirSync(directory, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && CODE_FILE.test(entry.name))
-      .map((entry) => path.join(entry.parentPath, entry.name))
-      .filter((file) => !inProbe(file));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
-  }
-}
-
-/**
- * Removes `//` and block comments so a comment that names a forbidden API cannot trip a grep.
- * String and template literals pass through untouched, so a `//` inside "https://…" does not
- * hide the code after it.
- */
-function stripComments(source: string): string {
-  let out = "";
-  let i = 0;
-  while (i < source.length) {
-    const char = source[i];
-    const next = source[i + 1];
-    if (char === "/" && next === "/") {
-      while (i < source.length && source[i] !== "\n") i++;
-    } else if (char === "/" && next === "*") {
-      const end = source.indexOf("*/", i + 2);
-      i = end === -1 ? source.length : end + 2;
-      out += " ";
-    } else if (char === '"' || char === "'" || char === "`") {
-      out += char;
-      i++;
-      while (i < source.length && source[i] !== char) {
-        out += source[i];
-        if (source[i] === "\\") {
-          i++;
-          out += source[i] ?? "";
-        }
-        i++;
-      }
-      out += source[i] ?? "";
-      i++;
-    } else {
-      out += char;
-      i++;
-    }
-  }
-  return out;
-}
-
-// The patterns of C-REPO-01, with the controller's two refinements: `new Date` tolerates any
-// whitespace, and a bare `Date(` call counts as well.
-const FORBIDDEN: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
-  ["Math.random", /Math\.random/],
-  ["new Date", /\bnew\s+Date\b/],
-  ["Date call", /\bDate\s*\(/],
-  ["Date.now, Date.parse or Date.UTC", /\bDate\.(?:now|parse|UTC)\b/],
-  ["window.", /\bwindow\./],
-  ["document.", /\bdocument\./],
-  ["navigator.", /\bnavigator\./],
-  ["web storage", /\b(?:localStorage|sessionStorage|indexedDB)\b/],
-  ["process", /\bprocess\.(?:env|argv|cwd|exit|platform)\b/],
-  ["Buffer", /\bBuffer\.(?:from|alloc)\b/],
-  ["require", /\brequire\(/],
-];
-
-const NODE_MODULES = new Set(builtinModules);
-const FRAMEWORKS = new Set(["react", "react-dom", "next"]);
-
-/** Module specifiers named by `import … from`, `import "…"`, `import("…")` and `export … from`. */
-function specifiers(source: string): string[] {
-  const found: string[] = [];
-  for (const match of source.matchAll(/(?:\bfrom\s*|\bimport\s*\(?\s*)["']([^"']+)["']/g)) {
-    found.push(match[1]);
-  }
-  return found;
-}
-
-/** An import from `node:…`, a Node built-in, React or Next. */
-function isForbiddenSpecifier(specifier: string): boolean {
-  if (specifier.startsWith("node:")) return true;
-  const root = specifier.split("/")[0];
-  return NODE_MODULES.has(specifier) || NODE_MODULES.has(root) || FRAMEWORKS.has(root);
-}
-
-/** The names of the forbidden APIs and imports in one source file, comments aside. */
-function purityViolations(source: string): string[] {
-  const code = stripComments(source);
-  const found = FORBIDDEN.filter(([, pattern]) => pattern.test(code)).map(([name]) => name);
-  for (const specifier of specifiers(code)) {
-    if (isForbiddenSpecifier(specifier)) found.push(`import "${specifier}"`);
-  }
-  return found;
-}
 
 /** Whether `specifier`, written in `file`, points into src/spec. */
 function importsFromSpec(file: string, specifier: string): boolean {
@@ -141,7 +57,7 @@ function importsFromSpec(file: string, specifier: string): boolean {
 }
 
 describe("C-REPO-01 the pure core uses no impure API", () => {
-  const files = [...codeFiles(ENGINE_DIR), ...codeFiles(SPEC_DIR)];
+  const files = engineAndSpecFiles();
 
   it("scans real files, so the grep cannot pass by looking at nothing", () => {
     expect(codeFiles(ENGINE_DIR).length).toBeGreaterThan(0);
@@ -874,8 +790,6 @@ describe("C-GUARD4-10 the AI tests run in core, and section 15's include and flo
 // import cores load only through a dynamic import, and stay pure. Section 16 of docs/specs/04-ai.md
 // amends C-GUARD3-01, 03 and 04 (R4-04): the AI core, src/ai, is the third such core.
 
-const EXPORT_DIR = path.join(ROOT, "src/export");
-const IMPORT_DIR = path.join(ROOT, "src/import");
 const AI_DIR = path.join(ROOT, "src/ai");
 const APP_DIRS = ["src/features", "src/app", "src/components", "src/lib"].map((folder) =>
   path.join(ROOT, folder),
@@ -959,34 +873,8 @@ describe("C-GUARD3-01 app code reaches the export, import and AI cores only thro
   });
 });
 
-/** The names of the I-M3-02 APIs in comment-free code. */
-const IMPURE: ReadonlyArray<readonly [name: string, pattern: RegExp]> = [
-  ["Date", /\bDate\b/],
-  ["Math.random", /Math\.random/],
-  ["getRandomValues", /getRandomValues/],
-  ["performance", /\bperformance\b/],
-  ["Intl", /\bIntl\b/],
-  ["toLocale", /toLocale/],
-  ["localeCompare", /localeCompare/],
-  ["document", /\bdocument\b/],
-  ["window", /\bwindow\b/],
-  ["localStorage", /\blocalStorage\b/],
-  ["sessionStorage", /\bsessionStorage\b/],
-  ["fetch", /\bfetch\b/],
-  ["XMLHttpRequest", /\bXMLHttpRequest\b/],
-];
-
-function coreViolations(source: string): string[] {
-  const code = stripComments(source);
-  const found = IMPURE.filter(([, pattern]) => pattern.test(code)).map(([name]) => name);
-  if (/(?:\bfrom\s*|\bimport\s*\(?\s*|\brequire\s*\(\s*)["']node:/.test(code)) {
-    found.push("node: import");
-  }
-  return found;
-}
-
 describe("C-GUARD3-02 src/export and src/import stay pure", () => {
-  const files = [...codeFiles(EXPORT_DIR), ...codeFiles(IMPORT_DIR)];
+  const files = exportAndImportFiles();
   const CHECKER = path.join(EXPORT_DIR, "checker/dyelot-check.mjs");
 
   it("scans real files, the checker among them", () => {
@@ -1099,7 +987,7 @@ const BIOME = path.join(ROOT, "node_modules/.bin/biome");
 
 /** Biome's verdict on `source` written as a file of src/features (the probe is removed after). */
 function lint(source: string): { status: number | null; output: string } {
-  const probe = path.join(ROOT, "src/features/guard3-04-probe.ts");
+  const probe = GUARD3_04_PROBE;
   writeFileSync(probe, source);
   try {
     const r = spawnSync(BIOME, ["lint", probe], { cwd: ROOT, encoding: "utf8" });
@@ -1744,6 +1632,12 @@ describe("the guards' file walks skip the Biome probe folder", () => {
     expect(inProbe(path.join(ROOT, "src", "components", "probe.ts"))).toBe(false);
     expect(inProbe(path.join(ROOT, "src", "features", "__entry-probe-x__", "a.ts"))).toBe(false);
   });
+
+  it("lists no C-GUARD3-04 probe file, which this file writes under src/features and removes", () => {
+    expect(inProbe(path.join(ROOT, "src", "features", "guard3-04-probe.ts"))).toBe(true);
+    expect(inProbe(path.join(ROOT, "src", "features", "flavor", "guard3-04-probe.ts"))).toBe(false);
+    expect(inProbe(path.join(ROOT, "src", "features", "guard3-04-probe.tsx"))).toBe(false);
+  });
 });
 
 // C-GUARD4-07 of docs/specs/04-ai.md, section 14.10 (R4-28, R4-59): every string a model writes
@@ -1973,104 +1867,14 @@ describe("C-GUARD4-12 vercel.json opts the AI route, and only it, into request c
 // C-GUARD4-11 of docs/specs/04-ai.md, section 14.10 (R4-59, section 20): every case of section 14
 // carries its id in a test title, a C- id in a `describe` or `it` title under tests/unit and an F-
 // id in a `test` title under tests/e2e. The ids are read from section 14's rows, so the count is
-// the spec's, never a fixed number, and a case added to the spec without its test fails here.
-
-/** A case row of section 14: its id alone in the first cell. */
-const CASE_ROW = /^\| ([CF]-[A-Z0-9]+-[A-Z0-9]+) \|/gm;
-
-/** Section 14 of the M4 spec: from its heading to section 15's. */
-function section14(spec: string): string {
-  const start = spec.indexOf("\n## 14. ");
-  const end = spec.indexOf("\n## 15. ", start);
-  if (start === -1 || end === -1)
-    throw new Error("section14: docs/specs/04-ai.md lost section 14 or 15");
-  return spec.slice(start, end);
-}
-
-/** The ids of section 14's case rows, in the spec's order. */
-function caseIds(section: string): string[] {
-  return [...section.matchAll(CASE_ROW)].map((match) => match[1] ?? "");
-}
-
-/** The titles of the calls whose name `callee` matches, read from the source's syntax tree. */
-function testTitles(source: string, file: string, callee: RegExp): string[] {
-  const tree = ts.createSourceFile(
-    file,
-    source,
-    ts.ScriptTarget.Latest,
-    false,
-    file.endsWith(".tsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS,
-  );
-  const titles: string[] = [];
-  const visit = (node: ts.Node): void => {
-    if (ts.isCallExpression(node)) {
-      const name = calleeName(node.expression);
-      const title = name !== null && callee.test(name) ? titleText(node.arguments[0]) : null;
-      if (title !== null) titles.push(title);
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(tree);
-  return titles;
-}
-
-/** A call's name: `it`, `it.each` for `it.each(…)(…)`, `test.describe`; null for anything else. */
-function calleeName(node: ts.Expression): string | null {
-  if (ts.isIdentifier(node)) return node.text;
-  if (ts.isCallExpression(node)) return calleeName(node.expression);
-  if (ts.isPropertyAccessExpression(node)) {
-    const base = calleeName(node.expression);
-    return base === null ? null : `${base}.${node.name.text}`;
-  }
-  return null;
-}
-
-/** A title's text: a string or template literal, a template with `{}` for each value, or a `+` of them. */
-function titleText(node: ts.Expression | undefined): string | null {
-  if (node === undefined) return null;
-  if (ts.isStringLiteralLike(node)) return node.text;
-  if (ts.isTemplateExpression(node)) {
-    return node.head.text + node.templateSpans.map((span) => `{}${span.literal.text}`).join("");
-  }
-  if (ts.isBinaryExpression(node) && node.operatorToken.kind === ts.SyntaxKind.PlusToken) {
-    const left = titleText(node.left);
-    const right = titleText(node.right);
-    return left === null || right === null ? null : left + right;
-  }
-  return null;
-}
-
-/** The ids no title carries: a C- id in none of `unit`, an F- id in none of `e2e`. */
-function unnamedCases(
-  ids: readonly string[],
-  unit: readonly string[],
-  e2e: readonly string[],
-): string[] {
-  return ids.filter((id) => {
-    // The id whole: no letter, digit or hyphen right before or after it.
-    const pattern = new RegExp(`(?<![A-Z0-9-])${id}(?![A-Z0-9])`);
-    return !(id.startsWith("C-") ? unit : e2e).some((title) => pattern.test(title));
-  });
-}
-
-/** A unit title: `describe` or `it`, with Vitest's modifiers and `.each(…)`. */
-const UNIT_TITLE =
-  /^(?:describe|it)(?:\.(?:each|skip|only|concurrent|sequential|runIf|skipIf|todo|fails))*$/;
-/** An end-to-end title: Playwright's `test` and its modifiers, never `test.describe`. */
-const E2E_TITLE = /^test(?:\.(?:skip|only|fixme|fail|slow))*$/;
-
-/** Every file under `folder` whose name `pattern` matches. */
-function filesUnder(folder: string, pattern: RegExp): string[] {
-  return readdirSync(path.join(ROOT, folder), { recursive: true, withFileTypes: true })
-    .filter((entry) => entry.isFile() && pattern.test(entry.name))
-    .map((entry) => path.join(entry.parentPath, entry.name));
-}
-
-const titlesIn = (files: readonly string[], callee: RegExp): string[] =>
-  files.flatMap((file) => testTitles(readFileSync(file, "utf8"), file, callee));
+// the spec's, never a fixed number, and a case added to the spec without its test fails here. Its
+// readers live in guard-support.ts, which C-GUARD5-01 shares (Task 5.12).
 
 describe("C-GUARD4-11 every case of section 14 carries its id in a test title", () => {
-  const section = section14(readFileSync(path.join(ROOT, "docs/specs/04-ai.md"), "utf8"));
+  const section = section14(
+    readFileSync(path.join(ROOT, "docs/specs/04-ai.md"), "utf8"),
+    "docs/specs/04-ai.md",
+  );
   const ids = caseIds(section);
   const unit = titlesIn(filesUnder("tests/unit", /\.test\.tsx?$/), UNIT_TITLE);
   const e2e = titlesIn(filesUnder("tests/e2e", /\.spec\.ts$/), E2E_TITLE);

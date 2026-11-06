@@ -43,3 +43,23 @@ export const GOLDENS: readonly { id: string; spec: DesignSpec }[] = [
   ...PRESET_GOLDENS,
   { id: "imported-shadcn", spec: IMPORTED },
 ];
+
+/** A manifest entry: the design, and whether its bundle carries the flavor files (R5-27). */
+export type ManifestGolden = {
+  readonly id: string;
+  readonly spec: DesignSpec;
+  readonly flavor?: true;
+};
+
+/**
+ * The goldens `manifest.json` records: `GOLDENS`, then `default-flavor`, the `default` preset's
+ * design built with `flavor: true`. `GOLDENS` stays as M3 counted it (C-DMI-10).
+ */
+export const MANIFEST_GOLDENS: readonly ManifestGolden[] = [
+  ...GOLDENS,
+  {
+    id: "default-flavor",
+    spec: (GOLDENS.find((golden) => golden.id === "default") as { spec: DesignSpec }).spec,
+    flavor: true,
+  },
+];

@@ -49,6 +49,8 @@ const SLOW_CORE_TESTS = [
   "tests/unit/export/prompt.test.ts", // 22 s: C-PRM-02 (200 runs of generateSystem and themeCss)
   "tests/unit/import/fuzz-md.test.ts", // 11.5 s: C-IMP-03, 300 runs of importDesignMd
   "tests/unit/export/zip.test.ts", // 11.2 s: C-ZIP-03, one zip per time zone
+  "tests/unit/engine/generate-motion-property.test.ts", // 63 s solo: C-MOT5-08 (100 runs), C-MOT5-RF5 (300 runs)
+  "tests/unit/engine/flavor-property.test.ts", // 12.4 s solo, load 9 to 11: C-STOPS-02 (100 runs)
 ];
 
 /** The slow set's files that run in jsdom, beside the studio's other tests. */
@@ -103,6 +105,8 @@ const STUDIO_HELPERS = [
   "shortcuts",
   "inputs",
   "rebuild",
+  "pages",
+  "token-row",
 ].map((name) => `src/features/studio/${name}.ts`);
 
 /** The preview's pure helpers (Tasks 2.7 to 2.10a), held to `PURE_FLOORS` the same way. */
@@ -115,7 +119,12 @@ const PREVIEW_HELPERS = [
   "tide",
   "bars",
   "format",
+  "transition",
+  "kit/reduced",
 ].map((name) => `src/features/preview/${name}.ts`);
+
+/** The motion lab's pure helpers (Task 5.7a), held to `PURE_FLOORS` the same way. */
+const MOTION_HELPERS = ["lab"].map((name) => `src/features/motion/${name}.ts`);
 
 /** The export dialog's pure helpers (Task 3.14), held to `PURE_FLOORS` the same way. */
 const EXPORT_HELPERS = ["files"].map((name) => `src/features/export/${name}.ts`);
@@ -140,6 +149,24 @@ const AI_HELPERS = [
   "steps",
   "activity",
 ].map((name) => `src/features/ai/${name}.ts`);
+
+/** The landing's pure helpers (Tasks 5.5a and 5.5b), held to `PURE_FLOORS` the same way. */
+const LANDING_HELPERS = ["heroes", "story", "cycle"].map(
+  (name) => `src/features/landing/${name}.ts`,
+);
+
+/** The explorer's pure helpers (Task 5.6a), held to `PURE_FLOORS` the same way. */
+const EXPLORE_HELPERS = ["scene", "webgl"].map((name) => `src/features/explore/${name}.ts`);
+
+/**
+ * The Flavor dialog's helpers (Task 5.3b on, docs/specs/05-motion-3d.md section 15), held to
+ * `PURE_FLOORS` the same way: the video lines and helpers, which the hero reads too, and the
+ * render's and the recording's shells (Task 5.9a), measured against fakes of their libraries.
+ * useVideoJob.ts is covered by the flows.
+ */
+const FLAVOR_HELPERS = ["video", "render", "record", "phase"].map(
+  (name) => `src/features/flavor/${name}.ts`,
+);
 
 /**
  * The server shell's files (Task 4.7a on, docs/specs/04-ai.md section 15), each measured by name.
@@ -245,9 +272,13 @@ export default defineConfig({
         // covered by the flows; inspect.ts holds the inspector's helpers (Task 2.10b).
         ...STUDIO_HELPERS,
         ...PREVIEW_HELPERS,
+        ...MOTION_HELPERS,
         ...EXPORT_HELPERS,
         ...IMPORT_HELPERS,
         ...AI_HELPERS,
+        ...FLAVOR_HELPERS,
+        ...LANDING_HELPERS,
+        ...EXPLORE_HELPERS,
         // The server shell's pieces (M4); handle.ts composes them, and the routes are covered by
         // the flows.
         ...SERVER_FILES,
@@ -270,9 +301,13 @@ export default defineConfig({
           [
             ...STUDIO_HELPERS,
             ...PREVIEW_HELPERS,
+            ...MOTION_HELPERS,
             ...EXPORT_HELPERS,
             ...IMPORT_HELPERS,
             ...AI_HELPERS,
+            ...FLAVOR_HELPERS,
+            ...LANDING_HELPERS,
+            ...EXPLORE_HELPERS,
           ].map((file) => [file, PURE_FLOORS]),
         ),
         ...Object.fromEntries(SERVER_FILES.map((file) => [file, SERVER_FLOORS])),

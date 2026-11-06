@@ -15,7 +15,7 @@ type ExportModule = typeof import("@/export");
 let loading: Promise<ExportModule> | null = null;
 
 /** The export entry, loaded once; a failed load is forgotten so that "Try again" asks the network again. */
-function loadExport(): Promise<ExportModule> {
+export function loadExport(): Promise<ExportModule> {
   loading ??= import("@/export").catch((error: unknown) => {
     loading = null;
     throw error;
@@ -31,7 +31,7 @@ type Built = {
   readonly zipName: string;
 };
 
-type Outcome = { readonly spec: DesignSpec } & (
+type Outcome = { readonly spec: DesignSpec; readonly flavor: boolean } & (
   | { readonly built: Built }
   | { readonly failed: true }
 );
@@ -45,10 +45,11 @@ export type BundleState = {
 };
 
 /**
- * The bundle of `spec`. `waiting` says a newer design is still generating: nothing is built then, and
- * the state is `waiting` until it commits.
+ * The bundle of `spec`, with the flavor files when `flavor` is on (R5-29). `waiting` says a newer design
+ * is still generating: nothing is built then, and the state is `waiting` until it commits. Changing
+ * `flavor` builds again, and the state is `loading` until it has.
  */
-export function useBundle(spec: DesignSpec, waiting = false): BundleState {
+export function useBundle(spec: DesignSpec, waiting = false, flavor = false): BundleState {
   const [outcome, setOutcome] = useState<Outcome | null>(null);
   const [attempt, setAttempt] = useState(0);
 
@@ -61,28 +62,29 @@ export function useBundle(spec: DesignSpec, waiting = false): BundleState {
       (module) => {
         if (!live) return;
         try {
-          const bundle = module.buildBundle({ spec, origin: SITE.url });
+          const bundle = module.buildBundle({ spec, origin: SITE.url, flavor });
           const zip = bundle.summary.lint.error === 0 ? module.zipBundle(bundle) : undefined;
-          setOutcome({ spec, built: { bundle, zip, zipName: module.zipName(bundle) } });
+          setOutcome({ spec, flavor, built: { bundle, zip, zipName: module.zipName(bundle) } });
         } catch {
-          setOutcome({ spec, failed: true });
+          setOutcome({ spec, flavor, failed: true });
         }
       },
       () => {
-        if (live) setOutcome({ spec, failed: true });
+        if (live) setOutcome({ spec, flavor, failed: true });
       },
     );
     return () => {
       live = false;
     };
-  }, [spec, waiting, attempt]);
+  }, [spec, waiting, flavor, attempt]);
 
   const retry = () => {
     setOutcome(null);
     setAttempt((count) => count + 1);
   };
   if (waiting) return { state: "waiting", retry };
-  if (outcome === null || outcome.spec !== spec) return { state: "loading", retry };
+  if (outcome === null || outcome.spec !== spec || outcome.flavor !== flavor)
+    return { state: "loading", retry };
   if ("failed" in outcome) return { state: "failed", retry };
   const { bundle, zip, zipName } = outcome.built;
   return { state: "ready", bundle, zip, zipName, retry };

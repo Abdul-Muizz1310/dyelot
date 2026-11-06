@@ -13,7 +13,7 @@ import { zipBundle } from "@/export/zip";
 import { encodeSpec, lotTag, specId } from "@/spec";
 import { DEFAULT_PARAMS } from "../spec/support";
 import { BUNDLE, LONG_NAME } from "./bundle-support";
-import { GOLDENS, ORIGIN, SPEC } from "./golden-support";
+import { GOLDENS, MANIFEST_GOLDENS, ORIGIN, SPEC } from "./golden-support";
 
 // C-BND-01 to 05 and 07, C-RCPT-08's bundle half, C-RCPT-10 and C-CHK-25's byte half of
 // docs/specs/03-export.md, sections 10.6, 10.7 and 10.9 (R3-09, R3-12). C-BND-06 lives in golden.test.ts.
@@ -53,16 +53,17 @@ describe("buildBundle files", () => {
   });
 
   it("C-BND-02: every file of every golden obeys R3-09", () => {
-    for (const { id, spec } of GOLDENS) {
-      const { files } = buildBundle({ spec, origin: ORIGIN });
+    for (const { id, spec, flavor } of MANIFEST_GOLDENS) {
+      const { files } = buildBundle({ spec, origin: ORIGIN, flavor: flavor === true });
       expect(files.length, id).toBeGreaterThanOrEqual(18);
-      expect(files.length, id).toBeLessThanOrEqual(21);
+      expect(files.length, id).toBeLessThanOrEqual(flavor === true ? 30 : 21);
       for (const file of files) {
         const who = `${id}: ${file.path}`;
-        // R3-09's character set, with the three fixed capitals of R3-12's file names.
-        expect(file.path.replace(/DESIGN\.md|AGENTS\.md\.snippet|SKILL\.md/, "x"), who).toMatch(
-          /^[a-z0-9._/-]+$/,
-        );
+        // R3-09's character set, with the four fixed capitals of R3-12's and R5-24's file names.
+        expect(
+          file.path.replace(/DESIGN\.md|AGENTS\.md\.snippet|SKILL\.md|README\.md/, "x"),
+          who,
+        ).toMatch(/^[a-z0-9._/-]+$/);
         expect(file.path.startsWith("/") || file.path.startsWith("."), who).toBe(false);
         expect(file.path, who).not.toContain("..");
         expect(file.text, who).not.toContain("\r");

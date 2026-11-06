@@ -47,8 +47,8 @@ describe("manifest (T-FE-24)", () => {
 
 describe("robots and sitemap (T-FE-25)", () => {
   // T-FE-25 as docs/specs/04-ai.md section 16 amends it (R4-22): the API and the OAuth callback
-  // leave robots.txt, and the sitemap keeps the two pages.
-  it("C-SITE4-01 allows the site but /api/ and /connect/callback, and names the sitemap", () => {
+  // leave robots.txt, and the sitemap lists the four routes of R5-34.
+  it("C-SITE4-01 and C-SITE5-02 allow the site but /api/ and /connect/callback, and names the sitemap", () => {
     expect(robots()).toEqual({
       rules: [{ userAgent: "*", allow: "/", disallow: ["/api/", "/connect/callback"] }],
       sitemap: "https://dyelot.vercel.app/sitemap.xml",
@@ -56,6 +56,8 @@ describe("robots and sitemap (T-FE-25)", () => {
     expect(sitemap().map((entry) => entry.url)).toEqual([
       "https://dyelot.vercel.app/",
       "https://dyelot.vercel.app/studio",
+      "https://dyelot.vercel.app/explore",
+      "https://dyelot.vercel.app/motion",
     ]);
   });
 
@@ -68,7 +70,12 @@ describe("robots and sitemap (T-FE-25)", () => {
 
   it("lists the sitemap routes, as absolute URLs, once each", () => {
     const urls = sitemap().map((entry) => entry.url);
-    expect(urls).toEqual(["https://dyelot.vercel.app/", "https://dyelot.vercel.app/studio"]);
+    expect(urls).toEqual([
+      "https://dyelot.vercel.app/",
+      "https://dyelot.vercel.app/studio",
+      "https://dyelot.vercel.app/explore",
+      "https://dyelot.vercel.app/motion",
+    ]);
     expect(new Set(urls).size).toBe(urls.length);
   });
 });

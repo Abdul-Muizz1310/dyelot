@@ -3,10 +3,15 @@
 import "./studio.css";
 import "./highlight.css";
 import Link from "next/link";
-import { type RefObject, useEffect, useRef, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import { createAiActivity } from "@/features/ai/activity";
 import { readToggle } from "@/features/ai/on-device";
 import { ExportDialog } from "@/features/export/ExportDialog";
+import {
+  type FlavorDialogModule,
+  LOAD_FAILED_LINE,
+  loadFlavorDialog,
+} from "@/features/flavor/load";
 import { ImportDialog } from "@/features/import/ImportDialog";
 import { createFitStore, FitContext } from "@/features/preview/useFrameFit";
 import { CanvasArea } from "./CanvasArea";
@@ -72,7 +77,22 @@ function StudioShell({ store }: { store: StudioStore }) {
   const importButton = useRef<HTMLButtonElement>(null);
   const importOpener = useRef<HTMLElement | null>(null);
   const [exportOpen, setExportOpen] = useState(false);
+  // "Include flavor files" of the export dialog (R5-29): held while the page stays open, never stored.
+  const [exportFlavor, setExportFlavor] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  // The Flavor dialog (R5-51): its module once loaded, whether it is open, whether its code is
+  // loading, and the toolbar's line when it did not load. The privacy answer (R5-54) lasts for the
+  // page load, so the studio holds it, not the dialog.
+  const flavorButton = useRef<HTMLButtonElement>(null);
+  const [flavorDialog, setFlavorDialog] = useState<FlavorDialogModule | null>(null);
+  const [flavorOpen, setFlavorOpen] = useState(false);
+  const [flavorBusy, setFlavorBusy] = useState(false);
+  const [toolbarLine, setToolbarLine] = useState("");
+  const [privacyAccepted, setPrivacyAccepted] = useState(false);
+  const privacy = useMemo(
+    () => ({ accepted: privacyAccepted, accept: () => setPrivacyAccepted(true) }),
+    [privacyAccepted],
+  );
   const [toast, setToast] = useState<ToastState | null>(null);
   // The canvas area measures the frame's fit and the toolbar's frame switcher shows it (M-8).
   const [fitStore] = useState(createFitStore);
@@ -124,6 +144,38 @@ function StudioShell({ store }: { store: StudioStore }) {
     setImportOpen(true);
   }
 
+  /**
+   * Opens the Flavor dialog, loading its code on the first press (R5-51). A failed load says so in
+   * the toolbar's status line and is forgotten, so the next press tries again.
+   */
+  function openFlavor(): void {
+    if (flavorOpen || exportOpen || importOpen || flavorBusy) return;
+    setToolbarLine("");
+    if (flavorDialog !== null) {
+      setFlavorOpen(true);
+      return;
+    }
+    setFlavorBusy(true);
+    loadFlavorDialog().then(
+      (module) => {
+        setFlavorBusy(false);
+        setFlavorDialog(module);
+        setFlavorOpen(true);
+      },
+      () => {
+        setFlavorBusy(false);
+        setToolbarLine(LOAD_FAILED_LINE);
+      },
+    );
+  }
+
+  // Closing the Flavor dialog gives focus back to "Flavor", once the page is no longer inert.
+  const wasFlavorOpen = useRef(false);
+  useEffect(() => {
+    if (wasFlavorOpen.current && !flavorOpen) flavorButton.current?.focus();
+    wasFlavorOpen.current = flavorOpen;
+  }, [flavorOpen]);
+
   // A successful import sends focus to the canvas region, not back to "Import…" (section 9.3).
   const focusAfterImport = useRef(false);
   const wasImportOpen = useRef(false);
@@ -174,7 +226,7 @@ function StudioShell({ store }: { store: StudioStore }) {
 
   useStudioKeys(store, {
     drawerOpen: open !== null,
-    dialogOpen: exportOpen || importOpen,
+    dialogOpen: exportOpen || importOpen || flavorOpen,
     closeDrawer,
     copyLink: () => void copyLink(),
     openExport: () =>
@@ -184,12 +236,14 @@ function StudioShell({ store }: { store: StudioStore }) {
   /** After a notice action removes the focused button, focus goes to the canvas (F-STUDIO-23). */
   const focusCanvas = () => canvas.current?.focus();
 
-  /** The rest of the page while a drawer or the export dialog is open: inert (R2-16 item 2, R3-34). */
-  const blocked = open !== null || exportOpen || importOpen;
-  /** A panel's state, inert too while the dialog is open. */
+  /** Whether a modal dialog is open: export, import or Flavor. */
+  const dialogOpen = exportOpen || importOpen || flavorOpen;
+  /** The rest of the page while a drawer or a dialog is open: inert (R2-16 item 2, R3-34, R5-51). */
+  const blocked = open !== null || dialogOpen;
+  /** A panel's state, inert too while a dialog is open. */
   const panel = (name: "inputs" | "inspector") => {
     const state = panelState(name);
-    return { ...state, inert: state.inert || exportOpen || importOpen };
+    return { ...state, inert: state.inert || dialogOpen };
   };
 
   return (
@@ -258,6 +312,10 @@ function StudioShell({ store }: { store: StudioStore }) {
           onExport={openExport}
           copyButton={copyButton}
           exportButton={exportButton}
+          onFlavor={openFlavor}
+          flavorButton={flavorButton}
+          flavorBusy={flavorBusy}
+          status={toolbarLine}
         />
         <CanvasArea store={store} regionRef={canvas} inert={blocked} />
         <aside
@@ -290,6 +348,8 @@ function StudioShell({ store }: { store: StudioStore }) {
           open={exportOpen}
           onClose={() => setExportOpen(false)}
           onShowFindings={showFindings}
+          flavor={exportFlavor}
+          onFlavorChange={setExportFlavor}
         />
         <ImportDialog
           store={store}
@@ -300,6 +360,13 @@ function StudioShell({ store }: { store: StudioStore }) {
             setImportOpen(false);
           }}
         />
+        {flavorDialog !== null && flavorOpen && (
+          <flavorDialog.FlavorDialog
+            store={store}
+            onClose={() => setFlavorOpen(false)}
+            privacy={privacy}
+          />
+        )}
         <Toast state={toast} onClose={() => setToast(null)} fallbackFocus={copyButton} />
         <DraftsAnnouncer store={store} />
       </div>

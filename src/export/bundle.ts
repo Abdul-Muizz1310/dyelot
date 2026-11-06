@@ -4,6 +4,7 @@ import { CHECKER_SOURCE } from "./checker/source";
 import { designMd } from "./design-md";
 import { dtcgFiles } from "./dtcg";
 import { figmaFiles } from "./figma";
+import { flavorFiles } from "./flavor";
 import { motionFiles } from "./motion";
 import { promptMd } from "./prompt";
 import { receiptJson } from "./receipt";
@@ -41,12 +42,17 @@ function checkOrigin(origin: unknown): string {
   return origin;
 }
 
-/** The 18 to 21 files of a design with `receipt.json` last (R3-12). */
+/** The 18 to 21 files of a design, 27 to 30 with the flavor files, `receipt.json` last (R3-12, R5-24). */
 export function buildBundle(input: BundleInput): Bundle {
   if (typeof input !== "object" || input === null) {
     throw new TypeError(`buildBundle: input must be an object, got ${describeType(input)}`);
   }
   const origin = checkOrigin(input.origin);
+  if (input.flavor !== undefined && typeof input.flavor !== "boolean") {
+    throw new TypeError(
+      `buildBundle: input.flavor must be a boolean, got ${describeType(input.flavor)}`,
+    );
+  }
   const spec = normalizeSpec(input.spec);
   const name = slug(spec.meta.name);
   const id = specId(spec);
@@ -65,6 +71,7 @@ export function buildBundle(input: BundleInput): Bundle {
     ...figma,
     toonFile(spec),
     ...motionFiles(spec, spec.meta.name, lot, origin),
+    ...(input.flavor === true ? flavorFiles(spec, origin) : []),
     skillFile(spec, name, origin),
     { path: "scripts/dyelot-check.mjs", text: CHECKER_SOURCE },
   ];

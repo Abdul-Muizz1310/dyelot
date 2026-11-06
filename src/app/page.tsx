@@ -3,6 +3,10 @@ import Link from "next/link";
 import { PageFrame } from "@/components/terminal/PageFrame";
 import { Prompt } from "@/components/terminal/Prompt";
 import { TerminalWindow } from "@/components/terminal/TerminalWindow";
+import { HERO_CARDS } from "@/features/landing/cards";
+import { Hero } from "@/features/landing/Hero";
+import { heroSpec } from "@/features/landing/heroes";
+import { Story } from "@/features/landing/Story";
 import { REPOSITORY_LABEL, REPOSITORY_URL } from "@/lib/links";
 import { SITE } from "@/lib/site/config";
 import { StructuredData } from "@/lib/site/structured-data";
@@ -11,8 +15,21 @@ import { StructuredData } from "@/lib/site/structured-data";
 // the site title. The canonical names the page itself.
 export const metadata: Metadata = { alternates: { canonical: "/" } };
 
-// The page says what exists today, and nothing else: the product's one-liner, the work in progress
-// and a way into what shipped (the studio, M2). Add a line here only when the feature behind it ships.
+/** One `$ open <target>` link of start.log, as M2's studio link was. */
+function StartLink({ href, label }: { href: string; label: string }) {
+  return (
+    <Link href={href} className="group block w-fit max-w-full">
+      <Prompt>
+        open{" "}
+        <span className="text-accent-madder underline-offset-4 group-hover:underline">{label}</span>
+      </Prompt>
+    </Link>
+  );
+}
+
+// The page says what exists today, and nothing else: the product's one-liner, the hero's animated
+// palettes, a way into each page that shipped and the story of one design. Add a line here only when
+// the feature behind it ships.
 export default function Home() {
   return (
     <PageFrame active="home" statusLeft="dyelot ~/" statusRight="muizz-lab · MIT">
@@ -26,17 +43,12 @@ export default function Home() {
             agent can build
           </h1>
         </div>
-        <TerminalWindow title="status.log">
+        <Hero hero={HERO_CARDS} />
+        <TerminalWindow title="start.log">
           <div className="space-y-2">
-            <Prompt kind="comment">in progress: the export bundle</Prompt>
-            <Link href="/studio" className="group block w-fit max-w-full">
-              <Prompt>
-                open{" "}
-                <span className="text-accent-madder underline-offset-4 group-hover:underline">
-                  the studio
-                </span>
-              </Prompt>
-            </Link>
+            <StartLink href="/studio" label="the studio" />
+            <StartLink href="/explore" label="the explorer" />
+            <StartLink href="/motion" label="the motion lab" />
             <a
               href={REPOSITORY_URL}
               target="_blank"
@@ -53,6 +65,7 @@ export default function Home() {
             <Prompt cursor />
           </div>
         </TerminalWindow>
+        <Story spec={heroSpec(0)} />
       </section>
     </PageFrame>
   );

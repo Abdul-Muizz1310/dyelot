@@ -79,7 +79,14 @@ async function openBlocked(held: Held, spec: DesignSpec = ONE_FAIL) {
   const onClose = vi.fn();
   const onShowFindings = vi.fn();
   render(
-    <ExportDialog store={made.store} open onClose={onClose} onShowFindings={onShowFindings} />,
+    <ExportDialog
+      store={made.store}
+      open
+      onClose={onClose}
+      onShowFindings={onShowFindings}
+      flavor={false}
+      onFlavorChange={() => {}}
+    />,
   );
   const dialog = await screen.findByRole("dialog", { name: "Export" });
   await waitFor(() => expect(within(dialog).getByRole("list", { name: "Files" })).toBeTruthy());
@@ -179,7 +186,16 @@ describe("the blocked export dialog", () => {
     const stub = stubClient();
     const { location, history } = fakeLocation(writeHash(SPEC));
     const { store } = makeStore({ stub, location, history });
-    render(<ExportDialog store={store} open onClose={() => {}} onShowFindings={() => {}} />);
+    render(
+      <ExportDialog
+        store={store}
+        open
+        onClose={() => {}}
+        onShowFindings={() => {}}
+        flavor={false}
+        onFlavorChange={() => {}}
+      />,
+    );
     const dialog = await screen.findByRole("dialog", { name: "Export" });
     await waitFor(() =>
       expect(within(dialog).getByRole("button", { name: /^Download / })).toBeTruthy(),

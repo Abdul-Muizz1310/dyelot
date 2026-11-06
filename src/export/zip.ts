@@ -5,10 +5,16 @@ import type { Bundle } from "./types";
 // and the global options of R3-26 only. The `mtime` string has no offset, so it reads as local
 // midnight and fflate writes the same DOS date and time in every time zone.
 
-// R3-09 allows `[a-z0-9._/-]`, yet R3-12 names DESIGN.md, AGENTS.md.snippet and SKILL.md. Those three
-// file names are the only capitals a path may hold, so `A.txt` stays a RangeError (C-ZIP-06).
+// R3-09 allows `[a-z0-9._/-]`, yet R3-12 names DESIGN.md, AGENTS.md.snippet and SKILL.md, and R5-24
+// adds README.md. Those four file names are the only capitals a path may hold, so `A.txt` stays a
+// RangeError (C-ZIP-06).
 const SEGMENT = /^[a-z0-9._-]+$/;
-const FIXED_NAMES: ReadonlySet<string> = new Set(["DESIGN.md", "AGENTS.md.snippet", "SKILL.md"]);
+const FIXED_NAMES: ReadonlySet<string> = new Set([
+  "DESIGN.md",
+  "AGENTS.md.snippet",
+  "SKILL.md",
+  "README.md",
+]);
 
 function validPath(path: string): boolean {
   if (path === "" || path.startsWith("/") || path.startsWith(".") || path.includes("..")) {

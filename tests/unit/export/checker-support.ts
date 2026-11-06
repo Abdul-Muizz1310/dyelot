@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { flavorFiles } from "@/export/flavor";
 import { receiptJson } from "@/export/receipt";
 import { themeCss } from "@/export/theme-css";
 import type { BundleFile } from "@/export/types";
@@ -116,6 +117,28 @@ export function SHADCN_APP(files: AppFiles = {}): string {
     "components/ui/button.tsx": readFixtureText("tests/fixtures/shadcn/button.tsx.txt"),
     ...files,
   });
+  return dir;
+}
+
+/** The four flavor files R5-26 moves into `src/components/`, outside the checker's own set. */
+const MOVED: readonly (readonly [bundlePath: string, moved: string])[] = [
+  ["flavor/flavor.mjs", "src/components/flavor.mjs"],
+  ["flavor/flavor-react.tsx", "src/components/flavor-react.tsx"],
+  ["flavor/flavor.css", "src/components/flavor.css"],
+  ["flavor/remotion/brand-intro.tsx", "src/components/brand-intro.tsx"],
+];
+
+/** `FLAVOR_APP` of docs/specs/05-motion-3d.md, section 4: `APP()` with the nine flavor files at their paths (listed in the receipt) and four moved copies. */
+export function FLAVOR_APP(files: AppFiles = {}): string {
+  const flavor = flavorFiles(SPEC, ORIGIN);
+  const dir = freshFolder();
+  const listed = [...STUB_FILES, ...flavor];
+  const written: Record<string, string> = { "receipt.json": receiptJson(SPEC, listed, ORIGIN) };
+  for (const file of listed) written[file.path] = file.text;
+  for (const [from, to] of MOVED) {
+    written[to] = (flavor.find((file) => file.path === from) as { text: string }).text;
+  }
+  put(dir, { ...written, "app/globals.css": '@import "./theme.css";\n', ...files });
   return dir;
 }
 

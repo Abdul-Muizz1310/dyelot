@@ -1648,5 +1648,161 @@
       }
     ],
     "zipSha256": "26f64012328b5226e861335d81766ed6ccc1d60813e191108d162c491ebe2e28"
+  },
+  "default-flavor": {
+    "specId": "4177a34c3648bb5a",
+    "files": [
+      {
+        "path": "DESIGN.md",
+        "bytes": 54560,
+        "sha256": "b992dac94daebbc997ea5fa3c256607b7bfdd4c1fa11b6c9e1f2447de75e4c89"
+      },
+      {
+        "path": "AGENTS.md.snippet",
+        "bytes": 814,
+        "sha256": "ea094fe25b161e4149a37ec12f3b050fc4063b05028c8a4d771dc0736d2d2bd2"
+      },
+      {
+        "path": "prompt.md",
+        "bytes": 37216,
+        "sha256": "671b622776a19fca4251c15eb1aef5985947576bf5b69212a8b441db06aa9d84"
+      },
+      {
+        "path": "app/theme.css",
+        "bytes": 24319,
+        "sha256": "209169b0e029798a81c071605016c5595385fa6ba37b082389d7d2d6b84aff8c"
+      },
+      {
+        "path": "registry/default.json",
+        "bytes": 9376,
+        "sha256": "8fee70d94aa5db0001da033af5bc84c11318f083e8d2cb6760214f3a56dbea29"
+      },
+      {
+        "path": "registry/font-young-serif.json",
+        "bytes": 357,
+        "sha256": "bf12b4f3aefe5deac66e88fd2b5a9c4736cef642231d2b3b71806a398f19e433"
+      },
+      {
+        "path": "registry/font-onest.json",
+        "bytes": 295,
+        "sha256": "0726e336bc47c35b50c1ea915bf3a2432efea8b7abb0fd52b41a06cb098821a1"
+      },
+      {
+        "path": "registry/font-fragment-mono.json",
+        "bytes": 362,
+        "sha256": "3aa70c54ca40d4f08eec6411ca2619597bd0d810838d80f998a3bb0dde38b35f"
+      },
+      {
+        "path": "tokens/base.tokens.json",
+        "bytes": 22899,
+        "sha256": "0d57f7150f1f5aa54c8990a45d91b637e1e63a0c2d4a92564ec1608975dd1330"
+      },
+      {
+        "path": "tokens/light.tokens.json",
+        "bytes": 34870,
+        "sha256": "f4a6c918c4e3243306d2f321299ff8a46b8592b87f8fa1121382aaeb8c99e8f4"
+      },
+      {
+        "path": "tokens/dark.tokens.json",
+        "bytes": 34917,
+        "sha256": "f411e2d3bd7aed4e26745bef30b50a7d6d31a58be2de655df87fdfa1c985a187"
+      },
+      {
+        "path": "tokens/design.resolver.json",
+        "bytes": 7777,
+        "sha256": "38af1fc882eb84113469e1e1bf044696eb13a8c536c528fac1ddc1f0341261bd"
+      },
+      {
+        "path": "tokens/figma/light.tokens.json",
+        "bytes": 41358,
+        "sha256": "393a4c4765499d0d8c7e0d7921683fdc0bd3446e44fc23d9a19a70b8fb52f2c6"
+      },
+      {
+        "path": "tokens/figma/dark.tokens.json",
+        "bytes": 41448,
+        "sha256": "fa6c88147125084e0d5af16942fc27e0bd83cd9c1a4ea6e6930f9c90f8570ca8"
+      },
+      {
+        "path": "design.toon",
+        "bytes": 3770,
+        "sha256": "8dc30af081c7e1195988a845086ba1a0552af19b920586e0aebe9cb66e8e39d0"
+      },
+      {
+        "path": "motion/motion.css",
+        "bytes": 9281,
+        "sha256": "1fdbfe2135438639a08d661d4034cb61a9a968d7bd08f2d03492a7dc6fd569f9"
+      },
+      {
+        "path": "motion/motion.ts",
+        "bytes": 715,
+        "sha256": "be0ec7f1be5d30dd8695e259562b8df3995bca5358d685907f29f506dbd51865"
+      },
+      {
+        "path": "motion/gsap.ts",
+        "bytes": 449,
+        "sha256": "5202be377114970f3cacf583e9ba71be492343660ea415b5ef6a4faba9a52740"
+      },
+      {
+        "path": "flavor/README.md",
+        "bytes": 16119,
+        "sha256": "f919a13b39606955ba1470a13193aad279d9c9225c2b347109e2d13566151d90"
+      },
+      {
+        "path": "flavor/flavor.mjs",
+        "bytes": 36734,
+        "sha256": "d43950e5ecac98d215857a9af0cc77a9db47fbc1fd7b7c4e1d572be8899dbc39"
+      },
+      {
+        "path": "flavor/flavor-react.tsx",
+        "bytes": 3764,
+        "sha256": "d554ffcc38a2fd31de2715346df6920e72eb801d23f2c80e582daedba9cc2412"
+      },
+      {
+        "path": "flavor/flavor.css",
+        "bytes": 8225,
+        "sha256": "0aec2e4d98a5b4e826bdce25e72e53d11149f2018aa39ef298342a95510783bc"
+      },
+      {
+        "path": "flavor/palette.json",
+        "bytes": 369,
+        "sha256": "38f95e77bce634d809e5b159cc482eeade9276264484afb93d722ac0a7dc2560"
+      },
+      {
+        "path": "flavor/remotion/README.md",
+        "bytes": 8123,
+        "sha256": "3e62b40e4df18f4fd7bc71c039b04551af7978bca4cf0acfc9fdac0528a3b82a"
+      },
+      {
+        "path": "flavor/remotion/brand-intro.tsx",
+        "bytes": 8407,
+        "sha256": "d9f12729903e5554c37eb8dc7a3d7f87074c2d68cd9b1d5ac774feaa9fa8d0a1"
+      },
+      {
+        "path": "flavor/remotion/root.tsx",
+        "bytes": 889,
+        "sha256": "43ef2c7c21c807851bad23f79e2871d96ffa6af728d5917c83bf0db4f0c52ceb"
+      },
+      {
+        "path": "flavor/remotion/brand.json",
+        "bytes": 10474,
+        "sha256": "33ef26baf19733c9d2a0fd6512fdce81f213661bc81b57d0ba1466dc84259418"
+      },
+      {
+        "path": "skills/default-design/SKILL.md",
+        "bytes": 8239,
+        "sha256": "95c8ec1cf3d1d335e4b8f998775e9207c7b9c8417073d15e75fa64888319ec63"
+      },
+      {
+        "path": "scripts/dyelot-check.mjs",
+        "bytes": 31466,
+        "sha256": "f1da2244bc43d2447f313aad29c03dbdbba3cac1cb4a8479e2ceeff8ead43b91"
+      },
+      {
+        "path": "receipt.json",
+        "bytes": 46507,
+        "sha256": "1461c3869aa2bd7eb3a54e01cf8f82dba5771638692d00f8173e36bce7a35458"
+      }
+    ],
+    "zipSha256": "fb0452367c0b8a68a6094c05698b7d2da780e26459506836956c2d715aa5ad4d"
   }
 }

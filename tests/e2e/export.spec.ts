@@ -66,6 +66,9 @@ const THEME = "app/theme.css";
 const findingsHeading = (page: Page) =>
   page.locator("aside#studio-inspector").getByRole("heading", { name: "Findings", exact: true });
 
+const flavorSwitch = (page: Page) =>
+  exportDialog(page).getByRole("switch", { name: "Include flavor files", exact: true });
+
 const toolbar = (page: Page) => page.getByRole("region", { name: "Canvas toolbar" });
 
 /** The dialog's name for the element that has focus, or "". */
@@ -734,11 +737,11 @@ test.describe("layout and accessibility", () => {
     await page.keyboard.press("Shift+Tab");
     await expect(closeButton(page)).toBeFocused();
     await page.keyboard.press("Tab");
-    await expect(previewToggle(page, "DESIGN.md")).toBeFocused();
+    await expect(flavorSwitch(page)).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expect(closeButton(page)).toBeFocused();
     await page.keyboard.press("Tab");
-    await expect(previewToggle(page, "DESIGN.md")).toBeFocused();
+    await expect(flavorSwitch(page)).toBeFocused();
     await page.mouse.click(3, 3);
     expect(
       await page.evaluate(() =>
@@ -786,7 +789,8 @@ test.describe("layout and accessibility", () => {
   }) => {
     await openStudio(page, SPEC_LINK);
     await openReady(page);
-    const expected: string[] = [];
+    // The flavor switch (R5-29) follows the summary, before the file list.
+    const expected: string[] = ["Include flavor files"];
     for (const file of bundleOf(SPEC).files)
       expected.push(`Preview ${file.path}`, `Copy ${file.path}`);
     expected.push("Preview of DESIGN.md", `Download ${zipNameOf(SPEC)}`, "Close");

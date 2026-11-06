@@ -929,6 +929,7 @@ test.describe("R4-53 the inputs panel's new sections", () => {
       radio("Depth", "soft"),
       radio("Density", "comfortable"),
       radio("Motion feel", "brisk"),
+      panel.getByRole("link", { name: "Edit in the motion lab", exact: true }),
       ...CHIP_LABELS.map((name) => chipButton(page, name)),
       refineField(page),
       refineButton(page),

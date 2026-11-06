@@ -7,6 +7,8 @@
 > M3 sync (2026-11-05): where the M3 spec, `docs/specs/03-export.md`, refines this document, the sentence carries a note in italics that starts "Refined in M3". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 >
 > M4 sync (2026-11-06): where the M4 spec, `docs/specs/04-ai.md`, refines this document, the sentence carries a note in italics that starts "Refined in M4". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
+>
+> M5 sync (2026-11-06): where the M5 spec, `docs/specs/05-motion-3d.md`, refines this document, the sentence carries a note in italics that starts "Refined in M5". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 
 # dyelot — a palette becomes a design system your coding agent can build
 
@@ -27,7 +29,7 @@ dyelot is the portfolio's ninth product and its frontend showcase. A visitor, wi
 4. **Hand it to a coding agent**: one download holds a DESIGN.md brief, an always-on AGENTS.md block,
    `theme.css`, DTCG tokens, a shadcn install file, a TOON view and a ready prompt. *Refined in M3: the download holds 18 to 21 files in a fixed order, those plus Figma token files, three motion files, an agent skill, the checker and the receipt, and `flavor/` waits for M5 (R3-12).*
 5. **Take the flavor home**: a palette-driven animated background, a brand video rendered in the browser,
-   and motion tokens for CSS, Motion and GSAP.
+   and motion tokens for CSS, Motion and GSAP. *Refined in M5: the brand video and the shader loop are separate downloads from the Flavor dialog, not zip files, and the lab writes custom tokens into the design through `motionTokens` (R5-09 to R5-11, R5-25).*
 
 A dye lot is a batch dyed together so every piece matches. dyelot makes every screen of a product match.
 
@@ -64,7 +66,7 @@ in the URL hash and, as a draft, in the visitor's own browser storage.
 | Spec | `src/spec/` | The `dyelot.spec/1` model (zod), parse, canonical serialize, hash, URL codec | Parse, don't validate. Version mismatch fails loudly. |
 | Export | `src/export/` | Pure generators for every bundle file, the receipt, the zip | Same spec in, byte-identical files out. *Refined in M3: pure except the checker's `nodeIo` adapter, and a new pure layer, `src/import/`, reads DESIGN.md and shadcn CSS (R3-39).* |
 | AI | `src/ai/` | Schemas, prompt files, the lexicon, the router, three providers | The model never emits a final color value. *Refined in M4: `src/ai/` is a pure core, and the providers and the router live in shells, `src/server/ai/` and `src/features/ai/`; image extraction's pure part is `src/engine/image/` (R4-03, R4-05, R4-06, R4-07).* |
-| Features | `src/features/` | Studio, previews, export panel, gallery, explorer, motion lab, video | UI only; calls engine and export, never reimplements them. |
+| Features | `src/features/` | Studio, previews, export panel, gallery, explorer, motion lab, video | UI only; calls engine and export, never reimplements them. *Refined in M5: plus `src/flavor/`, the shipped sources: self-contained files the app runs and the export ships byte for byte (R5-04, R5-05).* |
 | Shell | `src/app/`, `src/lib/site/` | Routes, route handlers, site metadata (copied per `knowledge/conventions/convention-site-metadata.md`) | Side effects live here. |
 
 **Data flow.** input → `DirectionParams` (from controls, the lexicon or a model) → `engine.generate(params,
@@ -91,7 +93,7 @@ A zod schema, versioned, exported as JSON Schema for the docs. Top-level fields:
 | `color` | Seeds (OKLCH, with lock flags), hue anchors per palette (primary, secondary, accent, neutral, success, warning, danger, info, chart 1–5), contrast level (`AA` · `AA+` · `AAA`), gamut (`srgb` · `p3`), scale mode (`standard` · `even`), solved scales (11 steps × light and dark), role map (shadcn roles plus surfaces, light and dark) |
 | `type` | Display, body and mono families (catalog ids with license), scale context, ratio, steps with size, line height, tracking and weight; fluid display steps. *Refined in M3: weights are derived by `typeWeights` and never stored (R3-04, R3-05).* |
 | `space`, `shape`, `depth` | Base unit and scale; radius scale and nesting rule; shadow layers per elevation and dark-mode surface ladder |
-| `motion` | Durations, cubic-bezier easings, springs (visual duration, bounce), budget, reduced-motion policy |
+| `motion` | Durations, cubic-bezier easings, springs (visual duration, bounce), budget, reduced-motion policy *Refined in M5: no budget and no stored policy; the policy stays the fixed block of `motion/motion.css` (R5-15). The optional `motionTokens` parameter of `DirectionParams` records custom tokens here, so a design edited in the motion lab gets a new spec id and no other design changes (R5-09 to R5-11).* |
 | `components` | Policies: card use, button emphasis, input style, icon library and stroke |
 | `rules` | Do and don't lists (generated from the preset and the anti-slop rules, editable) |
 
@@ -139,7 +141,7 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
   brand hue at chroma 0.005–0.02. Status hues start at success 150°, warning 70°, danger 25°, info 250°.
 *Refined in M1: M1 ships the OKLCH harmonies only. Cosine and Poline-style generators move to M5, and the Sanzo Wada
   combinations to M6. Neutrals follow a tint table: none 0, warm 0.012 at hue 60, cool 0.012 at hue 250, brand 0.010
-  at the primary hue.*
+  at the primary hue.* *Refined in M5: cosine and Poline-style generators are not scheduled; the shader interpolates five solved steps in OKLab (R5-03).*
 - **Image to palette.** In a Web Worker: downscale, quantize with `colorthief` 3.5 in OKLCH, score with the
   Material-style rule (share and chroma, hue diversity), assign heuristic roles. The exact extracted colors
   become locked seeds.
@@ -173,7 +175,7 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
 - **Motion.** Durations from 50 to 500 ms; standard, decelerate, accelerate and emphasized easings; springs
   by visual duration and bounce; a budget per page; reduced motion swaps movement for fades. *Refined in M2:
   the spec stores one set of durations whatever the motion feel says. The canvas bridge, `themeVars`, scales them by
-  the feel (calm 1.25, brisk and playful 1) and caps each at 500 ms (R2-08).*
+  the feel (calm 1.25, brisk and playful 1) and caps each at 500 ms (R2-08).* *Refined in M5: a budget per page is not scheduled (R5-15).*
 - **Presets.** The ~20 styles from RR-0029 (minimal/Swiss, editorial, neo-brutalism, glass, dark dev-tool,
   bento, aurora, retro-futurism, tactile, maximalism, organic, dithering/pixel and the rest) as typed
   parameter sets with their accessibility guards. *Refined in M2: 14 presets, the 13 styles of the M2 plan plus a
@@ -190,10 +192,10 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
 
 | Route | Purpose |
 |---|---|
-| `/` | The showcase. A hero whose shader is driven by a live palette, a scroll-driven story where a system assembles itself (CSS scroll timelines), the receipt explained in one screen, entry points: start from a color, a brief, an image, or the gallery. |
+| `/` | The showcase. A hero whose shader is driven by a live palette, a scroll-driven story where a system assembles itself (CSS scroll timelines), the receipt explained in one screen, entry points: start from a color, a brief, an image, or the gallery. *Refined in M5: the hero, a five-step story whose last step is the receipt's count, and links to the studio, the explorer and the lab; the other entry points wait for M6's landing polish (R5-31 to R5-34).* |
 | `/studio` | The editor (§8). |
-| `/explore` | 3D OKLCH explorer: the sRGB, P3 and Rec2020 gamut solids, the current palette as points, scales as tubes, lightness slices. |
-| `/motion` | Motion lab: presets, spring and easing curves, live previews, export. |
+| `/explore` | 3D OKLCH explorer: the sRGB, P3 and Rec2020 gamut solids, the current palette as points, scales as tubes, lightness slices. *Refined in M5: one lightness slice; Rec. 2020 joins the engine as a solid-only space, so the spec's `Gamut` stays `srgb` or `p3`; a flat SVG view is always shown (R5-06 to R5-08, R5-35 to R5-40).* |
+| `/motion` | Motion lab: presets, spring and easing curves, live previews, export. *Refined in M5: the lab edits the design's `motionTokens` and opens the studio with them; fields are bounded by the schema and the lab's caps (R5-41 to R5-45).* |
 | `/gallery` | Curated original systems and the Sanzo Wada combinations; any card opens in the studio. No brand clones. |
 | `/connect`, `/connect/callback` | The visitor-key sign-in with OpenRouter (§10). *Refined in M4: both pages are `noindex`; the callback is disallowed in robots and sends no referrer (R4-22, R4-33).* |
 | `/about` | How it works: the math, the receipt, the licenses, the privacy note for in-browser video. |
@@ -221,7 +223,7 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
   label, a focus ring and a 24 px minimum target. *Refined in M2: `Mod+E` is not bound, because export comes in M3.*
 - **Transitions.** React `<ViewTransition>` morphs a swatch into its token row and between templates;
   every transition has a reduced-motion variant. *Refined in M2: the M2 studio has no view transitions. They come in
-  M5.*
+  M5.* *Refined in M5: the template switch cross-fades; a step of the inspector's Scales expands in place into a token row, the swatch morphing (R5-46, R5-47 and their amendments).*
 
 ## 9. The export bundle (RR-0027)
 
@@ -240,7 +242,7 @@ One zip, assembled in the browser with `fflate`, plus copy buttons for each file
 | `skills/<name>-design/SKILL.md` | Optional Agent Skill for restyle and audit workflows. |
 | `receipt.json`, `scripts/dyelot-check.mjs` | The receipt and the zero-dependency checker (§1). |
 | `motion/` | Motion tokens as CSS (including `linear()` springs), Motion objects and GSAP-compatible strings (text only). |
-| `flavor/` (on request) | The background shader as a React component, a vanilla module and a CSS fallback; the brand video; the Remotion composition source with a "Built with Remotion" header and the license link. |
+| `flavor/` (on request) | The background shader as a React component, a vanilla module and a CSS fallback; the brand video; the Remotion composition source with a "Built with Remotion" header and the license link. *Refined in M5: nine text files, off by default, behind the export dialog's "Include flavor files" switch; the brand video and the shader loop are separate downloads from the Flavor dialog, not zip files (R5-24, R5-25).* |
 
 *Refined in M3: each file's format is fixed in section 6 of the M3 spec; `registry/` holds one theme item and one font item per family next/font can load, and `skills/` is always included (R3-16).*
 
@@ -286,20 +288,20 @@ are not traced.
 
 **Security.** A nonce-based CSP with no third-party scripts; `connect-src 'self' https://openrouter.ai
 https://www.remotion.pro`; `Permissions-Policy: language-model=(self)`; model output rendered as text only;
-a Disconnect button that clears the key. *Refined in M4: `connect-src 'self' https://openrouter.ai`, with Remotion's host added in M5, and the policy also denies camera, microphone and geolocation (R4-25, R4-27).*
+a Disconnect button that clears the key. *Refined in M4: `connect-src 'self' https://openrouter.ai`, with Remotion's host added in M5, and the policy also denies camera, microphone and geolocation (R4-25, R4-27).* *Refined in M5: `connect-src 'self' https://openrouter.ai https://www.remotion.pro`, as written above; no `media-src` and no `'wasm-unsafe-eval'` (R5-58).*
 
 ## 11. Motion and 3D (RR-0030)
 
 | Piece | Built with | Notes |
 |---|---|---|
-| Hero and canvas backgrounds | Our own WebGL2 fullscreen-triangle shader: cosine palette fitted to the spec or an OKLCH lookup texture, simplex noise, grain | MIT, a few KB; the same code is the `flavor/` export; static frame under reduced motion; pauses off-screen |
-| 3D explorer | three 0.186.x, React Three Fiber 9.8, drei 10.7 (one canvas with `View`) | Gamut mesh adapted from oklch-picker with its MIT notice; `frameloop="demand"`; lazy-loaded route chunk; static SVG fallback and context-loss handling |
-| Brand video | Remotion 4.0.539: `<Player>` preview and `@remotion/web-renderer` export to MP4 or WebM in the browser | `licenseKey: "free-license"`; gated by `canRenderMediaOnWeb()`; a privacy note before the first render (it sends the visitor's IP and our origin to remotion.pro); compositions use the renderer's CSS subset |
-| Shader loop video | Mediabunny `CanvasSource` | No Remotion duties for anyone |
-| Transitions and scroll story | React `<ViewTransition>`, CSS scroll-driven animations, Motion 14.9 (`reducedMotion="user"`) | No GSAP in the product |
+| Hero and canvas backgrounds | Our own WebGL2 fullscreen-triangle shader: cosine palette fitted to the spec or an OKLCH lookup texture, simplex noise, grain | MIT, a few KB; the same code is the `flavor/` export; static frame under reduced motion; pauses off-screen *Refined in M5: five OKLab stops as `vec3` uniforms mixed in GLSL, with no cosine palette and no lookup texture; there is no WebGL in the canvas templates, and the Flavor dialog's preview takes the place of the canvas backgrounds (R5-02, R5-17).* |
+| 3D explorer | three 0.186.x, React Three Fiber 9.8, drei 10.7 (one canvas with `View`) | Gamut mesh adapted from oklch-picker with its MIT notice; `frameloop="demand"`; lazy-loaded route chunk; static SVG fallback and context-loss handling *Refined in M5: one canvas and one viewport with no `View`; drei is limited to `OrbitControls`; the gamut mesh is dyelot's own, so the only notice owed is a README credit to oklch-picker as inspiration (R5-07, R5-35).* |
+| Brand video | Remotion 4.0.539: `<Player>` preview and `@remotion/web-renderer` export to MP4 or WebM in the browser | `licenseKey: "free-license"`; gated by `canRenderMediaOnWeb()`; a privacy note before the first render (it sends the visitor's IP and our origin to remotion.pro); compositions use the renderer's CSS subset *Refined in M5: the button shows when the browser has WebCodecs, and the click loads the renderer and runs `canRenderMediaOnWeb()`, whose "no" replaces the button with a sentence; the Player has no controls of its own and one "Pause" button (R5-52, R5-53).* |
+| Shader loop video | Mediabunny `CanvasSource` | No Remotion duties for anyone *Refined in M5: the click loads Mediabunny and picks AVC, VP9 or VP8 (R5-56).* |
+| Transitions and scroll story | React `<ViewTransition>`, CSS scroll-driven animations, Motion 14.9 (`reducedMotion="user"`) | No GSAP in the product *Refined in M5: `motion` stays 14.3.0 (R5-60).* |
 
 Version pins: three stays on 0.186.x while `postprocessing` declares `three < 0.187`; React Three Fiber
-9.8 needs React below 19.4; WebGL2 is the baseline and WebGPU is out of scope.
+9.8 needs React below 19.4; WebGL2 is the baseline and WebGPU is out of scope. *Refined in M5: exactly three 0.186.1, with no `postprocessing`; React Three Fiber 9.8.2, drei 10.7.9, `remotion`, `@remotion/player` and `@remotion/web-renderer` 4.0.539, `mediabunny` 1.62.0 and `motion` 14.3.0 (R5-50, R5-60).*
 
 ## 12. Stack
 
@@ -310,7 +312,7 @@ next 16.4, react 19.3, typescript 5 strict, tailwind 4.3, zod 4, zustand 5, moti
 Dev: Biome 2.5, Vitest 4, fast-check, Playwright 1.62 with @axe-core/playwright, msw, ajv (DTCG and shadcn
 schemas), @google/design.md (pinned, CI lint), colorjs.io (test oracle only). pnpm 10, Node 22 (*refined in M1:
 Node `^22.22.2 || ^24.15.0 || >=26`, the range jsdom 30 needs. CI runs Node 24*). License:
-MIT; the README states Remotion's own license for anyone reusing the video code. *Refined in M3: exact pins `yaml` 2.9.1, `@csstools/css-color-parser` 4.2.7, `fflate` 0.8.3 and `@toon-format/toon` 4.4.0; dev `@google/design.md` 0.4.0, `ajv` 8.20.0 and `ajv-formats` 3.0.1; `motion` stays 14.3.0; no GSAP, shadcn CLI, Style Dictionary or Terrazzo enters the repo (R3-37).* *Refined in M4: neither `ai` nor `@openrouter/ai-sdk-provider` enters the repo, and there is no `msw`; the mock OpenRouter is a plain Node server; `colorthief` 3.5.0 is pinned (R4-08, R4-60).*
+MIT; the README states Remotion's own license for anyone reusing the video code. *Refined in M3: exact pins `yaml` 2.9.1, `@csstools/css-color-parser` 4.2.7, `fflate` 0.8.3 and `@toon-format/toon` 4.4.0; dev `@google/design.md` 0.4.0, `ajv` 8.20.0 and `ajv-formats` 3.0.1; `motion` stays 14.3.0; no GSAP, shadcn CLI, Style Dictionary or Terrazzo enters the repo (R3-37).* *Refined in M4: neither `ai` nor `@openrouter/ai-sdk-provider` enters the repo, and there is no `msw`; the mock OpenRouter is a plain Node server; `colorthief` 3.5.0 is pinned (R4-08, R4-60).* *Refined in M5: exact pins three 0.186.1, `@react-three/fiber` 9.8.2, `@react-three/drei` 10.7.9, `remotion`, `@remotion/player` and `@remotion/web-renderer` 4.0.539 and `mediabunny` 1.62.0 (the version the web renderer depends on, so one copy ships); `motion` stays 14.3.0; no `postprocessing`, GSAP or `detect-gpu` enters the repo (R5-50, R5-60).*
 
 ## 13. Testing
 
@@ -325,7 +327,7 @@ export ≥ 90%.
 | Export | Golden files per preset; byte-identical output for the same spec; DTCG validates against the 2025.10 schemas; DESIGN.md lints with 0 errors; TOON round-trips; the registry item validates against shadcn's schema; `dyelot-check.mjs` passes on a clean fixture app and fails on raw hex, `bg-blue-500` and a tampered `theme.css`. *Refined in M3: goldens for the 14 presets and one import, and the validators run on vendored schemas with no network (R3-27, R3-28).* |
 | AI | Out-of-range model output is rejected; provider order; labeled fallback on every failure; the guard refuses below the reserve; a schema failure never retries; PKCE state mismatch is rejected; the visitor key never appears in a request to our origin; on-device unavailable falls through *Refined in M4: section 14 of the M4 spec holds the cases, with a local mock of OpenRouter and Playwright interception, and no network in any test (R4-58).* |
 | UI and flows (Playwright) | Color → system → export zip; brief (model mocked at the route) → system; image → palette; import DESIGN.md → preview → export; share link restores the exact spec; undo and redo; locks survive regenerate; reduced motion stops every animation; axe finds no violations on every route |
-| Motion and 3D | WebGL missing shows the fallback; context loss swaps in the poster; video export is hidden where `canRenderMediaOnWeb()` fails |
+| Motion and 3D | WebGL missing shows the fallback; context loss swaps in the poster; video export is hidden where `canRenderMediaOnWeb()` fails *Refined in M5: section 14 of the M5 spec holds the cases, and every flow asserts state, never frame counts or timing (R5-62).* |
 
 ## 14. Milestones
 
@@ -339,7 +341,7 @@ code. This document stays the umbrella; a milestone spec may refine it but must 
 | M2 | Studio, six P0 templates, presets, fonts, URL state, keyboard UX | Flows pass in Playwright; axe clean |
 | M3 | Export bundle, receipt, checker, import | Every validator passes in CI |
 | M4 | AI: lexicon and chips, shared-quota route with guard and cache, on-device, visitor key, image extraction | Mocked flows pass; one live smoke call per slug within budget *Refined in M4: section 20 of the M4 spec adds the on-device eval record and a hand smoke on the deployed site.* |
-| M5 | Hero shader, explorer, motion lab, view transitions, scroll story, Remotion preview and export, Mediabunny loop, flavor exports | Fallback and reduced-motion cases pass |
+| M5 | Hero shader, explorer, motion lab, view transitions, scroll story, Remotion preview and export, Mediabunny loop, flavor exports | Fallback and reduced-motion cases pass *Refined in M5: section 20 of the M5 spec adds the hand check on the deployed site with one real render (R5-65).* |
 | M6 | Gallery, landing polish, share cards, performance and accessibility audits (Lighthouse accessibility ≥ 95), README, knowledge-graph product node | Deployed with the owner's OK; live flows checked |
 
 ## 15. Out of scope for v1
@@ -359,4 +361,4 @@ export; a custom MCP server; publishing `dyelot` to npm (possible later, with th
 - **Open questions to settle in the milestone specs:** whether `/api/v1/key` calls count against the free
   quota; `"use cache"` inside route handlers under Cache Components; the Turbopack way to export component
   source as a string; Player hydration with Cache Components; which Langfuse TypeScript SDK fits AI SDK v7
-  (DR-0037 settled tracing for the Python services only). *Refined in M4: `"use cache"` is not used (R4-19); `/key`'s cost and the Langfuse packages were Task 4.0 probes (R4-62).*
+  (DR-0037 settled tracing for the Python services only). *Refined in M5: the source-as-a-string question is probe 3 (a raw rule for `*.tsx`) and Player hydration is probe 4 (`dynamic(..., { ssr: false })`), and Cache Components stay off (R4-26, R5-64).* *Refined in M4: `"use cache"` is not used (R4-19); `/key`'s cost and the Langfuse packages were Task 4.0 probes (R4-62).*

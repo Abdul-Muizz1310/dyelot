@@ -77,6 +77,15 @@ const inspector = (page: Page) => page.locator("aside#studio-inspector");
 const region = (page: Page, name: string) =>
   inspector(page).getByRole("region", { name, exact: true });
 const scrollArea = (page: Page) => inspector(page).locator("[data-scroll-area]");
+/** Each Scales palette's one Tab stop (a roving tabIndex), in palette order (13.8). */
+const paletteStops = (page: Page): Locator[] =>
+  PALETTE_NAMES.map((name) =>
+    inspector(page).locator(`[data-palette="${name}"] button[data-step-button][tabindex="0"]`),
+  );
+/** The Scales section's link to the explorer, the stop after the palettes' (13.7, 13.8). */
+const explorerLink = (page: Page): Locator =>
+  inspector(page).getByRole("link", { name: "See these scales in the explorer", exact: true });
+
 const findingItem = (page: Page, key: string) => inspector(page).locator(`[data-finding="${key}"]`);
 const showMeButton = (page: Page, key: string) =>
   findingItem(page, key).getByRole("button", { name: "Show me", exact: true });
@@ -1390,10 +1399,11 @@ test.describe("7.8 Keyboard and motion", () => {
     expect(await seedCalls(page)).toBe(seeds);
     await expect(lotId(page)).toHaveText(lot ?? "");
     await expect(button(page, "Redo")).toHaveAttribute("aria-disabled", "true");
-    // On the ring fixture, Tab from the area reaches "Explain the top findings", the explanation's
-    // fix buttons in list order, then each finding's "Show me" and fix button in order (13.7, section
-    // 16 of docs/specs/04-ai.md). The critique, answered via page.route, ranks a finding with no fix
-    // first and F1 second, so the explanation holds exactly one fix button.
+    // On the ring fixture, Tab from the area reaches each Scales palette's stop and "See these
+    // scales in the explorer" (13.8 of docs/specs/05-motion-3d.md), "Explain the top findings", the
+    // explanation's fix buttons in list order, then each finding's "Show me" and fix button in order
+    // (13.7, section 16 of docs/specs/04-ai.md). The critique, answered via page.route, ranks a
+    // finding with no fix first and F1 second, so the explanation holds exactly one fix button.
     await page.goto("about:blank");
     const ring = ringFixture();
     const findings = lintSpec(ring);
@@ -1421,7 +1431,36 @@ test.describe("7.8 Keyboard and motion", () => {
         : [show];
     });
     expect(cards.length).toBeGreaterThan(5);
+    // An open token row adds its "Copy" after its button (13.8, section 16 of
+    // docs/specs/05-motion-3d.md): Enter on the primary palette's stop opens its row and keeps focus,
+    // Tab reaches "Copy var(--primary-<step>)" and then the secondary palette's stop, and Escape in
+    // the row closes it with focus back on the step.
+    const [, primary, secondary] = paletteStops(page);
+    if (primary === undefined || secondary === undefined) {
+      throw new Error("F-INSP-14: the Scales section has no primary or secondary stop");
+    }
+    const step = await primary.evaluate((element) => element.closest("li")?.dataset.step);
+    const copy = inspector(page).getByRole("button", {
+      name: `Copy var(--primary-${step})`,
+      exact: true,
+    });
+    await primary.focus();
+    await page.keyboard.press("Enter");
+    await expect(primary).toHaveAttribute("aria-expanded", "true");
+    await expect(primary).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(copy).toBeFocused();
+    await page.keyboard.press("Tab");
+    await expect(secondary).toBeFocused();
+    await page.keyboard.press("Shift+Tab");
+    await expect(copy).toBeFocused();
+    await page.keyboard.press("Escape");
+    await expect(inspector(page).locator("[data-token-row]")).toHaveCount(0);
+    await expect(primary).toHaveAttribute("aria-expanded", "false");
+    await expect(primary).toBeFocused();
     const stops = [
+      ...paletteStops(page),
+      explorerLink(page),
       explainFindings(page),
       explanation(page).getByRole("button", { name: "Raise contrast to AAA", exact: true }),
       ...cards,
@@ -1619,12 +1658,15 @@ test("F-INSP-14 F-A11Y-03 at 360 px the inspector drawer is walked by keyboard w
     }
     await expect(canvasFrame(page)).toHaveAttribute("data-mode", mode);
     await openInspector(page);
-    // Close, the scroll area, "Explain the top findings", each finding's "Show me", then "Write the
-    // rationale" after the Receipt section (section 16 of docs/specs/04-ai.md, 13.7), each with the
-    // 2 px madder ring.
+    // Close, the scroll area, each Scales palette's stop, "See these scales in the explorer",
+    // "Explain the top findings", each finding's "Show me", then "Write the rationale" after the
+    // Receipt section (section 16 of docs/specs/04-ai.md, 13.7, 13.8 of docs/specs/05-motion-3d.md),
+    // each with the 2 px madder ring.
     const stops = [
       button(page, "Close inspector"),
       scrollArea(page),
+      ...paletteStops(page),
+      explorerLink(page),
       explainFindings(page),
       ...keys.map((key) => showMeButton(page, key)),
       writeRationale(page),

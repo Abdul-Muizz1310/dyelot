@@ -10,3 +10,9 @@ declare module "*.md?raw" {
   const text: string;
   export default text;
 }
+
+// The flavor's React and Remotion sources ship byte for byte the same way (R5-05, R5-23).
+declare module "*.tsx?raw" {
+  const text: string;
+  export default text;
+}
