@@ -82,3 +82,45 @@ export async function loseContext(
       }, index),
   };
 }
+
+/**
+ * `NO_WEBGL` (Task 5.5b): `HTMLCanvasElement.prototype.getContext` gives null for every type that
+ * matches `/webgl/`, so no canvas gets a WebGL context. It patches `HTMLCanvasElement` only, so an
+ * `OffscreenCanvas` keeps its contexts (the web renderer's check still passes).
+ */
+export async function NO_WEBGL(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function getContext(
+      this: HTMLCanvasElement,
+      type: string,
+      ...rest: unknown[]
+    ) {
+      if (/webgl/.test(type)) return null;
+      return (original as (type: string, ...rest: unknown[]) => RenderingContext | null).call(
+        this,
+        type,
+        ...rest,
+      );
+    } as typeof original;
+  });
+}
+
+/**
+ * `NO_COMPILE` (Task 5.5b): `WebGL2RenderingContext.prototype.getShaderParameter` answers false for
+ * `COMPILE_STATUS`, so every shader reads as failed to compile; other parameters answer as before.
+ */
+export async function NO_COMPILE(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const prototype = WebGL2RenderingContext.prototype;
+    const original = prototype.getShaderParameter;
+    prototype.getShaderParameter = function getShaderParameter(
+      this: WebGL2RenderingContext,
+      shader: WebGLShader,
+      name: GLenum,
+    ) {
+      if (name === this.COMPILE_STATUS) return false;
+      return original.call(this, shader, name);
+    };
+  });
+}

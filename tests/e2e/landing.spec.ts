@@ -1,22 +1,63 @@
-import { expect, test } from "@playwright/test";
+import { test as base, expect, type Locator, type Page } from "@playwright/test";
+import { flavorBackground } from "@/flavor/flavor.mjs";
+import { loseContext, NO_COMPILE, NO_WEBGL } from "./flavor-support";
+import { inputsPanel, lotId, lotOf, ready } from "./studio-support";
 
 // Playwright does not read the `?raw` query some engine files import: the hook makes it the text.
 await import("./raw-hooks.mjs");
-const { heroSpec } = await import("@/features/landing/heroes");
+const { heroCards, heroSpec } = await import("@/features/landing/heroes");
 const { storySteps } = await import("@/features/landing/story");
 
 /** What the page must show, computed in Node from the first hero design (7.2). */
 const [SEED, SCALE, ROLE_STEP, TYPE, RECEIPT] = storySteps(heroSpec(0));
 
+/** The six hero cards, computed in Node from the six designs (R5-31). */
+const CARDS = heroCards().cards;
+
 // F-STORY-01 to 05, F-HOME5-02 and F-HOME5-03 of docs/specs/05-motion-3d.md, section 14.11 (R5-33,
-// R5-34, 7.2). The story's text is the first hero design's (Madder, R5-31).
+// R5-34, 7.2). The story's text is the first hero design's (Madder, R5-31). F-HERO-01 to 11 and
+// F-HERO-RF1 (Task 5.5b; R5-18, R5-19, R5-32, 6.4, 7.1) follow them. Every flow fails on a
+// `securitypolicyviolation` event, a console error or a page error (14.11).
+
+/**
+ * Each flow records, before the page's scripts run, every policy violation, console error and page
+ * error, and fails at its end if any came.
+ */
+const test = base.extend<{ problems: string[] }>({
+  problems: [
+    async ({ page }, use) => {
+      const problems: string[] = [];
+      page.on("console", (message) => {
+        if (message.type() === "error") problems.push(`console: ${message.text()}`);
+      });
+      page.on("pageerror", (error) => problems.push(`page: ${error.message}`));
+      await page.addInitScript(() => {
+        const host = window as unknown as { __violations: string[] };
+        host.__violations = [];
+        document.addEventListener(
+          "securitypolicyviolation",
+          (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
+          true,
+        );
+      });
+      await use(problems);
+      const violations = await page.evaluate(
+        () => (window as unknown as { __violations?: string[] }).__violations ?? [],
+      );
+      expect([...problems, ...violations.map((each) => `violation: ${each}`)]).toEqual([]);
+    },
+    { auto: true },
+  ],
+});
+
+test.use({ viewport: { width: 1280, height: 800 } });
 
 const REPOSITORY = "https://github.com/Abdul-Muizz1310/dyelot";
 const STEPS = ["seed", "scale", "roles", "type", "receipt"] as const;
 const ROLES = ["background", "foreground", "primary", "primary-foreground", "border", "ring"];
 
 /** The computed style of one story step, read in the page. */
-async function stepStyle(page: import("@playwright/test").Page, name: string) {
+async function stepStyle(page: Page, name: string) {
   return page.locator(`[data-story-step="${name}"]`).evaluate((el) => {
     const style = getComputedStyle(el);
     return {
@@ -187,4 +228,309 @@ test("the nav's five links fit one row at 360 x 740 with no sideways scroll", as
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );
   expect(overflow).toBeLessThanOrEqual(0);
+});
+
+// The hero (7.1): the window, its 16:9 box and canvas, the controls and the 6.4 region.
+const hero = (page: Page): Locator => page.locator("[data-hero]");
+const heroCanvas = (page: Page): Locator => hero(page).locator("canvas");
+const heroTitle = (page: Page): Locator => hero(page).locator("header");
+const controls = (page: Page): Locator => hero(page).locator("[data-hero-controls]");
+const paletteLine = (page: Page): Locator => controls(page).getByText(/^Palette \d of 6: /);
+const nextPalette = (page: Page): Locator =>
+  controls(page).getByRole("button", { name: "Next palette", exact: true });
+const pause = (page: Page): Locator =>
+  hero(page).getByRole("button", { name: "Pause", exact: true });
+const studioLink = (page: Page): Locator =>
+  controls(page).getByRole("link", { name: "Open this palette in the studio", exact: true });
+const heroStatus = (page: Page): Locator => hero(page).getByRole("status");
+const restart = (page: Page): Locator =>
+  hero(page).getByRole("button", { name: "Restart the animation", exact: true });
+
+/** A card of R5-31's six, or an error naming the index. */
+function card(index: number) {
+  const found = CARDS[index];
+  if (found === undefined) throw new Error(`no hero card ${index}`);
+  return found;
+}
+
+/** `data-flavor-stops` of a card: its five hexes, lowercase, joined by commas. */
+const stopsOf = (index: number): string => card(index).stops.join(",").toLowerCase();
+
+/** 6.4's sentences, word for word. */
+const NO_WEBGL2_LINE =
+  "This browser cannot draw the animated background, so a still gradient shows instead.";
+const CONTEXT_LOST_LINE = "The animated background stopped, so a still gradient shows instead.";
+const STILL_LINE = "The background is still because this device asks for reduced motion.";
+
+/** The canvas's computed `background-image`. */
+const backgroundImage = (page: Page): Promise<string> =>
+  heroCanvas(page).evaluate((canvas) => getComputedStyle(canvas).backgroundImage);
+
+/** Redefines `document.visibilityState` as `state` and sends `visibilitychange`. */
+const makeVisibility = (page: Page, state: "hidden" | "visible"): Promise<void> =>
+  page.evaluate((next) => {
+    Object.defineProperty(document, "visibilityState", { configurable: true, get: () => next });
+    document.dispatchEvent(new Event("visibilitychange"));
+  }, state);
+
+/** Marks the hero's canvas element, so a later check tells a new canvas from the same one. */
+const markCanvas = (page: Page): Promise<void> =>
+  heroCanvas(page).evaluate((canvas) => {
+    canvas.setAttribute("data-test-mark", "");
+  });
+
+test.describe("the hero", () => {
+  // Breaks when the hero stops running the first card's shader, loses its title, line, Pause or
+  // link, changes the controls' order, or puts text inside its 16:9 box.
+  test("F-HERO-01 / runs the first card's shader in madder.flavor, with its line, Pause and link", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(hero(page)).toHaveAttribute("data-hero-index", "1");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-stops", stopsOf(0));
+    await expect(heroCanvas(page)).toHaveAttribute("aria-hidden", "true");
+    await expect(heroTitle(page)).toHaveText("madder.flavor");
+    await expect(paletteLine(page)).toHaveText("Palette 1 of 6: Madder.");
+    await expect(pause(page)).toHaveAttribute("aria-pressed", "false");
+    await expect(studioLink(page)).toHaveAttribute("href", card(0).href);
+    await expect(controls(page).locator(":scope > *")).toHaveText([
+      "Palette 1 of 6: Madder.",
+      "Next palette",
+      "Pause",
+      "Open this palette in the studio",
+    ]);
+    await expect(heroStatus(page)).toHaveText("");
+    // The 16:9 box holds the canvas alone: no text node sits on the shader (I-M5-10).
+    const frame = heroCanvas(page).locator("..");
+    expect(
+      await frame.evaluate((box) => {
+        const walker = document.createTreeWalker(box, NodeFilter.SHOW_TEXT);
+        return { nodes: box.childNodes.length, text: walker.nextNode() === null };
+      }),
+    ).toEqual({ nodes: 1, text: true });
+    const box = await frame.boundingBox();
+    expect(box).not.toBeNull();
+    expect(Math.abs((box?.width ?? 0) / (box?.height ?? 1) - 16 / 9)).toBeLessThan(0.02);
+  });
+
+  // Breaks when "Next palette" stops walking the six cards in order, stops wrapping, misses one of
+  // the title, the line, the link or the stops, or remounts the canvas.
+  test("F-HERO-02 Next palette walks the six cards and wraps, on the same running canvas", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await markCanvas(page);
+    const lines = [
+      "Palette 2 of 6: Weld.",
+      "Palette 3 of 6: Verdigris.",
+      "Palette 4 of 6: Woad.",
+      "Palette 5 of 6: Logwood.",
+      "Palette 6 of 6: Cochineal.",
+      "Palette 1 of 6: Madder.",
+    ];
+    for (const [press, line] of lines.entries()) {
+      const index = (press + 1) % 6;
+      await nextPalette(page).click();
+      await expect(paletteLine(page)).toHaveText(line);
+      await expect(hero(page)).toHaveAttribute("data-hero-index", String(index + 1));
+      await expect(heroCanvas(page)).toHaveAttribute("data-flavor-stops", stopsOf(index));
+      await expect(heroTitle(page)).toHaveText(`${card(index).name.toLowerCase()}.flavor`);
+      await expect(studioLink(page)).toHaveAttribute("href", card(index).href);
+      await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    }
+    await expect(heroCanvas(page)).toHaveAttribute("data-test-mark", "");
+  });
+
+  // Breaks when Pause stops holding the loop, "Next palette" drops the pause, or Pause stops
+  // resuming it.
+  test("F-HERO-03 Pause holds the loop across Next palette, and Pause again resumes it", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await pause(page).click();
+    await expect(pause(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "paused");
+    await nextPalette(page).click();
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-stops", stopsOf(1));
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "paused");
+    await expect(pause(page)).toHaveAttribute("aria-pressed", "true");
+    await pause(page).click();
+    await expect(pause(page)).toHaveAttribute("aria-pressed", "false");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+  });
+
+  // Breaks when the studio link stops following the current card, or the studio does not open the
+  // design it names.
+  test("F-HERO-04 after Next palette the studio link opens Weld in the studio", async ({
+    page,
+  }) => {
+    const weld = heroSpec(1);
+    await page.goto("/");
+    await nextPalette(page).click();
+    await expect(studioLink(page)).toHaveAttribute("href", card(1).href);
+    await studioLink(page).click();
+    await page.waitForURL(/\/studio#s=/);
+    await ready(page);
+    await expect(inputsPanel(page).getByRole("textbox", { name: "Name", exact: true })).toHaveValue(
+      "Weld",
+    );
+    await expect(lotId(page)).toHaveText(lotOf(weld));
+  });
+
+  // Breaks when a browser with no WebGL loses the still gradient, its sentence, or "Next palette".
+  test("F-HERO-05 with no WebGL the hero shows the still gradient, its sentence and no Pause", async ({
+    page,
+  }) => {
+    await NO_WEBGL(page);
+    await page.goto("/");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "fallback");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-reason", "no-webgl2");
+    await expect(heroStatus(page)).toHaveText(NO_WEBGL2_LINE);
+    await expect(pause(page)).toHaveCount(0);
+    const before = await backgroundImage(page);
+    expect(before).toContain("linear-gradient");
+    expect(before).toContain("data:image/svg+xml");
+    await nextPalette(page).click();
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-stops", stopsOf(1));
+    await expect.poll(() => backgroundImage(page)).not.toBe(before);
+    expect(await backgroundImage(page)).toContain("linear-gradient");
+    await expect(heroStatus(page)).toHaveText(NO_WEBGL2_LINE);
+  });
+
+  // Breaks when a lost context leaves the hero without its sentence or "Restart the animation", when
+  // a restored context alone restarts it, or when "Restart the animation" does not mount a new canvas.
+  test("F-HERO-06 a lost context shows its sentence and Restart the animation, which mounts a new canvas", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await markCanvas(page);
+    const lost = await loseContext(page, "[data-hero] canvas");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "fallback");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-reason", "context-lost");
+    await expect(heroStatus(page)).toHaveText(CONTEXT_LOST_LINE);
+    await expect(restart(page)).toBeVisible();
+    await expect(pause(page)).toHaveCount(0);
+
+    // A restored context alone restarts nothing: wait for its event, then read the state.
+    await heroCanvas(page).evaluate((canvas) => {
+      (window as unknown as { __restored: Promise<void> }).__restored = new Promise((resolve) =>
+        canvas.addEventListener("webglcontextrestored", () => resolve(), { once: true }),
+      );
+    });
+    await lost.restore();
+    await page.evaluate(() => (window as unknown as { __restored: Promise<void> }).__restored);
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "fallback");
+    await expect(restart(page)).toBeVisible();
+
+    await restart(page).click();
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await expect(heroCanvas(page)).not.toHaveAttribute("data-test-mark");
+    await expect(heroStatus(page)).toHaveText("");
+    await expect(restart(page)).toHaveCount(0);
+    await expect(pause(page)).toBeFocused();
+  });
+
+  // Breaks when reduced motion stops holding the hero still, loses its sentence, keeps Pause, or
+  // does not follow the setting back to running.
+  test("F-HERO-07 under reduced motion the hero is still with its sentence, and runs once it is off", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "still");
+    await expect(heroStatus(page)).toHaveText(STILL_LINE);
+    await expect(pause(page)).toHaveCount(0);
+    await nextPalette(page).click();
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-stops", stopsOf(1));
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "still");
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await expect(pause(page)).toBeVisible();
+    await expect(heroStatus(page)).toHaveText("");
+  });
+
+  // Breaks when the loop keeps running off-screen or on a hidden page, or does not come back.
+  test("F-HERO-08 the hero pauses off-screen and on a hidden page, and runs again on return", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "offscreen");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await makeVisibility(page, "hidden");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "hidden");
+    await makeVisibility(page, "visible");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+  });
+
+  // Breaks when the still frame depends on the load (the seed, the stops or the phase), or when
+  // "Next palette" does not redraw it.
+  test("F-HERO-09 two loads under reduced motion draw the same still, and Next palette another", async ({
+    page,
+  }) => {
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await page.goto("/");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "still");
+    const first = await heroCanvas(page).screenshot();
+    await page.reload();
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "still");
+    const second = await heroCanvas(page).screenshot();
+    expect(second.equals(first)).toBe(true);
+    await nextPalette(page).click();
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-stops", stopsOf(1));
+    const third = await heroCanvas(page).screenshot();
+    expect(third.equals(first)).toBe(false);
+  });
+
+  // Breaks when a shader that fails to compile shows anything but the no-WebGL2 fallback, or logs
+  // an error (the auto fixture fails on any console error).
+  test("F-HERO-10 a shader that fails to compile gives the no-webgl2 fallback with no console error", async ({
+    page,
+  }) => {
+    await NO_COMPILE(page);
+    await page.goto("/");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "fallback");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-reason", "no-webgl2");
+    await expect(heroStatus(page)).toHaveText(NO_WEBGL2_LINE);
+    await expect(pause(page)).toHaveCount(0);
+  });
+
+  // Breaks when the server's HTML stops carrying the first card's still gradient or its line.
+  test("F-HERO-11 with JavaScript off the canvas carries the first card's gradient and the line", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.goto("/");
+    const expected = flavorBackground(card(0).stops);
+    const style = (await heroCanvas(page).getAttribute("style")) ?? "";
+    expect(style).toContain(expected.backgroundImage);
+    expect(style).toContain(expected.backgroundColor);
+    expect(style).toContain("linear-gradient");
+    expect(style).toContain("data:image/svg+xml");
+    await expect(paletteLine(page)).toHaveText("Palette 1 of 6: Madder.");
+    await context.close();
+  });
+
+  // Breaks when reduced motion switched on during a cross-fade leaves it unfinished or on the old
+  // card, or switching it off loses the new card.
+  test("F-HERO-RF1 reduced motion during a cross-fade ends still at the new card, then runs it", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await nextPalette(page).click();
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "still");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-stops", stopsOf(1));
+    await page.emulateMedia({ reducedMotion: "no-preference" });
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor", "running");
+    await expect(heroCanvas(page)).toHaveAttribute("data-flavor-stops", stopsOf(1));
+  });
 });

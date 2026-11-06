@@ -1,8 +1,8 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { scanLine } from "@/export/checker/dyelot-check.mjs";
-import { codeFiles, importsOf, ROOT, stripComments } from "./guard-support";
+import { codeFiles, type ImportRecord, importsOf, ROOT, stripComments } from "./guard-support";
 
 // The M5 repository guards (docs/specs/05-motion-3d.md, section 14, C-GUARD5-nn).
 
@@ -227,5 +227,163 @@ describe("C-GUARD5-06 src/flavor is self-contained", () => {
     expect(bad).toEqual([]);
     expect(scanFindings('const a = "#ff0000";\nconst b = 1;')).toEqual([1]);
     expect(everyFile.some((file) => file.endsWith("brand.json"))).toBe(true);
+  });
+});
+
+// C-GUARD5-05: the landing's client code reaches no core (R5-31, R5-61). Only the three pages import
+// heroes.ts as a value, the hero's static value imports reach no file of the engine, the spec or the
+// export, and cards.ts holds the committed JSON alone.
+
+const HEROES_FILE = path.join(SRC_DIR, "features/landing/heroes.ts");
+const HERO_FILE = path.join(SRC_DIR, "features/landing/Hero.tsx");
+const CARDS_FILE = path.join(SRC_DIR, "features/landing/cards.ts");
+const HERO_PAGES = ["app/page.tsx", "app/explore/page.tsx", "app/motion/page.tsx"].map((file) =>
+  path.join(SRC_DIR, file),
+);
+const CORE_DIRS = ["engine", "spec", "export"].map((folder) => path.join(SRC_DIR, folder));
+/** The endings a bundler tries for a specifier written without one, in order. */
+const ENDINGS = [".ts", ".tsx", ".mjs", ".js", ".json", "/index.ts", "/index.tsx"];
+const CODE = /\.[cm]?[jt]sx?$/;
+
+/** A file's text, or null when no such file exists. */
+type Reader = (file: string) => string | null;
+
+const readDisk: Reader = (file) =>
+  existsSync(file) && statSync(file).isFile() ? readFileSync(file, "utf8") : null;
+
+/** The file `specifier`, written in `file`, loads, or null for a package or a file that is missing. */
+function moduleFile(file: string, specifier: string, read: Reader): string | null {
+  const base = resolved(file, specifier);
+  if (base === null) return null;
+  for (const candidate of [base, ...ENDINGS.map((ending) => base + ending)]) {
+    if (read(candidate) !== null) return candidate;
+  }
+  return null;
+}
+
+/** Whether `record` loads its module as a value: anything but a whole `import type`. */
+const isValue = (record: ImportRecord): boolean => !record.typeOnly;
+
+/**
+ * Every file the static value imports of `entry` reach, `entry` included; `import()` and `import
+ * type` are not followed, nor are packages. A missing entry is an error.
+ */
+function valueGraph(entry: string, read: Reader): string[] {
+  if (read(entry) === null) throw new Error(`valueGraph: ${entry} does not exist`);
+  const seen = new Set<string>([entry]);
+  const queue = [entry];
+  for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
+    if (!CODE.test(file)) continue;
+    for (const record of importsOf(file, read(file) ?? "")) {
+      if (record.dynamic || !isValue(record)) continue;
+      const target = moduleFile(file, record.specifier, read);
+      if (target === null || seen.has(target)) continue;
+      seen.add(target);
+      queue.push(target);
+    }
+  }
+  return [...seen];
+}
+
+/** The files of `files` under `src/engine`, `src/spec` or `src/export`. */
+const coreFiles = (files: readonly string[]): string[] =>
+  files.filter((file) => CORE_DIRS.some((dir) => file.startsWith(dir + path.sep)));
+
+/** The value imports of heroes.ts in `source`, written in `file`, unless `file` is one of the pages. */
+function heroesImportViolations(file: string, source: string, read: Reader): string[] {
+  if (HERO_PAGES.includes(file)) return [];
+  return importsOf(file, source)
+    .filter((record) => isValue(record) && moduleFile(file, record.specifier, read) === HEROES_FILE)
+    .map(({ specifier }) => specifier);
+}
+
+/** A reader of `files` alone, for the probes. */
+const readOnly =
+  (files: Readonly<Record<string, string>>): Reader =>
+  (file) =>
+    files[file] ?? null;
+
+describe("C-GUARD5-05 the landing's client code reaches no core", () => {
+  it("C-GUARD5-05 lets only the three pages import heroes.ts as a value", () => {
+    const bad = codeFiles(SRC_DIR).flatMap((file) =>
+      heroesImportViolations(file, readFileSync(file, "utf8"), readDisk).map(
+        (specifier) => `${path.relative(ROOT, file)}: ${specifier}`,
+      ),
+    );
+    expect(bad).toEqual([]);
+  });
+
+  it("C-GUARD5-05 reports a probe that value-imports heroes.ts from src/features", () => {
+    const probe = path.join(SRC_DIR, "features/explore/probe.ts");
+    expect(
+      heroesImportViolations(
+        probe,
+        'import { heroSpec } from "@/features/landing/heroes";',
+        readDisk,
+      ),
+    ).toEqual(["@/features/landing/heroes"]);
+    expect(
+      heroesImportViolations(
+        probe,
+        'export { HERO_PARAMS } from "../landing/heroes.ts";',
+        readDisk,
+      ),
+    ).toEqual(["../landing/heroes.ts"]);
+    expect(
+      heroesImportViolations(
+        probe,
+        'const m = await import("@/features/landing/heroes");',
+        readDisk,
+      ),
+    ).toEqual(["@/features/landing/heroes"]);
+    expect(
+      heroesImportViolations(
+        probe,
+        'import type { HeroParams } from "@/features/landing/heroes";',
+        readDisk,
+      ),
+    ).toEqual([]);
+    expect(
+      heroesImportViolations(
+        path.join(SRC_DIR, "app/explore/page.tsx"),
+        'import { defaultDesign } from "@/features/landing/heroes";',
+        readDisk,
+      ),
+    ).toEqual([]);
+  });
+
+  it("C-GUARD5-05 finds no engine, spec or export file in Hero.tsx's static value imports", () => {
+    const graph = valueGraph(HERO_FILE, readDisk);
+    expect(graph).toContain(path.join(SRC_DIR, "flavor/flavor.mjs"));
+    expect(coreFiles(graph)).toEqual([]);
+  });
+
+  it("C-GUARD5-05 reports a probe hero that reaches a core through another file", () => {
+    const hero = path.join(SRC_DIR, "features/landing/ProbeHero.tsx");
+    const middle = path.join(SRC_DIR, "features/landing/probe-middle.ts");
+    const core = path.join(SRC_DIR, "engine/probe-core.ts");
+    const spec = path.join(SRC_DIR, "spec/index.ts");
+    const exported = path.join(SRC_DIR, "export/index.ts");
+    const read = readOnly({
+      [hero]: 'import { a } from "./probe-middle";\nimport type { DesignSpec } from "@/spec";',
+      [middle]: 'import { b } from "@/engine/probe-core";\nconst load = () => import("@/export");',
+      [core]: "export const b = 1;",
+      [spec]: "export type DesignSpec = {};",
+      [exported]: "export const c = 1;",
+    });
+    expect(valueGraph(hero, read)).toEqual([hero, middle, core]);
+    expect(coreFiles(valueGraph(hero, read))).toEqual([core]);
+    expect(() => valueGraph(path.join(SRC_DIR, "features/landing/Missing.tsx"), read)).toThrow(
+      "valueGraph: ",
+    );
+  });
+
+  it("C-GUARD5-05 holds cards.ts to the one import of the committed JSON", () => {
+    const only = (source: string) =>
+      importsOf(CARDS_FILE, source).map(({ specifier }) => specifier);
+    expect(only(readFileSync(CARDS_FILE, "utf8"))).toEqual(["./hero-cards.json"]);
+    expect(
+      only('import cards from "./hero-cards.json";\nimport { x } from "./heroes";'),
+    ).not.toEqual(["./hero-cards.json"]);
   });
 });

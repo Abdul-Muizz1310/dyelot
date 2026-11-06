@@ -37,15 +37,16 @@ test("the home page's <title> is the site title from the config", async ({ page 
   await expect(page).toHaveTitle(SITE.title);
 });
 
-// Breaks when the page drops the prompt or the one-liner, or brings back the stale status line
-// (section 16: "in progress" is gone). Task 5.5b adds the hero's "Palette 1 of 6: Madder." here.
-test("the home page shows the prompt and the one-liner, and no work in progress", async ({
+// Breaks when the page drops the prompt, the one-liner or the hero's palette line, or brings back
+// the stale status line (section 16: "in progress" is gone, "Palette 1 of 6: Madder." is new).
+test("the home page shows the prompt, the one-liner and the hero's line, and no work in progress", async ({
   page,
 }) => {
   await page.goto("/");
   const main = page.getByRole("main");
   await expect(main).toContainText("$ dyelot");
   await expect(main).toContainText("a palette becomes a design system your coding agent can build");
+  await expect(main).toContainText("Palette 1 of 6: Madder.");
   await expect(main).not.toContainText("in progress");
 });
 
