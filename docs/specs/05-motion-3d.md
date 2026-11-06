@@ -662,6 +662,8 @@ writes `var(--<palette>-<step>)`. Escape inside the
 row closes it; focus goes to the opened row's button on open and back to the compact row's button on close.
 **(decision F1, F2; the copied variable departs, section 1; the row's fields and the focus drafter)**
 
+**R5-47 amendment (recorded at Task 5.8b).** The `[data-ratio]` cell sits beside its step button, in the same `li`, not inside the button: the button's name is "<palette> <step>, <hex>", and a ratio inside it is visible text the name lacks, which axe reports as `label-content-name-mismatch` on all 88 buttons (F-A11Y-01, F-A11Y4-01, F-A11Y3-07 and the kitchen-sink axe flow). The button keeps the step number, the swatch and the hex; the line looks as M2 drew it. Section 10.2's "content is M2's grid" reads that way.
+
 **R5-48 · Reduced motion.** `src/app/globals.css` sets, under `@media (prefers-reduced-motion: reduce)`,
 `animation-duration: 0s !important` and `animation-delay: 0s !important` on `::view-transition-group(*)`,
 `::view-transition-old(*)` and `::view-transition-new(*)` (`NDOCS/01-app/02-guides/view-transitions.md`, "Respecting

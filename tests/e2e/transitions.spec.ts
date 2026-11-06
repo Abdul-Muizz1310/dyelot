@@ -192,7 +192,7 @@ test.describe("token row", () => {
       await stubSeeds(page);
       await openStudio(page);
       const heights = await inspectorAside(page)
-        .locator("li[data-step] > button")
+        .locator("li[data-step] [data-step-button]")
         .evaluateAll((buttons) => buttons.map((b) => b.getBoundingClientRect().height));
       expect(heights).toHaveLength(88);
       expect(Math.min(...heights)).toBeGreaterThanOrEqual(24);

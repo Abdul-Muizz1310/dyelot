@@ -106,6 +106,7 @@ const STUDIO_HELPERS = [
   "inputs",
   "rebuild",
   "pages",
+  "token-row",
 ].map((name) => `src/features/studio/${name}.ts`);
 
 /** The preview's pure helpers (Tasks 2.7 to 2.10a), held to `PURE_FLOORS` the same way. */
