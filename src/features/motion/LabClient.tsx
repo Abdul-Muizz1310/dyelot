@@ -475,7 +475,7 @@ export function LabClient({ initial }: { initial: DesignSpec }) {
                     );
                   }}
                 >
-                  <summary className="cursor-pointer text-fg-muted text-xs">Show {path}</summary>
+                  <summary className="cursor-pointer py-1 text-fg-muted text-xs">Show {path}</summary>
                   <pre
                     ref={(element) => {
                       if (element === null) pres.current.delete(path);
@@ -498,7 +498,7 @@ export function LabClient({ initial }: { initial: DesignSpec }) {
 
       <a
         href={pageHref("studio", spec)}
-        className="inline-block text-foreground text-sm underline underline-offset-4 hover:text-fg-muted"
+        className="inline-flex min-h-6 w-fit items-center text-foreground text-sm underline underline-offset-4 hover:text-fg-muted"
       >
         Open in the studio
       </a>
