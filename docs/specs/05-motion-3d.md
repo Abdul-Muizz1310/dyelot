@@ -1318,7 +1318,7 @@ function nextAnnounced(last: number, progress: number): number | null;       // 
 function progressLine(job: VideoJob, percent: number): string;               // "Rendering: 30%." / "Recording: 30%."
 function doneLine(fileName: string): string;                                  // "Downloaded <file name>."
 const VIDEO_LINES: Readonly<Record<string, string>>;                          // 13.3's sentences, frozen
-const FLAVOR_LINES: Readonly<Record<"no-webgl2" | "context-lost" | "restart" | "still" | "pause", string>>;   // 6.4, frozen
+const FLAVOR_LINES: Readonly<Record<"no-webgl2" | "context-lost" | "restart" | "still" | "still-canvas" | "pause", string>>;   // 6.4, frozen
 
 // src/features/flavor/load.ts (R5-51): the dialog's loader, as M4's loadAi
 function loadFlavorDialog(): Promise<typeof import("./FlavorDialog")>;   // memoized; a failure resets it
@@ -1410,10 +1410,17 @@ The first that holds wins, in the table's order. `data-flavor-stops` holds the t
 | `context-lost` | The animated background stopped, so a still gradient shows instead. |
 | `restart` | Restart the animation |
 | `still` | The background is still because this device asks for reduced motion. |
+| `still-canvas` | The background is still because the canvas's Reduce motion switch is on. |
 | `pause` | Pause |
 
 A host shows the sentence of its state in one `role="status"` region under its controls; "Restart the animation" follows
 the `context-lost` sentence and remounts the canvas with a new `key`.
+
+**6.4 amendment (recorded at Task 5.9b's review).** `still` names the visitor's device as the cause, so a host shows it
+only when the OS setting asks for reduced motion. The Flavor dialog's preview is also `still` when only the canvas's
+"Reduce motion" switch is on (13.2), and the device sentence would then be false, so the dialog shows `still-canvas`
+there. Whenever the OS setting asks, it shows `still`, whether or not the switch is also on. The hero has no such switch
+and shows `still` alone. C-DLG-04 holds the new key, and F-FLAVOR-02 asserts both sentences.
 
 ### 6.5 The composition's layout
 
@@ -1975,6 +1982,11 @@ again." and the next press tries again.
 `base` and `standard` fade, `paused` from its Pause button and `reducedMotion` true when the canvas's "Reduce motion" is
 on (the runtime adds the OS setting). Under it: "Pause" (`aria-pressed`, only while it loops); the region of 6.4; and the
 line "To take this background as code, turn on Include flavor files in Export."
+
+**13.2 amendment (recorded at Task 5.9b's review).** The region's sentence for a still preview names its cause: 6.4's
+`still-canvas` ("The background is still because the canvas's Reduce motion switch is on.") while only the canvas's
+"Reduce motion" holds the preview still, and `still` whenever the OS setting asks for reduced motion, with the switch on
+or off (6.4's amendment).
 
 ### 13.3 Brand video and shader loop
 

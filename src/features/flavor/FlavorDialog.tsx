@@ -176,7 +176,7 @@ function Background({
 
   const still = canvasReduced || osReduced;
   const loops = fallback === null && !still;
-  const line = fallback !== null ? FLAVOR_LINES[fallback] : still ? FLAVOR_LINES.still : "";
+  const line = backgroundLine(fallback, canvasReduced, osReduced);
   return (
     <Section title="Background">
       <div
@@ -226,6 +226,22 @@ function Background({
       </p>
     </Section>
   );
+}
+
+/**
+ * The Background region's sentence (6.4, 13.2 and their amendments): a fallback's reason first;
+ * for a still preview, the device's sentence whenever the OS setting asks, else the canvas switch's;
+ * nothing while it loops.
+ */
+function backgroundLine(
+  fallback: FallbackReason | null,
+  canvasReduced: boolean,
+  osReduced: boolean,
+): string {
+  if (fallback !== null) return FLAVOR_LINES[fallback];
+  if (osReduced) return FLAVOR_LINES.still;
+  if (canvasReduced) return FLAVOR_LINES["still-canvas"];
+  return "";
 }
 
 type ExportModule = Awaited<ReturnType<typeof loadExport>>;

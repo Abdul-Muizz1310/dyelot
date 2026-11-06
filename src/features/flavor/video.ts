@@ -134,12 +134,14 @@ export const VIDEO_LINES = Object.freeze({
 
 /** The sentences and labels of a host of the animated background (section 6.4). */
 export const FLAVOR_LINES: Readonly<
-  Record<"no-webgl2" | "context-lost" | "restart" | "still" | "pause", string>
+  Record<"no-webgl2" | "context-lost" | "restart" | "still" | "still-canvas" | "pause", string>
 > = Object.freeze({
   "no-webgl2":
     "This browser cannot draw the animated background, so a still gradient shows instead.",
   "context-lost": "The animated background stopped, so a still gradient shows instead.",
   restart: "Restart the animation",
   still: "The background is still because this device asks for reduced motion.",
+  // The Flavor dialog's preview held still by the canvas's switch alone (6.4's amendment).
+  "still-canvas": "The background is still because the canvas's Reduce motion switch is on.",
   pause: "Pause",
 });
