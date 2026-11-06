@@ -591,11 +591,10 @@ allow.
 
 Amended at Task 5.6b (R5-39 amendment): React's report is not the only console error those two flows meet. A renderer
 that fails as it starts also logs three's own line, `THREE.WebGLRenderer: <the error's message>`, which three 0.186.1
-writes before it rethrows; a chunk that fails to load also logs the browser's `Failed to load resource: net::ERR_FAILED`
-twice, once for the request and once for Turbopack's one retry 200 to 600 ms later. F-EXP5-10 allows exactly these and
-nothing else: with `NO_RENDERER`, three's line and React's report; with `ABORT_CHUNK`, the two failed loads and React's
-report. After a chunk that fails to load the panel reads `flat` with no `data-explorer-reason`, since 8.3 names only
-`no-webgl2` and `context-lost`.
+writes before it rethrows; a chunk that fails to load also logs the two failed loads of 14.11's `ABORT_CHUNK` rule.
+F-EXP5-10 allows exactly these and nothing else: with `NO_RENDERER`, three's line and React's report; with
+`ABORT_CHUNK`, the aborted chunk's two failed loads and React's report. After a chunk that fails to load the panel reads
+`flat` with no `data-explorer-reason`, since 8.3 names only `no-webgl2` and `context-lost`.
 
 **R5-40 · The data.** `/explore#s=<link>` reads the hash with `readHash`; with no hash the explorer shows the server
 default (R5-31). A bad hash on load shows the default with the studio's decode sentence (`bannerFor`'s message) followed
@@ -1568,7 +1567,10 @@ The 3D panel is `[data-explorer]`, a 4:3 box with the attributes `data-explorer-
 decimals), `data-turn`, `data-tilt`, `data-zoom` (2 decimals), `data-damping` (`true` or `false`), `data-points` (88),
 `data-tubes` (8) and `data-solid-vertices` (6534 for 32 steps). `<Canvas frameloop="demand" dpr={[1, 1.5]} gl={{
 antialias: true, alpha: true }} camera={{ fov: 40, near: 0.1, far: 20, position }}>` sits in an `aria-hidden="true"` wrapper; `onCreated` sets
-`gl.localClippingEnabled = true` and listens for `webglcontextlost`. Under the panel, the summary
+`gl.localClippingEnabled = true` and listens for `webglcontextlost`. The spheres', the tubes' and the solid's
+materials each set `toneMapped: false`: R3F turns on ACES Filmic tone mapping when `<Canvas>` has no `flat`, as here,
+and a tone-mapped step shows a color that is not its hex (`#b5413a` as about `#c43a34`), against I-M5-01; F-EXP5-01
+reads one unclipped sphere's pixel back (recorded at Task 5.6b's review). Under the panel, the summary
 `sceneSummary(name, mode, gamut, l)`: "Madder: 88 steps of the light scales in OKLab, inside the sRGB gamut solid, cut at
 L 0.60." (the gamut named "sRGB", "Display P3" or "Rec. 2020").
 
@@ -2326,7 +2328,10 @@ Tests: `tests/e2e/landing.spec.ts`, `tests/e2e/explore.spec.ts`, `tests/e2e/moti
 `tests/e2e/transitions.spec.ts`, `tests/e2e/flavor.spec.ts`, `tests/e2e/export-flavor.spec.ts`,
 `tests/e2e/security.spec.ts`, `tests/e2e/a11y-m5.spec.ts`, `tests/e2e/lazy-m5.spec.ts`, the amended
 `tests/e2e/{home,studio,canvas}.spec.ts`, with `tests/e2e/flavor-support.ts`. Every flow fails on a
-`securitypolicyviolation` event or a console error unless its row says otherwise.
+`securitypolicyviolation` event or a console error unless its row says otherwise. A flow that installs `ABORT_CHUNK`
+allows exactly two console errors `Failed to load resource: net::ERR_FAILED` whose source is the aborted chunk's URL:
+the request, and Turbopack's one retry of a chunk that fails on the network, 200 to 600 ms later. F-EXP5-10, F-LAB-10,
+F-FLAVOR-07 and F-RENDER-07 follow this rule (recorded at Task 5.6b's review).
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -2361,7 +2366,7 @@ Tests: `tests/e2e/landing.spec.ts`, `tests/e2e/explore.spec.ts`, `tests/e2e/moti
 | F-EXP5-08 | pass | `data-damping` is `true`, and under `emulateMedia` reduce `false` | ruling R5-38, I-M5-02 |
 | F-EXP5-09 | pass | In the studio on `LINK(SPEC)`, "See these scales in the explorer" opens `/explore` showing `SPEC`, and its "Open in the studio" returns to a studio with `SPEC`'s lot | ruling R5-40 |
 | F-EXP5-RF2 | pass | `/explore#s=<encodeSpec(RICH_P3)>` starts with "Display P3" checked; with the slice moved to `P3_L`, the flat view draws that step's dot farther from the center than the sRGB outline at its hue (both read from the SVG), and the dot's list item names it | RF2, ruling R5-36, R5-37 |
-| F-EXP5-10 | failure | With `NO_RENDERER`, the panel reads `flat` with reason `no-webgl2` and its sentence, and no `canvas` stays in it; the flow allows the `console.error` React writes for the caught error and three's own `THREE.WebGLRenderer:` line; with the 3D chunk aborted by `ABORT_CHUNK` instead, the panel reads `flat` with "The 3D view could not load. Reload the page to try again.", and the flow allows React's report and the browser's two `Failed to load resource` lines (R5-39 amendment) | ruling R5-39, I-M5-03 |
+| F-EXP5-10 | failure | With `NO_RENDERER`, the panel reads `flat` with reason `no-webgl2` and its sentence, and no `canvas` stays in it; the flow allows the `console.error` React writes for the caught error and three's own `THREE.WebGLRenderer:` line; with the 3D chunk aborted by `ABORT_CHUNK` instead, the panel reads `flat` with "The 3D view could not load. Reload the page to try again.", and the flow allows React's report and the aborted chunk's two failed loads (14.11's `ABORT_CHUNK` rule, R5-39 amendment) | ruling R5-39, I-M5-03 |
 | F-LAB-01 | pass | `/motion` shows the first hero design's tokens in the fields (50 to 500, the easings and springs), "dyelot" with `aria-pressed="true"`, `data-preset` `dyelot`, the preset line of C-LAB-09, the three files, and "Copy" and "Download" enabled once loaded | ruling R5-41, R5-44 |
 | F-LAB-02 | pass | "Gentle" sets every field to the preset's values and `data-preset` `gentle`; the hash then decodes (polled) to `withMotion(<the hero's spec>, gentle)`; "Open in the studio" opens a studio whose motion line reads "Motion tokens: Gentle preset." | ruling R5-41, R5-45 |
 | F-LAB-03 | pass | Typing 160 into "base (ms)" and leaving it sets `data-preset` `custom`, the line "Custom tokens: no preset matches.", the ladder's base label, and `--duration-base: 160ms;` in the shown `motion.css` | ruling R5-41, R5-42 |

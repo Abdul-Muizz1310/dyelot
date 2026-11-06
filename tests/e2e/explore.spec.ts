@@ -82,19 +82,28 @@ async function loseContext(page: Page, selector: string): Promise<void> {
 
 /**
  * Each flow records, before the page's scripts run, every policy violation, console error and page
- * error, and fails at its end on any that `allow` did not name. `allow(pattern, count)` admits
- * exactly `count` console errors whose text matches `pattern`: fewer or more fail the flow too.
+ * error, and fails at its end on any that `allow` did not name. `allow(pattern, count, source)`
+ * admits exactly `count` console errors whose text matches `pattern` and, when `source` is given,
+ * whose source URL is `source`: fewer or more fail the flow too.
  */
-type Watch = { allow(pattern: RegExp, count: number): void };
+type Watch = { allow(pattern: RegExp, count: number, source?: string): void };
+type Allowance = { readonly pattern: RegExp; readonly count: number; readonly source?: string };
+type Logged = { readonly text: string; readonly source: string };
+
+const admits = (allowance: Allowance, logged: Logged): boolean =>
+  allowance.pattern.test(logged.text) &&
+  (allowance.source === undefined || allowance.source === logged.source);
 
 const test = base.extend<{ watch: Watch }>({
   watch: [
     async ({ page }, use) => {
-      const errors: string[] = [];
+      const errors: Logged[] = [];
       const pages: string[] = [];
-      const allowed: { pattern: RegExp; count: number }[] = [];
+      const allowed: Allowance[] = [];
       page.on("console", (message) => {
-        if (message.type() === "error") errors.push(message.text());
+        if (message.type() === "error") {
+          errors.push({ text: message.text(), source: message.location().url });
+        }
       });
       page.on("pageerror", (error) => pages.push(error.message));
       await page.addInitScript(() => {
@@ -106,16 +115,19 @@ const test = base.extend<{ watch: Watch }>({
           true,
         );
       });
-      await use({ allow: (pattern, count) => void allowed.push({ pattern, count }) });
+      await use({
+        allow: (pattern, count, source) =>
+          void allowed.push(source === undefined ? { pattern, count } : { pattern, count, source }),
+      });
       const violations = await page.evaluate(
         () => (window as unknown as { __violations?: string[] }).__violations ?? [],
       );
       const counts = allowed.map(
-        ({ pattern }) => errors.filter((text) => pattern.test(text)).length,
+        (allowance) => errors.filter((logged) => admits(allowance, logged)).length,
       );
-      const unexpected = errors.filter(
-        (text) => !allowed.some(({ pattern }) => pattern.test(text)),
-      );
+      const unexpected = errors
+        .filter((logged) => !allowed.some((allowance) => admits(allowance, logged)))
+        .map(({ text, source }) => `${text} (${source})`);
       expect({
         console: unexpected,
         allowed: counts,
@@ -683,11 +695,12 @@ test.describe("the explorer", () => {
     page,
     watch,
   }) => {
-    // The browser's line for the aborted request and for Turbopack's one retry, and React's report
-    // of the caught error (R5-39 amendment).
-    watch.allow(/^Failed to load resource: net::ERR_FAILED$/, 2);
-    watch.allow(/Explorer3D: the chunk did not load/, 1);
-    await ABORT_CHUNK(page, "THREE.WebGLRenderer");
+    const marker = "THREE.WebGLRenderer";
+    const aborted: string[] = [];
+    page.on("requestfailed", (request) => {
+      if (request.failure()?.errorText === "net::ERR_FAILED") aborted.push(request.url());
+    });
+    await ABORT_CHUNK(page, marker);
     await openExplorer(page);
     await expect(panel(page)).toHaveAttribute("data-explorer-state", "flat");
     await expect(panel(page)).not.toHaveAttribute("data-explorer-reason");
@@ -695,5 +708,13 @@ test.describe("the explorer", () => {
       panel(page).getByText(EXPLORE_LINES["load-failed"], { exact: true }),
     ).toBeVisible();
     await expect(panel(page).locator("canvas")).toHaveCount(0);
+    // 14.11's ABORT_CHUNK rule: the chunk that holds the marker failed twice, its request and
+    // Turbopack's one retry, each with the browser's line; React reports the caught error once.
+    await expect.poll(() => aborted.length).toBe(2);
+    const [chunk = ""] = aborted;
+    expect(aborted).toEqual([chunk, chunk]);
+    expect(await (await page.request.get(chunk)).text()).toContain(marker);
+    watch.allow(/^Failed to load resource: net::ERR_FAILED$/, 2, chunk);
+    watch.allow(/^\S+: Explorer3D: the chunk did not load/, 1);
   });
 });
