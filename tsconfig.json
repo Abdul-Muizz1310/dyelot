@@ -30,6 +30,7 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts",
     "src/export/checker/*.mjs",
+    "src/flavor/*.mjs",
     "tests/e2e/*.mjs"
   ],
   "exclude": ["node_modules"]
