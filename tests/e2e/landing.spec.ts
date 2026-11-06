@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+// Playwright does not read the `?raw` query some engine files import: the hook makes it the text.
+await import("./raw-hooks.mjs");
+const { heroSpec } = await import("@/features/landing/heroes");
+const { storySteps } = await import("@/features/landing/story");
+
+/** What the page must show, computed in Node from the first hero design (7.2). */
+const [SEED, SCALE, ROLE_STEP, TYPE, RECEIPT] = storySteps(heroSpec(0));
+
 // F-STORY-01 to 05, F-HOME5-02 and F-HOME5-03 of docs/specs/05-motion-3d.md, section 14.11 (R5-33,
 // R5-34, 7.2). The story's text is the first hero design's (Madder, R5-31).
 
@@ -55,38 +63,49 @@ test("F-STORY-02 under reduced motion every step shows its final state with no a
 
 // Breaks when the story's text stops matching the first hero design.
 test("F-STORY-03 the story's text is 7.2's table for the first hero design", async ({ page }) => {
+  if (
+    SEED?.kind !== "seed" ||
+    SCALE?.kind !== "scale" ||
+    ROLE_STEP?.kind !== "roles" ||
+    TYPE?.kind !== "type" ||
+    RECEIPT?.kind !== "receipt"
+  ) {
+    throw new Error("storySteps did not give the five steps in order");
+  }
   await page.goto("/");
   const story = page.locator("[data-story]");
   await expect(story.getByRole("heading", { level: 2 })).toHaveText("One color, five steps");
   const step = (name: string) => story.locator(`[data-story-step="${name}"]`);
-  await expect(step("seed")).toContainText(
-    "It starts with one color: #f66c6d, oklch(0.7000 0.1700 22.00).",
-  );
+  await expect(step("seed")).toContainText(`It starts with one color: ${SEED.hex}, ${SEED.oklch}.`);
   const swatches = step("scale").locator("[data-scale-step]");
   await expect(swatches).toHaveCount(11);
-  for (const li of await swatches.all()) {
-    // The step number, then the contrast to 2 decimals.
-    await expect(li.locator("div").nth(2)).toHaveText(/^\d+\.\d\d$/);
-  }
   expect(
-    await swatches.evaluateAll((els) => els.map((el) => el.getAttribute("data-scale-step"))),
-  ).toEqual(["50", "100", "200", "300", "400", "500", "600", "700", "800", "900", "950"]);
+    await swatches.evaluateAll((els) =>
+      els.map((el) => [
+        el.getAttribute("data-scale-step"),
+        el.querySelectorAll("div")[2]?.textContent,
+      ]),
+    ),
+  ).toEqual(SCALE.steps.map((item) => [String(item.step), item.contrast]));
   expect(
     await step("roles")
       .locator("[data-role]")
       .evaluateAll((els) => els.map((el) => el.textContent)),
-  ).toEqual(ROLES);
+  ).toEqual(ROLE_STEP.roles.map((role) => role.name));
+  expect(ROLE_STEP.roles.map((role) => role.name)).toEqual(ROLES);
   const type = step("type");
-  await expect(type.locator("dd")).toHaveCount(2);
-  const spaces = await type
-    .locator("[data-space]")
-    .evaluateAll((els) => els.map((el) => el.textContent?.trim()));
-  expect(spaces).toEqual(["0 px", "4 px", "8 px", "12 px", "16 px", "24 px", "32 px", "48 px"]);
-  await expect(step("receipt")).toContainText(
-    /^A receipt\s*Every export carries a receipt\. This design passes (\d+) of (\d+) required contrast checks\./,
+  expect(await type.locator("dd").allTextContents()).toEqual([TYPE.display, TYPE.body]);
+  expect(
+    await type
+      .locator("[data-space]")
+      .evaluateAll((els) => els.map((el) => el.textContent?.trim())),
+  ).toEqual(TYPE.space.map((px) => `${px} px`));
+  await expect(step("receipt").locator("p")).toHaveText(
+    `Every export carries a receipt. This design passes ${RECEIPT.passed} of ${RECEIPT.required} required contrast checks.`,
   );
-  const figure = step("receipt").locator("figure");
-  await expect(figure).toContainText(/^\d+ \/ \d+required checks pass$/);
+  await expect(step("receipt").locator("figure")).toHaveText(
+    `${RECEIPT.passed} / ${RECEIPT.required}required checks pass`,
+  );
 });
 
 // Breaks when a color reaches the story outside a framed specimen (I-M5-01).
