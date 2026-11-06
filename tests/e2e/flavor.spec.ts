@@ -450,8 +450,12 @@ test.describe("the shader loop", () => {
     await expect(section(page, "Background").getByRole("status")).toHaveText(
       FLAVOR_LINES["context-lost"],
     );
-    const download = await downloaded;
+    // The recording was still running after the preview lost its context: its "Cancel" still
+    // shows, and no file has come yet.
     const name = loopName("mp4");
+    await expect(loopCancel(page)).toBeVisible();
+    await expect(loopStatus(page)).not.toHaveText(doneLine(name));
+    const download = await downloaded;
     expect(download.suggestedFilename()).toBe(name);
     const bytes = await bytesOf(download);
     expect(String.fromCharCode(...bytes.subarray(4, 8))).toBe("ftyp");
