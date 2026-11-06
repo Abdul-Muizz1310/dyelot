@@ -156,7 +156,9 @@ Done when section 20 holds. **(decision A1)**
 **R6-02 · Out of M6.** The Sanzo Wada combinations are dropped: the rights check of 2026-11-07 came back unclear and
 leaning not clean. The 1933 and 1934 volumes are likely under US copyright through 2028 and 2029 by URAA restoration, the
 selection and ordering of the 348 combinations is the part a court could protect, and no MIT-labeled dataset documents its
-provenance or a rights check (`digest-external.md`, section 1; owner approval item 1). Also out: a gallery of 100 to 200
+provenance or a rights check (the controller's research of 2026-11-07, from the US Copyright Office's Compendium,
+section 313.4(K), 17 USC 104A and the datasets' own READMEs; the README's credits record the outcome at the close, R6-50;
+owner approval item 1). Also out: a gallery of 100 to 200
 model-made briefs (AI02; M6 makes no model call), a share card for an arbitrary studio link (the hash never reaches a
 server, and a 7 KB link in a query exceeds safe scraper lengths; Vercel answers 414 above 14 KB), a short-link service
 (umbrella §15: no server-side storage of designs), each family's italic font files, larger chrome text than 11 px,
@@ -268,9 +270,9 @@ drafter)**
 ### Gallery pages (Task 6.2)
 
 **R6-13 · `/gallery`.** A server page in `PageFrame active="gallery"`, with `pageMetadata` (7.1). It reads
-`await searchParams`, filters with `readTag` and `entriesTagged`, and renders the intro, the filter (a `nav` of seven plain
-links, "all" and the six tags, `aria-current="page"` on the active one), the count line and the cards in `defs.ts` order. An unknown tag shows every
-entry and a sentence that does not repeat the query (7.1). **(decision B2, B3; the copy drafter)**
+`await searchParams`, filters with `readTag` and `entriesTagged`, and renders the intro, the filter (a `nav` of seven
+plain links, "all" and the six tags, `aria-current="page"` on the active one), the count line and the cards in `defs.ts`
+order. An unknown tag shows every entry and a sentence that does not repeat the query (7.1). **(decision B2, B3; the copy drafter)**
 
 **R6-14 · The card.** Each card is an `article` named by its `h2` (the entry's name) holding, in order: the line; the
 tags; the specimen (7.3), framed, the only color on the page; the type pairing's display and body family names; the preset
@@ -280,7 +282,7 @@ label; the receipt line `summaryLines(summary)[0]` ("78 of 78 required contrast 
 names drafter)**
 
 **R6-15 · `/gallery/[slug]`.** A server page that awaits `params`, looks the slug up with `entryOf` and calls `notFound()`
-for an unknown one, so the 404 page answers (R6-17). It shows the name, how it was made, the tags, the preset, the lot,
+for an unknown one, so the 404 page answers. It shows the name, how it was made, the tags, the preset, the lot,
 the receipt summary (all four of `summaryLines`), the scales in light and dark, the six roles in each mode, the type ladder
 by family name, the links "Open in the studio", "Open in the explorer" and "Open in the motion lab" (`/<page>#s=<link>`),
 "Copy the studio link", and a link back to the gallery (7.4). It loads none of the design's fonts. **(decision B4; the
@@ -303,8 +305,9 @@ words), as the studio's own "Copy link" does. **(decision B4; the words drafter)
 `contentType` `"image/png"` and `alt` `GALLERY_CARD_ALT` (a file's `alt` is one string for every slug,
 `NDOCS/01-app/03-api-reference/03-file-conventions/01-metadata/opengraph-image.md`), awaits `params`, finds the card with
 `cardOf` (an unknown slug calls `notFound()`), and returns `new ImageResponse(<GalleryShareCard card={card} icon={icon}
-/>, { ...size, fonts })` with `shareCardAssets()`'s Geist Mono and icon. The card (8.1) has the M0 card's look: the dot grid, the brand
-row, a `//` comment line, the name as the headline, the line, the strip of five colors, the receipt count and the footer.
+/>, { ...size, fonts })` with `shareCardAssets()`'s Geist Mono and icon. The card (8.1) has the M0 card's look: the dot
+grid, the brand row, a `//` comment line, the name as the headline, the line, the strip of five colors, the receipt count
+and the footer.
 Flexbox only, inline styles, no `display: grid` (Satori). The route imports `cards.ts`, `gallery-card.tsx`, `assets.ts`
 and `next/og` and nothing else of the app (C-GUARD6-07). It lives under `/gallery/`, never `/api/`, so robots allow it.
 **(decision D1; the layout drafter)**
@@ -337,7 +340,7 @@ no file under `src` names one of their hosts, and the CSP's `connect-src` names 
 | Form | Valid when | Gives |
 |---|---|---|
 | `#color=<value>` | `value` is exactly six hex digits, either case | `{ kind: "color", seed }`, the color as an OKLCH seed through `normalizeSeed` |
-| `#brief=<value>` | `decodeURIComponent(value)` succeeds and `toPlainText(decoded, 500)` is not null | `{ kind: "brief", text }`, the cleaned text |
+| `#brief=<value>` | `value` has at most 6,000 characters, `decodeURIComponent(value)` succeeds, and `toPlainText(decoded, 500)` is neither null nor truncated | `{ kind: "brief", text }`, the cleaned text |
 | `#start=<value>` | `value` is `image` | `{ kind: "image" }` |
 
 A hash with one of the three prefixes that is not valid is `{ kind: "malformed" }`; any other hash, `#s=` included, is
@@ -347,10 +350,11 @@ grammar drafter; owner approval item 5)**
 
 **R6-24 · What the store does with an entry.** On the first load an entry outranks the draft, as a link does:
 
-- `color`: a fresh design with the primary locked at the color: `{ ...freshParams(), primary: seed }`, a seed from
-  `newSeed()`, preset `"default"`, provenance `"generated"`, `createdWith` `"controls"`.
-- `brief` and `image`: a fresh design, as "Start fresh" makes one, and `entry` holds `{ kind: "brief", text }` or `{ kind:
-  "image" }` until the studio takes it with `takeEntry()`. The shell then opens the inputs drawer when the inputs panel is
+- `color`: a fresh design with the primary locked at the color: the params `{ ...freshParams(), primary: <the color's
+  OKLCH> }`, the generator's seed from `newSeed()`, preset `"default"`, provenance `"generated"`, `createdWith`
+  `"controls"`.
+- `brief` and `image`: a fresh design, as the store's `fresh()` makes one, and `entry` holds `{ kind: "brief", text }`
+  or `{ kind: "image" }` until the studio takes it with `takeEntry()`. The shell then opens the inputs drawer when the inputs panel is
   a drawer (below 1024 px), and puts the text in the Brief box and focuses it, or focuses the Image section's "Choose an
   image" input. Nothing runs: no model, no word list, no worker, until the visitor presses "Read the brief" or chooses a
   file.
@@ -398,7 +402,7 @@ its own link; at 360 px nothing scrolls sideways (9.3). **(decision C3; the wrap
 and `sitemap()` lists those six and then `/gallery/<slug>` for every entry in `defs.ts` order, 30 absolute URLs in all.
 `sitemapEntries(site, more)` takes the extra routes; robots do not change. **(decision C3; the second argument drafter)**
 
-**R6-32 · `start.log`.** It gains "open the gallery" and "open about this site" after "open the motion lab", so the window
+**R6-32 · `start.log`.** It gains "open the gallery" and "open the about page" after "open the motion lab", so the window
 keeps one way into every page that shipped (the page's comment, M5). **(decision C3; the lines drafter)**
 
 ### Templates (Task 6.7)
@@ -475,9 +479,9 @@ category scores, the five metrics of 12.2 and the script bytes of `resource-summ
 report itself is not committed. **(decision F1; the record drafter)**
 
 **R6-46 · Performance is measured on the deployed site.** At the close, `node scripts/audit-site.mjs` runs Lighthouse on
-`https://dyelot.vercel.app` for every route and form factor, three runs each, interleaved (route by route and form factor by
-form factor in each round, R2 after R1), and the README records each median with the date and the machine's load
-average. Section 12.3 states goals; a miss is recorded with its cause, never hidden. **(decision F2; the goals drafter;
+`https://dyelot.vercel.app` for every route and form factor, three runs each, interleaved: run 1 visits every route at
+both form factors, then run 2 does, then run 3, so no route's runs sit side by side. The README records each median with
+the date and the machine's load average. Section 12.3 states goals; a miss is recorded with its cause, never hidden. **(decision F2; the goals drafter;
 owner approval item 4)**
 
 **R6-47 · The cost of the nonce CSP.** The same script times the first byte of `/` and `/gallery` against `/robots.txt`,
@@ -514,9 +518,9 @@ M6" at each row of section 1's first table. **(decision H3)**
 **(decision J2)**
 
 **R6-54 · Tests.** Each case's test comes first, red, then green, titled with its id. C-GUARD6-01 checks that every case
-id of section 14 of this file has a test (C-GUARD5-01's method with this file's path). `tests/unit/features/{gallery,
-about}/**` run in `web` (jsdom), `tests/unit/engine/repo-guards-m6.test.ts` in `core`, and `tests/unit/scripts/audit-core.
-test.ts` in `core`; each unit file runs in one project (C-REPO-M2-06). New pure helpers join vitest's helper lists at the
+id of section 14 of this file has a test (C-GUARD5-01's method with this file's path). The folders
+`tests/unit/features/gallery/` and `tests/unit/features/about/` run in `web` (jsdom); `tests/unit/engine/repo-guards-m6.test.ts`
+and `tests/unit/scripts/audit-core.test.ts` run in `core`; each unit file runs in one project (C-REPO-M2-06). New pure helpers join vitest's helper lists at the
 pure floors (section 15). Property cases use seed 6000 plus the task number. **(decision J2; the placement drafter)**
 
 **R6-55 · Earlier milestones hold.** Every M1 to M5 case passes except the changes of section 16; every golden holds; no
@@ -545,8 +549,8 @@ R5-64:
    entries renders `/gallery/madder/opengraph-image` as `image/png`, 1200 × 630, under the nonce CSP. Passes when it
    renders and `next build` reports no image route over the 500 KB bundle limit. The probe records whether Next serves it
    statically (prerendered at build) or per request, its `Cache-Control` header, and its bytes. Fails when the build
-   refuses the route or the image does not render: the fallback is a route handler `src/app/gallery/[slug]/card.png/
-   route.ts` with the same tree and `metadata.openGraph.images` set by `generateMetadata` (R6-17 then repeats the title,
+   refuses the route or the image does not render: the fallback is a route handler
+   `src/app/gallery/[slug]/card.png/route.ts` with the same tree and `metadata.openGraph.images` set by `generateMetadata` (R6-17 then repeats the title,
    description and URL, which an `openGraph` key replaces, `metadata.ts`'s note).
 
    Result (date):
@@ -584,7 +588,7 @@ R5-64:
 
    Result (date):
 
-**(decision J1; probes 1's fallback, 3's marker and 6 drafter)**
+**(decision J1; probe 1's fallback, probe 3's markers and probe 6 drafter)**
 
 **R6-58 · The hand check after the merge.** On `https://dyelot.vercel.app`: `/gallery` and `/about` load with no console
 error; one card's "Open in the studio" opens the design with its name, lot and preset, and its export downloads;
@@ -702,6 +706,7 @@ function entryOf(slug: string): GalleryEntry | null;
 function entriesTagged(choice: TagChoice): readonly GalleryEntry[];   // "all" and "unknown" give every entry
 function galleryRoutes(): readonly `/gallery/${string}`[];            // in GALLERY_DEFS order
 function entryDescription(entry: GalleryEntry): string;              // R6-17, 50 to 160 characters
+function entryMetadata(entry: GalleryEntry): Metadata;               // R6-17: title, description, canonical
 
 // src/features/gallery/links.ts (R6-14 to R6-16): pure, imports nothing
 type LinkPage = "studio" | "explore" | "motion";
@@ -737,9 +742,9 @@ take a string (else a `TypeError`) and give null for an unknown slug. `entriesTa
 with `source: "brief"` and the fields of R6-12) and `ai` (an object whose three names are functions) before it runs;
 `galleryEntry` checks `def.slug` and the spec's sections as `paramsOfSpec` does; `galleryData` is a `TypeError` for an
 `ai` that is not an object; `entryDescription` is a `TypeError` for a non-object and a `RangeError` when its text falls
-outside 50 to 160 characters; `galleryCards` checks every entry's
-`specimen` holds the five palettes in order. `GalleryShareCard` and `MosaicShareCard` take checked data and never throw
-for a card of `GALLERY_CARDS`.
+outside 50 to 160 characters, and `entryMetadata` checks its entry as `entryDescription` does; `galleryCards` checks
+that every entry's `specimen` holds the five palettes in order. `GalleryShareCard` and `MosaicShareCard` take checked
+data and never throw for a card of `GALLERY_CARDS`.
 
 ### 5.2 The landing (Task 6.6)
 
@@ -753,7 +758,7 @@ function briefHref(text: string): string;    // trimmed, 1 to 500 characters, ho
 function briefReady(text: string): boolean;  // whether briefHref accepts it
 const START_LINES: Readonly<Record<string, string>>;   // 9.1, frozen
 
-// src/features/landing/receipt.ts (R6-11): pure, imports nothing
+// src/features/landing/receipt.ts (R6-11): pure, imports nothing at run time (GallerySummary is a type import)
 type ReceiptExcerpt = {
   readonly format: "dyelot.check/1";
   readonly name: string;
@@ -772,9 +777,9 @@ function receiptLines(excerpt: ReceiptExcerpt): readonly string[];   // 9.2's se
 `colorHref` is a `TypeError` for a non-string and a `RangeError` for anything but six hex digits with or without a leading
 `#`. `briefHref` is a `TypeError` for a non-string and a `RangeError` for a text that `briefReady` refuses; `briefReady` is a
 `TypeError` for a non-string. `excerptText` and `receiptLines` are a `TypeError` for a non-object, and `receiptLines` a
-`RangeError` for counts that are not whole numbers. `receiptExcerpt`
-is a `TypeError` for a non-string and a `RangeError` for text that is not JSON, whose `format` is not `dyelot.check/1`, or
-that lacks `design.name`, `summary`, a non-empty `contrast` or a `findings` array.
+`RangeError` for counts that are not whole numbers. `receiptExcerpt` is a `TypeError` for a non-string and a `RangeError`
+for text that is not JSON, whose `format` is not `dyelot.check/1`, or that lacks `design.name`, `summary`, a non-empty
+`contrast` or a `findings` array.
 
 ### 5.3 About (Task 6.4)
 
@@ -833,7 +838,8 @@ function brandDescription(props: BrandProps): string;   // 13.1
 Each template file gains a default export of its component (the named export stays for its tests). `preloadTemplates` is a
 `RangeError` for a `shown` outside `TEMPLATE_IDS` and a `TypeError` for a `schedule` that is not a function; a loader that
 fails is not retried by the preload (the next switch tries it). `brandDescription` checks `props` as `brandProps`' output:
-`name`, `lot` and `fonts` strings, `checks` two whole numbers, `palettes` an array of five; else a `TypeError` or
+`name`, `oneLiner` and `lot` strings, `fonts` an object of two strings, `checks` two whole numbers, `palettes` an array
+of five; else a `TypeError` or
 `RangeError` naming `brandDescription`.
 
 ### 5.6 Code fixes and audits (Tasks 6.9 and 6.10)
@@ -1144,12 +1150,13 @@ about page" and the repository line, then the cursor (`StartLink` labels "the ga
 | `#color=f66c6d` or `#color=F66C6D` | `entry`, `color`, the seed of `#f66c6d` |
 | `#color=f66c6`, `#color=f66c6d0`, `#color=`, `#color=gg6c6d`, `#color=%23f66c6d`, `#color=#f66c6d` | `malformed` |
 | `#brief=A%20tea%20house%20at%20dusk` | `entry`, `brief`, "A tea house at dusk" |
-| `#brief=caf%C3%A9+%26+bar` | `entry`, `brief`, "café + & bar" |
+| `#brief=caf%C3%A9%20%26%20bar` | `entry`, `brief`, "café & bar" |
+| `#brief=tea+house` | `entry`, `brief`, "tea+house" (a `+` stays a `+`) |
 | `#brief=`, `#brief=%20%20`, `#brief=%E0%A4%A` (a broken escape) | `malformed` |
 | `#brief=` with a value of more than 6,000 characters, or whose decoded and cleaned text is longer than 500 characters | `malformed` |
 | `#start=image` | `entry`, `image` |
 | `#start=`, `#start=Image`, `#start=brief` | `malformed` |
-| `#s=...`, `#top`, `` (empty), `#colors=f66c6d` | `none` |
+| `#s=...`, `#top`, the empty hash, `#colors=f66c6d` | `none` |
 
 The brief's text is `toPlainText(decodeURIComponent(value), 500)`'s text when that result exists and is not truncated;
 `readEntry` checks the raw value's length (at most 6,000 characters, twelve per character for the longest UTF-8
@@ -1411,7 +1418,7 @@ Tests: `tests/unit/features/gallery/defs.test.ts`, `tests/unit/features/gallery/
 | C-GAL6-04 | pass | Every entry's `summary` has `pass` true, `contrast.requiredPass` equal to `contrast.required` (78) and `lint.error` 0, and equals `summarize(measureSpec(spec), lintSpec(spec), gamut)` of its decoded link | ruling R6-08, I-M6-02 |
 | C-GAL6-05 | pass | Every entry rebuilds: `spec = decodeSpec(link)`, then `generateSystem(resolveParams(paramsOfSpec(spec).params, spec.meta.seed), spec.meta.seed, { createdWith: spec.meta.createdWith })` has `specId(spec)`; `lintSpec(spec)` has no error; `exportState(summary, "loaded")` is `"passing"` | ruling R6-10, I-M6-02 |
 | C-GAL6-06 | pass | The six hero entries: `link` equals `HERO_CARDS.cards[i].href` after `/studio#s=`; `specId` is `specId(heroSpec(i))`; `createdWith` `"controls"`; `preset` null and `presetLabel` "Custom"; `line` "One locked seed, <hex of R5-31's row>, and the studio's defaults."; `brief` null and `terms` `[]` | ruling R6-05, 6.3 |
-| C-GAL6-07 | pass | For every entry: `specId` is `specId(decodeSpec(link))` and `lot` is `lotTag(specId)`; `presetLabel` is `PRESETS[preset].label` or "Custom"; `families` are `FONT_CATALOG`'s family names of the spec's three ids; `specimen` holds primary, secondary, accent, neutral and danger in that order, each the light hexes of steps 100, 300, 500, 700 and 900; `scales` hold each mode's 8 × 11 hexes; `roles` hold the six roles of 7.2 of M5 in each mode; `type` holds the ten steps with sizes and line heights of the spec, display for `h1` and `display` and body for the rest as the export's model assigns them; every hex is lowercase `#rrggbb` | ruling R6-08 |
+| C-GAL6-07 | pass | For every entry: `specId` is `specId(decodeSpec(link))` and `lot` is `lotTag(specId)`; `presetLabel` is `PRESETS[preset].label` or "Custom"; `families` are `FONT_CATALOG`'s family names of the spec's three ids; `specimen` holds primary, secondary, accent, neutral and danger in that order, each the light hexes of steps 100, 300, 500, 700 and 900; `scales` hold each mode's 8 × 11 hexes; `roles` hold the six roles of 7.2 of M5 in each mode; `type` holds the ten steps with the spec's sizes and line heights, the display family for `display` and `h1` to `h4` and the body family for the rest, as `dtcg.ts`'s `HEADING_STEPS` assigns them; every hex is lowercase `#rrggbb` | ruling R6-08 |
 | C-GAL6-08 | pass | Words: each name is 1 to 24 characters of letters and single spaces; each slug matches `^[a-z]+(-[a-z]+)*$`, is unique and is the name in lowercase with hyphens; each brief is plain text (`isPlainText`) of 30 to 100 characters ending in one period, with no color literal; no word of `DENY_LIST` (whole words, any case) is in a name, slug, brief or tag; each name, brief and line passes C-GUARD6-08's copy check; no entry's `link` holds C-CONTRAST-12's forbidden four letters in any case | ruling R6-12 |
 | C-GAL6-09 | pass | Coverage: the 18 brief entries' presets hold all 14 `PRESET_IDS`; each entry has one or two tags in `GALLERY_TAGS` order, none twice; the tag counts equal 6.2 (7, 7, 4, 6, 8, 7) | ruling R6-05, R6-07 |
 | C-GAL6-10 | failure | `briefSpec` refuses: a brief holding `#ff0000` (a color) and one matching no term ("Nothing here reads as a mood or a place.") throw `RangeError` naming `briefSpec` and the slug; `briefSpec(null, AI)` and a row of `source: "hero"` throw `TypeError` and `RangeError`; an `ai` without `briefChange` throws `TypeError`; each message starts with `briefSpec`; `galleryData(null)` throws `TypeError` naming `galleryData` | ruling R6-06, R-05 |
@@ -1489,9 +1496,9 @@ Tests: `tests/unit/features/studio/url-entry.test.ts`, `tests/unit/features/stud
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| C-HASH6-01 | pass | `readEntry` gives `entry` for 10.1's valid rows: `#color=f66c6d` and `#color=F66C6D` with the seed `normalizeSeed(parseColor("#f66c6d"))`; the two brief rows with "A tea house at dusk" and "café + & bar"; `#start=image` | ruling R6-23 |
+| C-HASH6-01 | pass | `readEntry` gives `entry` for 10.1's valid rows: `#color=f66c6d` and `#color=F66C6D` with the seed `normalizeSeed(parseColor("#f66c6d"))`; the three brief rows with "A tea house at dusk", "café & bar" and "tea+house"; `#start=image` | ruling R6-23 |
 | C-HASH6-02 | failure | `readEntry` gives `malformed` for every malformed row of 10.1: the six color values, the three brief values, a raw value of 6,001 characters, a decoded value of 501 characters, and the three start values | ruling R6-23 |
-| C-HASH6-03 | pass | `readEntry` gives `none` for `#s=<a valid link>`, `#top`, `` and `#colors=f66c6d`, and `readHash` still reads `#s=` as before | ruling R6-23 |
+| C-HASH6-03 | pass | `readEntry` gives `none` for `#s=<a valid link>`, `#top`, the empty string and `#colors=f66c6d`, and `readHash` still reads `#s=` as before | ruling R6-23 |
 | C-HASH6-04 | failure | `readEntry(5)` and `readEntry(null)` throw `TypeError` naming `readEntry` | ruling R6-23, R-05 |
 | C-HASH6-05 | pass | The brief is cleaned as the studio's box is: `#brief=` of `%E2%80%AEA%20%20tea%0Ahouse` (a bidirectional control, two spaces, a newline) gives "A tea house"; a decoded value of exactly 500 characters gives an entry of 500 | ruling R6-23 |
 | C-HASH6-RF1 | failure | Property (500 runs, seed 6005): for any string `s` of unicode text, `readEntry("#brief=" + s)`, `readEntry("#color=" + s)` and `readEntry("#start=" + s)` never throw and give `entry` or `malformed`; a brief entry's text is plain (`isPlainText`) and at most 500 characters | RF1, ruling R6-23 |
