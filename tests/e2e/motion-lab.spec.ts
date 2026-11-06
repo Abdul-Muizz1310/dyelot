@@ -152,8 +152,11 @@ test.describe("the motion lab", () => {
   test("F-LAB-04 an invalid entry is marked, keeps the design and is restored on blur", async ({
     page,
   }) => {
+    // The fake clock holds the 300 ms hash write until the flow runs it, so no real time passes.
+    await page.clock.install();
     await openLab(page);
     await field(page, "base (ms)").fill("160");
+    await page.clock.runFor(400);
     await hashSpec(page);
     const hash = await hashOf(page);
     const css = await shownFile(page, "motion/motion.css").textContent();
@@ -162,8 +165,7 @@ test.describe("the motion lab", () => {
       await base.fill(bad);
       await expect(base).toHaveAttribute("aria-invalid", "true");
       await expect(page.getByText("Enter a number of milliseconds from 0 to 500.")).toBeVisible();
-      // The write is debounced by 300 ms: a negative check has to outwait it.
-      await page.waitForTimeout(450);
+      await page.clock.runFor(400);
       expect(await hashOf(page)).toBe(hash);
       expect(await shownFile(page, "motion/motion.css").textContent()).toBe(css);
       await base.blur();
