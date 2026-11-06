@@ -463,6 +463,7 @@ describe("a lost context and destroy", () => {
     const onFallback = vi.fn();
     const gl = createFakeGl();
     const { canvas } = mount({ onFallback }, gl);
+    expect(fakes.live().frames).toBe(1);
     const lost = new Event("webglcontextlost", { cancelable: true });
     canvas.dispatchEvent(lost);
     expect(lost.defaultPrevented).toBe(true);
