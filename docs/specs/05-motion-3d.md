@@ -666,8 +666,9 @@ inside a transition. **(decision F3; the morph timing drafter)**
 **R5-49 · The mobile sheet under a mid-animation OS change.** M2 deferred to M5 that switching the OS setting to reduce
 while the mobile template's sheet rises leaves the sheet unsettled (`02-studio.md`, section 18). `MotionScope` follows the
 OS setting live through `useOsReducedMotion()`, a `useSyncExternalStore` over `matchMedia("(prefers-reduced-motion:
-reduce)")` and its `change` event (the server snapshot false, the client snapshot the query's `matches`, so a client
-mount reads the real value from its first render), and passes `reducedMotion="always"` when the canvas's switch or the OS
+reduce)")` and its `change` event (the server snapshot false, the client snapshot the query's `matches`: a hydrated
+page reads false during hydration and the real value right after it, and a client-only mount reads the real value from
+its first render), and passes `reducedMotion="always"` when the canvas's switch or the OS
 asks, else `"user"` as today, so Motion still reads the OS setting itself on a first render and an OS change takes the
 path the canvas's switch already settles (F-CANVAS-07, F-CANVAS-08). **(drafter; owner approval item 9)**
 
@@ -2191,7 +2192,7 @@ Tests: `tests/unit/features/preview/transition.test.ts`, `tests/unit/features/pr
 | C-VT-03 | pass | `tokenRow(SPEC, "light", "primary", 500)` gives `token` `--color-primary-500`, `utility` `bg-primary-500`, `cssVar` `var(--primary-500)`, the step's hex, `formatOklch` of its OKLCH, its contrast as `<2 decimals>:1`, and the roles whose light hex equals the step's in `ROLE_NAMES` order; a step no role uses gives `[]`; `--primary-500` is a name `themeCss(SPEC, ORIGIN)` declares in `:root` and `.dark` | ruling R5-47 |
 | C-VT-04 | failure | `tokenRow` with mode `"dim"`, palette `"teal"` or step 450 throws `RangeError` and with a `null` spec `TypeError`, each naming `tokenRow` | ruling R5-47, R-05 |
 | C-VT-05 | pass | `swatchName("primary", 500)` is `dyelot-swatch-primary-500`, and the 88 names are distinct | ruling R5-47 |
-| C-VT-06 | pass | `watchReducedMotion(media, onChange)` calls `onChange` with `media.matches` at once and on each `change`; the function it returns removes the listener; `useOsReducedMotion()` rendered with `renderToString` gives false, and on the client gives `matchMedia("(prefers-reduced-motion: reduce)").matches` from its first render | ruling R5-49 |
+| C-VT-06 | pass | `watchReducedMotion(media, onChange)` calls `onChange` with `media.matches` at once and on each `change`; the function it returns removes the listener; `useOsReducedMotion()` rendered with `renderToString` gives false, and rendered client-only with `render` gives `matchMedia("(prefers-reduced-motion: reduce)").matches` from its first render | ruling R5-49 |
 | C-VT-07 | pass | `Scales` rendered: a step button opens its token row (`aria-expanded="true"`, `data-token-row`, 10.2's fields); opening another step closes the first; Escape closes it and focus returns to the compact button; ↓ and ↑ move focus within a palette and Home and End to its ends, with one `tabIndex` 0 per palette | ruling R5-47 |
 | C-VT-08 | pass | `src/app/globals.css` holds 10.3's five rules as written | ruling R5-48 |
 | C-VT-10 | pass | `MotionScope` rendered with `reduced` false passes `reducedMotion="user"` while the OS query does not match and `"always"` once its `change` reports a match; with `reduced` true it passes `"always"` either way | ruling R5-49 |
