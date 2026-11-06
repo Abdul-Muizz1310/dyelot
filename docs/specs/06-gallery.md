@@ -54,7 +54,7 @@ scripts/audit-site.mjs: https://dyelot.vercel.app --3 interleaved runs--> median
 |---|---|
 | 6.0 | The probes of R6-57, before anything else |
 | 6.1 | Gallery data: `defs.ts`, the builder, `gallery.json`, `cards.json`, the receipt excerpt, the update switch |
-| 6.2 | The gallery pages: `/gallery` with its mood filter, `/gallery/[slug]`, "Copy the studio link" |
+| 6.2 | The gallery pages: `/gallery` with its mood filter, `/gallery/[slug]`, the open route `/gallery/<slug>/open/<page>`, "Copy the studio link" |
 | 6.3 | Share cards: one per entry and one for `/gallery` |
 | 6.4 | `/about` |
 | 6.5 | The studio's entry hashes, and the view a loaded design opens with (decision G6) |
@@ -285,7 +285,8 @@ label; the receipt line `summaryLines(summary)[0]` ("78 of 78 required contrast 
 "Open in the studio" (`/gallery/<slug>/open/studio`, which redirects to `/studio#s=<link>`) and "Details"
 (`/gallery/<slug>`), each with the name after its visible words in its accessible name (7.2). The page holds no link:
 24 links of about 7.2 KB would put about 345 KB into its HTML and its inline RSC payload, and base64 of deflated bytes
-hardly compresses. The chrome stays achromatic; every number is Geist Mono with tabular numerals. **(decision B3; the order and the
+hardly compresses. The chrome stays near-gray (the house neutrals and madder, I-M6-06); every number is Geist Mono
+with tabular numerals. **(decision B3; the order and the
 names drafter)**
 
 **R6-15 · `/gallery/[slug]`.** A server page that awaits `params`, looks the slug up with `entryOf` and calls `notFound()`
@@ -582,8 +583,10 @@ R5-64:
    renders and `next build` reports no image route over the 500 KB bundle limit. The probe records whether Next serves it
    statically (prerendered at build) or per request, its `Cache-Control` header, and its bytes. It also checks that a
    scratch `route.ts` answering `307` with `Location: /studio#s=<a link>` lands Playwright's Chromium on `/studio` with that
-   hash; if it does not, the cards and the entry page link to `/<page>#s=<link>` directly, as decision B3 wrote, and 12.4
-   records the pages' HTML bytes. Fails when the build
+   hash; if it does not, the open route is not built, the cards and the entry page link to `entryHref(<page>, link)`
+   directly, as decision B3 wrote, F-GAL6-02, F-GAL6-05, F-GAL6-06 and F-A11Y6-03 assert those hrefs, F-GAL6-14,
+   F-GAL6-15, the `openHref` parts of C-GAL6-15 and C-GAL6-16 and the open-route clauses of R6-49 and F-SEC6-01 move to
+   section 18 with the route, and 12.4 records the pages' HTML bytes. Fails when the build
    refuses the route or the image does not render: the fallback is a route handler
    `src/app/gallery/[slug]/card.png/route.ts` with the same tree and `metadata.openGraph.images` set by `generateMetadata` (R6-17 then repeats the title,
    description and URL, which an `openGraph` key replaces, `metadata.ts`'s note).
@@ -1524,7 +1527,7 @@ Tests: `tests/e2e/gallery.spec.ts`, with `tests/e2e/flavor-support.ts`.
 | F-GAL6-09 | failure | With `CLIPBOARD_DENY`, the press shows a read-only field holding the link, selected, and "Copy blocked. Select the link below."; no console error and no raw error | ruling R6-16, I-M6-04 |
 | F-GAL6-10 | pass | From `/gallery/turquoise`, "Open in the explorer" opens, through its redirect, `/explore` whose summary (`[data-explorer-summary]`) names Turquoise, and "Open in the motion lab" opens `/motion` with `#s=<TURQUOISE.link>` and an empty notice line (`[data-lab-notice]`) | ruling R6-15 |
 | F-GAL6-11 | pass | Metadata: `/gallery` has the title "Gallery — dyelot", 7.1's description and the canonical `<origin>/gallery`; `/gallery/kermes` has "Kermes — dyelot", `entryDescription(KERMES)` and `<origin>/gallery/kermes`, and its `og:image` and `twitter:image` start with `<origin>/gallery/kermes/opengraph-image` | ruling R6-17 |
-| F-GAL6-12 | pass | Color only in specimens: on `/gallery` and `/gallery/kermes`, every element outside `[data-specimen]` has a computed `color`, `background-color` and `border-color` that is transparent, of OKLCH chroma at most 0.02 through the shared sRGB resolver, one of the house neutrals `--fg-muted`, `--border`, `--border-bright` and `--panel` within two codes per channel, or madder `#f66c6d` (M2's F-A11Y-04 allowance, its `chromaOffenders` moved to a shared helper) | ruling R6-14, I-M6-06 |
+| F-GAL6-12 | pass | Color only in specimens: on `/gallery` and `/gallery/kermes`, every element outside `[data-specimen]` has a computed `color`, `background-color` and `border-color` that is transparent, of OKLCH chroma at most 0.02 through the shared sRGB resolver, one of the house neutrals `--fg-muted`, `--border`, `--border-bright` and `--panel` within two codes per channel, or madder `#f66c6d` (M2's F-A11Y-04 allowance: Task 6.2 moves `chromaOffenders` from `tests/e2e/studio.spec.ts` to `tests/e2e/color-support.ts` as `chromaOffenders(page, { root, skip })`, scanning the elements under `root` and leaving out those under the `skip` selectors, `[data-canvas]` for M2's call and `[data-specimen]` here) | ruling R6-14, I-M6-06 |
 | F-GAL6-13 | pass | No `/_next/static/chunks/*.js` file that `/gallery` or `/gallery/kermes` loads holds the first 40 characters of any entry's link, and the HTML of `/gallery` holds none of them | ruling R6-14, R6-56, I-M6-03 |
 | F-GAL6-14 | pass | `GET /gallery/kermes/open/studio`, `/open/explore` and `/open/motion` (no redirect followed) answer `307` with `Location` `entryHref(<page>, KERMES.link)`; `page.goto("/gallery/kermes/open/studio")` ends at `/studio#s=<KERMES.link>` | ruling R6-15 |
 | F-GAL6-15 | failure | `GET /gallery/nope/open/studio`, `/gallery/kermes/open/lab` and `/gallery/Kermes/open/studio` answer 404 and no `Location` | ruling R6-15 |
@@ -1553,7 +1556,7 @@ Tests: `tests/unit/features/about/copy.test.ts`, `tests/e2e/about-page.spec.ts`.
 | C-ABOUT6-01 | pass | `ABOUT_INTRO` and `ABOUT_SECTIONS` equal 11.2's table word for word, in order: four sections `math`, `receipt`, `privacy`, `licenses` with their headings, each paragraph's `text` and `restates`; `ABOUT_LINKS` equals 11.3's two rows; all deep-frozen | ruling R6-21 |
 | C-ABOUT6-02 | pass | Copy: no paragraph holds a banned word, `!`, an emoji, "colour", "behaviour", "grey", "centre" or "cancelled", the perceptual formula's trade name that umbrella §5 forbids (in any case), or a host of `NEVER_USE_HOSTS` (`src/lib/site/define.ts`); every link is `https:` | ruling R6-21, R6-59 |
 | C-ABOUT6-03 | pass | Every `restates` entry is an umbrella section 00-design.md has, a ruling whose `**<id> ·` heading exists in its spec file (`R-` in 01, `R2-` in 02, `R3-` in 03, `R4-` in 04, `R5-` in 05, `R6-` in this file), a DR id 00-design.md names, a section of an earlier spec (its number and "of M<k>"), a repository file that exists, or the owner's ruling of 2026-11-05 | ruling R6-21 |
-| C-ABOUT6-04 | pass | The copy's numbers are the code's: 80, 40 and 78 against `CONTRAST_CHECKS` (40 per mode, 39 required per mode); "three shared actions" against `VISITOR_CAP`; 768 pixels against the image worker's bound; 1.06 and 15.5 against the light targets of `scale.ts`; "seven chips" against the steer chips; 3, 4.5 and 7 against the threshold steps; 768 against `VIBE_SIDE`; 24 hours against the shared route's cache; every `FONT_CATALOG` entry's license is `OFL-1.1`, as the fonts paragraph says | ruling R6-21 |
+| C-ABOUT6-04 | pass | The copy's numbers are the code's: 80, 40 and 78 against `CONTRAST_CHECKS` (40 per mode, 39 required per mode); "three shared actions" against `VISITOR_CAP`; 768 pixels against the image worker's bound; 1.06 and 15.5 against the light targets of `scale.ts`; "seven chips" against the steer chips; 3, 4.5 and 7 against the threshold steps; 768 against `VIBE_SIDE`, exported by `src/features/ai/image-protocol.ts`; 24 hours against the shared route's cache; every `FONT_CATALOG` entry's license is `OFL-1.1`, as the fonts paragraph says | ruling R6-21 |
 | C-ABOUT6-05 | failure | The check of C-ABOUT6-04 reports a probe copy that says "79 are required" or "four shared actions", naming the paragraph | ruling R6-21 |
 | F-ABOUT6-01 | pass | `/about`: the title "About — dyelot", 11.1's description and the canonical `<origin>/about`; one `h1` "How dyelot works"; the four `h2` in order; every paragraph of `ABOUT_INTRO` and `ABOUT_SECTIONS` shows, in order; the nav's "about" is current | ruling R6-21 |
 | F-ABOUT6-02 | pass | `main` holds exactly two links, "The source on GitHub" (`REPOSITORY_URL`) and "Remotion's license" (`https://remotion.pro/license`), each with `rel="noopener noreferrer"`, placed after their paragraphs | ruling R6-21 |
@@ -1709,7 +1712,7 @@ Tests: `tests/e2e/a11y-m6.spec.ts`, `tests/e2e/lazy-m6.spec.ts`, `tests/e2e/secu
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
-| F-A11Y6-01 | pass | axe finds no violation on `/gallery`, `/gallery?tag=calm`, `/gallery/kermes`, `/gallery/turquoise`, `/about` and `/` (scrolled through the start-from and receipt sections, under reduced motion as M0's test runs), at 1280 × 800 and 360 × 740; besides `AXE_TAGS`, the run turns on the rules Lighthouse turns on (`heading-order`, `landmark-one-main`, `link-in-text-block`, `skip-link`, `target-size`, `label-content-name-mismatch` and `identical-links-same-purpose`, from Lighthouse 13.5.0's accessibility gatherer) | ruling R6-13, R6-15, R6-21, R6-27, I-M6-05 |
+| F-A11Y6-01 | pass | axe finds no violation on `/gallery`, `/gallery?tag=calm`, `/gallery/kermes`, `/gallery/turquoise`, `/about` and `/` (scrolled through the start-from and receipt sections, under reduced motion as M0's test runs), at 1280 × 800 and 360 × 740; besides `AXE_TAGS`, the run turns on every rule Lighthouse 13.5.0's accessibility gatherer enables, read by the test from the installed `lighthouse/core/gather/gatherers/accessibility.js` (its `rules` entries with `enabled: true`, about 30, among them `heading-order`, `landmark-one-main`, `link-in-text-block`, `skip-link`, `target-size`, `empty-heading`, `label-content-name-mismatch` and `identical-links-same-purpose`) | ruling R6-13, R6-15, R6-21, R6-27, I-M6-05 |
 | F-A11Y6-02 | pass | At 360 × 740, `/gallery`, `/gallery/kermes`, `/about` and `/` do not scroll sideways (`overflowOf` of M5) | ruling R6-13, R6-15, R6-21, R6-27 |
 | F-A11Y6-03 | pass | Keyboard: on `/gallery`, Tab from the filter's "all" reaches the six tags, then "Open in the studio, Madder" and "Details of Madder"; on `/gallery/kermes`, the three open links, "Copy the studio link" and "Back to the gallery" in order; each stop shows the focus ring and a hit area of at least 24 × 24 px | ruling R6-14, R6-15 |
 | F-A11Y6-04 | pass | Each new page has one `h1`, and its headings never skip a level; on `/` the order is `h1`, the hero, the start-from `h2` and `h3`s, the story's `h2` and `h3`s, the receipt's `h2` | ruling R6-27, R6-29 |
@@ -1783,6 +1786,7 @@ written from its row, never from an uncovered-line report.
 | F-CANVAS-11 (M2), "the outline of a part at a clip edge shows whole" | Leaves out the settings template's top and save bars | Includes `.st-top` and `.st-save-bar`, and counts a scroll container's padding box as a clip box (F-TPL6-06); unchanged if probe 6 drops G2 | R6-34 |
 | C-REPO-M2-03 (M2), C-GUARD4-10 (M4), C-GUARD5-09 (M5) | The coverage include and floors of M5's section 15 | Also section 15's new lists (C-GUARD6-03) | R6-54 |
 | M5's spec 13.3 | The Brand video region keeps its name | Plus the figure and its description of R6-35 (a note in 13.3) | R6-35 |
+| F-A11Y-04 (M2) | `chromaOffenders` is local to `tests/e2e/studio.spec.ts` | It imports `chromaOffenders` from `tests/e2e/color-support.ts` (Task 6.2) and calls it with `{ root: "body", skip: ["[data-canvas]"] }`; its allowance and assertions stand | R6-14 |
 | F-VT-01, F-VT-02 (M5) | The switch to "dashboard" comes right after `openStudio` | It comes after the five lazy chunks have loaded (the response list, polled), so the flows test the transition and not the load; their assertions stand | R6-33 |
 
 Every other M1 to M5 case stands as written (I-M6-07), among them C-LAND5-02 (the hero cards), F-HERO-01 to 06 (the
@@ -1818,6 +1822,7 @@ The five input classes most likely to bite a visitor, each with the tests that p
 | Remotion 5.0's terms | 05-motion-3d.md section 18 | When Remotion 5.0 ships |
 | The settings template's clip margin, if probe 6 drops it | decision G2 | Not scheduled; the row is struck if probe 6 passes |
 | Lazy templates, if probe 3 keeps them eager | decision G1 | Not scheduled; the row is struck if probe 3 passes |
+| The open route `/gallery/<slug>/open/<page>`, if probe 2 finds the fragment lost on a redirect | R6-14, R6-15 | Not scheduled; the row is struck if probe 2 passes |
 | `describeType`'s other private copies in `src/export/` (`model.ts`, `design-md.ts` and twelve more), which name an array "object" | R6-41 | Not scheduled: sharing them would change their messages for an array |
 | Cosine and Poline-style generators, tokens for the unexpressed style traits, animations in `theme.css`, WebGL in the canvas templates, GIF, glTF, dotLottie, WebGPU, audio, a motion budget | 05-motion-3d.md section 18 | Not scheduled, as M5 left them |
 
@@ -1855,7 +1860,7 @@ switch; `readEntry` takes more forms the same way; `runLighthouse` and `scripts/
   names the entry first, and a seed suffix fixes it.
 - **The word list can change.** A new or reweighted term can move a brief's preset or hues; C-GAL6-03 pins each brief's
   terms and preset, so such a change is seen in the same run.
-- **Font names on the cards.** Twelve catalog families the gallery shows carry a company's name or mascot (owner
+- **Font names on the cards.** Thirteen catalog families the gallery shows carry a company's name or mascot (owner
   approval item 10 lists them), and the `m3-expressive` preset's label is "M3 Expressive"; the cards show them as the
   studio does. No entry's own words do.
 - **A share card may render per request.** If probe 2 finds the per-slug image dynamic, each scraper fetch is one
@@ -1921,7 +1926,7 @@ Each item ends with a recommendation: the controller's for items 1 to 6, the dra
    indexes say nine products across 16 repositories (R6-51). The workspace `CLAUDE.md` also says "15 independent repos"
    and "8 products"; an agent does not edit `CLAUDE.md` without the owner. *Recommendation: approve the README and index
    edits, and either edit `CLAUDE.md` yourself or approve that edit in the close.*
-10. **The cards and entry pages name font families as the catalog does.** Twelve of the families they show carry a
+10. **The cards and entry pages name font families as the catalog does.** Thirteen of the families they show carry a
     company's name or a company's mascot: Google Sans Flex and Google Sans Code (azurite), Zalando Sans and Zalando Sans
     Expanded (verditer), Hubot Sans and Mona Sans (turquoise), Martian Mono (turquoise's mono), Schibsted Grotesk
     (realgar, kermes, lapis), Red Hat Text (sepia, fustic), Funnel Display and Funnel Sans (smalt), and Spline Sans and
