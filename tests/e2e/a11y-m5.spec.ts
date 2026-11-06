@@ -433,6 +433,11 @@ test.describe("F-A11Y5-02 the keyboard reaches every new control", () => {
     await expect(section(page, "Brand video").locator("[data-brand-player]")).toBeAttached();
     const stops = await tabTo(page, "Close");
     expectReachable(stops);
-    expect(stops.map((stop) => stop.name)).toEqual(["Pause", "Pause", "Close"]);
+    expect(stops.map((stop) => stop.name)).toEqual([
+      "Pause",
+      "Pause",
+      "Record the shader loop",
+      "Close",
+    ]);
   });
 });
