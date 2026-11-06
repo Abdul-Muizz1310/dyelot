@@ -3,6 +3,8 @@ import Link from "next/link";
 import { PageFrame } from "@/components/terminal/PageFrame";
 import { Prompt } from "@/components/terminal/Prompt";
 import { TerminalWindow } from "@/components/terminal/TerminalWindow";
+import { HERO_CARDS } from "@/features/landing/cards";
+import { Hero } from "@/features/landing/Hero";
 import { heroSpec } from "@/features/landing/heroes";
 import { Story } from "@/features/landing/Story";
 import { REPOSITORY_LABEL, REPOSITORY_URL } from "@/lib/links";
@@ -30,8 +32,9 @@ function StartLink({ href, label }: { href: string; label: string }) {
   );
 }
 
-// The page says what exists today, and nothing else: the product's one-liner, a way into each page
-// that shipped and the story of one design. Add a line here only when the feature behind it ships.
+// The page says what exists today, and nothing else: the product's one-liner, the hero's animated
+// palettes, a way into each page that shipped and the story of one design. Add a line here only when
+// the feature behind it ships.
 export default function Home() {
   return (
     <PageFrame active="home" statusLeft="dyelot ~/" statusRight="muizz-lab · MIT">
@@ -45,6 +48,7 @@ export default function Home() {
             agent can build
           </h1>
         </div>
+        <Hero hero={HERO_CARDS} />
         <TerminalWindow title="start.log">
           <div className="space-y-2">
             <StartLink href="/studio" label="the studio" />
