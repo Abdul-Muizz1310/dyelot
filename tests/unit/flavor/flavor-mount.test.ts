@@ -1,4 +1,6 @@
 import type { EventEmitter } from "node:events";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import { afterEach, describe, expect, it, onTestFinished, vi } from "vitest";
 import { flavorSeed, flavorStops } from "@/engine";
 import { hexToRgb, oklchToRgb, rgbToOklab } from "@/engine/color/convert";
@@ -432,6 +434,16 @@ describe("drawAt, autoplay and size", () => {
     expect([canvas.width, canvas.height]).toEqual([800, 450]);
     expect(gl.draws.length).toBeGreaterThan(drawn);
     expect(gl.uniform("u_resolution")).toEqual([800, 450]);
+  });
+
+  it("R5-18 mountFlavor's documentation asks for a canvas sized by CSS", () => {
+    const text = readFileSync(
+      path.resolve(import.meta.dirname, "../../../src/flavor/flavor.mjs"),
+      "utf8",
+    );
+    const start = text.indexOf("export function mountFlavor");
+    const doc = text.slice(text.lastIndexOf("/**", start), start).replace(/\n\s*\*\s?/g, " ");
+    expect(doc).toContain("The canvas must be sized by CSS");
   });
 
   it("C-FLAV-15 drawAt under still draws at its phase and stays still", () => {

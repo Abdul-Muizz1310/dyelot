@@ -341,8 +341,11 @@ constants drafter)**
 
 **R5-18 · The runtime's behavior.** The drawing buffer follows the canvas's CSS size times the device pixel ratio,
 capped at `MAX_DPR` 1.5, then scaled down as a whole to fit within 1920 × 1080 (`bufferSize`); a `ResizeObserver` keeps
-it current. The loop is one `requestAnimationFrame` chain that advances the phase only while it runs, so a pause freezes
-the image and a resume continues from the frozen phase. It pauses while the canvas is off-screen (an
+it current. The canvas must be sized by CSS unless `size` fixes its buffer: a canvas with no CSS size lays out at its
+buffer's size, which each resize would multiply by the ratio up to the cap, so `mountFlavor`'s comment and 12.1's README
+ask for a canvas sized by CSS (recorded at Task 5.3b's review). The loop is one `requestAnimationFrame` chain that
+advances the phase only while it runs, so a pause freezes the image and a resume continues from the frozen phase. It
+pauses while the canvas is off-screen (an
 `IntersectionObserver` with threshold 0) and while the page is hidden (`visibilitychange`). Under reduced motion (the OS
 setting `prefers-reduced-motion: reduce`, followed live through `matchMedia`'s `change` event, or `reducedMotion: true`)
 it draws one still frame at phase 0 and runs no loop. `setStops` cross-fades from the shown stops to the new ones over
@@ -1852,7 +1855,7 @@ Without React:
 ```js
 import { mountFlavor } from "./flavor/flavor.mjs";
 
-const flavor = mountFlavor(canvas, { stops, seed }); // canvas: any <canvas> element
+const flavor = mountFlavor(canvas, { stops, seed }); // canvas: a <canvas> sized by CSS
 ```
 
 Where WebGL2 is missing, the module paints the still gradient itself. To use the still background alone, give an element

@@ -810,6 +810,10 @@ export function supportsFlavor() {
  * `paused`, `hidden`, `offscreen` and `running`; only `running` loops. Where WebGL2 is missing, a
  * shader fails or the context is lost, the canvas shows `flavorBackground(stops)` and
  * `onFallback` hears the reason, once; nothing is ever logged.
+ *
+ * The canvas must be sized by CSS (a width and a height from a class or a style) unless `size`
+ * fixes its drawing buffer: the buffer follows the CSS size times the device pixel ratio, so a
+ * canvas with no CSS size, which lays out at its buffer's size, would grow with each resize.
  * @param {HTMLCanvasElement} canvas
  * @param {FlavorOptions} options
  * @returns {FlavorHandle}
