@@ -2,7 +2,15 @@ import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, rmdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, expectTypeOf, it } from "vitest";
-import type { DirectionParams, Finding, LintedSpec } from "@/engine";
+import type {
+  DirectionParams,
+  Bezier as EntryBezier,
+  MotionPreset as EntryMotionPreset,
+  MotionPresetId as EntryMotionPresetId,
+  SpringCurve as EntrySpringCurve,
+  Finding,
+  LintedSpec,
+} from "@/engine";
 import * as engine from "@/engine";
 import { pickChartColors } from "@/engine/color/chart";
 import { meets, perceptualLc, wcagRatio } from "@/engine/color/contrast";
@@ -35,7 +43,7 @@ import {
   HIGH_GENERICNESS_FAMILIES,
 } from "@/engine/fonts/catalog";
 import { choosePairing, PAIRING_IDS, PAIRINGS } from "@/engine/fonts/pairings";
-import { ENGINE_VERSION, generateSystem } from "@/engine/generate";
+import { ENGINE_VERSION, generateSystem, withMotion } from "@/engine/generate";
 import { imagePalette } from "@/engine/image/palette";
 import { lintSpec } from "@/engine/lint";
 import { RULE_IDS } from "@/engine/lint/types";
@@ -43,11 +51,20 @@ import { CONTRAST_CHECKS, measureSpec, summarize } from "@/engine/measure";
 import { freshParams, paramsOfSpec, resolveParams } from "@/engine/params";
 import { applyPreset, PRESET_IDS, PRESETS, presetOf } from "@/engine/presets";
 import { round6, roundHue } from "@/engine/round";
+import { bezierPoints } from "@/engine/tokens/bezier";
 import { shadows } from "@/engine/tokens/depth";
-import { motionTokens } from "@/engine/tokens/motion";
+import {
+  MOTION_DURATION_NAMES,
+  MOTION_EASING_NAMES,
+  MOTION_SPRING_NAMES,
+  motionTokens,
+  normalizeMotionTokens,
+  sameMotionTokens,
+} from "@/engine/tokens/motion";
+import { MOTION_PRESET_IDS, MOTION_PRESETS, motionPresetOf } from "@/engine/tokens/motion-presets";
 import { nestedRadius, RADIUS_SET_NAMES, radiusScale } from "@/engine/tokens/shape";
 import { spaceScale } from "@/engine/tokens/space";
-import { springCurve } from "@/engine/tokens/spring";
+import { type SpringCurve, springCurve } from "@/engine/tokens/spring";
 import { TYPE_CONTEXTS, typeScale } from "@/engine/tokens/type";
 import { typeWeights } from "@/engine/tokens/weights";
 import type { DesignSpec } from "@/spec";
@@ -162,13 +179,10 @@ const ENGINE_KEYS = [
 ];
 
 /**
- * Keys whose module a later task of M2 creates. Task 2.4 landed the last of them (presets, pairing
- * choice and color names), so the list is empty and the entry holds the whole set. A key joins the
- * entry only when the full set above names it.
+ * M5 names whose task has not landed in this checkout (5.3a adds the flavor names). A name
+ * leaves the list when its task lands; the list is empty once it has.
  */
-const PENDING_KEYS: readonly string[] = M5_ENGINE_KEYS.filter(
-  (key) => !["SOLID_GAMUTS", "gamutSolid", "gamutSlice", "solidPosition"].includes(key),
-);
+const PENDING_KEYS: readonly string[] = ["FLAVOR_STEPS", "flavorStops", "flavorSeed"];
 
 /** M3's engine key set: the entry's keys before Task 4.6a. */
 const M3_ENGINE_KEYS: readonly string[] = ENGINE_KEYS.filter(
@@ -271,6 +285,16 @@ describe("the engine entry", () => {
       gamutSlice,
       gamutSolid,
       solidPosition,
+      MOTION_DURATION_NAMES,
+      MOTION_EASING_NAMES,
+      MOTION_SPRING_NAMES,
+      normalizeMotionTokens,
+      sameMotionTokens,
+      MOTION_PRESET_IDS,
+      MOTION_PRESETS,
+      motionPresetOf,
+      bezierPoints,
+      withMotion,
     };
     // Every present key has a home entry here, and the pending keys have none until their task lands.
     expect(sorted(Object.keys(homes))).toEqual(sorted(Object.keys(exported)));
@@ -297,11 +321,32 @@ describe("the engine entry", () => {
         (key) => !PENDING_KEYS.includes(key),
       ),
     );
-    expect(engine.SOLID_GAMUTS).toBe(SOLID_GAMUTS);
-    expect(engine.gamutSolid).toBe(gamutSolid);
-    expect(engine.gamutSlice).toBe(gamutSlice);
-    expect(engine.solidPosition).toBe(solidPosition);
+    const delivered: Record<string, unknown> = {
+      SOLID_GAMUTS,
+      gamutSolid,
+      gamutSlice,
+      solidPosition,
+      MOTION_DURATION_NAMES,
+      MOTION_EASING_NAMES,
+      MOTION_SPRING_NAMES,
+      normalizeMotionTokens,
+      sameMotionTokens,
+      MOTION_PRESET_IDS,
+      MOTION_PRESETS,
+      motionPresetOf,
+      bezierPoints,
+      withMotion,
+    };
+    const exported: Record<string, unknown> = { ...engine };
+    for (const [name, home] of Object.entries(delivered)) expect(exported[name], name).toBe(home);
     expect(sorted(Object.keys(spec))).toEqual(sorted(SPEC_KEYS));
+  });
+
+  it("C-ENTRY5-01 exports the types MotionPresetId, MotionPreset, Bezier and SpringCurve", () => {
+    expectTypeOf<EntryMotionPresetId>().toEqualTypeOf<(typeof MOTION_PRESET_IDS)[number]>();
+    expectTypeOf<EntryMotionPreset>().toHaveProperty("tokens");
+    expectTypeOf<EntryBezier>().toEqualTypeOf<readonly [number, number, number, number]>();
+    expectTypeOf<EntrySpringCurve>().toEqualTypeOf<SpringCurve>();
   });
 
   it.each(["multiply", "runRules", "tryOklchToRgb", "gamutExcess"])(

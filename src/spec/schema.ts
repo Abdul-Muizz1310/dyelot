@@ -11,6 +11,7 @@ import {
 import { ROLE_NAMES } from "../engine/color/roles";
 import { STEPS, type Step } from "../engine/color/scale";
 import type { PairingId } from "../engine/fonts/pairings";
+import type { MotionTokens } from "../engine/tokens/motion";
 import { RADIUS_SET_NAMES, type RadiusSet } from "../engine/tokens/shape";
 import { TYPE_CONTEXTS, type TypeContext, type TypeStepName } from "../engine/tokens/type";
 import { isPlainText } from "./text";
@@ -37,6 +38,8 @@ export type DirectionParams = ColorParams & {
   readonly oneLiner?: string;
   readonly direction?: Direction;
   readonly rules?: { readonly do: readonly string[]; readonly dont: readonly string[] };
+  /** The motion tokens of the design (R5-09); absent means the engine's own, so every earlier spec id holds. */
+  readonly motionTokens?: MotionTokens;
 };
 
 /** The direction of a design (R3-01): a strict object with at least one key. */

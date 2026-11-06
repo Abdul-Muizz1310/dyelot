@@ -1,4 +1,4 @@
-import { canonicalJson } from "../spec/canonical";
+import { canonicalizeFor, canonicalJson, checkCanonical } from "../spec/canonical";
 import {
   ADJECTIVE_MAX,
   type CreatedWith,
@@ -45,7 +45,7 @@ import { PAIRING_IDS, pairingById } from "./fonts/pairings";
 import { seededRandom } from "./random";
 import { round6 } from "./round";
 import { shadows } from "./tokens/depth";
-import { motionTokens } from "./tokens/motion";
+import { type MotionTokens, motionTokens, normalizeMotionTokens } from "./tokens/motion";
 import { RADIUS_SET_NAMES, type RadiusSet, radiusScale } from "./tokens/shape";
 import { spaceScale } from "./tokens/space";
 import { TYPE_CONTEXTS, type TypeContext, typeScale } from "./tokens/type";
@@ -71,6 +71,8 @@ type Parsed = {
   readonly radius: RadiusSet;
   readonly depth: DepthStyle;
   readonly motion: MotionFeel;
+  /** The normalized tokens of `params.motionTokens`; absent means `motionTokens()` (R5-10). */
+  readonly motionTokens: MotionTokens | undefined;
   readonly name: string;
   readonly oneLiner: string | undefined;
   readonly direction: Direction | undefined;
@@ -217,6 +219,8 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
   assertOneOf(radius, RADIUS_SET_NAMES, "generateSystem: params.radius");
   assertOneOf(depth, DEPTH_STYLES, "generateSystem: params.depth");
   assertOneOf(motion, MOTION_FEELS, "generateSystem: params.motion");
+  // Read once, like `type`: a getter could hand back another value between the check and the build.
+  const tokens: unknown = params.motionTokens;
   const pairing: unknown = params.pairing;
   let families = DEFAULT_FAMILIES;
   if (pairing !== undefined) {
@@ -241,6 +245,10 @@ function parseParams(params: DirectionParams, seed: string): Parsed {
     radius,
     depth,
     motion,
+    motionTokens:
+      tokens === undefined
+        ? undefined
+        : normalizeMotionTokens(tokens as MotionTokens, "generateSystem: params.motionTokens"),
     name: name === undefined ? UNTITLED : checkPlain(name, NAME_MAX, "generateSystem: params.name"),
     oneLiner:
       oneLiner === undefined
@@ -337,7 +345,7 @@ export function generateSystem(
     space: { basePx: SPACE_BASE, scale: spaceScale(SPACE_BASE) },
     shape: { radiusSet: parsed.radius, radii: radiusScale(parsed.radius) },
     depth: { style: parsed.depth, shadows: shadows(palettes.neutral.light[SHADOW_STEP].oklch) },
-    motion: { feel: parsed.motion, ...motionTokens() },
+    motion: { feel: parsed.motion, ...(parsed.motionTokens ?? motionTokens()) },
     components: {
       cards: "interactive-only",
       emphasis: "one-filled-per-region",
@@ -349,4 +357,17 @@ export function generateSystem(
   // R-02: every stored number through round6, a hue through roundHue. The canonical text does
   // exactly that, so reading it back gives the stored spec, which the schema checks and types.
   return DesignSpecSchema.parse(JSON.parse(canonicalJson(draft, "spec", "generateSystem")));
+}
+
+/**
+ * The spec `generateSystem` would return for the spec's own parameters with `motionTokens: tokens`,
+ * without running the solver (R5-11): `motion` becomes `{ feel, ...tokens }`, and the result takes
+ * the same canonical round trip and schema parse that end `generateSystem`. The spec is checked
+ * first, as `normalizeSpec` checks it, then the tokens. Errors start with `withMotion`.
+ */
+export function withMotion(spec: DesignSpec, tokens: MotionTokens): DesignSpec {
+  const checked = checkCanonical(canonicalizeFor(spec, "withMotion"), "withMotion");
+  const normalized = normalizeMotionTokens(tokens, "withMotion: tokens");
+  const draft = { ...checked, motion: { feel: checked.motion.feel, ...normalized } };
+  return DesignSpecSchema.parse(JSON.parse(canonicalJson(draft, "spec", "withMotion")));
 }

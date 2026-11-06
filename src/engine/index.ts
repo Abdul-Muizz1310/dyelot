@@ -59,7 +59,7 @@ export {
   type Pairing,
   type PairingId,
 } from "./fonts/pairings";
-export { ENGINE_VERSION, generateSystem } from "./generate";
+export { ENGINE_VERSION, generateSystem, withMotion } from "./generate";
 export type { ImageCluster, ImagePalette, RawCluster } from "./image/palette";
 export { imagePalette } from "./image/palette";
 export { lintSpec } from "./lint";
@@ -79,8 +79,24 @@ export {
   presetOf,
 } from "./presets";
 export { round6, roundHue } from "./round";
+export { type Bezier, bezierPoints } from "./tokens/bezier";
 export { type ShadowLayer, shadows } from "./tokens/depth";
-export { type MotionTokens, motionTokens } from "./tokens/motion";
+export {
+  MOTION_DURATION_NAMES,
+  MOTION_EASING_NAMES,
+  MOTION_SPRING_NAMES,
+  type MotionTokens,
+  motionTokens,
+  normalizeMotionTokens,
+  sameMotionTokens,
+} from "./tokens/motion";
+export {
+  MOTION_PRESET_IDS,
+  MOTION_PRESETS,
+  type MotionPreset,
+  type MotionPresetId,
+  motionPresetOf,
+} from "./tokens/motion-presets";
 export {
   nestedRadius,
   RADIUS_SET_NAMES,
@@ -89,7 +105,7 @@ export {
   radiusScale,
 } from "./tokens/shape";
 export { spaceScale } from "./tokens/space";
-export { springCurve } from "./tokens/spring";
+export { type SpringCurve, springCurve } from "./tokens/spring";
 export {
   TYPE_CONTEXTS,
   type TypeContext,

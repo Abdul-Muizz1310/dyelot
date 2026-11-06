@@ -2,6 +2,7 @@ import type { DesignSpec, DirectionParams } from "../spec/schema";
 import { describeType } from "./color/guards";
 import { choosePairing, PAIRINGS, type Pairing } from "./fonts/pairings";
 import { PRESETS } from "./presets";
+import { motionTokens, normalizeMotionTokens, sameMotionTokens } from "./tokens/motion";
 
 // The parameters of a fresh design, the automatic pairing (R2-05) and the parameters a spec
 // records (R3-03). They sit in the engine so the studio and the exporters share them. Pure.
@@ -78,7 +79,7 @@ function checkSpec(spec: DesignSpec, caller: string): void {
  * The parameters a spec records (section 5.7): `color.params`, the type context and ratio, the
  * radius set, the depth style, the motion feel, the name (left out when it is the generator's
  * default), `meta.oneLiner`, `direction` and `rules` (the last only when a list holds an entry,
- * R3-03), and the pairing whose families equal `type.families`. That pairing stays absent (auto)
+ * R3-03), `motionTokens` (only when they differ from `motionTokens()`, R5-10), and the pairing whose families equal `type.families`. That pairing stays absent (auto)
  * when it is the one `choosePairing(meta.seed)` picks (R2-05). Families that match no pairing
  * leave `pairing` absent and set `customFonts` (R2-14 item 4).
  */
@@ -89,6 +90,11 @@ export function paramsOfSpec(spec: DesignSpec): { params: DirectionParams; custo
   const { oneLiner } = spec.meta;
   const { direction, rules } = spec;
   const match = pairingWith(families);
+  const { durations, easings, springs } = spec.motion;
+  const tokens = normalizeMotionTokens(
+    { durations, easings, springs },
+    "paramsOfSpec: spec.motion",
+  );
   const explicit = match !== undefined && match.id !== choosePairing(spec.meta.seed);
   const params: DirectionParams = {
     ...(primary === undefined ? {} : { primary }),
@@ -99,6 +105,7 @@ export function paramsOfSpec(spec: DesignSpec): { params: DirectionParams; custo
     radius: spec.shape.radiusSet,
     depth: spec.depth.style,
     motion: spec.motion.feel,
+    ...(sameMotionTokens(tokens, motionTokens()) ? {} : { motionTokens: tokens }),
     ...(spec.meta.name === UNNAMED ? {} : { name: spec.meta.name }),
     ...(oneLiner === undefined ? {} : { oneLiner }),
     ...(direction === undefined ? {} : { direction: structuredClone(direction) }),
