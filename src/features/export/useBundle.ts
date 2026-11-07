@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Bundle } from "@/export";
+import { loadOnce } from "@/lib/load-once";
 import { SITE } from "@/lib/site/config";
 import type { DesignSpec } from "@/spec";
 
@@ -10,18 +11,8 @@ import type { DesignSpec } from "@/spec";
 // changes while the dialog is open (Review Focus 1). A bundle is shown only for the spec it was
 // built from, so the dialog never pairs one design's files with another's lot.
 
-type ExportModule = typeof import("@/export");
-
-let loading: Promise<ExportModule> | null = null;
-
 /** The export entry, loaded once; a failed load is forgotten so that "Try again" asks the network again. */
-export function loadExport(): Promise<ExportModule> {
-  loading ??= import("@/export").catch((error: unknown) => {
-    loading = null;
-    throw error;
-  });
-  return loading;
-}
+export const loadExport = loadOnce(() => import("@/export"));
 
 /** What one build made: the bundle, its zip (none for a failing design, D1) and the zip's name. */
 type Built = {

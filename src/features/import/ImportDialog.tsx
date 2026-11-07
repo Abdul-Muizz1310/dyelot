@@ -6,6 +6,7 @@ import { trapTab } from "@/features/a11y/trapTab";
 import { BUTTON, PRIMARY_BUTTON } from "@/features/studio/chrome";
 import { Choice, LABEL } from "@/features/studio/controls";
 import type { StudioStore } from "@/features/studio/store";
+import { loadOnce } from "@/lib/load-once";
 import { chosenFormat, fileAccepted, type ImportFormat } from "./form";
 
 // The import dialog (spec R3-33, R3-34, section 9.3): a modal dialog labelled by its heading, on the
@@ -29,16 +30,8 @@ const WRAP = "[overflow-wrap:anywhere]";
 
 type ImportModule = typeof import("@/import");
 
-let loading: Promise<ImportModule> | null = null;
-
 /** The import entry, loaded once; a failed load is forgotten so that "Try again" asks the network again. */
-function loadImport(): Promise<ImportModule> {
-  loading ??= import("@/import").catch((error: unknown) => {
-    loading = null;
-    throw error;
-  });
-  return loading;
-}
+const loadImport = loadOnce(() => import("@/import"));
 
 /** `@/import` once it has loaded; `failed` says the load did not work. */
 function useImportModule(): { module: ImportModule | null; failed: boolean; retry(): void } {
