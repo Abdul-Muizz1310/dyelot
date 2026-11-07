@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { AiChange, BriefDraft, BriefInput, HueOrNull } from "@/ai";
 import { type DirectionParams, LOCKABLE, type Lockable, type Oklch } from "@/engine";
 import { ActionButton, ActionStatus } from "@/features/ai/ActionButton";
@@ -108,12 +108,30 @@ export async function readBrief(
   return { failures, result: NOTHING };
 }
 
-export function BriefSection({ store, activity }: { store: StudioStore; activity: AiActivity }) {
+export function BriefSection({
+  store,
+  activity,
+  entryText = null,
+}: {
+  store: StudioStore;
+  activity: AiActivity;
+  /**
+   * An entry hash's brief (R6-24, 5.4): when it turns to a string, it becomes the box's text and the
+   * box takes focus. Nothing is read until the visitor presses "Read the brief".
+   */
+  entryText?: string | null;
+}) {
   const [value, setValue] = useState("");
   const action = useAiAction(activity, "brief");
   const id = useId();
   const counterId = `${id}-counter`;
   const cleaned = toPlainText(value, BRIEF_MAX);
+  const field = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    if (entryText === null) return;
+    setValue(entryText);
+    field.current?.focus();
+  }, [entryText]);
 
   return (
     <>
@@ -122,6 +140,7 @@ export function BriefSection({ store, activity }: { store: StudioStore; activity
           {FIELD_LABEL}
         </label>
         <textarea
+          ref={field}
           id={id}
           rows={3}
           maxLength={BRIEF_MAX}

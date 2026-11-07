@@ -1,4 +1,8 @@
 import { test as base, expect, type Page } from "@playwright/test";
+import type { PresetId } from "@/engine";
+import { DRAFT_KEY, type StorageLike, writeDraft } from "@/features/studio/drafts";
+import { paramsOfSpec } from "@/features/studio/params";
+import type { DesignSpec } from "@/spec";
 
 // Init scripts and readers the M5 flows share (docs/specs/05-motion-3d.md, section 4). Each init script
 // takes the page and installs itself before the next navigation. The flows' one `test`, with its watch
@@ -437,4 +441,41 @@ export async function STATUS_RECORD(
         selector,
       ),
   };
+}
+
+// Task 6.5b: the draft a flow stores before the studio's first load.
+
+/**
+ * `STORAGE_DRAFT(spec, preset)` (docs/specs/06-gallery.md, section 4) is an init script that writes
+ * M2's draft record for `spec` with `preset` under `DRAFT_KEY` before the load. The record is the
+ * one `writeDraft` stores for the spec's snapshot, its params `paramsOfSpec(spec)` and its seed
+ * `meta.seed`, computed in Node; the page only sets the text. Install it before `goto`.
+ */
+export async function STORAGE_DRAFT(
+  page: Page,
+  spec: DesignSpec,
+  preset: PresetId | null,
+): Promise<void> {
+  const items = new Map<string, string>();
+  const storage: StorageLike = {
+    getItem: (key) => items.get(key) ?? null,
+    setItem: (key, value) => void items.set(key, value),
+    removeItem: (key) => void items.delete(key),
+  };
+  writeDraft(storage, {
+    params: paramsOfSpec(spec).params,
+    seed: spec.meta.seed,
+    spec,
+    preset,
+    provenance: "loaded",
+    createdWith: spec.meta.createdWith,
+  });
+  const record = items.get(DRAFT_KEY);
+  if (record === undefined) throw new Error("STORAGE_DRAFT: writeDraft stored no record");
+  await page.addInitScript(
+    ([key, value]) => {
+      window.localStorage.setItem(key, value);
+    },
+    [DRAFT_KEY, record] as const,
+  );
 }

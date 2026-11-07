@@ -30,7 +30,7 @@ import { isOneOf } from "./guards";
 import { autoPairingLabel, GAMUT_LABELS, SEED_FIELD_MESSAGE, seedRowHex } from "./inputs";
 import { motionLine, pageHref } from "./pages";
 import { SEED_SLOT } from "./shortcuts";
-import { type StudioStore, useStudio } from "./store";
+import { type StudioEntry, type StudioStore, useStudio } from "./store";
 import { DENSITIES } from "./view";
 
 // The inputs panel (spec section 7.2): the controls of the table, in its order. A set of at most
@@ -48,6 +48,7 @@ export function InputsPanel({
   activity,
   onImport,
   importButton,
+  entry = null,
 }: {
   store: StudioStore;
   /** The studio's one AI activity: one action at a time (R4-56). */
@@ -55,6 +56,8 @@ export function InputsPanel({
   /** Opens the import dialog (R3-33); `opener` is where focus returns. */
   onImport?(opener: HTMLElement): void;
   importButton?: RefObject<HTMLButtonElement | null>;
+  /** The entry hash's request the shell took (R6-24, 10.2): the Brief's text, or the Image's focus. */
+  entry?: StudioEntry | null;
 }) {
   const params = useStudio(store, (studio) => studio.params);
   const seed = useStudio(store, (studio) => studio.seed);
@@ -84,11 +87,15 @@ export function InputsPanel({
         </Section>
 
         <Section title="Brief">
-          <BriefSection store={store} activity={activity} />
+          <BriefSection
+            store={store}
+            activity={activity}
+            entryText={entry?.kind === "brief" ? entry.text : null}
+          />
         </Section>
 
         <Section title="Image">
-          <ImageSection store={store} activity={activity} />
+          <ImageSection store={store} activity={activity} focusInput={entry?.kind === "image"} />
         </Section>
 
         <Section title="Seeds">
