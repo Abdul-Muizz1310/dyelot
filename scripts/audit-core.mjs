@@ -71,8 +71,36 @@ const METRICS = /** @type {const} */ ([
   ["si", "speed-index"],
 ]);
 
-/** The README's tables, by a row's `table`. */
-const TABLES = ["measured", "lighthouse", "first-byte", "weight"];
+/**
+ * @typedef {"string" | "number" | "number?" | "load" | "scores"} FieldType A row field's type: a
+ * number or null ("number?"), the measured row's two load averages, or a run's four scores.
+ */
+
+/**
+ * The README's tables, by a row's `table`, each with its fields' types (auditTable checks them all
+ * before any value).
+ * @type {Readonly<Record<string, Readonly<Record<string, FieldType>>>>}
+ */
+const ROW_FIELDS = Object.freeze({
+  measured: { date: "string", base: "string", load: "load" },
+  lighthouse: {
+    route: "string",
+    formFactor: "string",
+    scores: "scores",
+    lcp: "number?",
+    tbt: "number?",
+    cls: "number?",
+  },
+  "first-byte": { path: "string", ms: "number", over: "number" },
+  weight: {
+    route: "string",
+    scripts: "number",
+    scriptBytes: "number",
+    scriptTransferred: "number",
+    htmlBytes: "number",
+    htmlTransferred: "number",
+  },
+});
 
 /** Bytes in the README's KB. */
 const KB = 1000;
@@ -341,10 +369,36 @@ function isSize(/** @type {unknown} */ value) {
  * @param {string} what
  */
 function finite(value, what) {
-  if (typeof value !== "number" || !Number.isFinite(value)) {
-    throw new RangeError(`auditTable: ${what} is ${String(value)}, not a finite number`);
+  if (typeof value !== "number") {
+    throw new TypeError(`auditTable: ${what} must be a number, not ${kind(value)}`);
+  }
+  if (!Number.isFinite(value)) {
+    throw new RangeError(`auditTable: ${what} is ${value}, not a finite number`);
   }
   return value;
+}
+
+/**
+ * The TypeError R-05 names when a row's field `value` is not of `type`.
+ * @param {unknown} value
+ * @param {FieldType} type
+ * @param {string} what
+ */
+function checkField(value, type, what) {
+  /** @returns {never} */
+  const wrong = (/** @type {string} */ wanted) => {
+    throw new TypeError(`auditTable: ${what} must be ${wanted}, not ${kind(value)}`);
+  };
+  if (type === "string" && typeof value !== "string") wrong("a string");
+  if (type === "number" && typeof value !== "number") wrong("a number");
+  if (type === "number?" && value !== null && typeof value !== "number") wrong("a number or null");
+  if (type === "load" || type === "scores") {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) wrong("an object");
+    const fields = /** @type {Record<string, unknown>} */ (value);
+    for (const key of type === "load" ? ["before", "after"] : CATEGORIES) {
+      checkField(fields[key], type === "load" ? "number" : "number?", `${what}.${key}`);
+    }
+  }
 }
 
 /** A cell that may be null, which reads "n/a". */
@@ -365,14 +419,24 @@ export function auditTable(rows) {
   if (!Array.isArray(rows)) {
     throw new TypeError(`auditTable: the rows must be an array, not ${kind(rows)}`);
   }
+  // Every row's types first (R-05), then any value.
   for (const row of rows) {
     if (typeof row !== "object" || row === null) {
       throw new TypeError(`auditTable: each row must be an object, not ${kind(row)}`);
     }
+    if (typeof row.table !== "string") {
+      throw new TypeError(`auditTable: a row's table must be a string, not ${kind(row.table)}`);
+    }
+    if (Object.hasOwn(ROW_FIELDS, row.table)) {
+      const fields = /** @type {Record<string, unknown>} */ (row);
+      for (const [field, type] of Object.entries(ROW_FIELDS[row.table] ?? {})) {
+        checkField(fields[field], type, `the ${row.table} row's ${field}`);
+      }
+    }
   }
-  const stray = rows.find((row) => !TABLES.includes(row.table));
+  const stray = rows.find((row) => !Object.hasOwn(ROW_FIELDS, row.table));
   if (stray !== undefined) {
-    throw new RangeError(`auditTable: there is no table "${String(stray.table)}"`);
+    throw new RangeError(`auditTable: there is no table "${stray.table}"`);
   }
   const measured = /** @type {MeasuredRow[]} */ (rows.filter((row) => row.table === "measured"));
   if (measured.length !== 1) {

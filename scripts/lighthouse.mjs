@@ -26,26 +26,51 @@ const PORT_POLL_MS = 100;
  * @property {Launch} [launch] Starts the browser; injectable so a test can see whether it ran.
  */
 
+/** A value's kind for an error message. */
+function kind(/** @type {unknown} */ value) {
+  if (value === null) return "null";
+  return Array.isArray(value) ? "an array" : typeof value;
+}
+
 /**
- * The Lighthouse report (LHR) of `url` at `formFactor`. A non-string URL is a TypeError and a form
- * factor outside `FORM_FACTORS` a RangeError, both before any browser starts; the browser is closed
- * and its profile removed on every path.
+ * The Lighthouse report (LHR) of `url` at `formFactor`. Every type is checked first (R-05): a
+ * non-string URL, options that are not an object, and a `timeoutMs`, `args` or `launch` of the wrong
+ * type are each a TypeError. Then the values: a form factor outside `FORM_FACTORS` or a `timeoutMs`
+ * that is not a finite number above 0 is a RangeError. Both come before any browser starts; the
+ * browser is closed and its profile removed on every path.
  * @param {string} url
  * @param {import("./audit-core.mjs").FormFactor} formFactor
  * @param {RunOptions} [options]
  */
 export async function runLighthouse(url, formFactor, options = {}) {
+  if (typeof url !== "string") {
+    throw new TypeError(`runLighthouse: the URL must be a string, not ${kind(url)}`);
+  }
+  if (typeof options !== "object" || options === null || Array.isArray(options)) {
+    throw new TypeError(`runLighthouse: the options must be an object, not ${kind(options)}`);
+  }
   const {
     timeoutMs = 120_000,
     args = [],
     launch = (dir, o) => chromium.launchPersistentContext(dir, o),
   } = options;
-  if (typeof url !== "string") {
-    throw new TypeError(`runLighthouse: the URL must be a string, not ${typeof url}`);
+  if (typeof timeoutMs !== "number") {
+    throw new TypeError(`runLighthouse: timeoutMs must be a number, not ${kind(timeoutMs)}`);
+  }
+  if (!Array.isArray(args) || args.some((flag) => typeof flag !== "string")) {
+    throw new TypeError("runLighthouse: args must be an array of strings");
+  }
+  if (typeof launch !== "function") {
+    throw new TypeError(`runLighthouse: launch must be a function, not ${kind(launch)}`);
   }
   if (!FORM_FACTORS.includes(formFactor)) {
     throw new RangeError(
       `runLighthouse: the form factor must be one of ${FORM_FACTORS.join(", ")}, not ${String(formFactor)}`,
+    );
+  }
+  if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+    throw new RangeError(
+      `runLighthouse: timeoutMs must be a finite number above 0, not ${timeoutMs}`,
     );
   }
   const dir = mkdtempSync(join(tmpdir(), "dyelot-lh-"));

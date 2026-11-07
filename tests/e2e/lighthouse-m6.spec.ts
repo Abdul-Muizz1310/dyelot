@@ -38,3 +38,33 @@ test("F-LH6-17 refuses a form factor outside FORM_FACTORS and a non-string URL b
   expect((number as Error).message).toMatch(/^runLighthouse: /);
   expect(launched).toEqual([]);
 });
+
+test("F-LH6-17 checks every option's type before any value, and both before any launch", async ({
+  baseURL,
+}) => {
+  const launched: string[] = [];
+  const launch = async (dir: string): Promise<never> => {
+    launched.push(dir);
+    throw new Error("the spy launches no browser");
+  };
+  const origin = new URL("/", baseURL).href;
+  // Each bad type sits beside a bad value (the form factor "tablet"): the type is reported first.
+  const typeCases: [string, unknown][] = [
+    ["a timeout that is a string", { launch, timeoutMs: "60000" }],
+    ["flags that are a string", { launch, args: "--force-prefers-reduced-motion" }],
+    ["a flag that is not a string", { launch, args: [1] }],
+    ["a launch that is not a function", { launch: "chromium" }],
+    ["options that are null", null],
+  ];
+  for (const [what, options] of typeCases) {
+    const error = await rejection(() => runLighthouse(origin, "tablet" as never, options as never));
+    expect(error, what).toBeInstanceOf(TypeError);
+    expect((error as Error).message, what).toMatch(/^runLighthouse: /);
+  }
+  for (const timeoutMs of [Number.NaN, 0, -1, Number.POSITIVE_INFINITY]) {
+    const error = await rejection(() => runLighthouse(origin, "desktop", { launch, timeoutMs }));
+    expect(error, String(timeoutMs)).toBeInstanceOf(RangeError);
+    expect((error as Error).message, String(timeoutMs)).toMatch(/^runLighthouse: /);
+  }
+  expect(launched).toEqual([]);
+});

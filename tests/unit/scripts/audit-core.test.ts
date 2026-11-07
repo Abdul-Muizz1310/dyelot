@@ -306,6 +306,82 @@ describe("refusing what the helpers cannot use", () => {
       "auditTable",
     );
   });
+
+  describe("auditTable's field types", () => {
+    const measured = {
+      table: "measured",
+      date: "2026-11-07",
+      base: "https://dyelot.vercel.app",
+      load: { before: 1, after: 2 },
+    } as const;
+    const lighthouse = {
+      table: "lighthouse",
+      route: "/",
+      formFactor: "desktop",
+      scores: { performance: 1, accessibility: 1, "best-practices": 1, seo: null },
+      lcp: 1,
+      tbt: 1,
+      cls: 0,
+    } as const;
+    const firstByte = { table: "first-byte", path: "/", ms: 1, over: 0 } as const;
+    const weight = {
+      table: "weight",
+      route: "/",
+      scripts: 1,
+      scriptBytes: 1,
+      scriptTransferred: 1,
+      htmlBytes: 1,
+      htmlTransferred: 1,
+    } as const;
+
+    it("C-AUD6-06 auditTable is a TypeError for a field of the wrong type in any table", () => {
+      expect(auditTable([measured, lighthouse, firstByte, weight])).toContain("| `/` | desktop |");
+      const cases: [string, unknown[]][] = [
+        ["a table that is not a string", [measured, { table: 3 }]],
+        ["a date that is not a string", [{ ...measured, date: 20261107 }]],
+        ["a base that is not a string", [{ ...measured, base: null }]],
+        ["a load that is not an object", [{ ...measured, load: "1.4" }]],
+        ["a load average that is not a number", [{ ...measured, load: { before: "1", after: 2 } }]],
+        ["no scores", [measured, { ...lighthouse, scores: undefined }]],
+        [
+          "a score that is a string",
+          [measured, { ...lighthouse, scores: { ...lighthouse.scores, seo: "1" } }],
+        ],
+        ["a route that is not a string", [measured, { ...lighthouse, route: 1 }]],
+        ["a form factor that is not a string", [measured, { ...lighthouse, formFactor: null }]],
+        ["a metric that is a string", [measured, { ...lighthouse, lcp: "1" }]],
+        ["a first byte that is not a number", [measured, { ...firstByte, ms: "1" }]],
+        ["a size that is a string", [measured, { ...weight, scriptBytes: "1" }]],
+        ["a script count that is missing", [measured, { ...weight, scripts: undefined }]],
+      ];
+      for (const [what, rows] of cases) {
+        expect(() => auditTable(bad(rows)), what).toThrow(TypeError);
+        expectThrow(() => auditTable(bad(rows)), TypeError, "auditTable");
+      }
+    });
+
+    it("C-AUD6-06 auditTable checks every row's types before any row's values", () => {
+      expectThrow(
+        () =>
+          auditTable([
+            { ...weight, route: "/x" },
+            { ...measured, load: bad("1.4") },
+          ]),
+        TypeError,
+        "auditTable",
+      );
+      expectThrow(
+        () => auditTable([bad({ table: "speed" }), { ...weight, scriptBytes: bad("1") }, measured]),
+        TypeError,
+        "auditTable",
+      );
+      expectThrow(
+        () => auditTable([measured, measured, { ...lighthouse, scores: bad(null) }]),
+        TypeError,
+        "auditTable",
+      );
+    });
+  });
 });
 
 describe("the medians, the totals and the README tables", () => {
