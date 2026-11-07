@@ -243,6 +243,7 @@ const HERO_HEX = ["#f66c6d", "#e3c23b", "#4bae87", "#0e84b7", "#7652ac", "#cd3f9
 
 describe("entryDescription and entryMetadata (R6-17)", () => {
   it("C-GAL6-11 writes the line and the passing counts, in 50 to 160 characters", () => {
+    expect(GALLERY.entries).toHaveLength(24);
     for (const entry of GALLERY.entries) {
       const { requiredPass, required } = entry.summary.contrast;
       const text = entryDescription(entry);
@@ -283,6 +284,18 @@ describe("the data's errors (R6-08, R-05)", () => {
     expect(() => galleryEntry({ ...SPEC, color: 1 } as never, DEFS[6] as never, [])).toThrow(
       /^galleryEntry/,
     );
+  });
+
+  it("C-GAL6-12 galleryEntry checks terms and tags, types before domains", () => {
+    expect(() => galleryEntry(SPEC, DEFS[6] as never, "x" as never)).toThrow(TypeError);
+    expect(() => galleryEntry(SPEC, DEFS[6] as never, "x" as never)).toThrow(/^galleryEntry: /);
+    expect(() => galleryEntry(SPEC, DEFS[6] as never, [1] as never)).toThrow(/^galleryEntry: /);
+    const noTags = { ...DEFS[6], tags: "calm" } as never;
+    expect(() => galleryEntry(SPEC, noTags, [])).toThrow(TypeError);
+    expect(() => galleryEntry(SPEC, noTags, [])).toThrow(/^galleryEntry: /);
+    const badSlug = { ...DEFS[6], slug: "Bad Slug" } as never;
+    expect(() => galleryEntry(SPEC, badSlug, "x" as never)).toThrow(TypeError);
+    expect(() => galleryEntry(SPEC, { ...DEFS[6], tags: [1] } as never, [])).toThrow(TypeError);
   });
 
   it("C-GAL6-12 galleryEntry refuses steps that are no array and a hero that does not exist", () => {

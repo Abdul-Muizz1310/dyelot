@@ -61,12 +61,24 @@ export function briefSpec(
   ai: GalleryAi,
 ): { readonly spec: DesignSpec; readonly terms: readonly string[] } {
   needRecord(def, "def", "briefSpec");
+  for (const field of ["source", "slug"] as const) {
+    if (typeof def[field] !== "string") {
+      throw new TypeError(`briefSpec: def.${field} must be a string, got ${typeName(def[field])}`);
+    }
+  }
+  needRecord(ai, "ai", "briefSpec");
+  for (const name of AI_NAMES) {
+    if (typeof ai[name] !== "function") {
+      throw new TypeError(`briefSpec: ai.${name} must be a function, got ${typeName(ai[name])}`);
+    }
+  }
   if (def.source !== "brief") {
     throw new RangeError(
       `briefSpec: def.source must be "brief", got ${JSON.stringify(def.source)}`,
     );
   }
-  for (const field of ["slug", "name", "seed", "brief"] as const) {
+  // The fields only a brief row has are read once the row is known to be one.
+  for (const field of ["name", "seed", "brief"] as const) {
     if (typeof def[field] !== "string") {
       throw new TypeError(`briefSpec: def.${field} must be a string, got ${typeName(def[field])}`);
     }
@@ -75,12 +87,6 @@ export function briefSpec(
     throw new RangeError(
       `briefSpec: def.slug must be lowercase words joined by hyphens, got "${def.slug}"`,
     );
-  }
-  needRecord(ai, "ai", "briefSpec");
-  for (const name of AI_NAMES) {
-    if (typeof ai[name] !== "function") {
-      throw new TypeError(`briefSpec: ai.${name} must be a function, got ${typeName(ai[name])}`);
-    }
   }
   const { seeds, rest } = ai.briefColors(def.brief);
   if (seeds.length > 0) {
@@ -155,7 +161,20 @@ export function galleryEntry(
 ): GalleryEntry {
   checkSpec(spec);
   needRecord(def, "def", "galleryEntry");
-  if (typeof def.slug !== "string" || !SLUG.test(def.slug)) {
+  if (typeof def.slug !== "string") {
+    throw new TypeError(`galleryEntry: def.slug must be a string, got ${typeName(def.slug)}`);
+  }
+  for (const [path, list] of [
+    ["terms", terms],
+    ["def.tags", def.tags],
+  ] as const) {
+    if (!Array.isArray(list) || list.some((item) => typeof item !== "string")) {
+      throw new TypeError(
+        `galleryEntry: ${path} must be an array of strings, got ${typeName(list)}`,
+      );
+    }
+  }
+  if (!SLUG.test(def.slug)) {
     throw new RangeError(
       `galleryEntry: def.slug must be lowercase words joined by hyphens, got ${JSON.stringify(def.slug)}`,
     );

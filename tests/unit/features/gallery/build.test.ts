@@ -109,6 +109,16 @@ describe("briefSpec and galleryData refuse (R6-06, R-05)", () => {
     expect(() => briefSpec(row, null as never)).toThrow(/^briefSpec/);
   });
 
+  it("C-GAL6-10 checks the type of every argument before any domain", () => {
+    const hero = { slug: "madder", source: "hero", hero: 0, tags: ["bold"] };
+    expect(() => briefSpec({ ...row, slug: "Bad Slug" }, null as never)).toThrow(TypeError);
+    expect(() => briefSpec(hero as never, null as never)).toThrow(TypeError);
+    expect(() =>
+      briefSpec({ ...row, slug: "Bad Slug" }, { ...AI, briefChange: 1 } as never),
+    ).toThrow(TypeError);
+    expect(() => briefSpec({ ...row, slug: "Bad Slug", name: 3 as never }, AI)).toThrow(TypeError);
+  });
+
   it("C-GAL6-10 refuses a row with a bad field and an ai whose name is no function", () => {
     expect(() => briefSpec({ ...row, slug: "Bad Slug" }, AI)).toThrow(RangeError);
     expect(() => briefSpec({ ...row, brief: 3 as never }, AI)).toThrow(TypeError);

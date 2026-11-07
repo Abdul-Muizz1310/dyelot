@@ -63,4 +63,11 @@ describe("the gallery's links", () => {
     expect(() => openHref(1 as never, "studio")).toThrow(/^openHref/);
     expect(() => openHref("kermes", 1 as never)).toThrow(TypeError);
   });
+
+  it("C-GAL6-16 checks every argument's type before any domain", () => {
+    expect(() => entryHref("bad" as never, 3 as never)).toThrow(TypeError);
+    expect(() => openHref("Bad Slug", 1 as never)).toThrow(TypeError);
+    expect(() => absoluteStudioLink("http://a.test", 3 as never)).toThrow(TypeError);
+    expect(() => absoluteStudioLink("http://a.test", "")).toThrow(RangeError);
+  });
 });
