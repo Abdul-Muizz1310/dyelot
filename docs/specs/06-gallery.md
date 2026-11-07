@@ -10,7 +10,9 @@
 > states, every design passed 78 of 78 required checks with no lint error, and each one rebuilt from its own parameters
 > to the same spec id. Task 6.0 (R6-57) repeats that run as a test before any other task.
 
-Status: draft for the owner's approval, 2026-11-07.
+Status: approved by the owner on 2026-11-07, as written, after one independent review (2 Critical, 9 Important,
+20 Minor and 5 uncertain items) and a re-check (6 Minor, fixed). The owner accepted the recommendation of every item
+in section 21, and approved the close's edit of the workspace `CLAUDE.md` counts.
 
 Section 2 lists the owner's standing rulings and the controller's decisions of 2026-11-07. Section 3 turns each decision
 into rulings R6-01 to R6-60, and section 14 holds 172 cases (94 `C-` cases and 78 `F-` cases). A ruling ends with
@@ -1898,7 +1900,9 @@ switch; `readEntry` takes more forms the same way; `runLighthouse` and `scripts/
 
 ## 21. Owner approval items
 
-Each item ends with a recommendation: the controller's for items 1 to 6, the drafter's for items 7 to 12.
+Each item ends with a recommendation: the controller's for items 1 to 6, the drafter's for items 7 to 12. The owner's answers
+(2026-11-07): items 1 to 8 and 10 to 12 accepted as recommended; item 9 approved with the close also editing the
+workspace `CLAUDE.md` counts.
 
 1. **The Sanzo Wada combinations are dropped.** The rights check came back unclear and leaning not clean: the 1933 and
    1934 volumes are likely under US copyright until the end of 2028 and 2029, the selection and ordering of the 348
