@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { choosePairing } from "@/engine";
+import { applyPreset, choosePairing, presetOf } from "@/engine";
 import { DRAFT_KEY, readDraft, writeDraft } from "@/features/studio/drafts";
 import { paramsOfSpec, resolveParams } from "@/features/studio/params";
 import { bindStudioWindow } from "@/features/studio/store";
 import { readHash, writeHash } from "@/features/studio/url";
+import { DEFAULT_VIEW, presetView } from "@/features/studio/view";
 import { type DesignSpec, encodeSpec } from "@/spec";
 import { withValue } from "../../spec/support";
 import { lastPosted, makeStore } from "./store-support";
@@ -20,11 +21,21 @@ import {
 // Cases are C-HASH-11 to C-HASH-17, C-DRAFT-04 (the store's status), C-DRAFT-10, C-DRAFT-11 and
 // C-DRAFT-13 of docs/specs/02-studio.md, section 6.7 (Review Focus 1 and 2, R2-14): the link in
 // the hash and the draft follow each commit, 300 ms later, and the first load picks between them.
+// C-HASH-16's first row, C-DRAFT-13 and the failed draft restore are as section 16 of
+// docs/specs/06-gallery.md changes them (R6-26): a loaded design without a matching draft takes
+// `presetOf(spec)`, so they open a `dark-dev-tool` design, which that function names.
 
 const DEBOUNCE_MS = 300;
 
 /** A real spec other than FRESH's, for links and drafts. */
 const roundSpec = () => generate({ ...FRESH_PARAMS, radius: "round", pairing: "funnel" }, "seed-7");
+
+/**
+ * A real spec that holds a preset's values, so `presetOf` names it (M6's section 16 rows, R6-26):
+ * the `dark-dev-tool` preset, whose view is dark and dense.
+ */
+const presetSpec = () =>
+  generate(resolveParams(applyPreset(FRESH_PARAMS, "dark-dev-tool"), "seed-7"), "seed-7");
 
 /** A draft as the store writes it, for the spec and params given. */
 function draftOf(
@@ -179,17 +190,21 @@ describe("bindStudioWindow", () => {
 });
 
 describe("the first load (R2-14 item 2)", () => {
-  it("C-HASH-16 a valid hash beats a draft: paramsOfSpec, preset null", () => {
-    const { location } = fakeLocation(writeHash(roundSpec()));
+  it("C-HASH-16 a valid hash beats a draft: paramsOfSpec, preset presetOf(spec) and its view (M6)", () => {
+    const spec = presetSpec();
+    const { location } = fakeLocation(writeHash(spec));
     const { store } = makeStore({
       location,
       storage: draftOf(freshSpec(), FRESH_PARAMS, "default"),
     });
     const state = store.getState();
-    expect(state.spec).toEqual(roundSpec());
-    expect(state.params).toEqual(paramsOfSpec(roundSpec()).params);
+    const preset = presetOf(spec);
+    expect(preset).toBe("dark-dev-tool");
+    expect(state.spec).toEqual(spec);
+    expect(state.params).toEqual(paramsOfSpec(spec).params);
     expect(state.seed).toBe("seed-7");
-    expect(state.preset).toBeNull();
+    expect(state.preset).toBe(preset);
+    expect(state.view).toEqual(presetView(DEFAULT_VIEW, preset));
     expect(state.status.notice).toBeNull();
   });
 
@@ -259,16 +274,20 @@ describe("the first load (R2-14 item 2)", () => {
     ["a ratio of 9", { type: { context: "product", ratio: 9 } }],
     ["an unknown pairing id", { pairing: "comic-sans" }],
     ["a field that disagrees with the spec", { radius: "sharp" }],
-  ])("C-DRAFT-13 a matching draft with %s is not used: paramsOfSpec, preset null", (_, change) => {
-    const spec = roundSpec();
-    const params = { ...paramsOfSpec(spec).params, ...change };
-    const { location } = fakeLocation(writeHash(spec));
-    const { store } = makeStore({ location, storage: draftOf(spec, params, "bento") });
-    const state = store.getState();
-    expect(state.params).toEqual(paramsOfSpec(spec).params);
-    expect(state.preset).toBeNull();
-    expect(generate(resolveParams(state.params, state.seed), state.seed)).toEqual(state.spec);
-  });
+  ])(
+    "C-DRAFT-13 a matching draft with %s is not used: paramsOfSpec, preset presetOf(spec) (M6)",
+    (_, change) => {
+      const spec = presetSpec();
+      const params = { ...paramsOfSpec(spec).params, ...change };
+      const { location } = fakeLocation(writeHash(spec));
+      const { store } = makeStore({ location, storage: draftOf(spec, params, "bento") });
+      const state = store.getState();
+      expect(state.params).toEqual(paramsOfSpec(spec).params);
+      expect(state.preset).toBe(presetOf(spec));
+      expect(state.preset).toBe("dark-dev-tool");
+      expect(generate(resolveParams(state.params, state.seed), state.seed)).toEqual(state.spec);
+    },
+  );
 
   it("a restored draft whose fonts match no pairing shows custom-fonts, not draft-restored (M6)", () => {
     const custom = withValue(roundSpec(), ["type", "families", "display"], "inter") as DesignSpec;
@@ -306,11 +325,12 @@ describe("the first load (R2-14 item 2)", () => {
     },
   );
 
-  it("a draft restore whose params fail falls back to paramsOfSpec and drops the preset", () => {
-    const spec = roundSpec();
+  it("a draft restore whose params fail falls back to paramsOfSpec and the preset presetOf(spec) (M6)", () => {
+    const spec = presetSpec();
     const { store } = makeStore({ storage: draftOf(spec, { ...FRESH_PARAMS, chroma: "loud" }) });
     expect(store.getState().params).toEqual(paramsOfSpec(spec).params);
-    expect(store.getState().preset).toBeNull();
+    expect(store.getState().preset).toBe(presetOf(spec));
+    expect(store.getState().preset).toBe("dark-dev-tool");
   });
 });
 
