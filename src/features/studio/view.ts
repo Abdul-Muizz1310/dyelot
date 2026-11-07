@@ -4,6 +4,9 @@ import {
   type Density,
   type Mode,
   type PaletteName,
+  PRESET_IDS,
+  PRESETS,
+  type PresetId,
   type Step,
 } from "@/engine";
 import { FRAMES } from "@/features/preview/frame";
@@ -117,4 +120,18 @@ export function mergeView(view: View, patch: Partial<View>, caller = "mergeView"
     }
   }
   return { ...view, ...patch };
+}
+
+/**
+ * The view a design of `preset` opens with (R6-26, 10.3): the preset's mode and density over
+ * `view`, or `view` itself for null. R-05: the view and the preset are checked here, since
+ * `mergeView` checks only its patch.
+ */
+export function presetView(view: View, preset: PresetId | null): View {
+  assertRecord(view, "presetView: view");
+  assertOneOf(view.mode, MODES, "presetView: view.mode");
+  assertOneOf(view.density, DENSITIES, "presetView: view.density");
+  if (preset === null) return view;
+  assertOneOf(preset, PRESET_IDS, "presetView: preset");
+  return { ...view, mode: PRESETS[preset].view.mode, density: PRESETS[preset].view.density };
 }

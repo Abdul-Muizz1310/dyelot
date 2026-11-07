@@ -1,4 +1,5 @@
-import { type DesignSpec, decodeSpec, encodeSpec, SpecDecodeError } from "@/spec";
+import { normalizeSeed, type Oklch, parseColor } from "@/engine";
+import { type DesignSpec, decodeSpec, encodeSpec, SpecDecodeError, toPlainText } from "@/spec";
 import { assertOneOf, assertRecord, assertString } from "./guards";
 
 // The share link in the URL hash and the words of the studio's notices (spec R2-14, section 5.7).
@@ -69,6 +70,54 @@ export function readHash(hash: string): HashResult {
       ? { kind: "error", reason: error.reason }
       : { kind: "error", reason: error.reason, issues: error.issues };
   }
+}
+
+/** What an entry hash asks the studio to start from (R6-23). */
+export type EntryHash =
+  | { readonly kind: "color"; readonly seed: Oklch }
+  | { readonly kind: "brief"; readonly text: string }
+  | { readonly kind: "image" };
+
+export type EntryResult =
+  | { readonly kind: "none" }
+  | { readonly kind: "entry"; readonly entry: EntryHash }
+  | { readonly kind: "malformed" };
+
+const ENTRY_PREFIXES = ["#color=", "#brief=", "#start="] as const;
+const HEX6 = /^[0-9a-fA-F]{6}$/;
+const BRIEF_RAW_MAX = 6000;
+const BRIEF_MAX = 500;
+const MALFORMED: EntryResult = Object.freeze({ kind: "malformed" });
+
+function entryOf(entry: EntryHash): EntryResult {
+  return Object.freeze({ kind: "entry", entry: Object.freeze(entry) });
+}
+
+/**
+ * Reads the studio's entry hashes (R6-23, 10.1): `#color=<six hex digits>`, `#brief=<text>` and
+ * `#start=image`. Another hash, `#s=` included, is `none`; a prefixed hash that is not valid is
+ * `malformed`. A `+` in a brief stays a `+`. Only a non-string throws.
+ */
+export function readEntry(hash: string): EntryResult {
+  assertString(hash, "readEntry: hash");
+  const prefix = ENTRY_PREFIXES.find((item) => hash.startsWith(item));
+  if (prefix === undefined) return Object.freeze({ kind: "none" });
+  const value = hash.slice(prefix.length);
+  if (prefix === "#color=") {
+    if (!HEX6.test(value)) return MALFORMED;
+    return entryOf({ kind: "color", seed: normalizeSeed(parseColor(`#${value.toLowerCase()}`)) });
+  }
+  if (prefix === "#start=") return value === "image" ? entryOf({ kind: "image" }) : MALFORMED;
+  if (value.length > BRIEF_RAW_MAX) return MALFORMED;
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(value);
+  } catch {
+    return MALFORMED;
+  }
+  const plain = toPlainText(decoded, BRIEF_MAX);
+  if (plain === null || plain.truncated) return MALFORMED;
+  return entryOf({ kind: "brief", text: plain.text });
 }
 
 /** `encodeSpec`, with a failure renamed for the public function that called it. */
