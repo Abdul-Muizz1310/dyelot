@@ -196,11 +196,11 @@ const currentLinks = (page: Page): Promise<string[]> =>
     .locator('a[aria-current="page"]')
     .evaluateAll((links) => links.map((link) => link.textContent?.trim() ?? ""));
 
-const NAV = ["dyelot", "home", "studio", "explore", "motion", "github"];
+const NAV = ["dyelot", "home", "studio", "explore", "motion", "gallery", "about", "github"];
 
 // Breaks when the nav drops, renames or reorders a link, marks another page as current, or marks
 // one on the 404 page (R5-34, 7.3).
-test("F-HOME5-01 the nav lists its five links in order and marks the current page, and none on the 404 page", async ({
+test("F-HOME5-01 the nav lists its seven links in order and marks the current page, and none on the 404 page", async ({
   page,
   watch,
 }) => {
@@ -230,18 +230,23 @@ test("F-HOME5-01 the nav lists its five links in order and marks the current pag
   );
 });
 
-// Breaks when the five nav links stop fitting one row at a phone's width, or the page scrolls sideways.
-test("the nav's five links fit one row at 360 x 740 with no sideways scroll", async ({ page }) => {
+// Breaks when the seven nav links need more than two rows at a phone's width, shrink under 32 px, or
+// the page scrolls sideways (R6-30).
+test("the nav's seven links fit two rows at 360 x 740 with no sideways scroll", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 360, height: 740 });
   await page.goto("/");
   const nav = page.getByRole("navigation");
   const tops: number[] = [];
-  for (const name of ["home", "studio", "explore", "motion", "github"]) {
+  for (const name of ["home", "studio", "explore", "motion", "gallery", "about", "github"]) {
     const link = nav.getByRole("link", { name, exact: true });
     await expect(link).toBeVisible();
-    tops.push(Math.round((await link.boundingBox())?.y ?? -1));
+    const box = await link.boundingBox();
+    expect(box?.height ?? 0, name).toBeGreaterThanOrEqual(32);
+    tops.push(Math.round(box?.y ?? -1));
   }
-  expect(new Set(tops).size).toBe(1);
+  expect(new Set(tops).size).toBeLessThanOrEqual(2);
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
   );

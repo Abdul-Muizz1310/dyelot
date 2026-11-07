@@ -292,8 +292,8 @@ for (const viewport of VIEWPORTS) {
   });
 }
 
-// Breaks when the nav's five links leave one row at 360 px, or a page grows wider than the screen.
-test("F-HOME5-04 at 360 x 740 the nav's five links share a row and the pages fit", async ({
+// Breaks when the nav's seven links need more than two rows at 360 px, or a page grows wider than the screen.
+test("F-HOME5-04 at 360 x 740 the nav's seven links fit two rows and the pages fit", async ({
   page,
 }) => {
   await page.setViewportSize(PHONE);
@@ -301,12 +301,14 @@ test("F-HOME5-04 at 360 x 740 the nav's five links share a row and the pages fit
     await page.goto(path);
     const nav = page.getByRole("navigation");
     const tops: number[] = [];
-    for (const name of ["home", "studio", "explore", "motion", "github"]) {
+    for (const name of ["home", "studio", "explore", "motion", "gallery", "about", "github"]) {
       const link = nav.getByRole("link", { name, exact: true });
       await expect(link, `${path} ${name}`).toBeVisible();
-      tops.push(Math.round((await link.boundingBox())?.y ?? -1));
+      const box = await link.boundingBox();
+      expect(box?.height ?? 0, `${path} ${name}`).toBeGreaterThanOrEqual(32);
+      tops.push(Math.round(box?.y ?? -1));
     }
-    expect(new Set(tops).size, path).toBe(1);
+    expect(new Set(tops).size, path).toBeLessThanOrEqual(2);
     expect(await overflowOf(page), path).toBeLessThanOrEqual(0);
   }
 });
