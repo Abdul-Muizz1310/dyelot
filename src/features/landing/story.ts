@@ -36,7 +36,7 @@ export type StoryStep =
   | { readonly kind: "receipt"; readonly passed: number; readonly required: number };
 
 /** The light roles the specimen of the `roles` step names, in 7.2's order. */
-const STORY_ROLES = [
+export const STORY_ROLES = [
   "background",
   "foreground",
   "primary",
