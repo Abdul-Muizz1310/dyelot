@@ -28,5 +28,15 @@ describe("presetView", () => {
     expect(() => presetView({ ...DEFAULT_VIEW, mode: "x" } as never, "default")).toThrow(
       RangeError,
     );
+    // Types come before domains, across arguments and fields.
+    expect(() => presetView({ ...DEFAULT_VIEW, mode: "x" } as never, 3 as never)).toThrow(
+      TypeError,
+    );
+    expect(() =>
+      presetView({ ...DEFAULT_VIEW, mode: "x", density: 3 } as never, "default"),
+    ).toThrow(TypeError);
+    expect(() => presetView({ ...DEFAULT_VIEW, mode: "x" } as never, "default")).toThrow(
+      RangeError,
+    );
   });
 });

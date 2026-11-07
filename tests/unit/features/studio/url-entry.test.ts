@@ -44,6 +44,13 @@ describe("readEntry", () => {
     for (const row of rows) expect(readEntry(row), row).toEqual({ kind: "malformed" });
   });
 
+  it("C-HASH6-02 reads mixed and duplicated keys as one value", () => {
+    expect(readEntry("#color=f66c6d&brief=x")).toEqual({ kind: "malformed" });
+    expect(readEntry("#color=f66c6d&x")).toEqual({ kind: "malformed" });
+    expect(readEntry("#brief=a#brief=b")).toEqual(entry({ kind: "brief", text: "a#brief=b" }));
+    expect(readEntry("#start=image&x")).toEqual({ kind: "malformed" });
+  });
+
   it("C-HASH6-03 gives none for other hashes, and readHash still reads #s=", () => {
     const link = `#s=${encodeSpec(freshSpec())}`;
     for (const row of [link, "#top", "", "#colors=f66c6d"]) {
