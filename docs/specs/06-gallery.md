@@ -1871,6 +1871,13 @@ hero's "Pause" keeps its name, F-FIX6-04), F-A11Y5-01 (axe on `/`, with the new 
 and F-SEC4-02 (their page lists stay; F-SEC6-01 covers the new pages), F-TPL-27, F-VT-03 to 07, F-LAZY4-01 and F-LAZY5-01, every golden, and the guards C-GUARD3-01 to
 04, C-GUARD4-01 to 12 and C-GUARD5-01 to 12 (each walk now positive by R6-39's construction).
 
+**Ruling of Task 6.5b (2026-11-07): one more change R6-26 makes.** The table above misses an M4 flow that R6-26
+changes: `tests/e2e/ai-browser.spec.ts`, "Write the rationale on the shared route stores the model's text in one undoable
+commit, shown as text", asserted that a design opened from a link holds no preset (R2-14 item 2), so the rationale input
+it posts carried `preset: null`. Its link is a fresh design, whose values `presetOf` names `"default"`, so the input
+now carries `presetOf(START_SPEC)`; the rest of the flow stands. Task 6.5b found it in its full gate and changed the
+flow in the same commit as this paragraph.
+
 ## 17. Review Focus
 
 The five input classes most likely to bite a visitor, each with the tests that pin it:
