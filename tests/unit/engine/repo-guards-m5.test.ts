@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
 import ts from "typescript";
@@ -16,21 +16,29 @@ import { CUSTOM_TOKENS } from "../support/motion";
 import {
   caseIds,
   codeFiles,
+  coreFiles,
   coreViolations,
   E2E_TITLE,
   engineAndSpecFiles,
   exportAndImportFiles,
   filesUnder,
-  type ImportRecord,
   importsOf,
   inProbe,
+  isValue,
+  moduleFile,
   purityViolations,
+  type Reader,
   ROOT,
+  readDisk,
+  readOnly,
+  resolved,
+  SRC_DIR,
   section14,
   stripComments,
   titlesIn,
   UNIT_TITLE,
   unnamedCases,
+  valueGraph,
 } from "./guard-support";
 
 // The M5 repository guards (docs/specs/05-motion-3d.md, section 14, C-GUARD5-nn).
@@ -124,17 +132,8 @@ describe("C-GUARD5-08 no video element, no flushSync, no media-src or wasm in th
 // C-GUARD5-06: the shipped sources are self-contained, and the Remotion root is only read as text.
 
 const FLAVOR_DIR = path.join(ROOT, "src/flavor");
-const SRC_DIR = path.join(ROOT, "src");
 const ROOT_TSX = path.join(FLAVOR_DIR, "remotion/root.tsx");
 const SOURCES_FILE = path.join(ROOT, "src/export/flavor-sources.ts");
-
-/** The file an import of `specifier` from `file` names, when it is relative or `@/`. */
-function resolved(file: string, specifier: string): string | null {
-  const bare = specifier.split("?")[0] as string;
-  if (bare.startsWith("@/")) return path.join(SRC_DIR, bare.slice(2));
-  if (bare.startsWith(".")) return path.resolve(path.dirname(file), bare);
-  return null;
-}
 
 /** Imports under `src/flavor/` other than `react`, `remotion` and a path inside the folder. */
 function flavorImportViolations(file: string, source: string): string[] {
@@ -267,58 +266,13 @@ describe("C-GUARD5-06 src/flavor is self-contained", () => {
 const HEROES_FILE = path.join(SRC_DIR, "features/landing/heroes.ts");
 const HERO_FILE = path.join(SRC_DIR, "features/landing/Hero.tsx");
 const CARDS_FILE = path.join(SRC_DIR, "features/landing/cards.ts");
-const HERO_PAGES = ["app/page.tsx", "app/explore/page.tsx", "app/motion/page.tsx"].map((file) =>
-  path.join(SRC_DIR, file),
-);
-const CORE_DIRS = ["engine", "spec", "export"].map((folder) => path.join(SRC_DIR, folder));
-/** The endings a bundler tries for a specifier written without one, in order. */
-const ENDINGS = [".ts", ".tsx", ".mjs", ".js", ".json", "/index.ts", "/index.tsx"];
-const CODE = /\.[cm]?[jt]sx?$/;
-
-/** A file's text, or null when no such file exists. */
-type Reader = (file: string) => string | null;
-
-const readDisk: Reader = (file) =>
-  existsSync(file) && statSync(file).isFile() ? readFileSync(file, "utf8") : null;
-
-/** The file `specifier`, written in `file`, loads, or null for a package or a file that is missing. */
-function moduleFile(file: string, specifier: string, read: Reader): string | null {
-  const base = resolved(file, specifier);
-  if (base === null) return null;
-  for (const candidate of [base, ...ENDINGS.map((ending) => base + ending)]) {
-    if (read(candidate) !== null) return candidate;
-  }
-  return null;
-}
-
-/** Whether `record` loads its module as a value: anything but a whole `import type`. */
-const isValue = (record: ImportRecord): boolean => !record.typeOnly;
-
-/**
- * Every file the static value imports of `entry` reach, `entry` included; `import()` and `import
- * type` are not followed, nor are packages. A missing entry is an error.
- */
-function valueGraph(entry: string, read: Reader): string[] {
-  if (read(entry) === null) throw new Error(`valueGraph: ${entry} does not exist`);
-  const seen = new Set<string>([entry]);
-  const queue = [entry];
-  for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
-    if (!CODE.test(file)) continue;
-    for (const record of importsOf(file, read(file) ?? "")) {
-      if (record.dynamic || !isValue(record)) continue;
-      const target = moduleFile(file, record.specifier, read);
-      if (target === null || seen.has(target)) continue;
-      seen.add(target);
-      queue.push(target);
-    }
-  }
-  return [...seen];
-}
-
-/** The files of `files` under `src/engine`, `src/spec` or `src/export`. */
-const coreFiles = (files: readonly string[]): string[] =>
-  files.filter((file) => CORE_DIRS.some((dir) => file.startsWith(dir + path.sep)));
-
+/** The three pages, and (M6, section 16) the gallery's builder, which only tests import as a value. */
+const HERO_PAGES = [
+  "app/page.tsx",
+  "app/explore/page.tsx",
+  "app/motion/page.tsx",
+  "features/gallery/build.ts",
+].map((file) => path.join(SRC_DIR, file));
 /** The value imports of heroes.ts in `source`, written in `file`, unless `file` is one of the pages. */
 function heroesImportViolations(file: string, source: string, read: Reader): string[] {
   if (HERO_PAGES.includes(file)) return [];
@@ -327,14 +281,8 @@ function heroesImportViolations(file: string, source: string, read: Reader): str
     .map(({ specifier }) => specifier);
 }
 
-/** A reader of `files` alone, for the probes. */
-const readOnly =
-  (files: Readonly<Record<string, string>>): Reader =>
-  (file) =>
-    files[file] ?? null;
-
 describe("C-GUARD5-05 the landing's client code reaches no core", () => {
-  it("C-GUARD5-05 lets only the three pages import heroes.ts as a value", () => {
+  it("C-GUARD5-05 lets only the three pages and the gallery's build.ts import heroes.ts as a value", () => {
     const bad = codeFiles(SRC_DIR).flatMap((file) =>
       heroesImportViolations(file, readFileSync(file, "utf8"), readDisk).map(
         (specifier) => `${path.relative(ROOT, file)}: ${specifier}`,
@@ -380,6 +328,20 @@ describe("C-GUARD5-05 the landing's client code reaches no core", () => {
         readDisk,
       ),
     ).toEqual([]);
+    expect(
+      heroesImportViolations(
+        path.join(SRC_DIR, "features/gallery/build.ts"),
+        'import { HERO_PARAMS, heroSpec } from "@/features/landing/heroes";',
+        readDisk,
+      ),
+    ).toEqual([]);
+    expect(
+      heroesImportViolations(
+        path.join(SRC_DIR, "features/gallery/data.ts"),
+        'import { HERO_PARAMS } from "@/features/landing/heroes";',
+        readDisk,
+      ),
+    ).toEqual(["@/features/landing/heroes"]);
   });
 
   it("C-GUARD5-05 finds no engine, spec or export file in Hero.tsx's static value imports", () => {

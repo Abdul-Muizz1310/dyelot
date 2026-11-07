@@ -1,4 +1,4 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { builtinModules } from "node:module";
 import path from "node:path";
 import ts from "typescript";
@@ -324,3 +324,83 @@ export function filesUnder(folder: string, pattern: RegExp): string[] {
 
 export const titlesIn = (files: readonly string[], callee: RegExp): string[] =>
   files.flatMap((file) => testTitles(readFileSync(file, "utf8"), file, callee));
+
+// The value-import graph helpers C-GUARD5-05 introduced (moved unchanged from repo-guards-m5.test.ts
+// in Task 6.1a, D8), which C-GUARD6-04 and C-GUARD6-05 read too.
+
+export const SRC_DIR = path.join(ROOT, "src");
+
+/** The file an import of `specifier` from `file` names, when it is relative or `@/`. */
+export function resolved(file: string, specifier: string): string | null {
+  const bare = specifier.split("?")[0] as string;
+  if (bare.startsWith("@/")) return path.join(SRC_DIR, bare.slice(2));
+  if (bare.startsWith(".")) return path.resolve(path.dirname(file), bare);
+  return null;
+}
+
+export const CORE_DIRS = ["engine", "spec", "export"].map((folder) => path.join(SRC_DIR, folder));
+/** The endings a bundler tries for a specifier written without one, in order. */
+export const ENDINGS = [".ts", ".tsx", ".mjs", ".js", ".json", "/index.ts", "/index.tsx"];
+export const CODE = /\.[cm]?[jt]sx?$/;
+
+/** A file's text, or null when no such file exists. */
+export type Reader = (file: string) => string | null;
+
+export const readDisk: Reader = (file) =>
+  existsSync(file) && statSync(file).isFile() ? readFileSync(file, "utf8") : null;
+
+/** The file `specifier`, written in `file`, loads, or null for a package or a file that is missing. */
+export function moduleFile(file: string, specifier: string, read: Reader): string | null {
+  const base = resolved(file, specifier);
+  if (base === null) return null;
+  for (const candidate of [base, ...ENDINGS.map((ending) => base + ending)]) {
+    if (read(candidate) !== null) return candidate;
+  }
+  return null;
+}
+
+/** Whether `record` loads its module as a value: anything but a whole `import type`. */
+export const isValue = (record: ImportRecord): boolean => !record.typeOnly;
+
+/**
+ * Every file the static value imports of `entry` reach, `entry` included; `import()` and `import
+ * type` are not followed, nor are packages. A missing entry is an error.
+ */
+export function valueGraph(entry: string, read: Reader): string[] {
+  if (read(entry) === null) throw new Error(`valueGraph: ${entry} does not exist`);
+  const seen = new Set<string>([entry]);
+  const queue = [entry];
+  for (let file = queue.shift(); file !== undefined; file = queue.shift()) {
+    if (!CODE.test(file)) continue;
+    for (const record of importsOf(file, read(file) ?? "")) {
+      if (record.dynamic || !isValue(record)) continue;
+      const target = moduleFile(file, record.specifier, read);
+      if (target === null || seen.has(target)) continue;
+      seen.add(target);
+      queue.push(target);
+    }
+  }
+  return [...seen];
+}
+
+/** The files of `files` under `src/engine`, `src/spec` or `src/export`. */
+export const coreFiles = (files: readonly string[]): string[] =>
+  files.filter((file) => CORE_DIRS.some((dir) => file.startsWith(dir + path.sep)));
+
+/** A reader of `files` alone, for the probes. */
+export const readOnly =
+  (files: Readonly<Record<string, string>>): Reader =>
+  (file) =>
+    files[file] ?? null;
+
+/**
+ * The files of `files` with a static or dynamic value import that resolves to `target`; an `import
+ * type` is exempt.
+ */
+export function valueImporters(target: string, files: readonly string[], read: Reader): string[] {
+  return files.filter((file) =>
+    importsOf(file, read(file) ?? "").some(
+      (record) => isValue(record) && moduleFile(file, record.specifier, read) === target,
+    ),
+  );
+}
