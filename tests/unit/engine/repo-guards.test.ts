@@ -824,7 +824,7 @@ function dynamicCoreImports(file: string, source: string): string[] {
     .filter((specifier) => reachesCores(file, specifier));
 }
 
-const APP_FILES = APP_DIRS.flatMap(codeFiles);
+const APP_FILES = APP_DIRS.flatMap((directory) => codeFiles(directory));
 const PROBE_FILE = path.join(ROOT, "src/features/probe.ts");
 
 describe("C-GUARD3-01 app code reaches the export, import and AI cores only through import()", () => {

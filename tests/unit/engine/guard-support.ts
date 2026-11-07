@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { type Dirent, existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { builtinModules } from "node:module";
 import path from "node:path";
 import ts from "typescript";
@@ -31,17 +31,40 @@ export const GUARD3_04_PROBE = path.join(ROOT, "src/features/guard3-04-probe.ts"
 export const inProbe = (file: string): boolean =>
   file === GUARD3_04_PROBE || file.split(path.sep).includes(PROBE_DIR);
 
-/** Every code file under `directory`, or none when the folder does not exist yet. */
-export function codeFiles(directory: string): string[] {
-  try {
-    return readdirSync(directory, { recursive: true, withFileTypes: true })
-      .filter((entry) => entry.isFile() && CODE_FILE.test(entry.name))
-      .map((entry) => path.join(entry.parentPath, entry.name))
-      .filter((file) => !inProbe(file));
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
-    throw error;
+/**
+ * Every code file under `directory` (R6-39): a stack of folders read one at a time with `read`,
+ * never a folder named `PROBE_DIR` (a probe that vanishes cannot fail the walk) and never
+ * `GUARD3_04_PROBE`. A missing root or a walk that finds no code file is a `RangeError`, so no
+ * guard that walks a folder can pass over nothing; any other failed read throws with its path.
+ */
+export function codeFiles(directory: string, read: typeof readdirSync = readdirSync): string[] {
+  if (typeof directory !== "string") {
+    throw new TypeError(`codeFiles: directory must be a string, got ${typeof directory}`);
   }
+  const found: string[] = [];
+  const stack = [directory];
+  for (let folder = stack.pop(); folder !== undefined; folder = stack.pop()) {
+    let entries: Dirent[];
+    try {
+      entries = read(folder, { withFileTypes: true });
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException).code;
+      if (folder === directory && code === "ENOENT") {
+        throw new RangeError(`codeFiles: ${directory} holds no code file`);
+      }
+      throw new Error(`codeFiles: cannot read ${folder}: ${code ?? String(error)}`);
+    }
+    for (const entry of entries) {
+      const child = path.join(folder, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== PROBE_DIR) stack.push(child);
+      } else if (entry.isFile() && CODE_FILE.test(entry.name) && child !== GUARD3_04_PROBE) {
+        found.push(child);
+      }
+    }
+  }
+  if (found.length === 0) throw new RangeError(`codeFiles: ${directory} holds no code file`);
+  return found;
 }
 
 /**
