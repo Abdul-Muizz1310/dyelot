@@ -2,13 +2,31 @@ import { expect, type Page } from "@playwright/test";
 import { tokenRow } from "@/features/studio/token-row";
 import { test, VT_RECORD, vtRecord } from "./flavor-support";
 import { canvasFrame, first, inspectorAside, openStudio, stubSeeds } from "./studio-support";
-import { reduceMotion, screenOf, showTemplate, templateSelect } from "./template-support";
+import {
+  LAZY_TEMPLATES,
+  recordTemplateChunks,
+  reduceMotion,
+  screenOf,
+  showTemplate,
+  templateSelect,
+} from "./template-support";
 
 // The view transitions of Tasks 5.8a and 5.8b (docs/specs/05-motion-3d.md, rulings R5-46 to R5-49).
 // Every flow fails, through the watch of flavor-support's `test`, on a `securitypolicyviolation`
 // event, a console error, a page error or an unhandled rejection in any document it visits (14.11).
 
 const GROUP = "::view-transition-group(dyelot-template)";
+
+/**
+ * Opens the studio and waits until the idle preload has brought the five lazy templates' chunks (the
+ * response list, polled for probe 3's markers), so a switch tests the transition and not the load
+ * (section 16 of docs/specs/06-gallery.md).
+ */
+async function openPreloaded(page: Page): Promise<void> {
+  const chunks = recordTemplateChunks(page);
+  await openStudio(page);
+  await expect.poll(() => chunks.loaded()).toEqual(LAZY_TEMPLATES);
+}
 
 /** Waits for the record to hold one call and its `ready` animations. */
 async function recorded(page: Page) {
@@ -22,7 +40,7 @@ test.describe("template cross-fade", () => {
   }) => {
     await VT_RECORD(page);
     await stubSeeds(page);
-    await openStudio(page);
+    await openPreloaded(page);
     await templateSelect(page).selectOption("dashboard");
     const record = await recorded(page);
     expect(record.calls).toBe(1);
@@ -38,7 +56,9 @@ test.describe("template cross-fade", () => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await VT_RECORD(page);
     await stubSeeds(page);
-    await openStudio(page);
+    // The dashboard's chunk has arrived before the switch: a switch while it loads shows the loading
+    // sentence, and its reveal makes a call even under the OS setting (probe 3, R6-57).
+    await openPreloaded(page);
     await templateSelect(page).selectOption("dashboard");
     await expect(canvasFrame(page)).toHaveAttribute("data-template", "dashboard");
     // Under the OS setting the new template renders in the same commit: no transition call at all.

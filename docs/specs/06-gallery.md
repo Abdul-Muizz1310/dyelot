@@ -1872,7 +1872,7 @@ written from its row, never from an uncovered-line report.
 | C-REPO-M2-03 (M2), C-GUARD4-10 (M4), C-GUARD5-09 (M5) | The coverage include and floors of M5's section 15 | Also section 15's new lists (C-GUARD6-03) | R6-54 |
 | M5's spec 13.3 | The Brand video region keeps its name | Plus the figure and its description of R6-35 (a note in 13.3) | R6-35 |
 | F-A11Y-04 (M2) | `chromaOffenders` is local to `tests/e2e/studio.spec.ts` | It imports `chromaOffenders` from `tests/e2e/color-support.ts` (Task 6.2) and calls it with `{ root: "body", skip: ["[data-canvas]"] }`; its allowance and assertions stand | R6-14 |
-| F-VT-01, F-VT-02 (M5) | The switch to "dashboard" comes right after `openStudio` | It comes after the five lazy chunks have loaded (the response list, polled), so the flows test the transition and not the load; their assertions stand | R6-33 |
+| F-VT-01, F-VT-02 (M5) | The switch to "dashboard" comes right after `openStudio` | It comes after the five lazy chunks have loaded (the response list, polled), so the flows test the transition and not the load; their assertions stand. On probe 3's build F-VT-02 failed one run in five (one `startViewTransition` call, from the reveal after the loading sentence), when its switch came before the idle preload had fetched the dashboard chunk, so its wait includes that chunk's response (`TEMPLATE_MARKERS.dashboard`), and Task 6.7 ran the file five times in a row with no failure | R6-33 |
 
 Every other M1 to M5 case stands as written (I-M6-07), among them C-LAND5-02 (the hero cards), F-HERO-01 to 06 (the
 hero's "Pause" keeps its name, F-FIX6-04), F-A11Y5-01 (axe on `/`, with the new sections inside its page), F-SEC4-01
