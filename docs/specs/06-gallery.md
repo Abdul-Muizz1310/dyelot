@@ -15,7 +15,7 @@ Status: approved by the owner on 2026-11-07, as written, after one independent r
 in section 21, and approved the close's edit of the workspace `CLAUDE.md` counts.
 
 Section 2 lists the owner's standing rulings and the controller's decisions of 2026-11-07. Section 3 turns each decision
-into rulings R6-01 to R6-60, and section 14 holds 172 cases (94 `C-` cases and 78 `F-` cases). A ruling ends with
+into rulings R6-01 to R6-60, and section 14 holds 171 cases (94 `C-` cases and 77 `F-` cases; probe 6 moved F-TPL6-06 to section 18). A ruling ends with
 **(decision X#)** when it states a controller decision, or **(drafter)** when this spec supplies a rule the decisions
 leave open; a ruling that does both says which part is which. The owner can overturn any ruling by editing this file
 before the task that uses it starts. Task 6.0 (R6-57) probes every external fact this spec could not verify before any
@@ -578,7 +578,26 @@ R5-64:
    `/connect`) the probe's record (the failing audits and a proposed fix) goes to the owner, and that route waits for a
    ruling before Task 6.11 changes it.
 
-   Result (date):
+   Result (2026-11-07): pass, with the screenshot check read from the full-page screenshot (below); the CLI fallback is
+   not built. In a scratch lane, 12.1's `runLighthouse` as written audited `next build` and `next start` under the nonce
+   CSP: Playwright 1.64.1's `chromium.launchPersistentContext` with `headless: true` started its bundled headless shell,
+   HeadlessChrome 156.0.8078.4, whose `DevToolsActivePort` gave `lighthouse` 13.5.0's Node API the port. It ran from a
+   Playwright project with no device options, as 12.2's `lighthouse` project is: inside the `chromium` project the same
+   launch threw `"deviceScaleFactor" option is not supported with null "viewport"`, because in the test runner the launch
+   takes the running project's `use`, and `devices["Desktop Chrome"]` sets `deviceScaleFactor`; so the `lighthouse`
+   project keeps no `use` of a device. All 14 runs (`/` three times per form factor, interleaved, then `/studio`,
+   `/explore`, `/motion` and `/connect` once each) returned four numeric categories, no `runtimeError`, no run warning
+   and an empty `errors-in-console`. The mobile `final-screenshot` is a trace frame Chromium scales down, 250 × 498 (the
+   ratio of the 412 × 823 screen), so the check as written cannot hold; the page's own layout width,
+   `lhr.fullPageScreenshot.screenshot.width`, read 412 on every mobile run (1350 on desktop), so Lighthouse's emulation
+   held, and that width is the check. `/` scored 100 in accessibility on all six runs, so the gate adds no
+   `--force-prefers-reduced-motion`. Baseline accessibility at desktop and mobile: `/` 100 and 100, `/studio` 100 and
+   97, `/explore` 100 and 100, `/motion` 100 and 100, `/connect` 100 and 100; `/gallery`, `/gallery/madder` and `/about`
+   answered 404 at probe time (Tasks 6.2 and 6.4 and the flow of 6.10b measure them). `/studio` at mobile loses only
+   `target-size` (weight 7), on nine targets of the canvas's scaled-down landing template (the nav's and the footer's
+   three links each, and the FAQ's three buttons); 97 is above the floor, so no route waits for a ruling. The slowest of
+   `/`'s three runs, from the launch to the close: 8,334 ms at desktop and 6,876 ms at mobile; every run took 5,879 to
+   8,334 ms (load average 1.42 before the runs and 2.83 after).
 
 2. **A per-slug share card.** A scratch `src/app/gallery/[slug]/opengraph-image.tsx` reading a scratch `cards.json` of 24
    entries renders `/gallery/madder/opengraph-image` as `image/png`, 1200 × 630, under the nonce CSP. Passes when it
@@ -593,7 +612,17 @@ R5-64:
    `src/app/gallery/[slug]/card.png/route.ts` with the same tree and `metadata.openGraph.images` set by `generateMetadata` (R6-17 then repeats the title,
    description and URL, which an `openGraph` key replaces, `metadata.ts`'s note).
 
-   Result (date):
+   Result (2026-11-07): pass; the open route is built, and the `card.png` fallback is not. A scratch
+   `src/app/gallery/[slug]/opengraph-image.tsx` (no `page.tsx` beside it) read a scratch `cards.json` of the 24 slugs,
+   each with its real strip and counts, and drew 8.1's card with `shareCardAssets()`. `next build` listed it as
+   `ƒ /gallery/[slug]/opengraph-image`, rendered per request (there is no `generateStaticParams`), and printed no
+   warning; next 16.4.3's build prints no bundle sizes at all (`NDOCS/01-app/03-api-reference/06-cli/next.md`, v16.0.0),
+   and the route's own server chunks total 198,536 bytes. `GET /gallery/madder/opengraph-image` answered 200 with
+   `content-type` `image/png`, the PNG signature and an `IHDR` of 1200 × 630, 102,863 bytes, the same on three requests
+   (272 ms cold, then 91 and 90 ms), with `Cache-Control: public, max-age=0, must-revalidate`, no `ETag`, and the page
+   policy the proxy sends; opened as a document it raised no violation, and `/gallery/nope/opengraph-image` answered
+   404. A scratch `src/app/probe/open/route.ts` answering `307` with the relative `Location: /studio#s=<hero 0's link>`
+   (7,094 characters) landed `page.goto` on `/studio` with that hash, which held once the studio had loaded Madder.
 
 3. **Lazy templates under the view transition.** With R6-33's loaders and `TemplateBoundary` above the keyed
    `<ViewTransition>`, in the studio after the idle preload: one template switch from the toolbar makes one
@@ -606,21 +635,50 @@ R5-64:
    the fallback moves the boundary to wrap `MotionScope` and the probe runs again; if that fails too, the templates stay
    eager and G1 moves to section 18.
 
-   Result (date):
+   Result (2026-11-07): pass with `TemplateBoundary` above the keyed `<ViewTransition>`, inside `MotionScope`, as R6-33
+   places it; the boundary does not move. Scratch versions of R6-33's loaders (`loadOnce` each, one `React.lazy` per
+   id), 13.3's `TemplateBoundary` and `preloadTemplates("landing", idleScheduler(window))` ran on a production build,
+   where each lazy template went to a chunk of its own. The markers, each a literal of that template's file and of no
+   other file under `src/`, found in its chunk only and in none of the 19 chunks of the studio's first load under
+   `NO_IDLE`: dashboard `Dashboard: no tide event after now`, settings `Settings: the design has no --chart-1`, mobile
+   `Mobile: no tide event after now`, editorial `Editorial: link target`, kitchen sink `kit-t-body sink-muted`. Once the
+   idle preload had fetched the five chunks, choosing "dashboard" made one `startViewTransition` call whose record at
+   `ready` held `::view-transition-group(dyelot-template)` at 250 ms. With `NO_IDLE`, `LOADING_RECORD` and `HOLD_CHUNK`
+   on the dashboard chunk, the switch kept `[data-template="landing"]` on the canvas and made no call while the chunk
+   was held, then one call after `release()`, its group at 250 ms; `LOADING_RECORD` stayed empty. Under `emulateMedia`
+   reduce, with `HOLD_CHUNK` on the editorial chunk, "Loading the template…" showed with no call, and the reveal after
+   `release()` made one `startViewTransition` call whose record held only animations of 0 ms
+   (`::view-transition-new(dyelot-template)`, `::view-transition-group(root)` and `::view-transition`). So M5's F-VT-02,
+   which asserts no call under the OS setting, holds only once the chunk has loaded: on the scratch build it failed one
+   run in five (one call), when its switch came before the idle preload. Task 6.7 makes F-VT-02 wait for the dashboard
+   chunk before its switch, and records that change in section 16.
 
 4. **A lexicon design's link is rebuildable.** In the studio, `/studio#s=<the link of a brief entry>` opens with the
    entry's name and lot; the Receipt section reads passing; the export dialog's "Download" is enabled; "Rebuild from the
    parameters" does not show; pressing Space (regenerate) keeps `meta.createdWith` `"lexicon"`. Fails when the export is
    blocked: M6 stops for a ruling, since R6-10 found no code path that blocks it.
 
-   Result (date):
+   Result (2026-11-07): pass. Row 10 (`kermes`) through R6-06's six steps in Node (Playwright's process, with
+   `briefColors`, `matchLexicon` and `briefChange` from the `src/ai` modules the `@/ai` entry re-exports) gave the terms
+   slow, longform, magazine, serif, warm, paper and burgundy, the `editorial` preset, the spec id `1b3fa778970709ca`,
+   the lot `1b3f·a778` and a link of 7,371 characters. `/studio#s=<that link>` kept the hash on load and showed the name
+   "Kermes", the lot, the Receipt's four lines ("78 of 78 required contrast checks pass", "16 of 16 color-vision checks
+   keep status and chart colors apart", "176 of 176 colors inside sRGB", "No lint errors, 0 warnings, 2 notes") with no
+   "This design fails", no "Rebuild from the parameters", and an enabled "Download" under "LOT 1b3f·a778 · Kermes";
+   Space then generated a new seed whose `meta.createdWith` is `"lexicon"`. The preset select's value was `custom`, as
+   M5 leaves a loaded design; R6-26 (Task 6.5) changes that. The watch saw no violation, console error, page error or
+   unhandled rejection.
 
 5. **The 18 briefs build deterministically.** In the `web` project, each brief of section 6 built twice by `briefSpec`
    with the real `@/ai` module gives the same spec id; each matches the terms and the preset of section 6; each passes 78
    of 78 required checks with no lint error. Passes when all 18 hold (the scratch run of 2026-11-07 says they do). Fails
    when one does not: its brief is rewritten until it does, and section 6 and the owner's approval item 2 are amended.
 
-   Result (date):
+   Result (2026-11-07): pass; section 6 and the owner's approval item 2 stand. A scratch `web` test built each of the 18
+   briefs twice by R6-06's steps with the real `@/ai` entry: each gave one spec id both times, exactly section 6.1's
+   terms and preset, `meta.createdWith` `"lexicon"`, 78 of 78 required checks and no lint error, and the display and
+   body families of section 6.1's pairing column. The brief links are 6,611 (malachite) to 7,504 (tyrian) characters
+   long. The file's 19 tests passed in 6.3 s (load average 0.61).
 
 6. **The settings template's clip margin.** With `.st { overflow: clip; overflow-clip-margin: 12px }` on a scratch
    branch, F-TPL-27's axe runs on the settings template at 1280 and 360 px in light and dark, and decides every
@@ -629,7 +687,17 @@ R5-64:
    when both hold. When only the second fails: R6-34's `bottom: 4px` form, and the probe runs again. When the first
    fails: G2 is dropped (R6-34), and section 18 says so.
 
-   Result (date):
+   Result (2026-11-07): the first check fails, so G2 is dropped (R6-34): `.st` keeps `overflow: hidden`, 13.4 does not
+   land, F-CANVAS-11 stays as M2 left it, F-TPL6-06 moves to section 18, and section 18's row stays. In one page of a
+   scratch production build, with `overflow: hidden`, Form A and Form B applied in turn to the settings template,
+   F-TPL-27's axe run (`include("[data-canvas][data-frame]")`) at the 1280 and 360 frames in light and dark decided every
+   color-contrast node under `overflow: hidden` (41 at 1280, 26 at 360, none undecided, no violation). With Form A it
+   left 37 nodes undecided at 1280 and 44 at 360, each `elmPartiallyObscured`, among them `.kit-mono`, which it decided
+   under `overflow: hidden`, at 1280 in both modes; Form B left the same. The second check, run as well: with Form A,
+   `.st` no longer cuts `.st-top`'s "Show me" outline, but `.st-scroll` cuts the save bar's on the left, the right and
+   the bottom by the outline's whole reach (4.31 px on screen at the 1280 frame's fit of 0.4313, 4 px at 360); Form B
+   leaves the left and right cuts (and 0.86 px at the bottom at 1280), since the bar spans `.st-scroll`'s padding box
+   (`margin-inline: calc(-1 * var(--kit-pad))`). A pristine build and a Form A build, compared, gave the same records.
 
 **(decision J1; probe 1's fallback, probe 3's markers and probe 6 drafter)**
 
@@ -1624,8 +1692,8 @@ Tests: `tests/unit/features/landing/start.test.ts`, `tests/unit/features/landing
 
 ### 14.7 Templates (Task 6.7)
 
-Tests: `tests/unit/features/preview/load.test.ts`, `tests/e2e/templates-lazy.spec.ts`, the amended
-`tests/e2e/inspector.spec.ts`.
+Tests: `tests/unit/features/preview/load.test.ts` and `tests/e2e/templates-lazy.spec.ts` (probe 6 dropped G2, so
+`tests/e2e/inspector.spec.ts` is not amended).
 
 | Id | Kind | Case | Origin |
 |---|---|---|---|
@@ -1639,7 +1707,6 @@ Tests: `tests/unit/features/preview/load.test.ts`, `tests/e2e/templates-lazy.spe
 | F-TPL6-04 | pass | Under `emulateMedia({ reducedMotion: "reduce" })` with `NO_IDLE` and `HOLD_CHUNK` on the editorial chunk, choosing "editorial" shows "Loading the template…" (`role="status"`); after `release()` the template shows; every animation `VT_RECORD` holds lasts 0 ms | ruling R6-33 |
 | F-TPL6-05 | failure | With `ABORT_CHUNK(page, <the dashboard marker>)` and `NO_IDLE`, choosing "dashboard" shows "This template could not load." and "Try again" (`role="alert"`), no raw error; after `release()`, "Try again" shows the dashboard | ruling R6-33, I-M6-04 |
 | F-TPL6-RF3 | pass | With `NO_IDLE`, `LOADING_RECORD` and `HOLD_CHUNK` on both chunks, motion allowed, choosing "dashboard" and then "mobile" keeps the landing template on screen; after both are released the canvas shows `[data-template="mobile"]`, at most two `startViewTransition` calls were made, and `LOADING_RECORD` is empty | RF3, ruling R6-33 |
-| F-TPL6-06 | pass | The settings template's bars (if probe 6 keeps G2): F-CANVAS-11's clip-edge check passes for `.st-top` and `.st-save-bar` with scroll containers counted as clip boxes, and F-TPL-27 passes unchanged. If probe 6 drops G2, this row moves to section 18 with it | ruling R6-34, decision G2 |
 
 ### 14.8 Accessibility fixes (Task 6.8)
 
@@ -1785,7 +1852,7 @@ written from its row, never from an uncovered-line report.
 | C-HASH-16 (M2) | A valid hash beats a draft: `paramsOfSpec`, preset null | `paramsOfSpec`, preset `presetOf(spec)`, and the first load's view `presetView(DEFAULT_VIEW, preset)` | R6-26 |
 | C-DRAFT-13 (M2) | A matching draft with a bad field is not used: `paramsOfSpec`, preset null | `paramsOfSpec`, preset `presetOf(spec)` | R6-26 |
 | M2's store test "a draft restore whose params fail falls back to paramsOfSpec and drops the preset" (`tests/unit/features/studio/store-persist.test.ts`) | Preset null | Preset `presetOf(spec)` | R6-26 |
-| F-CANVAS-11 (M2), "the outline of a part at a clip edge shows whole" | Leaves out the settings template's top and save bars | Includes `.st-top` and `.st-save-bar`, and counts a scroll container's padding box as a clip box (F-TPL6-06); unchanged if probe 6 drops G2 | R6-34 |
+| ~~F-CANVAS-11 (M2), "the outline of a part at a clip edge shows whole"~~ | ~~Leaves out the settings template's top and save bars~~ | ~~Includes `.st-top` and `.st-save-bar`, and counts a scroll container's padding box as a clip box (F-TPL6-06)~~ Struck on 2026-11-07: probe 6 dropped G2, so F-CANVAS-11 stays as M2 left it (R6-57) | R6-34 |
 | C-REPO-M2-03 (M2), C-GUARD4-10 (M4), C-GUARD5-09 (M5) | The coverage include and floors of M5's section 15 | Also section 15's new lists (C-GUARD6-03) | R6-54 |
 | M5's spec 13.3 | The Brand video region keeps its name | Plus the figure and its description of R6-35 (a note in 13.3) | R6-35 |
 | F-A11Y-04 (M2) | `chromaOffenders` is local to `tests/e2e/studio.spec.ts` | It imports `chromaOffenders` from `tests/e2e/color-support.ts` (Task 6.2) and calls it with `{ root: "body", skip: ["[data-canvas]"] }`; its allowance and assertions stand | R6-14 |
@@ -1822,11 +1889,18 @@ The five input classes most likely to bite a visitor, each with the tests that p
 | Removing "(experimental)" from the on-device switch | 04-ai.md section 18 | When the owner records the on-device eval |
 | "Read the vibe" on the device, an embedding model, WebLLM, Trusted Types, a pool meter, a shared cache, a per-IP cap, a "more contrast" chip | 04-ai.md section 18 | Not scheduled, as M4 left them |
 | Remotion 5.0's terms | 05-motion-3d.md section 18 | When Remotion 5.0 ships |
-| The settings template's clip margin, if probe 6 drops it | decision G2 | Not scheduled; the row is struck if probe 6 passes |
-| Lazy templates, if probe 3 keeps them eager | decision G1 | Not scheduled; the row is struck if probe 3 passes |
-| The open route `/gallery/<slug>/open/<page>`, if probe 2 finds the fragment lost on a redirect | R6-14, R6-15 | Not scheduled; the row is struck if probe 2 passes |
+| The settings template's clip margin (G2), dropped by probe 6 on 2026-11-07, with its case F-TPL6-06 (below) | decision G2; R6-34 | Not scheduled: `overflow: clip` on `.st` leaves axe's color-contrast check undecided on the settings page (37 nodes at the 1280 frame, 44 at 360, R6-57), as M3 found (R3-06), and `.st-scroll` cuts the save bar's outline on three sides; `.st` keeps `overflow: hidden` |
+| ~~Lazy templates, if probe 3 keeps them eager~~ | ~~decision G1~~ | Struck on 2026-11-07: probe 3 passed, and Task 6.7 builds them (R6-57) |
+| ~~The open route `/gallery/<slug>/open/<page>`, if probe 2 finds the fragment lost on a redirect~~ | ~~R6-14, R6-15~~ | Struck on 2026-11-07: probe 2 passed, and Task 6.2 builds the route (R6-57) |
 | `describeType`'s other private copies in `src/export/` (`model.ts`, `design-md.ts` and twelve more), which name an array "object" | R6-41 | Not scheduled: sharing them would change their messages for an array |
 | Cosine and Poline-style generators, tokens for the unexpressed style traits, animations in `theme.css`, WebGL in the canvas templates, GIF, glTF, dotLottie, WebGPU, audio, a motion budget | 05-motion-3d.md section 18 | Not scheduled, as M5 left them |
+
+The cases Task 6.0's probes moved here from section 14 (2026-11-07). No test carries these ids, and C-GUARD6-01 does not
+read them:
+
+| Id | Kind | Case | Origin |
+|---|---|---|---|
+| F-TPL6-06 | pass | The settings template's bars (if probe 6 keeps G2): F-CANVAS-11's clip-edge check passes for `.st-top` and `.st-save-bar` with scroll containers counted as clip boxes, and F-TPL-27 passes unchanged. If probe 6 drops G2, this row moves to section 18 with it | ruling R6-34, decision G2; moved from 14.7 by probe 6 |
 
 M5's remaining minors (the M5 ledger's deferred list, `m5-rulings-and-minors.md`), apart from the six decision G5
 chose and the two of G3 and G4:
