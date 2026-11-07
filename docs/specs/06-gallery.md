@@ -326,6 +326,14 @@ Flexbox only, inline styles, no `display: grid` (Satori). The route imports only
 `notFound`), `cards.ts`, `gallery-card.tsx`, `assets.ts` and `config.ts` (C-GUARD6-07). It lives under `/gallery/`, never `/api/`, so robots allow it.
 **(decision D1; the layout drafter)**
 
+Amended by Task 6.3 (2026-11-07). The M0 card's madder glow (`radial-gradient(circle at 22% 0%, …)`, which fades out
+at 60 % of the way to the farthest corner, about 677 px from its center) tints the card's top-left pixel to `#2a1818`,
+so F-SHARE6-02 reads the ground at the top-right pixel, which neither the glow nor the dot grid reaches (`#0a0a0a`, as
+rendered); 8.1's ground stays as written. With the line on two lines, 8.1's parts and the footer stand about 459 px
+tall in the 510 px between the M0 card's paddings (64 and 56 px), so six gaps of 16 px overflow and, by 8.1's own rule,
+the gaps narrow, never the type: the parts sit 8 px apart, the 8.2 card's too. The name, the line and 8.2's headline
+carry the M0 headline's tracking (−0.02 em), which `GLYPH_ADVANCE`, and so C-CARD6-RF4's columns, count.
+
 **R6-19 · The gallery's card.** `src/app/gallery/opengraph-image.tsx` draws the brand row, `// gallery`, the headline "24
 design systems, each with its receipt" with "receipt" in madder, and a mosaic of the 24 strips in four rows of six
 (8.2). **(decision D1; the layout drafter)**
@@ -1612,7 +1620,7 @@ Tests: `tests/unit/site/gallery-card.test.tsx`, `tests/e2e/share-cards.spec.ts`.
 | C-CARD6-05 | pass | `MosaicShareCard({ cards: GALLERY_CARDS.cards, icon })`: the headline "24 design systems, each with its receipt" with "receipt" in `SITE.accent`; four rows of six tiles in order, each holding five bands colored by its strip; `MOSAIC_ALT` is 8.2's sentence | ruling R6-19 |
 | C-CARD6-RF4 | pass | Fit: for every card, `wrapLines(line.split(" "), Math.floor(CONTENT_WIDTH / (30 * GLYPH_ADVANCE)))` gives at most two lines, and `name.length` is at most `Math.floor(CONTENT_WIDTH / (96 * GLYPH_ADVANCE))` (18); a probe line of 101 characters and a probe name of 19 are refused by C-GAL6-08's bounds before they can reach a card | RF4, ruling R6-12, R6-18 |
 | F-SHARE6-01 | pass | `GET /gallery/madder/opengraph-image` answers 200 with `content-type` `image/png`; the body starts with the PNG signature, its `IHDR` reads 1200 × 630, and it is at most 512 KB | ruling R6-18 |
-| F-SHARE6-02 | pass | Contents: the PNG of `/gallery/kermes/opengraph-image`, drawn on a canvas in a page of the same origin (after `page.goto("/robots.txt")`, so the canvas is not tainted), holds a row of pixels with, left to right, five runs of at least 150 px whose colors are `KERMES`'s strip within ±1 per channel, and its top-left pixel is `#0a0a0a` ±1 | ruling R6-18 |
+| F-SHARE6-02 | pass | Contents: the PNG of `/gallery/kermes/opengraph-image`, drawn on a canvas in a page of the same origin (after `page.goto("/robots.txt")`, so the canvas is not tainted), holds a row of pixels with, left to right, five runs of at least 150 px whose colors are `KERMES`'s strip within ±1 per channel, and its top-right pixel is `#0a0a0a` ±1 (the glow tints the top-left, R6-18's amendment) | ruling R6-18 |
 | F-SHARE6-03 | pass | `GET /gallery/opengraph-image` answers `image/png`, 1200 × 630; drawn as F-SHARE6-02 draws it, a row of its pixels holds the first card's five strip colors, each as a run of at least 24 px, in order | ruling R6-19 |
 | F-SHARE6-04 | failure | `GET /gallery/nope/opengraph-image` and `GET /gallery/Madder/opengraph-image` answer 404 and no `image/png` | RF4, ruling R6-18 |
 | F-SHARE6-05 | pass | `/studio`, `/about` and `/` keep the site's card: their `og:image` starts with `<origin>/opengraph-image`; `/robots.txt` disallows only `/api/` and `/connect/callback`, so `/gallery/` and its image routes stay allowed | ruling R6-20, decision D2 |

@@ -6,10 +6,12 @@ import {
   importsOf,
   isValue,
   moduleFile,
+  type Reader,
   ROOT,
   readDisk,
   readOnly,
   SRC_DIR,
+  valueGraph,
   valueImporters,
 } from "./guard-support";
 
@@ -154,5 +156,64 @@ describe("C-GUARD6-06 build.ts reaches @/ai through a type import only (R6-06)",
     expect(aiValueImports(BUILD, 'const ai = await import("@/ai");')).toEqual(["@/ai"]);
     expect(aiValueImports(BUILD, 'import { x } from "@/ai/apply";')).toEqual(["@/ai/apply"]);
     expect(aiValueImports(BUILD, 'import type * as AiModule from "@/ai";')).toEqual([]);
+  });
+});
+
+describe("C-GUARD6-07 the image routes import six modules (R6-18)", () => {
+  const ROUTES = ["app/gallery/opengraph-image.tsx", "app/gallery/[slug]/opengraph-image.tsx"].map(
+    at,
+  );
+  const ALLOWED: ReadonlySet<string> = new Set([
+    "next/og",
+    "next/navigation",
+    "@/features/gallery/cards",
+    "@/lib/site/assets",
+    "@/lib/site/config",
+    "@/lib/site/gallery-card",
+  ]);
+  const DATA = at("features/gallery/data.ts");
+  const JSON_FILE = at("features/gallery/gallery.json");
+
+  /** What breaks the rule in `route`: a module outside the six, or data.ts or gallery.json reached. */
+  const routeProblems = (route: string, read: Reader): string[] => [
+    ...importsOf(route, read(route) ?? "")
+      .filter((record) => !ALLOWED.has(record.specifier))
+      .map((record) => `imports ${record.specifier}`),
+    ...valueGraph(route, read)
+      .filter((file) => file === DATA || file === JSON_FILE)
+      .map((file) => `reaches ${path.relative(ROOT, file)}`),
+  ];
+
+  it("C-GUARD6-07 finds only the six modules in both routes, and neither reaches the gallery data", () => {
+    for (const route of ROUTES) expect(routeProblems(route, readDisk), route).toEqual([]);
+  });
+
+  it("C-GUARD6-07 reports a probe route that imports data.ts or another module", () => {
+    const [, route = ""] = ROUTES;
+    const cards = at("features/gallery/cards.ts");
+    const direct = readOnly({
+      [route]:
+        'import { ImageResponse } from "next/og";\nimport { entryOf } from "@/features/gallery/data";',
+      [DATA]: 'import gallery from "./gallery.json";',
+      [JSON_FILE]: "{}",
+    });
+    expect(routeProblems(route, direct)).toEqual([
+      "imports @/features/gallery/data",
+      "reaches src/features/gallery/data.ts",
+      "reaches src/features/gallery/gallery.json",
+    ]);
+    const throughCards = readOnly({
+      [route]: 'import { cardOf } from "@/features/gallery/cards";',
+      [cards]: 'import { GALLERY } from "./data";',
+      [DATA]: "",
+    });
+    expect(routeProblems(route, throughCards)).toEqual(["reaches src/features/gallery/data.ts"]);
+    const other = readOnly({ [route]: 'import { headers } from "next/headers";' });
+    expect(routeProblems(route, other)).toEqual(["imports next/headers"]);
+    const typeOnly = readOnly({
+      [route]: 'import type { GalleryData } from "@/features/gallery/data";',
+      [DATA]: "",
+    });
+    expect(routeProblems(route, typeOnly)).toEqual(["imports @/features/gallery/data"]);
   });
 });

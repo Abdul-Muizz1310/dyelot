@@ -7,7 +7,7 @@ import type { HexColor, Site } from "./define";
 export const SHARE_CARD_SIZE = { width: 1200, height: 630 } as const;
 
 const PADDING_X = 72;
-const CONTENT_WIDTH = SHARE_CARD_SIZE.width - 2 * PADDING_X;
+export const CONTENT_WIDTH = SHARE_CARD_SIZE.width - 2 * PADDING_X;
 /** The tracking the headline renders with; the fit model reads the same constant. */
 export const LETTER_SPACING_EM = -0.02;
 /** Geist Mono sets every glyph 600/1000 em wide; tracking is added to each advance. */
@@ -18,11 +18,16 @@ const HEADLINE_LINES = 2;
 export const HEADLINE_SIZES = [96, 88, 80, 72, 64, 56, 48] as const;
 
 /** The sites' dot grid; Satori cannot tile a CSS gradient, so it is an SVG pattern. */
-const DOT_GRID = `data:image/svg+xml,${encodeURIComponent(
+export const DOT_GRID = `data:image/svg+xml,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="${SHARE_CARD_SIZE.width}" height="${SHARE_CARD_SIZE.height}"><defs><pattern id="d" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="14" cy="14" r="1.1" fill="#ffffff" fill-opacity="0.09"/></pattern></defs><rect width="100%" height="100%" fill="url(#d)"/></svg>`,
 )}`;
 
-const INK = { background: "#0a0a0a", foreground: "#fafafa", muted: "#8a8aa3", border: "#1e1e2e" };
+export const INK = {
+  background: "#0a0a0a",
+  foreground: "#fafafa",
+  muted: "#8a8aa3",
+  border: "#1e1e2e",
+};
 
 /** A run of a headline word, keyed by its offset in the headline. */
 export type Segment = { at: number; text: string; highlight: boolean };
