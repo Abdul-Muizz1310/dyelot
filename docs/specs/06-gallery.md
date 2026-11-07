@@ -447,6 +447,12 @@ shows "This template could not load." and "Try again", which calls the loader ag
 new lazy component and resets the boundary; it never shows a raw error. **(decision G1; the eager landing template, the
 boundary's place, the strings and the timeout drafter)**
 
+Amended at Task 6.7 (R6-33 amendment): a chunk that does not arrive reaches `TemplateBoundary` as Turbopack's
+`ChunkLoadError`, and a production build reports an error a boundary caught with one `console.error` (Next's
+`onCaughtError`), as it does for the explorer's chunk (R5-39 amendment). So F-TPL6-05 allows exactly three console
+lines: the two of 14.11 of M5 and React's one report, whose text starts "ChunkLoadError: Failed to load chunk <the
+aborted chunk's path> from module <id>"; section 14's sentence on `ABORT_CHUNK` stands for every other flow.
+
 **R6-34 · The settings template's clip margin.** `.st` takes `overflow: clip` and `overflow-clip-margin: 12px` (the
 `canvas.css` pattern) in place of `overflow: hidden`, so the "Show me" outline of `.st-top` and `.st-save-bar` shows whole
 at `.st`'s edge; if probe 6 finds the save bar's outline still cut by `.st-scroll`, `.st-save-bar` takes `bottom: 4px`

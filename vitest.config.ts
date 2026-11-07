@@ -125,6 +125,8 @@ const PREVIEW_HELPERS = [
   "format",
   "transition",
   "kit/reduced",
+  // The lazy templates' loaders, idle scheduler and preload (Task 6.7, R6-33).
+  "templates/load",
 ].map((name) => `src/features/preview/${name}.ts`);
 
 /** The motion lab's pure helpers (Task 5.7a), held to `PURE_FLOORS` the same way. */

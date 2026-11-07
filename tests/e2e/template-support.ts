@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { type Rgb, ROLE_NAMES, wcagRatio } from "@/engine";
+import type { LazyTemplateId } from "@/features/preview/templates/load";
 import type { TemplateId } from "@/features/studio/view";
 import { canvasFrame } from "./studio-support";
 
@@ -1114,4 +1115,62 @@ export async function paintedContrast(
     ratio: color === null || fill === null ? 0 : wcagRatio(channels(color), channels(fill)),
     threshold: large ? 3 : 4.5,
   }));
+}
+
+// Task 6.7: the lazy templates' chunks (docs/specs/06-gallery.md, R6-33, probe 3 of R6-57).
+
+/**
+ * Probe 3's markers: each a literal of that template's file and of no other file under `src/`, found in
+ * its own chunk only and in none of the studio's first load (R6-57).
+ */
+export const TEMPLATE_MARKERS: Readonly<Record<LazyTemplateId, string>> = Object.freeze({
+  dashboard: "Dashboard: no tide event after now",
+  settings: "Settings: the design has no --chart-1",
+  mobile: "Mobile: no tide event after now",
+  editorial: "Editorial: link target",
+  "kitchen-sink": "kit-t-body sink-muted",
+});
+
+/** The lazy templates, in the order of `TEMPLATE_IDS`. */
+export const LAZY_TEMPLATES = Object.keys(TEMPLATE_MARKERS) as readonly LazyTemplateId[];
+
+type ChunkBody =
+  | { readonly url: string; readonly text: string }
+  | { readonly url: string; readonly error: string };
+
+/**
+ * The response list: the text of every JavaScript response the page receives from the moment this is
+ * called. `loaded()` names, in the order of `LAZY_TEMPLATES`, the lazy templates whose marker some
+ * response so far holds, once every body so far has been read; a body that cannot be read fails it, so
+ * an unread chunk never counts as holding no marker. Poll it.
+ */
+export function recordTemplateChunks(page: Page): { loaded(): Promise<LazyTemplateId[]> } {
+  // Each read settles into a body or its failure at once, so a failure waits for `loaded()`.
+  const bodies: Promise<ChunkBody>[] = [];
+  page.on("response", (response) => {
+    if (!(response.headers()["content-type"] ?? "").includes("javascript")) return;
+    const url = response.url();
+    bodies.push(
+      response.text().then(
+        (text) => ({ url, text }),
+        (error: unknown) => ({
+          url,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      ),
+    );
+  });
+  return {
+    loaded: async () => {
+      const texts = (await Promise.all(bodies)).map((body) => {
+        if ("error" in body) {
+          throw new Error(`recordTemplateChunks: could not read ${body.url}: ${body.error}`);
+        }
+        return body.text;
+      });
+      return LAZY_TEMPLATES.filter((id) =>
+        texts.some((text) => text.includes(TEMPLATE_MARKERS[id])),
+      );
+    },
+  };
 }

@@ -479,3 +479,76 @@ export async function STORAGE_DRAFT(
     [DRAFT_KEY, record] as const,
   );
 }
+
+// Task 6.7: the lazy templates' init scripts and readers (docs/specs/06-gallery.md, section 4).
+
+/**
+ * `NO_IDLE` replaces `requestIdleCallback` with one that never runs its callback, so the canvas's
+ * idle preload of the lazy templates (R6-33) never starts. Install it before `goto`.
+ */
+export async function NO_IDLE(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    let handle = 0;
+    window.requestIdleCallback = () => {
+      handle += 1;
+      return handle;
+    };
+  });
+}
+
+/**
+ * `HOLD_CHUNK` answers each `/_next/static/chunks/*.js` request with `route.fetch()` and holds the
+ * response whose text holds `marker` until `release()` is called, then fulfills it. A response without
+ * the marker falls back to the next route, so two holds compose. Install it before `goto`.
+ */
+export async function HOLD_CHUNK(page: Page, marker: string): Promise<{ release(): void }> {
+  let release = () => {};
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/_next/static/chunks/*.js", async (route) => {
+    const response = await route.fetch();
+    const text = await response.text();
+    if (!text.includes(marker)) {
+      await route.fallback();
+      return;
+    }
+    await released;
+    await route.fulfill({ response, body: text });
+  });
+  return { release: () => release() };
+}
+
+/**
+ * `LOADING_RECORD` keeps the text of every `[data-template-loading]` element that enters the
+ * document, from before the page's scripts run: a `MutationObserver` on the whole document reads each
+ * added node, so a loading sentence that shows however briefly is kept. Read it with `loadingCount`.
+ */
+export async function LOADING_RECORD(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const selector = "[data-template-loading]";
+    const kept: string[] = [];
+    (window as unknown as { __templateLoading: string[] }).__templateLoading = kept;
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (!(node instanceof Element)) continue;
+          const found = [
+            ...(node.matches(selector) ? [node] : []),
+            ...node.querySelectorAll(selector),
+          ];
+          for (const element of found) kept.push(element.textContent ?? "");
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
+}
+
+/** How many loading sentences `LOADING_RECORD` has kept so far; it fails when the record is missing. */
+export async function loadingCount(page: Page): Promise<number> {
+  const kept = await page.evaluate(
+    () => (window as unknown as { __templateLoading?: string[] }).__templateLoading ?? null,
+  );
+  if (kept === null) throw new Error("loadingCount: LOADING_RECORD is not installed");
+  return kept.length;
+}

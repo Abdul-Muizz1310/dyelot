@@ -358,3 +358,6 @@ function Console({ copy }: { copy: CanvasCopy }) {
     </Section>
   );
 }
+
+/** The lazy loader's entry (R6-33): `TEMPLATE_LOADERS` loads this file as its own chunk. */
+export default Settings;

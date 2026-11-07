@@ -3,7 +3,9 @@
 import "./canvas.css";
 import {
   type RefObject,
+  Suspense,
   useDeferredValue,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -15,7 +17,9 @@ import type { DesignSpec } from "@/spec";
 import { feelSpring } from "@/theme/vars";
 import { MotionScope } from "./kit";
 import { useOsReducedMotion } from "./kit/reduced";
-import { Template } from "./templates";
+import { TemplateBoundary } from "./TemplateBoundary";
+import { forgetTemplate, Template } from "./templates";
+import { idleScheduler, preloadTemplates, TEMPLATE_LINES } from "./templates/load";
 import { shownTemplate, templateTransition } from "./transition";
 import { useCanvasFonts } from "./useCanvasFonts";
 import { canvasStyle } from "./vars";
@@ -28,6 +32,12 @@ import { canvasStyle } from "./vars";
 // layout width: the named frame, or the mobile template's board (F-TPL-32); `data-frame` keeps the
 // view's frame either way. The template switch cross-fades (R5-46): `<ViewTransition>` names the
 // template's one root, keyed by the deferred template, and `data-template` reads the shown one.
+// Every template but the landing loads on demand (R6-33, 13.3): the `Suspense` and its error
+// boundary sit above the keyed `<ViewTransition>`, so they are mounted and revealed before any
+// switch. A switch with motion allowed is a transition, so a template still loading keeps the old
+// one on screen and the switch commits once; under reduced motion it is urgent and the loading
+// sentence shows. A template that could not load shows a sentence and "Try again". After the first
+// render the five lazy templates load when the browser is idle, so a later switch finds its chunk.
 
 export function Canvas({
   spec,
@@ -64,6 +74,8 @@ export function Canvas({
     observer.observe(element);
     return () => observer.disconnect();
   }, []);
+  // A first load always shows the landing template (the view is never stored).
+  useEffect(() => preloadTemplates("landing", idleScheduler(window)), []);
   return (
     <div ref={stageRef} data-canvas-stage="" className="canvas-stage">
       <div className="canvas-fit" style={{ width: width * scale, height: height * scale }}>
@@ -85,16 +97,30 @@ export function Canvas({
             style={style}
           >
             <MotionScope reduced={view.reducedMotion} spring={spring}>
-              <ViewTransition
-                key={template}
-                name="dyelot-template"
-                share={transition.share}
-                enter={transition.enter}
-                exit={transition.exit}
-                default={transition.default}
+              <TemplateBoundary
+                onRetry={() => {
+                  if (template !== "landing") forgetTemplate(template);
+                }}
               >
-                <Template spec={spec} view={shown} />
-              </ViewTransition>
+                <Suspense
+                  fallback={
+                    <p role="status" data-template-loading="" className="canvas-note kit-t-body">
+                      {TEMPLATE_LINES.loading}
+                    </p>
+                  }
+                >
+                  <ViewTransition
+                    key={template}
+                    name="dyelot-template"
+                    share={transition.share}
+                    enter={transition.enter}
+                    exit={transition.exit}
+                    default={transition.default}
+                  >
+                    <Template spec={spec} view={shown} />
+                  </ViewTransition>
+                </Suspense>
+              </TemplateBoundary>
             </MotionScope>
           </div>
         </div>
