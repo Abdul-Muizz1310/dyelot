@@ -10,6 +10,7 @@ import {
   summarize,
   toHex,
 } from "@/engine";
+import { describeType } from "@/features/studio/guards";
 import type { DesignSpec } from "@/spec";
 
 /** The five steps of the landing's story (R5-33, 7.2), as data a server component writes. */
@@ -53,6 +54,39 @@ function familyName(id: string): string {
   return FONT_CATALOG.find((font) => font.id === id)?.family ?? id;
 }
 
+/** The paths `storySteps` reads, in the order it checks them (R6-42). */
+const STORY_PATHS: readonly (readonly [path: string, array: boolean])[] = [
+  ["color", false],
+  ["color.params", false],
+  ["color.palettes", false],
+  ["color.palettes.primary", false],
+  ["color.palettes.primary.light", true],
+  ["color.roles", false],
+  ["color.roles.light", false],
+  ["type", false],
+  ["type.families", false],
+  ["space", false],
+  ["space.scale", true],
+];
+
+function assertShape(spec: unknown): void {
+  for (const [path, array] of STORY_PATHS) {
+    let node: unknown = spec;
+    for (const key of path.split(".")) {
+      node = (node as Record<string, unknown>)[key];
+    }
+    if (
+      array
+        ? !Array.isArray(node)
+        : typeof node !== "object" || node === null || Array.isArray(node)
+    ) {
+      throw new TypeError(
+        `storySteps: spec.${path} must be ${array ? "an array" : "an object"}, got ${describeType(node)}`,
+      );
+    }
+  }
+}
+
 /**
  * The story's five steps for a design with a locked primary seed, in order (7.2). A value that is
  * not an object is a `TypeError`; a design without a locked primary seed is a `RangeError`.
@@ -63,6 +97,7 @@ export function storySteps(spec: DesignSpec): readonly StoryStep[] {
       `storySteps: spec must be an object, got ${spec === null ? "null" : Array.isArray(spec) ? "array" : typeof spec}`,
     );
   }
+  assertShape(spec);
   const params = spec.color.params;
   const seed = params.primary;
   if (seed === undefined) {

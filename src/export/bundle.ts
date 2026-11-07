@@ -5,6 +5,7 @@ import { designMd } from "./design-md";
 import { dtcgFiles } from "./dtcg";
 import { figmaFiles } from "./figma";
 import { flavorFiles } from "./flavor";
+import { describeType, httpsOrigin } from "./guards";
 import { motionFiles } from "./motion";
 import { promptMd } from "./prompt";
 import { receiptJson } from "./receipt";
@@ -18,36 +19,12 @@ import type { Bundle, BundleFile, BundleInput, Receipt } from "./types";
 // `buildBundle` (R3-12, section 6.8): the files of a design in a fixed order, the receipt last over
 // the others. It reads no clock, locale or randomness, so one input gives one set of bytes.
 
-function describeType(value: unknown): string {
-  if (value === null) return "null";
-  return Array.isArray(value) ? "array" : typeof value;
-}
-
-function checkOrigin(origin: unknown): string {
-  if (typeof origin !== "string") {
-    throw new TypeError(`buildBundle: origin must be a string, got ${describeType(origin)}`);
-  }
-  let valid = false;
-  try {
-    const url = new URL(origin);
-    valid = url.protocol === "https:" && url.origin === origin;
-  } catch {
-    valid = false;
-  }
-  if (!valid) {
-    throw new RangeError(
-      `buildBundle: origin must be an https origin with no path, got ${JSON.stringify(origin)}`,
-    );
-  }
-  return origin;
-}
-
 /** The 18 to 21 files of a design, 27 to 30 with the flavor files, `receipt.json` last (R3-12, R5-24). */
 export function buildBundle(input: BundleInput): Bundle {
   if (typeof input !== "object" || input === null) {
     throw new TypeError(`buildBundle: input must be an object, got ${describeType(input)}`);
   }
-  const origin = checkOrigin(input.origin);
+  const origin = httpsOrigin(input.origin, "buildBundle");
   if (input.flavor !== undefined && typeof input.flavor !== "boolean") {
     throw new TypeError(
       `buildBundle: input.flavor must be a boolean, got ${describeType(input.flavor)}`,
