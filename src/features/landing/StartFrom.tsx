@@ -25,14 +25,17 @@ const LINK =
 
 function ColorGroup() {
   const id = useId();
+  const headingId = `${id}-heading`;
   const [hex, setHex] = useState("#f66c6d");
   const submit = (event: FormEvent) => {
     event.preventDefault();
     window.location.assign(colorHref(hex));
   };
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <h3 className={GROUP_HEADING}>{START_LINES.color}</h3>
+    <form onSubmit={submit} aria-labelledby={headingId} className="space-y-3">
+      <h3 id={headingId} className={GROUP_HEADING}>
+        {START_LINES.color}
+      </h3>
       <div className="flex items-center gap-3">
         <label htmlFor={id} className={LABEL}>
           {START_LINES.colorLabel}
@@ -57,6 +60,7 @@ function ColorGroup() {
 
 function BriefGroup() {
   const id = useId();
+  const headingId = `${id}-heading`;
   const noteId = `${id}-note`;
   const counterId = `${id}-counter`;
   const [text, setText] = useState("");
@@ -73,8 +77,10 @@ function BriefGroup() {
     window.location.assign(briefHref(text));
   };
   return (
-    <form onSubmit={submit} className="space-y-3">
-      <h3 className={GROUP_HEADING}>{START_LINES.brief}</h3>
+    <form onSubmit={submit} aria-labelledby={headingId} className="space-y-3">
+      <h3 id={headingId} className={GROUP_HEADING}>
+        {START_LINES.brief}
+      </h3>
       <div className="space-y-1.5">
         <label htmlFor={id} className={LABEL}>
           {START_LINES.briefLabel}
@@ -109,22 +115,35 @@ function BriefGroup() {
 }
 
 export function StartFrom() {
+  // 9.1: the section is named by its h2 and each group by its h3.
+  const id = useId();
+  const headingId = `${id}-heading`;
+  const imageId = `${id}-image`;
+  const galleryId = `${id}-gallery`;
   return (
     <TerminalWindow title="start-from.log">
-      <section data-start-from className="space-y-5">
-        <h2 className="font-mono text-foreground text-lg font-semibold">{START_LINES.heading}</h2>
+      <section data-start-from aria-labelledby={headingId} className="space-y-5">
+        <h2 id={headingId} className="font-mono text-foreground text-lg font-semibold">
+          {START_LINES.heading}
+        </h2>
         <div className="grid gap-6 md:grid-cols-2">
           <ColorGroup />
           <BriefGroup />
-          <div className="space-y-3">
-            <h3 className={GROUP_HEADING}>{START_LINES.image}</h3>
+          {/* biome-ignore lint/a11y/useSemanticElements: a fieldset groups form controls; this group is a note and a link, named by its h3 (9.1). */}
+          <div role="group" aria-labelledby={imageId} className="space-y-3">
+            <h3 id={imageId} className={GROUP_HEADING}>
+              {START_LINES.image}
+            </h3>
             <p className={NOTE}>{START_LINES.imageNote}</p>
             <a href={IMAGE_HREF} className={LINK}>
               {START_LINES.imageLink}
             </a>
           </div>
-          <div className="space-y-3">
-            <h3 className={GROUP_HEADING}>{START_LINES.gallery}</h3>
+          {/* biome-ignore lint/a11y/useSemanticElements: a fieldset groups form controls; this group is a note and a link, named by its h3 (9.1). */}
+          <div role="group" aria-labelledby={galleryId} className="space-y-3">
+            <h3 id={galleryId} className={GROUP_HEADING}>
+              {START_LINES.gallery}
+            </h3>
             <p className={NOTE}>{START_LINES.galleryNote}</p>
             <a href={GALLERY_HREF} className={LINK}>
               {START_LINES.galleryLink}

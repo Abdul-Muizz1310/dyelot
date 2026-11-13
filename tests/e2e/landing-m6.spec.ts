@@ -275,6 +275,13 @@ test.describe("14 the start-from section", () => {
       "an image",
       "the gallery",
     ]);
+    // 9.1: the section is a region named by its h2, and each group is named by its h3.
+    const region = page.getByRole("region", { name: "Start a design from", exact: true });
+    await expect(region).toHaveAttribute("data-start-from");
+    await expect(region.getByRole("form", { name: "a color", exact: true })).toBeVisible();
+    await expect(region.getByRole("form", { name: "a brief", exact: true })).toBeVisible();
+    await expect(region.getByRole("group", { name: "an image", exact: true })).toBeVisible();
+    await expect(region.getByRole("group", { name: "the gallery", exact: true })).toBeVisible();
     await expect(box.getByLabel("Seed color", { exact: true })).toHaveValue("#f66c6d");
     await expect(
       box.getByRole("button", { name: "Open the studio with this color" }),
