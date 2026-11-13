@@ -39,10 +39,9 @@ const PAGES = [
   { name: "studio", href: "/studio" },
   { name: "explore", href: "/explore" },
   { name: "motion", href: "/motion" },
-  // prefetch={false} until Task 6.6c: in M5, prefetching a route that 404s timed out F-SEC4-02.
-  { name: "gallery", href: "/gallery", prefetch: false },
-  { name: "about", href: "/about", prefetch: false },
-] as const satisfies readonly { name: string; href: string; prefetch?: false }[];
+  { name: "gallery", href: "/gallery" },
+  { name: "about", href: "/about" },
+] as const;
 
 /** The sticky, blurred nav: the brand tile (the same glyph as the icon) and seven links. */
 export function AppNav({ active }: AppNavProps) {
@@ -62,7 +61,6 @@ export function AppNav({ active }: AppNavProps) {
             <Link
               key={page.name}
               href={page.href}
-              prefetch={"prefetch" in page ? page.prefetch : undefined}
               aria-current={active === page.name ? "page" : undefined}
               className={active === page.name ? LINK_ACTIVE : LINK_IDLE}
             >

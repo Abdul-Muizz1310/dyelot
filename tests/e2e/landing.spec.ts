@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { flavorBackground } from "@/flavor/flavor.mjs";
+import { GALLERY_DATA } from "../unit/support/gallery";
 import { loseContext, NO_COMPILE, NO_WEBGL, test } from "./flavor-support";
 import { inputsPanel, lotId, lotOf, ready } from "./studio-support";
 
@@ -170,7 +171,7 @@ test("F-HOME5-02 / has one h1 and start.log holds its four links as children of 
 });
 
 // Breaks when the sitemap drops, reorders or re-homes a route.
-test("F-HOME5-03 /sitemap.xml lists the four routes in order", async ({ request }) => {
+test("F-HOME5-03 /sitemap.xml lists the 30 URLs in order", async ({ request }) => {
   const response = await request.get("/sitemap.xml");
   expect(response.status()).toBe(200);
   const locations = [...(await response.text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map((m) => m[1]);
@@ -179,6 +180,9 @@ test("F-HOME5-03 /sitemap.xml lists the four routes in order", async ({ request 
     "https://dyelot.vercel.app/studio",
     "https://dyelot.vercel.app/explore",
     "https://dyelot.vercel.app/motion",
+    "https://dyelot.vercel.app/gallery",
+    "https://dyelot.vercel.app/about",
+    ...GALLERY_DATA.entries.map((entry) => `https://dyelot.vercel.app/gallery/${entry.slug}`),
   ]);
 });
 

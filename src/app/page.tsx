@@ -6,6 +6,7 @@ import { TerminalWindow } from "@/components/terminal/TerminalWindow";
 import { HERO_CARDS } from "@/features/landing/cards";
 import { Hero } from "@/features/landing/Hero";
 import { heroSpec } from "@/features/landing/heroes";
+import { ReceiptSection } from "@/features/landing/ReceiptSection";
 import { Story } from "@/features/landing/Story";
 import { REPOSITORY_LABEL, REPOSITORY_URL } from "@/lib/links";
 import { SITE } from "@/lib/site/config";
@@ -49,6 +50,8 @@ export default function Home() {
             <StartLink href="/studio" label="the studio" />
             <StartLink href="/explore" label="the explorer" />
             <StartLink href="/motion" label="the motion lab" />
+            <StartLink href="/gallery" label="the gallery" />
+            <StartLink href="/about" label="the about page" />
             <a
               href={REPOSITORY_URL}
               target="_blank"
@@ -66,6 +69,7 @@ export default function Home() {
           </div>
         </TerminalWindow>
         <Story spec={heroSpec(0)} />
+        <ReceiptSection />
       </section>
     </PageFrame>
   );
