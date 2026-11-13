@@ -16,7 +16,7 @@ import {
 } from "./guard-support";
 
 // The M6 repository guards (docs/specs/06-gallery.md, section 14.12, C-GUARD6-nn). Task 6.1a holds
-// C-GUARD6-04 and C-GUARD6-06 and Task 6.4 C-GUARD6-09; the other rows join this file with their tasks.
+// C-GUARD6-04 and C-GUARD6-06, Task 6.3 C-GUARD6-07 and Task 6.4 C-GUARD6-09; the other rows join this file with their tasks.
 
 const GALLERY_DIR = path.join(SRC_DIR, "features/gallery");
 const at = (file: string): string => path.join(SRC_DIR, file);

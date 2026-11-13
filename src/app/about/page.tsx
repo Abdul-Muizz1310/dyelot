@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { PageFrame } from "@/components/terminal/PageFrame";
 import { Prompt } from "@/components/terminal/Prompt";
-import { ABOUT_INTRO, ABOUT_LINKS, ABOUT_SECTIONS, type AboutLink } from "@/features/about/copy";
+import {
+  ABOUT_INTRO,
+  ABOUT_LINK_PLACES,
+  ABOUT_LINKS,
+  ABOUT_SECTIONS,
+  type AboutLink,
+} from "@/features/about/copy";
 import { SITE } from "@/lib/site/config";
 import { pageMetadata } from "@/lib/site/metadata";
 
@@ -11,16 +17,13 @@ export const metadata: Metadata = pageMetadata(SITE, "/about", {
     "How dyelot works: the color math, the receipt and its checker, what AI sees and what stays in your browser, and the licenses of what it builds on.",
 });
 
-// Section 11.1: the page renders the copy and holds no other prose. A link follows the paragraph
-// that starts with its anchor sentence (section 11.3).
-const LINK_AFTER: Readonly<Record<string, string>> = {
-  "dyelot is open source": "The source on GitHub",
-  "Remotion, which makes": "Remotion's license",
-};
-
-function linkAfter(text: string): AboutLink | undefined {
-  const entry = Object.entries(LINK_AFTER).find(([start]) => text.startsWith(start));
-  return ABOUT_LINKS.find((link) => link.label === entry?.[1]);
+// Section 11.1: the page renders the copy and holds no other prose. `ABOUT_LINK_PLACES` says which
+// paragraph each link of `ABOUT_LINKS` follows (section 11.3).
+function linksAfter(section: string, index: number): AboutLink[] {
+  return ABOUT_LINKS.filter((_, i) => {
+    const place = ABOUT_LINK_PLACES[i];
+    return place?.section === section && place.paragraph === index;
+  });
 }
 
 const PARAGRAPH = "text-fg-muted leading-relaxed";
@@ -40,19 +43,21 @@ export default function AboutPage() {
             <h2 id={section.id} className="font-mono text-xl font-semibold tracking-tight">
               {section.heading}
             </h2>
-            {section.paragraphs.map((paragraph) => {
-              const link = linkAfter(paragraph.text);
-              return (
-                <div key={paragraph.text} className="space-y-2">
-                  <p className={PARAGRAPH}>{paragraph.text}</p>
-                  {link === undefined ? null : (
-                    <a href={link.href} rel="noopener noreferrer" className={`block ${LINK}`}>
-                      {link.label}
-                    </a>
-                  )}
-                </div>
-              );
-            })}
+            {section.paragraphs.map((paragraph, index) => (
+              <div key={paragraph.text} className="space-y-2">
+                <p className={PARAGRAPH}>{paragraph.text}</p>
+                {linksAfter(section.id, index).map((link) => (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    rel="noopener noreferrer"
+                    className={`block ${LINK}`}
+                  >
+                    {link.label}
+                  </a>
+                ))}
+              </div>
+            ))}
           </div>
         ))}
       </section>

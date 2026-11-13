@@ -6,6 +6,7 @@ import { CONTRAST_CHECKS, FONT_CATALOG } from "@/engine";
 import { TARGETS } from "@/engine/color/scale";
 import {
   ABOUT_INTRO,
+  ABOUT_LINK_PLACES,
   ABOUT_LINKS,
   ABOUT_SECTIONS,
   type AboutParagraph,
@@ -13,6 +14,7 @@ import {
 } from "@/features/about/copy";
 import { VIBE_SIDE } from "@/features/ai/image-protocol";
 import { CHIPS } from "@/features/ai/steer";
+import { REPOSITORY_URL } from "@/lib/links";
 import { TTL_DEFAULT_MS } from "@/server/ai/cache";
 import { m6CopyProblems } from "../../support/copy-m6";
 
@@ -118,6 +120,21 @@ describe("C-ABOUT6-01 the copy is 11.2 and 11.3 word for word (R6-21)", () => {
       expect(section.paragraphs, section.id).toEqual(expected);
     }
     expect(ABOUT_SECTIONS.flatMap((section) => section.paragraphs)).toHaveLength(rest.length);
+  });
+
+  it("C-ABOUT6-01 takes the GitHub link from REPOSITORY_URL and places each link after its paragraph", () => {
+    expect(ABOUT_LINKS[0]?.href).toBe(REPOSITORY_URL);
+    expect(ABOUT_LINK_PLACES).toHaveLength(ABOUT_LINKS.length);
+    const licenses = ABOUT_SECTIONS.find((section) => section.id === "licenses");
+    const after = ABOUT_LINK_PLACES.map(
+      (place) =>
+        ABOUT_SECTIONS.find((section) => section.id === place.section)?.paragraphs[place.paragraph]
+          ?.text,
+    );
+    expect(after[0]).toBe(licenses?.paragraphs[0]?.text);
+    expect(after[0]?.startsWith("dyelot is open source")).toBe(true);
+    expect(after[1]?.startsWith("Remotion, which makes")).toBe(true);
+    expect(isDeepFrozen(ABOUT_LINK_PLACES)).toBe(true);
   });
 
   it("C-ABOUT6-01 holds 11.3's two links and is deep-frozen", () => {

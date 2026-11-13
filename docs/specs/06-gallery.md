@@ -348,7 +348,8 @@ per-design card exists for it. This refines umbrella §3 (section 1). **(decisio
 the checker", "AI and privacy" and "Licenses". Every sentence is in the copy table of 11.2, which names the ruling each
 fact restates; the page renders `ABOUT_SECTIONS` and holds no other prose. Its end-to-end file is
 `tests/e2e/about-page.spec.ts`, since `tests/e2e/about.spec.ts` holds M3's About fields. C-NAME-07 (M1) lets `src/features/about/copy.ts` name
-`color-name-list` in prose, as long as it imports nothing from it. **(decision E1, E2; the copy
+`color-name-list` in prose, as long as it imports nothing from it: the licenses paragraph credits the package by
+name (11.2), and the guard's purpose is that no module but `names.ts` loads the list, not that no text names it. **(decision E1, E2; the copy
 drafter)**
 
 **R6-22 · No analytics, verified.** No package of `package.json` is an analytics, error-reporting or advertising client,

@@ -1,5 +1,5 @@
-import { expect } from "@playwright/test";
-import { ABOUT_INTRO, ABOUT_LINKS, ABOUT_SECTIONS } from "@/features/about/copy";
+import { expect, type Page } from "@playwright/test";
+import { ABOUT_INTRO, ABOUT_LINK_PLACES, ABOUT_LINKS, ABOUT_SECTIONS } from "@/features/about/copy";
 import { REPOSITORY_URL } from "@/lib/links";
 import { SITE } from "@/lib/site/config";
 import { chromaOffenders } from "./color-support";
@@ -10,6 +10,38 @@ import { test } from "./flavor-support";
 // page error.
 
 test.use({ viewport: { width: 1280, height: 800 } });
+
+/** Every text `main` shows, in order, as the copy holds it: the prompt, `h1`, intro, then each section. */
+function expectedTexts(): string[] {
+  const texts = ["dyelot about", "How dyelot works", ABOUT_INTRO.text];
+  for (const section of ABOUT_SECTIONS) {
+    texts.push(section.heading);
+    for (const [index, paragraph] of section.paragraphs.entries()) {
+      texts.push(paragraph.text);
+      ABOUT_LINKS.forEach((link, i) => {
+        const place = ABOUT_LINK_PLACES[i];
+        if (place?.section === section.id && place.paragraph === index) texts.push(link.label);
+      });
+    }
+  }
+  return texts;
+}
+
+/** The text each element of `main` holds itself, in order, leaving out the prompt's decorative marker. */
+async function mainTexts(page: Page): Promise<string[]> {
+  return page.locator("main").evaluate((main) => {
+    const own = (el: Element) =>
+      [...el.childNodes]
+        .filter((node) => node.nodeType === Node.TEXT_NODE)
+        .map((node) => node.textContent ?? "")
+        .join("")
+        .trim();
+    return [...main.querySelectorAll("*")]
+      .filter((el) => el.getAttribute("aria-hidden") !== "true")
+      .map(own)
+      .filter((text) => text !== "");
+  });
+}
 
 const DESCRIPTION =
   "How dyelot works: the color math, the receipt and its checker, what AI sees and what stays in your browser, and the licenses of what it builds on.";
@@ -33,17 +65,28 @@ test("F-ABOUT6-01 /about shows its title, headings and every paragraph in order,
   expect(await page.locator("h2").allTextContents()).toEqual(
     ABOUT_SECTIONS.map((section) => section.heading),
   );
-  const shown = await page.locator("main p").allTextContents();
-  const expected = [ABOUT_INTRO, ...ABOUT_SECTIONS.flatMap((section) => section.paragraphs)].map(
-    (paragraph) => paragraph.text,
-  );
-  // The prompt line is not a paragraph; the copy's paragraphs follow it in order.
-  expect(shown.filter((text) => expected.includes(text))).toEqual(expected);
+  // Any text the copy does not hold, or a missing or reordered one, fails here.
+  expect(await mainTexts(page)).toEqual(expectedTexts());
   const current = await page
     .getByRole("navigation")
     .locator('a[aria-current="page"]')
     .evaluateAll((links) => links.map((link) => link.textContent?.trim() ?? ""));
   expect(current).toEqual(["about"]);
+});
+
+// Breaks when the check above stops seeing prose that the copy does not hold.
+test("F-ABOUT6-01 the text check reports an extra paragraph injected into main", async ({
+  page,
+}) => {
+  await page.goto("/about");
+  await page.locator("main section").evaluate((section) => {
+    const extra = document.createElement("p");
+    extra.textContent = "An extra sentence.";
+    section.append(extra);
+  });
+  const shown = await mainTexts(page);
+  expect(shown).not.toEqual(expectedTexts());
+  expect(shown).toContain("An extra sentence.");
 });
 
 // Breaks when main gains or loses a link, or a link loses its rel or moves off its paragraph.

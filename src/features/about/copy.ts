@@ -159,8 +159,17 @@ export const ABOUT_SECTIONS: readonly AboutSection[] = deepFreeze([
   },
 ]);
 
-/** The two links of section 11.3, each placed after the paragraph it belongs to. */
+/** The two links of section 11.3. */
 export const ABOUT_LINKS: readonly AboutLink[] = deepFreeze([
   { label: "The source on GitHub", href: "https://github.com/Abdul-Muizz1310/dyelot" },
   { label: "Remotion's license", href: "https://remotion.pro/license" },
+]);
+
+/** Where each link of `ABOUT_LINKS` goes, in its order: after that section's paragraph (11.3). */
+export const ABOUT_LINK_PLACES: readonly {
+  readonly section: AboutSection["id"];
+  readonly paragraph: number;
+}[] = deepFreeze([
+  { section: "licenses", paragraph: 0 },
+  { section: "licenses", paragraph: 2 },
 ]);
