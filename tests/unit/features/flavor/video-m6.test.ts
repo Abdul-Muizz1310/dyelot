@@ -22,19 +22,19 @@ function expectThrow(run: () => unknown, kind: ErrorConstructor) {
   expect((caught as Error).message).toMatch(/^brandDescription: /);
 }
 
-const sentence = (props: BrandProps, lead: string): string =>
-  `A six-second video of ${lead}: five rows of eleven swatches (primary, secondary, accent, neutral and danger), a sample card with a Get started button, and the line ${props.checks.passed} of ${props.checks.required} required checks pass, with the lot ${props.lot}. It is set in ${first(props.fonts.display)} and ${first(props.fonts.body)}.`;
-
 describe("C-FLAV6-01 brandDescription is 13.1's sentence", () => {
   it("leaves out an empty one-liner", () => {
     const props = { ...brandProps(SPEC_OF(MADDER.slug), "light"), oneLiner: "" };
-    expect(brandDescription(props)).toBe(sentence(props, props.name));
+    expect(brandDescription(props)).toBe(
+      "A six-second video of Madder: five rows of eleven swatches (primary, secondary, accent, neutral and danger), a sample card with a Get started button, and the line 78 of 78 required checks pass, with the lot aa8c·3b9a. It is set in Host Grotesk and Host Grotesk.",
+    );
   });
 
-  it("holds a one-liner in quotation marks", () => {
+  it("holds a one-liner in quotation marks, after the word with", () => {
     const props = brandProps(SPEC_OF(KERMES.slug), "light");
-    expect(props.oneLiner).not.toBe("");
-    expect(brandDescription(props)).toBe(sentence(props, `${props.name}, "${props.oneLiner}"`));
+    expect(brandDescription(props)).toBe(
+      'A six-second video of Kermes, with "A slow longform magazine set in serif on warm paper, with burgundy headings.": five rows of eleven swatches (primary, secondary, accent, neutral and danger), a sample card with a Get started button, and the line 78 of 78 required checks pass, with the lot 1b3f·a778. It is set in Schibsted Grotesk and Source Serif 4.',
+    );
   });
 
   it("names the first family of each stack, unquoted", () => {
@@ -68,6 +68,28 @@ describe("C-FLAV6-02 brandDescription checks its argument", () => {
     expectThrow(
       () => brandDescription({ ...props, checks: { ...props.checks, passed: bad("78") } }),
       TypeError,
+    );
+  });
+
+  it("throws a TypeError for palettes that are not an array", () => {
+    expectThrow(() => brandDescription({ ...good(), palettes: bad("five") }), TypeError);
+  });
+
+  it("throws a RangeError for counts that are not whole numbers from 0", () => {
+    const props = good();
+    for (const passed of [-1, 1.5]) {
+      expectThrow(
+        () => brandDescription({ ...props, checks: { ...props.checks, passed } }),
+        RangeError,
+      );
+    }
+  });
+
+  it("throws a RangeError for an empty font stack", () => {
+    const props = good();
+    expectThrow(
+      () => brandDescription({ ...props, fonts: { ...props.fonts, body: "" } }),
+      RangeError,
     );
   });
 

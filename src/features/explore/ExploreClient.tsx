@@ -214,7 +214,8 @@ export function ExploreClient({ initial }: { initial: DesignSpec }) {
   // goes away, so focus never falls to the body (R6-37).
   const turn = useRef<HTMLInputElement>(null);
   const restart = () => {
-    turn.current?.focus();
+    if (turn.current === null) throw new Error("restart: the Turn slider is not mounted");
+    turn.current.focus();
     setMount((count) => count + 1);
     setPanel({ state: "loading" });
   };

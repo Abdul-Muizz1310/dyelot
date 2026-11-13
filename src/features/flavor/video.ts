@@ -205,6 +205,6 @@ export function brandDescription(props: BrandProps): string {
   }
   const display = firstFamily(fonts.display, "brandDescription: props.fonts.display");
   const body = firstFamily(fonts.body, "brandDescription: props.fonts.body");
-  const subject = oneLiner === "" ? name : `${name}, "${oneLiner}"`;
+  const subject = oneLiner === "" ? name : `${name}, with "${oneLiner}"`;
   return `A six-second video of ${subject}: five rows of eleven swatches (primary, secondary, accent, neutral and danger), a sample card with a Get started button, and the line ${checks.passed} of ${checks.required} required checks pass, with the lot ${lot}. It is set in ${display} and ${body}.`;
 }
