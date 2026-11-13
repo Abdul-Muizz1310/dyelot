@@ -1,8 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { lintSpec } from "@/engine";
 import { ExportDialog } from "@/features/export/ExportDialog";
 import { blockReason } from "@/features/export/files";
+import { loadExport } from "@/features/export/useBundle";
 import type { StudioStore } from "@/features/studio/store";
 import { writeHash } from "@/features/studio/url";
 import type { DesignSpec } from "@/spec";
@@ -33,6 +34,12 @@ const TWO_FAIL: DesignSpec = {
     },
   },
 };
+
+// The first dialog would pay the cold `import("@/export")` inside Testing Library's 1 s wait, so the
+// loader is warmed once here and each test's wait covers only its own bundle.
+beforeAll(async () => {
+  await loadExport();
+}, 30_000);
 
 const createObjectURL = vi.fn(() => "blob:x");
 const writeText = vi.fn(async () => {});
