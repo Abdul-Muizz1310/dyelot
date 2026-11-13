@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 import { GALLERY_DATA } from "../unit/support/gallery";
 import { test } from "./flavor-support";
 
@@ -30,10 +30,12 @@ const SENTENCES = [
 const ORIGIN = "https://dyelot.vercel.app";
 const NAV = ["home", "studio", "explore", "motion", "gallery", "about", "github"];
 
+/** The site's nav: the one `nav` that links to the repository (the gallery adds a labeled one). */
+const siteNav = (page: Page): Locator =>
+  page.getByRole("navigation").filter({ has: page.getByRole("link", { name: "github" }) });
+
 const navLinks = (page: Page): Promise<string[]> =>
-  page
-    .getByRole("navigation")
-    .first()
+  siteNav(page)
     .getByRole("link")
     .evaluateAll((links) => links.map((link) => link.textContent?.trim() ?? ""));
 
@@ -80,6 +82,14 @@ test("F-LAND6-06 the receipt section follows the story and shows the excerpt", a
     expect(text).toBe(excerptText(part));
   }
   await expect(section.locator("pre").last()).toHaveText("$ node scripts/dyelot-check.mjs");
+  // Each pre wraps and may break anywhere (9.2): the computed style, not the class list.
+  const styles = await section
+    .locator("pre")
+    .evaluateAll((pres) =>
+      pres.map((pre) => [getComputedStyle(pre).overflowWrap, getComputedStyle(pre).whiteSpace]),
+    );
+  expect(styles).toHaveLength(4);
+  for (const style of styles) expect(style).toEqual(["anywhere", "pre-wrap"]);
 });
 
 test("F-LAND6-07 start.log holds the six links as siblings in one div", async ({ page }) => {
@@ -112,7 +122,7 @@ test("F-NAV6-01 the seven links share one row at 1280 x 800, and the current pag
     ["/about", "about"],
   ] as const) {
     await page.goto(path);
-    const nav = page.getByRole("navigation").first();
+    const nav = siteNav(page);
     expect((await navLinks(page)).slice(1), path).toEqual(NAV);
     const tops = new Set<number>();
     for (const name of NAV) {
@@ -152,7 +162,7 @@ test("F-NAV6-02 at 360 x 740 the seven links are visible in at most two rows on 
         response?.url() ?? "",
       );
     }
-    const nav = page.getByRole("navigation").first();
+    const nav = siteNav(page);
     const navBox = await nav.boundingBox();
     const tops = new Set<number>();
     for (const name of NAV) {
@@ -169,12 +179,15 @@ test("F-NAV6-02 at 360 x 740 the seven links are visible in at most two rows on 
     );
     expect(overflow, path).toBeLessThanOrEqual(0);
     const marks = await nav.locator('a[aria-current="page"]').all();
+    // Every page of the nav marks its own link; /connect and the 404 page mark none.
+    expect(marks.length, path).toBe(path === "/connect" || path === "/no-such-page" ? 0 : 1);
     for (const mark of marks) {
       const box = await mark.boundingBox();
       const bottom = (box?.y ?? 0) + (box?.height ?? 0) + 2;
       expect(box?.y ?? -1, path).toBeGreaterThanOrEqual(navBox?.y ?? 0);
       expect(bottom, path).toBeLessThanOrEqual((navBox?.y ?? 0) + (navBox?.height ?? 0));
     }
+    // The next goto must not abort this page's in-flight chunk requests and report them to the watch.
     await page.waitForLoadState("networkidle");
   }
 });
@@ -201,7 +214,7 @@ test("F-NAV6-RF5 at 320 x 640 the nav holds seven links in at most two rows with
   await page.setViewportSize({ width: 320, height: 640 });
   for (const path of ["/", "/gallery"]) {
     await page.goto(path);
-    const nav = page.getByRole("navigation").first();
+    const nav = siteNav(page);
     const tops = new Set<number>();
     for (const name of NAV) {
       const link = nav.getByRole("link", { name, exact: true });

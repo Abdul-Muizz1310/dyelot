@@ -1,7 +1,7 @@
 import { excerptText, RECEIPT_EXCERPT, RECEIPT_LINES, receiptLines } from "./receipt";
 
 const PRE =
-  "m-0 whitespace-pre-wrap break-words rounded-lg border border-border bg-panel p-4 font-mono text-xs [overflow-wrap:anywhere]";
+  "m-0 whitespace-pre-wrap rounded-lg border border-border bg-panel p-4 font-mono text-xs [overflow-wrap:anywhere]";
 const CAPTION = "font-mono text-xs text-fg-muted";
 const FIGURE = "m-0 min-w-0 space-y-2";
 

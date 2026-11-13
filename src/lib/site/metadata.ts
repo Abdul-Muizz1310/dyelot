@@ -83,14 +83,17 @@ export function robotsFile(site: Site): MetadataRoute.Robots {
   };
 }
 
+const typeName = (value: unknown): string =>
+  value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+
 /** The site's sitemap routes, then `more` (the gallery's entry pages, R6-31). */
 export function sitemapEntries(site: Site, more: readonly Route[] = []): MetadataRoute.Sitemap {
   if (!Array.isArray(more)) {
-    throw new TypeError(`sitemapEntries: more must be an array, got ${typeof more}`);
+    throw new TypeError(`sitemapEntries: more must be an array, got ${typeName(more)}`);
   }
   for (const route of more) {
     if (typeof route !== "string") {
-      throw new TypeError(`sitemapEntries: every route must be a string, got ${typeof route}`);
+      throw new TypeError(`sitemapEntries: every route must be a string, got ${typeName(route)}`);
     }
   }
   const seen = new Set<string>(site.routes.sitemap);
