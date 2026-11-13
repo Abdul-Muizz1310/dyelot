@@ -1,4 +1,12 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import path from "node:path";
 import { expect } from "@playwright/test";
+import {
+  a11yFailures,
+  auditRecord,
+  type FormFactor,
+  routeName,
+} from "../../scripts/audit-core.mjs";
 import { runLighthouse } from "../../scripts/lighthouse.mjs";
 import { test } from "./flavor-support";
 
@@ -19,6 +27,121 @@ async function rejection(run: () => Promise<unknown>): Promise<unknown> {
   }
   return undefined;
 }
+
+/**
+ * One audit (12.2): Lighthouse on the route at the form factor, the record written to
+ * test-results/lighthouse/<routeName>-<formFactor>.json and attached, accessibility at least 0.95.
+ */
+async function auditRoute(
+  route: string,
+  formFactor: FormFactor,
+  baseURL: string | undefined,
+  testInfo: import("@playwright/test").TestInfo,
+): Promise<void> {
+  const lhr = await runLighthouse(new URL(route, baseURL).href, formFactor);
+  const dir = path.join("test-results", "lighthouse");
+  mkdirSync(dir, { recursive: true });
+  const file = path.join(dir, `${routeName(route)}-${formFactor}.json`);
+  const body = JSON.stringify(auditRecord(lhr), null, 2);
+  writeFileSync(file, body);
+  await testInfo.attach(`${routeName(route)}-${formFactor}`, {
+    body,
+    contentType: "application/json",
+  });
+  expect(lhr.categories.accessibility.score, a11yFailures(lhr).join(", ")).toBeGreaterThanOrEqual(
+    0.95,
+  );
+}
+
+test("F-LH6-01 / at desktop: accessibility is at least 0.95", async ({ baseURL }, testInfo) => {
+  await auditRoute("/", "desktop", baseURL, testInfo);
+});
+
+test("F-LH6-02 / at mobile: accessibility is at least 0.95", async ({ baseURL }, testInfo) => {
+  await auditRoute("/", "mobile", baseURL, testInfo);
+});
+
+test("F-LH6-03 /gallery at desktop: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/gallery", "desktop", baseURL, testInfo);
+});
+
+test("F-LH6-04 /gallery at mobile: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/gallery", "mobile", baseURL, testInfo);
+});
+
+test("F-LH6-05 /gallery/madder at desktop: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/gallery/madder", "desktop", baseURL, testInfo);
+});
+
+test("F-LH6-06 /gallery/madder at mobile: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/gallery/madder", "mobile", baseURL, testInfo);
+});
+
+test("F-LH6-07 /about at desktop: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/about", "desktop", baseURL, testInfo);
+});
+
+test("F-LH6-08 /about at mobile: accessibility is at least 0.95", async ({ baseURL }, testInfo) => {
+  await auditRoute("/about", "mobile", baseURL, testInfo);
+});
+
+test("F-LH6-09 /studio at desktop: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/studio", "desktop", baseURL, testInfo);
+});
+
+test("F-LH6-10 /studio at mobile: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/studio", "mobile", baseURL, testInfo);
+});
+
+test("F-LH6-11 /explore at desktop: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/explore", "desktop", baseURL, testInfo);
+});
+
+test("F-LH6-12 /explore at mobile: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/explore", "mobile", baseURL, testInfo);
+});
+
+test("F-LH6-13 /motion at desktop: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/motion", "desktop", baseURL, testInfo);
+});
+
+test("F-LH6-14 /motion at mobile: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/motion", "mobile", baseURL, testInfo);
+});
+
+test("F-LH6-15 /connect at desktop: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/connect", "desktop", baseURL, testInfo);
+});
+
+test("F-LH6-16 /connect at mobile: accessibility is at least 0.95", async ({
+  baseURL,
+}, testInfo) => {
+  await auditRoute("/connect", "mobile", baseURL, testInfo);
+});
 
 test("F-LH6-17 refuses a form factor outside FORM_FACTORS and a non-string URL before any launch", async ({
   baseURL,
