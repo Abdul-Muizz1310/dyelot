@@ -427,3 +427,66 @@ export function valueImporters(target: string, files: readonly string[], read: R
     ),
   );
 }
+
+// C-GUARD5-09's Vitest config readers and C-GUARD5-10's string reader (moved unchanged from
+// repo-guards-m5.test.ts in Task 6.11a, D8), which C-GUARD6-03 and C-GUARD6-08 read too.
+
+export type Floors = { lines: number; statements: number; functions: number; branches: number };
+export const floorsOf = (main: number, branches: number): Floors => ({
+  lines: main,
+  statements: main,
+  functions: main,
+  branches,
+});
+
+/** The parts of a Vitest config that C-GUARD5-09 reads. */
+export type ProjectsConfig = {
+  test?: {
+    projects?: unknown;
+    coverage?: { include?: unknown; thresholds?: unknown };
+  };
+};
+export type Project = { test?: { name?: string; include?: string[]; exclude?: string[] } };
+
+export const strings = (value: unknown): string[] =>
+  Array.isArray(value) ? value.filter((each): each is string => typeof each === "string") : [];
+
+/** Whether `project` runs the test file `file`: an include matches it and no exclude does. */
+export function runs(project: Project | undefined, file: string): boolean {
+  const matches = (globs: unknown) => strings(globs).some((glob) => path.matchesGlob(file, glob));
+  return matches(project?.test?.include) && !matches(project?.test?.exclude);
+}
+
+/**
+ * The strings of a source file, read from its syntax tree: string and template literals and JSX
+ * text. Module specifiers (of `import`, `export … from` and `import()`) and directives are code,
+ * not copy.
+ */
+export function sourceStrings(file: string, source: string): string[] {
+  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.TSX);
+  const found: string[] = [];
+  const isSpecifier = (node: ts.Node): boolean => {
+    const parent = node.parent;
+    return (
+      ((ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) &&
+        parent.moduleSpecifier === node) ||
+      (ts.isCallExpression(parent) &&
+        parent.expression.kind === ts.SyntaxKind.ImportKeyword &&
+        parent.arguments[0] === node) ||
+      (ts.isExpressionStatement(parent) && ts.isSourceFile(parent.parent))
+    );
+  };
+  const visit = (node: ts.Node): void => {
+    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      if (!isSpecifier(node)) found.push(node.text);
+    } else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
+      found.push(node.text);
+    } else if (ts.isJsxText(node)) {
+      const text = node.text.trim();
+      if (text !== "") found.push(text);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(tree);
+  return found;
+}

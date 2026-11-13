@@ -1,7 +1,6 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { isDeepStrictEqual } from "node:util";
-import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { MOTION_PRESET_IDS, MOTION_PRESETS, withMotion } from "@/engine";
 import { scanLine } from "@/export/checker/dyelot-check.mjs";
@@ -21,19 +20,26 @@ import {
   E2E_TITLE,
   engineAndSpecFiles,
   exportAndImportFiles,
+  type Floors,
   filesUnder,
+  floorsOf,
   importsOf,
   inProbe,
   isValue,
   moduleFile,
+  type Project,
+  type ProjectsConfig,
   purityViolations,
   type Reader,
   ROOT,
   readDisk,
   readOnly,
   resolved,
+  runs,
   SRC_DIR,
   section14,
+  sourceStrings,
+  strings,
   stripComments,
   titlesIn,
   UNIT_TITLE,
@@ -752,14 +758,6 @@ describe("C-GUARD5-12 every flow file that names the render button answers the u
 // back from vitest.config.ts, so a list the config drops is still asked for. C-GUARD4-10 keeps
 // M4's scope and floors.
 
-type Floors = { lines: number; statements: number; functions: number; branches: number };
-const floorsOf = (main: number, branches: number): Floors => ({
-  lines: main,
-  statements: main,
-  functions: main,
-  branches,
-});
-
 /** Section 15's whole coverage scope. */
 const SCOPE_FLOORS: Floors = { lines: 80, statements: 80, functions: 75, branches: 70 };
 /** R5-62's test folders, each with the project that runs it. */
@@ -798,24 +796,6 @@ const M5_HELPERS: readonly string[] = [
   // `phase.ts` since Task 5.9c's review (section 15).
   ...["video", "render", "record", "phase"].map((name) => `src/features/flavor/${name}.ts`),
 ];
-
-/** The parts of a Vitest config that C-GUARD5-09 reads. */
-type ProjectsConfig = {
-  test?: {
-    projects?: unknown;
-    coverage?: { include?: unknown; thresholds?: unknown };
-  };
-};
-type Project = { test?: { name?: string; include?: string[]; exclude?: string[] } };
-
-const strings = (value: unknown): string[] =>
-  Array.isArray(value) ? value.filter((each): each is string => typeof each === "string") : [];
-
-/** Whether `project` runs the test file `file`: an include matches it and no exclude does. */
-function runs(project: Project | undefined, file: string): boolean {
-  const matches = (globs: unknown) => strings(globs).some((glob) => path.matchesGlob(file, glob));
-  return matches(project?.test?.include) && !matches(project?.test?.exclude);
-}
 
 /**
  * Every way `candidate` misses R5-62 and section 15, named; an empty list when it holds them all.
@@ -1041,40 +1021,6 @@ function copyTables(): [where: string, text: string][] {
       [`motionLine(${name})`, motionLine(withMotion(SPEC, tokens))],
     ]),
   ] as [string, string][];
-}
-
-/**
- * The strings of a source file, read from its syntax tree: string and template literals and JSX
- * text. Module specifiers (of `import`, `export … from` and `import()`) and directives are code,
- * not copy.
- */
-function sourceStrings(file: string, source: string): string[] {
-  const tree = ts.createSourceFile(file, source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.TSX);
-  const found: string[] = [];
-  const isSpecifier = (node: ts.Node): boolean => {
-    const parent = node.parent;
-    return (
-      ((ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) &&
-        parent.moduleSpecifier === node) ||
-      (ts.isCallExpression(parent) &&
-        parent.expression.kind === ts.SyntaxKind.ImportKeyword &&
-        parent.arguments[0] === node) ||
-      (ts.isExpressionStatement(parent) && ts.isSourceFile(parent.parent))
-    );
-  };
-  const visit = (node: ts.Node): void => {
-    if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
-      if (!isSpecifier(node)) found.push(node.text);
-    } else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node) || ts.isTemplateTail(node)) {
-      found.push(node.text);
-    } else if (ts.isJsxText(node)) {
-      const text = node.text.trim();
-      if (text !== "") found.push(text);
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(tree);
-  return found;
 }
 
 /** Every rule each text breaks, as "<where>: <problem> in <text>". */

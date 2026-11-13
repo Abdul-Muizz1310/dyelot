@@ -1854,6 +1854,17 @@ Tests: `tests/unit/engine/repo-guards-m6.test.ts`, `tests/unit/scripts/gate.test
 | C-GUARD6-12 | pass | No entry's name, slug, brief or tag, no About paragraph and no string of 9.1 or 9.2 holds the perceptual formula's trade name (in any case) or a host of `NEVER_USE_HOSTS` | ruling R6-12, R6-21, R6-59 |
 | C-GUARD6-13 | pass | `playwright.config.ts` holds the `lighthouse` project of 12.2 (its `testMatch`, `dependencies: ["chromium"]`, `retries: 1`, `fullyParallel: false`), and the `chromium` project's `testIgnore` matches `lighthouse-m6.spec.ts` | ruling R6-44 |
 
+**Ruling of Task 6.11a (2026-11-13): what C-GUARD6-10's scan reads.** The two scanners match words in a file's text,
+so two of the files the row names read as impure though neither calls an API. `data.ts` types `entryMetadata` with
+Next's `Metadata` (5.1) through `import type { Metadata } from "next"`, which C-REPO-01's import rule reads as an import
+of Next; and `scripts/audit-core.mjs` names Lighthouse's `performance` category (`CATEGORIES` and the key of
+`categoryScores`, 5.6), which C-GUARD3-02's `\bperformance\b` reads as the clock. So the case scans each file with its
+whole `import type` and `export type … from` declarations blanked, since TypeScript erases them and they load nothing,
+and `audit-core.mjs` alone with its string `"performance"` and its object key `performance:` blanked too; a value import
+of Next, a call of `performance.now()` and a destructured `performance` are still found (the case's probes). The row's
+"C-REPO-01's and C-GUARD3-02's scanners list `src/export/guards.ts`" reads as: C-GUARD3-02's list, the one that covers
+`src/export` (C-REPO-01's covers `src/engine` and `src/spec`), holds it, and neither scanner finds anything in it.
+
 ## 15. Coverage
 
 `pnpm vitest run --coverage` keeps M5's scope and floors and adds:

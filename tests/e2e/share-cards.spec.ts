@@ -1,4 +1,5 @@
 import { type APIResponse, expect, type Page } from "@playwright/test";
+import { SITE } from "@/lib/site/config";
 import { GALLERY_DATA, KERMES } from "../unit/support/gallery";
 import { test } from "./flavor-support";
 
@@ -123,5 +124,48 @@ test("F-SHARE6-04 an unknown or capitalized slug answers 404 and no image", asyn
     const response = await request.get(path);
     expect(response.status(), path).toBe(404);
     expect(response.headers()["content-type"] ?? "", path).not.toMatch(/^image\/png/);
+  }
+});
+
+// F-SHARE6-05 (Task 6.11a, R6-20, decision D2): a studio link keeps the site's card, since its hash
+// never reaches a server, and robots leave the gallery's pages and image routes open to scrapers.
+
+/** The site's paths whose `og:image` stays the site's card (R6-20). */
+const SITE_CARD_PAGES = ["/studio", "/about", "/"] as const;
+/** The start of the site card's address: `<origin>/opengraph-image`, then Next's query. */
+const SITE_CARD = `${SITE.url}/opengraph-image`;
+/** The gallery's paths a scraper fetches: an entry page, its card and the gallery's card. */
+const GALLERY_PATHS = [
+  "/gallery/",
+  "/gallery/madder",
+  "/gallery/madder/opengraph-image",
+  "/gallery/opengraph-image",
+];
+
+test("F-SHARE6-05 /studio, /about and / keep the site's card, and robots leave /gallery/ allowed", async ({
+  page,
+  request,
+}) => {
+  for (const path of SITE_CARD_PAGES) {
+    const response = await page.goto(path);
+    expect(response?.status(), path).toBe(200);
+    const image = page.locator('head meta[property="og:image"]');
+    await expect(image, path).toHaveCount(1);
+    const content = (await image.getAttribute("content")) ?? "";
+    expect(content.slice(0, SITE_CARD.length), path).toBe(SITE_CARD);
+  }
+  const robots = await request.get("/robots.txt");
+  expect(robots.status()).toBe(200);
+  const disallowed = (await robots.text())
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.startsWith("Disallow:"))
+    .map((line) => line.slice("Disallow:".length).trim());
+  expect(disallowed).toEqual(["/api/", "/connect/callback"]);
+  for (const path of GALLERY_PATHS) {
+    expect(
+      disallowed.filter((rule) => path.startsWith(rule)),
+      path,
+    ).toEqual([]);
   }
 });
