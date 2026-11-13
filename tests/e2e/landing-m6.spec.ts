@@ -6,8 +6,9 @@ import { briefField, imageInput, lockToggle, seedField } from "./ai-support";
 import { test } from "./flavor-support";
 import { ready } from "./studio-support";
 
-// The landing's receipt section, start.log and the nav: F-LAND6-06, F-LAND6-07 and F-NAV6-01 to
-// F-NAV6-03 and RF5 of docs/specs/06-gallery.md, section 14.7 (R6-29 to R6-32, sections 9.2 to 9.4).
+// The landing's start-from section, receipt section, start.log and the nav: F-LAND6-01 to
+// F-LAND6-07 and F-NAV6-01 to F-NAV6-03 and RF5 of docs/specs/06-gallery.md, section 14.6 (R6-27 to
+// R6-32, sections 9.1 to 9.4).
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -231,7 +232,7 @@ test("F-NAV6-RF5 at 320 x 640 the nav holds seven links in at most two rows with
   }
 });
 
-// F-LAND6-01 to 05 of docs/specs/06-gallery.md, section 14 (R6-27, R6-28, 9.1): the landing's
+// F-LAND6-01 to 05 of docs/specs/06-gallery.md, section 14.6 (R6-27, R6-28, 9.1): the landing's
 // start-from section.
 
 const START_TITLE = "start-from.log";
@@ -252,7 +253,7 @@ function recordNavigations(page: Page): string[] {
   return urls;
 }
 
-test.describe("14 the start-from section", () => {
+test.describe("the start-from section (14.6)", () => {
   test("F-LAND6-01 sits between the hero and start.log with every string of 9.1", async ({
     page,
   }) => {

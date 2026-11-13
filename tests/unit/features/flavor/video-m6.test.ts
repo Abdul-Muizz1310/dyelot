@@ -1,15 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { type BrandProps, brandProps } from "@/export";
+import { brandProps } from "@/export";
 import { brandDescription, FLAVOR_LINES } from "@/features/flavor/video";
 import { KERMES, MADDER, SPEC_OF } from "../../support/gallery";
 
 // C-FLAV6-01 to 03 of docs/specs/06-gallery.md, section 14 (R6-35, R6-36, 5.5, 13.1, 13.2).
 
 const bad = (value: unknown) => value as never;
-
-/** The first family of a font stack, unquoted. */
-const first = (stack: string): string =>
-  (stack.split(",")[0] as string).trim().replace(/^["']|["']$/g, "");
 
 function expectThrow(run: () => unknown, kind: ErrorConstructor) {
   let caught: unknown;

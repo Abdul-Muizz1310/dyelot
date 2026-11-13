@@ -38,8 +38,8 @@ export const TEMPLATE_LINES: Readonly<Record<"loading" | "failed" | "retry", str
   });
 
 /**
- * A scheduler on `win`: `requestIdleCallback(run, { timeout: 2000 })`, cancelled with
- * `cancelIdleCallback`, when the window has both; else `setTimeout(run, 1000)`, cancelled with
+ * A scheduler on `win`: `requestIdleCallback(run, { timeout: 2000 })`, canceled with
+ * `cancelIdleCallback`, when the window has both; else `setTimeout(run, 1000)`, canceled with
  * `clearTimeout`.
  */
 export function idleScheduler(
