@@ -16,7 +16,7 @@ import {
 } from "./guard-support";
 
 // The M6 repository guards (docs/specs/06-gallery.md, section 14.12, C-GUARD6-nn). Task 6.1a holds
-// C-GUARD6-04 and C-GUARD6-06; the other rows join this file with their tasks.
+// C-GUARD6-04 and C-GUARD6-06 and Task 6.4 C-GUARD6-09; the other rows join this file with their tasks.
 
 const GALLERY_DIR = path.join(SRC_DIR, "features/gallery");
 const at = (file: string): string => path.join(SRC_DIR, file);
@@ -215,5 +215,69 @@ describe("C-GUARD6-07 the image routes import six modules (R6-18)", () => {
       [DATA]: "",
     });
     expect(routeProblems(route, typeOnly)).toEqual(["imports @/features/gallery/data"]);
+  });
+});
+
+describe("C-GUARD6-09 dyelot ships no analytics (R6-22)", () => {
+  const PACKAGES = [
+    "@vercel/analytics",
+    "@vercel/speed-insights",
+    "@sentry/nextjs",
+    "@sentry/browser",
+    "posthog-js",
+    "plausible-tracker",
+    "mixpanel-browser",
+    "react-ga4",
+  ];
+  const HOSTS = [
+    "googletagmanager.com",
+    "google-analytics.com",
+    "plausible.io",
+    "posthog.com",
+    "segment.io",
+    "sentry.io",
+    "/_vercel/insights",
+  ];
+
+  /** The names of `manifest`'s dependency tables that are an analytics client, in either table. */
+  function analyticsPackages(manifest: string): string[] {
+    const parsed = JSON.parse(manifest) as Record<string, Record<string, string> | undefined>;
+    const names = [
+      "dependencies",
+      "devDependencies",
+      "optionalDependencies",
+      "peerDependencies",
+    ].flatMap((table) => Object.keys(parsed[table] ?? {}));
+    return names.filter((name) => PACKAGES.includes(name) || name.startsWith("@segment/"));
+  }
+
+  /** The hosts of the list that `source` names, in any case. */
+  const hostsNamed = (source: string): string[] =>
+    HOSTS.filter((host) => source.toLowerCase().includes(host));
+
+  it("C-GUARD6-09 finds no analytics package in package.json", () => {
+    expect(analyticsPackages(readFileSync(path.join(ROOT, "package.json"), "utf8"))).toEqual([]);
+  });
+
+  it("C-GUARD6-09 finds no analytics host in any file under src", () => {
+    const named = ALL_FILES.flatMap((file) =>
+      hostsNamed(readFileSync(file, "utf8")).map((host) => `${path.relative(ROOT, file)}: ${host}`),
+    );
+    expect(named).toEqual([]);
+  });
+
+  it("C-GUARD6-09 reports a probe of each package and each host", () => {
+    for (const name of [...PACKAGES, "@segment/analytics-next"]) {
+      for (const table of ["dependencies", "devDependencies"]) {
+        const manifest = JSON.stringify({ [table]: { react: "1.0.0", [name]: "1.0.0" } });
+        expect(analyticsPackages(manifest), `${table} ${name}`).toEqual([name]);
+      }
+    }
+    expect(analyticsPackages(JSON.stringify({ dependencies: { react: "1.0.0" } }))).toEqual([]);
+    expect(analyticsPackages("{}")).toEqual([]);
+    for (const host of HOSTS) {
+      expect(hostsNamed(`fetch("https://${host.toUpperCase()}/x")`), host).toEqual([host]);
+    }
+    expect(hostsNamed('fetch("https://openrouter.ai")')).toEqual([]);
   });
 });
