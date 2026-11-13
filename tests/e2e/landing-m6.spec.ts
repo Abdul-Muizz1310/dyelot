@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, type Locator, type Page } from "@playwright/test";
 import { GALLERY_DATA } from "../unit/support/gallery";
+import { briefField, imageInput, lockToggle, seedField } from "./ai-support";
 import { test } from "./flavor-support";
+import { ready } from "./studio-support";
 
 // The landing's receipt section, start.log and the nav: F-LAND6-06, F-LAND6-07 and F-NAV6-01 to
 // F-NAV6-03 and RF5 of docs/specs/06-gallery.md, section 14.7 (R6-29 to R6-32, sections 9.2 to 9.4).
@@ -227,4 +229,130 @@ test("F-NAV6-RF5 at 320 x 640 the nav holds seven links in at most two rows with
     );
     expect(overflow, path).toBeLessThanOrEqual(0);
   }
+});
+
+// F-LAND6-01 to 05 of docs/specs/06-gallery.md, section 14 (R6-27, R6-28, 9.1): the landing's
+// start-from section.
+
+const START_TITLE = "start-from.log";
+const section = (page: Page) => page.locator("[data-start-from]");
+
+/** The brief form's own status line: the color's `output` is a status region too. */
+const briefStatus = (page: Page) =>
+  section(page)
+    .locator("form", { has: page.getByLabel("Describe the product or mood", { exact: true }) })
+    .getByRole("status");
+
+/** The URL of every navigation the main frame commits from now on. */
+function recordNavigations(page: Page): string[] {
+  const urls: string[] = [];
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) urls.push(frame.url());
+  });
+  return urls;
+}
+
+test.describe("14 the start-from section", () => {
+  test("F-LAND6-01 sits between the hero and start.log with every string of 9.1", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const titles = await page.evaluate(() =>
+      [...document.querySelectorAll("section > header > div.text-center")].map(
+        (el) => el.textContent,
+      ),
+    );
+    const at = titles.indexOf(START_TITLE);
+    expect(at).toBeGreaterThan(0);
+    expect(titles[at + 1]).toBe("start.log");
+    const box = section(page);
+    await expect(box.getByRole("heading", { level: 2 })).toHaveText("Start a design from");
+    await expect(box.getByRole("heading", { level: 3 })).toHaveText([
+      "a color",
+      "a brief",
+      "an image",
+      "the gallery",
+    ]);
+    await expect(box.getByLabel("Seed color", { exact: true })).toHaveValue("#f66c6d");
+    await expect(
+      box.getByRole("button", { name: "Open the studio with this color" }),
+    ).toBeVisible();
+    await expect(box.getByLabel("Describe the product or mood", { exact: true })).toHaveAttribute(
+      "placeholder",
+      "A tea house at dusk, calm and exact",
+    );
+    await expect(box.getByRole("button", { name: "Take this brief to the studio" })).toBeVisible();
+    await expect(box).toContainText(
+      "The studio puts it in its Brief box. Nothing reads it until you press Read the brief there.",
+    );
+    await expect(box).toContainText(
+      "The studio finds an image's colors in this browser. Nothing leaves your device until you ask a model to read it.",
+    );
+    await expect(box).toContainText(
+      "Original design systems made by dyelot, each with its receipt.",
+    );
+    await expect(box.getByRole("link", { name: "Open the studio's image drop" })).toHaveAttribute(
+      "href",
+      "/studio#start=image",
+    );
+    await expect(box.getByRole("link", { name: "Browse the gallery" })).toHaveAttribute(
+      "href",
+      "/gallery",
+    );
+    await expect(box).toContainText("0 of 500 characters");
+  });
+
+  test("F-LAND6-02 the color form opens the studio on that color, locked", async ({ page }) => {
+    await page.goto("/");
+    await section(page).getByLabel("Seed color", { exact: true }).fill("#0e84b7");
+    await expect(section(page).locator("output")).toHaveText("#0e84b7");
+    const urls = recordNavigations(page);
+    await section(page).getByRole("button", { name: "Open the studio with this color" }).click();
+    await page.waitForURL(/\/studio/);
+    await ready(page);
+    expect(urls.find((url) => new URL(url).pathname !== "/")).toMatch(/\/studio#color=0e84b7$/);
+    await expect(seedField(page, "Primary")).toHaveValue("#0e84b7");
+    await expect(lockToggle(page, "primary")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  test("F-LAND6-03 the brief form opens the studio with the text in a focused Brief box", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const box = section(page).getByLabel("Describe the product or mood", { exact: true });
+    await box.fill("A tea house at dusk");
+    await expect(section(page)).toContainText("19 of 500 characters");
+    await section(page).getByRole("button", { name: "Take this brief to the studio" }).click();
+    await page.waitForURL(/\/studio/);
+    await ready(page);
+    await expect(briefField(page)).toHaveValue("A tea house at dusk");
+    await expect(briefField(page)).toBeFocused();
+  });
+
+  for (const text of ["   ", "1234"]) {
+    test(`F-LAND6-04 a brief of ${JSON.stringify(text)} keeps the page, says why and keeps focus`, async ({
+      page,
+    }) => {
+      await page.goto("/");
+      const urls = recordNavigations(page);
+      const box = section(page).getByLabel("Describe the product or mood", { exact: true });
+      await box.fill(text);
+      await section(page).getByRole("button", { name: "Take this brief to the studio" }).click();
+      await expect(briefStatus(page)).toHaveText("Write a few words first.");
+      await expect(box).toBeFocused();
+      expect(new URL(page.url()).pathname).toBe("/");
+      expect(urls.filter((url) => new URL(url).pathname !== "/")).toEqual([]);
+    });
+  }
+
+  test("F-LAND6-05 the image link and the gallery link open their pages", async ({ page }) => {
+    await page.goto("/");
+    await section(page).getByRole("link", { name: "Open the studio's image drop" }).click();
+    await page.waitForURL(/\/studio#start=image$/);
+    await ready(page);
+    await expect(imageInput(page)).toBeFocused();
+    await page.goto("/");
+    await section(page).getByRole("link", { name: "Browse the gallery" }).click();
+    await page.waitForURL(/\/gallery$/);
+  });
 });

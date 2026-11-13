@@ -157,7 +157,7 @@ const AI_HELPERS = [
 ].map((name) => `src/features/ai/${name}.ts`);
 
 /** The landing's pure helpers (Tasks 5.5a and 5.5b), held to `PURE_FLOORS` the same way. */
-const LANDING_HELPERS = ["heroes", "story", "cycle", "receipt"].map(
+const LANDING_HELPERS = ["heroes", "story", "cycle", "receipt", "start"].map(
   (name) => `src/features/landing/${name}.ts`,
 );
 

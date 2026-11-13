@@ -418,7 +418,8 @@ has. **(decision G6 for drafts; the link half drafter, a departure in section 1)
 **R6-27 · The start-from section.** Between the hero and `start.log`, a `TerminalWindow` titled `start-from.log` holds
 four groups, each an `h3` under the section's `h2` "Start a design from": a color (a form with a color input and a submit),
 a brief (a form with a textarea of at most 500 characters, a counter and a submit), an image (a link to
-`/studio#start=image`) and the gallery (a link to `/gallery`). Section 9.1 fixes every string. **(decision C1; the layout
+`/studio#start=image`) and the gallery (a link to `/gallery`). Section 9.1 fixes every string. The color input starts at madder, `#f66c6d`, so `StartFrom.tsx`
+joins the files C-GUARD-05 lists as naming it; it is a seed value, not chrome. **(decision C1; the layout
 and copy drafter)**
 
 **R6-28 · The forms build links with no engine.** `StartFrom.tsx` is a client component; a submit calls `colorHref(hex)`

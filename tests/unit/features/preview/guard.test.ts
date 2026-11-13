@@ -212,9 +212,10 @@ describe("C-GUARD-03 and C-GUARD-04 the preview folder", () => {
 });
 
 describe("C-GUARD-05 madder stays on the focus ring, the active state and the primary action", () => {
-  it("lists the chrome files that name madder: the focus ring, the primary action and the show me outline", () => {
+  it("lists the chrome files that name madder: the focus ring, the primary action, the show me outline and the start-from color's first value", () => {
     expect(madderFiles(ROOT)).toEqual([
       "src/app/globals.css",
+      "src/features/landing/StartFrom.tsx", // the color input's first value, madder (R6-27)
       "src/features/studio/chrome.ts",
       "src/features/studio/highlight.css",
     ]);
