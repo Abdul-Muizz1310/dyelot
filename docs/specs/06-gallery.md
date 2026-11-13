@@ -14,6 +14,39 @@ Status: approved by the owner on 2026-11-07, as written, after one independent r
 20 Minor and 5 uncertain items) and a re-check (6 Minor, fixed). The owner accepted the recommendation of every item
 in section 21, and approved the close's edit of the workspace `CLAUDE.md` counts.
 
+M6 closed with the merge of `m6-gallery`. The spec holds 60 rulings and 172 cases in section 14 (94 `C-` cases and 78 `F-`
+cases); every case has a test that carries its id, which C-GUARD6-01 checks: 172 of 172. Task 6.0 ran the six probes of
+R6-57 on a021eaf, and five passed on their first form: Lighthouse runs under the nonce CSP with a numeric score in every
+category (accessibility 100 on every route at both form factors, except `/studio` at mobile, which scored 97; the gate adds
+no `--force-prefers-reduced-motion`, and the deployed runs keep motion), the per-slug share card renders per request at
+102,863 bytes and a 307 keeps the fragment, the lazy templates work with the boundary above the keyed `<ViewTransition>`,
+a brief entry's link rebuilds and exports, and the 18 briefs build deterministically. Probe 6 failed: `overflow: clip` on
+the settings template left axe's color-contrast check undecided on 37 nodes at the 1280 frame and 44 at 360, so G2 is
+dropped, F-TPL6-06 sits in section 18, and `.st` keeps `overflow: hidden`. Section 18's conditional rows match: the lazy
+templates and the open route are struck, and the clip margin stays. Rulings made during the work carry "Amended at Task
+6.n" where they stand. Among them: the share cards' parts sit 8 px apart with -0.02 em tracking and F-SHARE6-02 reads the
+top-right pixel (R6-18), a chunk that does not arrive allows three console lines in F-TPL6-05 and F-TPL6-07, and a loaded
+template renders itself, so a switch never suspends twice (R6-33); the gallery's card links are named by `aria-label`
+(Task 6.2); `copy.ts` is the one file `names.test.ts` lets name `color-name-list` (R6-21); a loaded design takes its
+preset from `presetOf(spec)`, which also changed C-STORE-39 and one M4 flow (R6-26 and section 16); and Task 6.7's review
+added F-TPL6-07, the 172nd case. `pnpm gate:full` on `m6-gallery` passed in {{M6_GATE_FULL}} with {{M6_UNIT_COUNT}} and
+{{M6_E2E_COUNT}}, and {{M6_COVERAGE}} of coverage; `pnpm gate` passed in {{M6_GATE}}. Both ran on a 16-core desktop that
+was also running the owner's own applications; a flow that holds a timing budget failed under a high load average in
+several lanes and passed alone on a quiet machine, as the plan's timing-flow rule allows.
+
+The residuals that ship, from the task reviews: `briefSpec` checks field types but not R6-12's domains (C-GAL6-08 covers
+the fixed data), and `receiptLines` does not type-check the receipt's name, format and contrast strings; an update run of
+the gallery data exits 1 because its compare cases read the stale JSON; `sm:after:-bottom-[11px]` departs slightly from
+9.3's text, and no unit test checks the landing's class strings; `loaders-m6.test.ts` matches the loader shape with a
+regex where C-HYG6-04 says to read the syntax tree; one failed Lighthouse run aborts `audit-site.mjs`'s 48 runs and writes
+nothing, and its `--base` drops any path; the card components check no argument types, and the mosaic headline probably
+leaves "receipt" alone on its second line (the hand check looks); `b7f85dc` leaves M4's rationale flow red until the next
+commit; C-BLK-01's 1 s wait and F-STUDIO-05's 30 s budget fail under heavy load on any tree; `showTemplate`'s 5 s poll
+now spans a lazy chunk load; `violations(page, extraRules)` has no caller; and the `/gallery` minors of Task 6.2's review
+(F-GAL6-01 does not pin 6 and 18, a bare "script" substring in F-GAL6-04, repeated markup, and a second "Copied" press
+that is not announced again). The hand check of R6-58 on the deployed site and `scripts/audit-site.mjs`'s medians,
+first-byte times and chunk sizes follow the merge, and their results go into this note and the README.
+
 Section 2 lists the owner's standing rulings and the controller's decisions of 2026-11-07. Section 3 turns each decision
 into rulings R6-01 to R6-60, and section 14 holds 172 cases (94 `C-` cases and 78 `F-` cases; probe 6 moved F-TPL6-06
 to section 18, and Task 6.7's review added F-TPL6-07). A ruling ends with **(decision X#)** when it states a controller
@@ -464,13 +497,13 @@ boundary's place, the strings and the timeout drafter)**
 
 Amended at Task 6.7 (R6-33 amendment): a chunk that does not arrive reaches `TemplateBoundary` as Turbopack's
 `ChunkLoadError`, and a production build reports an error a boundary caught with one `console.error` (Next's
-`onCaughtError`), as it does for the explorer's chunk (R5-39 amendment). So F-TPL6-05 allows exactly three console
-lines: the two of 14.11 of M5 and React's one report, whose text starts "ChunkLoadError: Failed to load chunk <the
+`onCaughtError`), as it does for the explorer's chunk (R5-39 amendment). So F-TPL6-05 and F-TPL6-07 allow exactly three
+console lines: the two of 14.11 of M5 and React's one report, whose text starts "ChunkLoadError: Failed to load chunk <the
 aborted chunk's path> from module <id>"; section 14's sentence on `ABORT_CHUNK` stands for every other flow.
 
 Amended at Task 6.7's review: `Template` renders a lazy template through `React.lazy` only until its chunk has loaded,
 and then renders the loaded component itself, because a new `React.lazy` over a loaded chunk still suspends once, which
-under reduced motion showed the loading sentence and made a `startViewTransition` call at its reveal (13.3).
+under reduced motion showed the loading sentence and could make a `startViewTransition` call at its reveal (13.3).
 
 **R6-34 · The settings template's clip margin.** `.st` takes `overflow: clip` and `overflow-clip-margin: 12px` (the
 `canvas.css` pattern) in place of `overflow: hidden`, so the "Show me" outline of `.st-top` and `.st-save-bar` shows whole
@@ -1218,8 +1251,9 @@ exports `INK`, `DOT_GRID` and `CONTENT_WIDTH`, which it keeps private today; not
 6. "<passed> of <required> required checks pass" (400, 28 px, `INK.foreground`).
 7. The footer: `$ open <host>/gallery/<slug>` and `muizz-lab`, as the M0 card's footer.
 
-The parts sit 16 px apart; with the line on two lines the column fits 630 px, and if it does not, Task 6.3 narrows the
-gaps, never the type sizes. `GALLERY_CARD_ALT` is "A design system from dyelot's gallery, with its name, its one-line
+The parts sit 8 px apart, and the name, the line and the headline of 8.2 carry the M0 headline's tracking, -0.02 em, as
+R6-18's ruling records: with the line on two lines the column fits 630 px at that gap, and a column that did not fit
+would narrow the gaps again, never the type sizes. `GALLERY_CARD_ALT` is "A design system from dyelot's gallery, with its name, its one-line
 description, five of its colors and its receipt count."
 
 ### 8.2 The gallery's card
@@ -1227,7 +1261,8 @@ description, five of its colors and its receipt count."
 `MosaicShareCard({ cards, icon })`: the same ground, brand row and footer (`$ open <host>/gallery`), the comment
 `// gallery`, the headline "24 design systems, each with its receipt" (700, 56 px, "receipt" in `SITE.accent`), and a
 mosaic of four rows of six tiles in `GALLERY_DEFS` order, each tile 160 × 40 px made of its card's five strip colors as
-equal bands, with 12 px gaps. `MOSAIC_ALT` is "dyelot's gallery: 24 design systems, each shown as five of its colors."
+equal bands, with 12 px gaps. The parts sit 8 px apart, with -0.02 em tracking on the headline, as R6-18's ruling
+records. `MOSAIC_ALT` is "dyelot's gallery: 24 design systems, each shown as five of its colors."
 
 ## 9. The landing (Task 6.6)
 
@@ -1914,7 +1949,7 @@ written from its row, never from an uncovered-line report.
 | C-REPO-M2-03 (M2), C-GUARD4-10 (M4), C-GUARD5-09 (M5) | The coverage include and floors of M5's section 15 | Also section 15's new lists (C-GUARD6-03) | R6-54 |
 | M5's spec 13.3 | The Brand video region keeps its name | Plus the figure and its description of R6-35 (a note in 13.3) | R6-35 |
 | F-A11Y-04 (M2) | `chromaOffenders` is local to `tests/e2e/studio.spec.ts` | It imports `chromaOffenders` from `tests/e2e/color-support.ts` (Task 6.2) and calls it with `{ root: "body", skip: ["[data-canvas]"] }`; its allowance and assertions stand | R6-14 |
-| F-VT-01, F-VT-02, F-VT-03 (M5) | The switch comes right after `openStudio`; F-VT-02 and F-VT-03 read the record once the frame's `data-template` flips | The switch comes after the five lazy chunks have arrived and run (the response list, polled, and no script or stylesheet still loading), so the flows test the transition and not the load; F-VT-02 and F-VT-03 read the record once the new template's root shows, with `LOADING_RECORD` empty; their assertions stand. Probe 3's one failing run of F-VT-02 in five came from the switch suspending, not from a missing chunk: a new `React.lazy` suspends once even over a loaded chunk, so a reduced-motion switch committed the loading sentence (which flips `data-template`) and its reveal made a `startViewTransition` call, which a read at the flip catches only when it comes late; Task 6.7's review renders a loaded template with no suspend (R6-33 amendment) | R6-33 |
+| F-VT-01, F-VT-02, F-VT-03 (M5) | The switch comes right after `openStudio`; F-VT-02 and F-VT-03 read the record once the frame's `data-template` flips | The switch comes after the five lazy chunks have arrived and run (the response list, polled, and no script or stylesheet still loading), so the flows test the transition and not the load; F-VT-02 and F-VT-03 read the record once the new template's root shows, with `LOADING_RECORD` empty; their assertions stand. Probe 3's one failing run of F-VT-02 in five came from the switch suspending, not from a missing chunk: a new `React.lazy` suspends once even over a loaded chunk, so a reduced-motion switch committed the loading sentence (which flips `data-template`: the sentence commits in the same commit that flips the attribute) and its reveal made a `startViewTransition` call, which a read at the flip catches only when it comes late; Task 6.7's review renders a loaded template with no suspend (R6-33 amendment) | R6-33 |
 
 Every other M1 to M5 case stands as written (I-M6-07), among them C-LAND5-02 (the hero cards), F-HERO-01 to 06 (the
 hero's "Pause" keeps its name, F-FIX6-04), F-A11Y5-01 (axe on `/`, with the new sections inside its page), F-SEC4-01
@@ -1986,7 +2021,7 @@ chose and the two of G3 and G4:
 | `springAt` with a NaN sample; `mergeParams` and `parseParams` checking only that `motionTokens` is a record and storing normalized tokens; `fieldText`'s shape check; `readField` taking `0x10`; RF5's binary-string property; C-MOT5-04's computed id | Not scheduled (inputs come from checked specs and the lab's bounded fields) |
 | `brand-intro.tsx`'s `fit-content`; the receipt fade's one-frame floor; the specimen card's entrance; no P3 case for `brandProps`; the `as` casts in `brand.ts`; C-FEX-19's order; F-FEX-02's nine paths | Not scheduled (each change would re-run the goldens) |
 | `record.ts`'s abort edges; `useVideoJob`'s late start; `reduced` read at mount; no "Loading" cue for the Flavor dialog and an empty status region's first announcement; three status regions repeating a class string; F-FLAVOR-08's fixed 6 s wait | Not scheduled (no flow fails, and Lighthouse and axe pass) |
-| `Story.tsx` pairing heading and paragraph by index; the story-css parser not mutation-checked; F-VT-03 without a poll and F-VT-07's fixed wait; C-GUARD5-08's CSP probe; `watchReducedMotion` calling during subscribe; `Scales.tsx`'s `slice(0, -2)` | Not scheduled |
+| `Story.tsx` pairing heading and paragraph by index; the story-css parser not mutation-checked; F-VT-03's single read (since Task 6.7's review it reads once the settings root shows, with `LOADING_RECORD` empty, so a switch that suspends fails it; it still does not poll for a later call) and F-VT-07's fixed wait; C-GUARD5-08's CSP probe; `watchReducedMotion` calling during subscribe; `Scales.tsx`'s `slice(0, -2)` | Not scheduled |
 | No flow for a 360 px drawer staying open when Escape closes a row; thin light and dark coverage; thin Tab-order coverage beyond the two "Pause"s; the lenient hit-area check; F-A11Y5-04's title; no flow for no-WebGL with reduced motion; the hero's focus-to-"Next palette" branch; F-HERO-RF1; "Pause" at 28 px beside "Next palette" at 32 px | Not scheduled (Lighthouse's target-size audit and F-A11Y6 cover the new pages) |
 | The inline Playwright `Page` type and `flavorSwitch` in two files; policy violations read from the last document; a third copy of the violation fixture; the watch fixture's evaluate on a closed page; C-GUARD5-03's bare side-effect import; the prefetch removal's red test | Not scheduled (test hygiene; no flow depends on them) |
 | Spec 05's 10.2 sentence on `[data-ratio]`; the R5-08 sentence's wrap; `GAMUT_NAMES` and `assertJobDeps` exported unlisted; the biome-ignore count; commits citing later amendments; the bisect gap at 6039c28; the minors not enumerated in two M5 review files | Nothing to do in code; the M5 spec's text stands as approved |
