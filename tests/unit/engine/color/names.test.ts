@@ -131,10 +131,13 @@ describe("the list stays out of the engine", () => {
 
   it("C-NAME-07 names color-name-list only in src/features/studio/names.ts, in a dynamic import", () => {
     const allowed = path.join(ROOT, "src/features/studio/names.ts");
-    const naming = sourceFiles(path.join(ROOT, "src")).filter((file) =>
-      readFileSync(file, "utf8").includes("color-name-list"),
+    // The About copy credits the package in prose (R6-21, 11.2); it imports nothing.
+    const credit = path.join(ROOT, "src/features/about/copy.ts");
+    const naming = sourceFiles(path.join(ROOT, "src")).filter(
+      (file) => file !== credit && readFileSync(file, "utf8").includes("color-name-list"),
     );
     expect(naming.filter((file) => file !== allowed)).toEqual([]);
+    expect(readFileSync(credit, "utf8")).not.toMatch(/from\s+["']color-name-list/);
     for (const file of naming) {
       const source = readFileSync(file, "utf8");
       expect(source).not.toMatch(STATIC_IMPORT);

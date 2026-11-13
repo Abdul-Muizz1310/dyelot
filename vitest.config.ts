@@ -164,6 +164,9 @@ const GALLERY_HELPERS = ["tags", "defs", "data", "cards", "links", "build"].map(
   (name) => `src/features/gallery/${name}.ts`,
 );
 
+/** The about page's copy (Task 6.4), held to `PURE_FLOORS` the same way. */
+const ABOUT_HELPERS = ["copy"].map((name) => `src/features/about/${name}.ts`);
+
 /** The explorer's pure helpers (Task 5.6a), held to `PURE_FLOORS` the same way. */
 const EXPLORE_HELPERS = ["scene", "webgl"].map((name) => `src/features/explore/${name}.ts`);
 
@@ -288,6 +291,7 @@ export default defineConfig({
         ...FLAVOR_HELPERS,
         ...LANDING_HELPERS,
         ...GALLERY_HELPERS,
+        ...ABOUT_HELPERS,
         ...EXPLORE_HELPERS,
         // The server shell's pieces (M4); handle.ts composes them, and the routes are covered by
         // the flows.
@@ -318,6 +322,7 @@ export default defineConfig({
             ...FLAVOR_HELPERS,
             ...LANDING_HELPERS,
             ...GALLERY_HELPERS,
+            ...ABOUT_HELPERS,
             ...EXPLORE_HELPERS,
           ].map((file) => [file, PURE_FLOORS]),
         ),
