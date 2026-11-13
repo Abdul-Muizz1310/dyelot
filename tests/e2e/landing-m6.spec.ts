@@ -264,6 +264,8 @@ test.describe("14 the start-from section", () => {
     );
     const at = titles.indexOf(START_TITLE);
     expect(at).toBeGreaterThan(0);
+    // The hero's window is the one before it: its title is the card's file name.
+    expect(titles[at - 1]).toMatch(/\.flavor$/);
     expect(titles[at + 1]).toBe("start.log");
     const box = section(page);
     await expect(box.getByRole("heading", { level: 2 })).toHaveText("Start a design from");
@@ -340,6 +342,8 @@ test.describe("14 the start-from section", () => {
       await section(page).getByRole("button", { name: "Take this brief to the studio" }).click();
       await expect(briefStatus(page)).toHaveText("Write a few words first.");
       await expect(box).toBeFocused();
+      // A bounded wait: a navigation the submit started would have committed by now.
+      await page.waitForTimeout(500);
       expect(new URL(page.url()).pathname).toBe("/");
       expect(urls.filter((url) => new URL(url).pathname !== "/")).toEqual([]);
     });

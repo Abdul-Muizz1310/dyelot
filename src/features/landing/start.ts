@@ -46,7 +46,10 @@ function assertString(value: unknown, name: string): asserts value is string {
 function ready(text: string): boolean {
   if (LONE_SURROGATE.test(text)) return false;
   const trimmed = text.trim();
-  return trimmed.length >= 1 && trimmed.length <= START_BRIEF_MAX && LETTER.test(trimmed);
+  // The studio measures the text in NFC (readEntry's toPlainText), where a character such as
+  // U+0344 is longer, so the bound is measured there too.
+  const length = trimmed.normalize("NFC").length;
+  return length >= 1 && length <= START_BRIEF_MAX && LETTER.test(trimmed);
 }
 
 /** `/studio#color=<hex>` for six hex digits, with or without `#`. */

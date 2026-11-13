@@ -69,6 +69,16 @@ describe("start", () => {
     expect(briefReady("tea \uD800")).toBe(false);
   });
 
+  it("C-START6-04 briefReady agrees with readEntry on a 500-character text whose NFC form is longer", () => {
+    for (const text of ["a" + "\u0344".repeat(499), "a".repeat(250) + "\u0344".repeat(250)]) {
+      expect(text.length).toBe(500);
+      const read = readEntry(`#brief=${encodeURIComponent(text.trim())}`);
+      expect(briefReady(text)).toBe(read.kind === "entry");
+      expect(briefReady(text)).toBe(false);
+      expect(() => briefHref(text)).toThrow(RangeError);
+    }
+  });
+
   it("C-START6-03 the studio reads back what the links build", () => {
     fc.assert(
       fc.property(

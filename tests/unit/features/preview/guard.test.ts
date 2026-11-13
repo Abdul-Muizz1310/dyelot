@@ -221,6 +221,13 @@ describe("C-GUARD-05 madder stays on the focus ring, the active state and the pr
     ]);
   });
 
+  it("finds madder in StartFrom.tsx only as the color input's first value", () => {
+    const source = readFileSync(path.join(ROOT, "src/features/landing/StartFrom.tsx"), "utf8");
+    const hits = source.match(/f66c6d|accent-madder|246[\s,]+108[\s,]+109/gi) ?? [];
+    expect(hits).toHaveLength(1);
+    expect(source).toMatch(/useState\("#f66c6d"\)/);
+  });
+
   it("finds madder in chrome.ts only in the primary action's styles", () => {
     const source = readFileSync(path.join(ROOT, "src/features/studio/chrome.ts"), "utf8");
     const declarations = source.split(/\n(?=export const )/);

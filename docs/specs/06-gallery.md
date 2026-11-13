@@ -418,8 +418,7 @@ has. **(decision G6 for drafts; the link half drafter, a departure in section 1)
 **R6-27 · The start-from section.** Between the hero and `start.log`, a `TerminalWindow` titled `start-from.log` holds
 four groups, each an `h3` under the section's `h2` "Start a design from": a color (a form with a color input and a submit),
 a brief (a form with a textarea of at most 500 characters, a counter and a submit), an image (a link to
-`/studio#start=image`) and the gallery (a link to `/gallery`). Section 9.1 fixes every string. The color input starts at madder, `#f66c6d`, so `StartFrom.tsx`
-joins the files C-GUARD-05 lists as naming it; it is a seed value, not chrome. **(decision C1; the layout
+`/studio#start=image`) and the gallery (a link to `/gallery`). Section 9.1 fixes every string. The color input starts at madder, `#f66c6d` (section 16 records the guard's change). **(decision C1; the layout
 and copy drafter)**
 
 **R6-28 · The forms build links with no engine.** `StartFrom.tsx` is a client component; a submit calls `colorHref(hex)`
@@ -909,7 +908,7 @@ const IMAGE_HREF = "/studio#start=image";
 const GALLERY_HREF = "/gallery";
 function colorHref(hex: string): string;     // "#F66C6D" or "f66c6d" -> "/studio#color=f66c6d"
 function briefHref(text: string): string;    // well-formed, trimmed, 1 to 500 characters, holding a letter -> "/studio#brief=" + encodeURIComponent
-function briefReady(text: string): boolean;  // whether briefHref accepts it
+function briefReady(text: string): boolean;  // whether briefHref accepts it; the 500 is measured in NFC, as readEntry measures it
 const START_LINES: Readonly<Record<string, string>>;   // 9.1, frozen
 
 // src/features/landing/receipt.ts (R6-11): pure; imports ./receipt-excerpt.json and, as a type, GallerySummary
@@ -1879,6 +1878,7 @@ written from its row, never from an uncovered-line report.
 
 | Case | Was | Now | Why |
 |---|---|---|---|
+| C-GUARD-05 (M2) | Madder is named only by `globals.css`, `chrome.ts` and `highlight.css` | Also by `StartFrom.tsx`, whose color input starts at madder: its one occurrence of `#f66c6d` is that `useState` initial value, a seed value and not chrome | R6-27 |
 | C-GUARD5-05 (M5) | `heroes.ts` is imported as a value only by `src/app/page.tsx`, `src/app/explore/page.tsx` and `src/app/motion/page.tsx` | Also by `src/features/gallery/build.ts`, which only tests import as a value (C-GUARD6-04); the rest of the row stands | R6-05, R6-56 |
 | C-SITE5-02 (M5), C-SITE4-01 (M4) | `SITE.routes.sitemap` is the four routes and `sitemap()` lists them | The six routes of R6-31, and `sitemap()` lists 30 URLs (C-SITE6-01); `robots()` is unchanged | R6-31 |
 | T-FE-20 (M0, amended in M4 and M5) | `SITE.routes.sitemap` is `["/", "/studio", "/explore", "/motion"]` | `["/", "/studio", "/explore", "/motion", "/gallery", "/about"]`; `disallow` unchanged | R6-31 |
