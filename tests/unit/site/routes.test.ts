@@ -11,6 +11,7 @@ import ConnectPage, { metadata as connectMetadata } from "@/app/connect/page";
 import manifest from "@/app/manifest";
 import robots from "@/app/robots";
 import sitemap from "@/app/sitemap";
+import { galleryRoutes } from "@/features/gallery/data";
 import { SITE } from "@/lib/site/config";
 import { defineSite } from "@/lib/site/define";
 import { pageMetadata, robotsFile } from "@/lib/site/metadata";
@@ -47,7 +48,7 @@ describe("manifest (T-FE-24)", () => {
 
 describe("robots and sitemap (T-FE-25)", () => {
   // T-FE-25 as docs/specs/04-ai.md section 16 amends it (R4-22): the API and the OAuth callback
-  // leave robots.txt, and the sitemap lists the four routes of R5-34.
+  // leave robots.txt, and the sitemap lists the 30 URLs of R6-31.
   it("C-SITE4-01 and C-SITE5-02 allow the site but /api/ and /connect/callback, and names the sitemap", () => {
     expect(robots()).toEqual({
       rules: [{ userAgent: "*", allow: "/", disallow: ["/api/", "/connect/callback"] }],
@@ -58,6 +59,9 @@ describe("robots and sitemap (T-FE-25)", () => {
       "https://dyelot.vercel.app/studio",
       "https://dyelot.vercel.app/explore",
       "https://dyelot.vercel.app/motion",
+      "https://dyelot.vercel.app/gallery",
+      "https://dyelot.vercel.app/about",
+      ...galleryRoutes().map((route) => `https://dyelot.vercel.app${route}`),
     ]);
   });
 
@@ -75,6 +79,9 @@ describe("robots and sitemap (T-FE-25)", () => {
       "https://dyelot.vercel.app/studio",
       "https://dyelot.vercel.app/explore",
       "https://dyelot.vercel.app/motion",
+      "https://dyelot.vercel.app/gallery",
+      "https://dyelot.vercel.app/about",
+      ...galleryRoutes().map((route) => `https://dyelot.vercel.app${route}`),
     ]);
     expect(new Set(urls).size).toBe(urls.length);
   });

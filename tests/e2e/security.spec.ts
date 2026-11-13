@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { GALLERY_DATA } from "../unit/support/gallery";
 import { PLAYER_CAP } from "./flavor-support";
 import { button, openStudio, settled, stubSeeds } from "./studio-support";
 
@@ -241,6 +242,9 @@ test.describe("12 security headers, robots and the connect pages", () => {
       "https://dyelot.vercel.app/studio",
       "https://dyelot.vercel.app/explore",
       "https://dyelot.vercel.app/motion",
+      "https://dyelot.vercel.app/gallery",
+      "https://dyelot.vercel.app/about",
+      ...GALLERY_DATA.entries.map((entry) => `https://dyelot.vercel.app/gallery/${entry.slug}`),
     ]);
 
     const font = await request.get("/fonts/geist/geist-latin-wght-normal.woff2");
