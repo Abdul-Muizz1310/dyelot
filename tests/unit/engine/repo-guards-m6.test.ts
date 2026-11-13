@@ -14,11 +14,14 @@ import vitestConfig from "../../../vitest.config";
 import { m6CopyProblems } from "../support/copy-m6";
 import { GALLERY_DATA, SPEC_OF } from "../support/gallery";
 import {
+  caseIds,
   codeFiles,
   coreFiles,
   coreViolations,
+  E2E_TITLE,
   exportAndImportFiles,
   type Floors,
+  filesUnder,
   floorsOf,
   importsOf,
   isValue,
@@ -32,8 +35,12 @@ import {
   readOnly,
   runs,
   SRC_DIR,
+  section14,
   sourceStrings,
   strings,
+  titlesIn,
+  UNIT_TITLE,
+  unnamedCases,
   valueGraph,
   valueImporters,
 } from "./guard-support";
@@ -986,5 +993,47 @@ describe("C-GUARD6-12 no M6 words name the perceptual formula or a never-use hos
       ]);
     }
     expect(nameProblems("Simply a grey card!")).toEqual([]);
+  });
+});
+
+// C-GUARD6-01 (Task 6.12, R6-54, R6-60): C-GUARD5-01's method with this milestone's spec. Every
+// case of section 14 of docs/specs/06-gallery.md carries its id in a test title, a C- id in a
+// `describe` or `it` title under tests/unit and an F- id in a `test` title under tests/e2e, read
+// from each file's syntax tree. The ids are read from section 14's rows, so the count is the spec's,
+// never a fixed number. The readers are C-GUARD4-11's own, in guard-support.ts.
+
+const M6_SPEC = "docs/specs/06-gallery.md";
+
+describe("C-GUARD6-01 every case of section 14 carries its id in a test title", () => {
+  const section = section14(readFileSync(path.join(ROOT, M6_SPEC), "utf8"), M6_SPEC);
+  const ids = caseIds(section);
+  const unit = titlesIn(filesUnder("tests/unit", /\.test\.tsx?$/), UNIT_TITLE);
+  const e2e = titlesIn(filesUnder("tests/e2e", /\.spec\.ts$/), E2E_TITLE);
+
+  it("C-GUARD6-01 reads the ids from section 14's rows, one per case row, each once", () => {
+    const rows = section.split("\n").filter((line) => /^\| [CF]-/.test(line));
+    expect(ids.length).toBeGreaterThan(0);
+    expect(ids).toHaveLength(rows.length);
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(ids).toEqual(expect.arrayContaining(["C-GAL6-01", "C-GUARD6-01", "F-A11Y6-01"]));
+    // Section 13's and 15's text is not section 14's.
+    expect(section.startsWith("\n## 14. Cases")).toBe(true);
+    expect(section).not.toContain("\n## 15. ");
+  });
+
+  it("C-GUARD6-01 finds each C- id in a unit title and each F- id in an end-to-end title", () => {
+    expect(unit.length).toBeGreaterThan(0);
+    expect(e2e.length).toBeGreaterThan(0);
+    expect(unnamedCases(ids, unit, e2e)).toEqual([]);
+  });
+
+  it("C-GUARD6-01 reports a probe list's ids that no title carries", () => {
+    const probe = [...ids, "C-PROBE6-01", "F-PROBE6-01"];
+    // The probe adds its two ids, and only those, to what the guard reports without it.
+    expect(unnamedCases(probe, unit, e2e)).toEqual([
+      ...unnamedCases(ids, unit, e2e),
+      "C-PROBE6-01",
+      "F-PROBE6-01",
+    ]);
   });
 });
