@@ -1,11 +1,11 @@
 "use client";
 
 import { Player, type PlayerRef } from "@remotion/player";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useId, useLayoutEffect, useRef, useState } from "react";
 import type { Mode } from "@/engine";
 import { TOGGLE_BUTTON } from "@/features/studio/chrome";
 import { BRAND_INTRO, BrandIntro, type BrandProps } from "@/flavor/remotion/brand-intro";
-import { FLAVOR_LINES } from "./video";
+import { brandDescription, FLAVOR_LINES } from "./video";
 
 // The brand video's preview (docs/specs/05-motion-3d.md, R5-52, section 11.1): Remotion's Player
 // with no controls of its own and no audio tags, and dyelot's "Pause" under it, which drives the
@@ -41,6 +41,7 @@ export type BrandPlayerProps = {
 export function BrandPlayer({ props, mode, reduced }: BrandPlayerProps) {
   const player = useRef<PlayerRef>(null);
   const [playing, setPlaying] = useState(false);
+  const descriptionId = useId();
 
   // The Player autoplays from its own effect, which runs before this component's effects: the
   // listeners go on in the layout phase, once the Player's ref is set, so its first `play` counts.
@@ -71,7 +72,11 @@ export function BrandPlayer({ props, mode, reduced }: BrandPlayerProps) {
 
   return (
     <>
+      {/* biome-ignore lint/a11y/useSemanticElements: the wrapper keeps its div, which the Player's layout and 13.1 pin; the role is spec'd (R6-35) */}
       <div
+        role="figure"
+        aria-label="Brand video preview"
+        aria-describedby={descriptionId}
         data-brand-player=""
         data-autoplay={String(!reduced)}
         data-playing={String(playing)}
@@ -99,13 +104,16 @@ export function BrandPlayer({ props, mode, reduced }: BrandPlayerProps) {
           errorFallback={() => <p className="text-sm">The preview could not play here.</p>}
         />
       </div>
+      <p id={descriptionId} className="sr-only">
+        {brandDescription(props)}
+      </p>
       <button
         type="button"
         aria-pressed={!playing}
         onClick={toggle}
         className={`${TOGGLE_BUTTON} self-start`}
       >
-        {FLAVOR_LINES.pause}
+        {FLAVOR_LINES["pause-video"]}
       </button>
     </>
   );

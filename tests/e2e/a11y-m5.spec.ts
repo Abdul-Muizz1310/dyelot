@@ -1,5 +1,5 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, type Locator, type Page } from "@playwright/test";
+import { overflowOf, settleAnimations, violations } from "./a11y-support";
 import { exportButton, exportDialog, fileRows, openReady, SPEC_LINK } from "./export-support";
 import { NO_WEBGL, PLAYER_CAP, TELEMETRY, test } from "./flavor-support";
 import {
@@ -22,43 +22,8 @@ import { reduceMotion } from "./template-support";
 const DESKTOP = { width: 1280, height: 800 };
 const PHONE = { width: 360, height: 740 };
 const VIEWPORTS = [DESKTOP, PHONE] as const;
-const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
 
 test.use({ viewport: DESKTOP });
-
-/**
- * The Player's frame: the brand video's own DOM, a picture whose text is part of it, which WCAG 1.4.3
- * exempts from contrast (13.3's amendment, recorded at the final review). It is `aria-hidden`, and
- * it is the one part of a page the axe flows leave out.
- */
-const PLAYER_FRAME = "[data-brand-player] [data-brand-frame]";
-
-/** axe's violations under the WCAG A and AA tags, contrast included, the Player's frame left out. */
-async function violations(page: Page) {
-  // The exclusion covers a hidden picture only: each frame on the page is aria-hidden.
-  for (const frame of await page.locator(PLAYER_FRAME).all()) {
-    await expect(frame).toHaveAttribute("aria-hidden", "true");
-  }
-  const builder = new AxeBuilder({ page }).withTags(AXE_TAGS).exclude(PLAYER_FRAME);
-  return (await builder.analyze()).violations;
-}
-
-/** Waits until every finite animation on the page has finished: nothing is caught mid-fade. */
-const settleAnimations = (page: Page): Promise<unknown> =>
-  page.evaluate(() =>
-    Promise.allSettled(
-      document
-        .getAnimations()
-        .filter(
-          (animation) =>
-            animation.effect?.getComputedTiming().iterations !== Number.POSITIVE_INFINITY,
-        )
-        .map((animation) => animation.finished),
-    ),
-  );
-
-const overflowOf = (page: Page): Promise<number> =>
-  page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
 
 // Explorer and lab handles.
 const panel = (page: Page): Locator => page.locator("[data-explorer]");
@@ -511,8 +476,8 @@ test.describe("F-A11Y5-02 the keyboard reaches every new control", () => {
     const stops = await tabTo(page, "Close");
     expectReachable(stops);
     expect(stops.map((stop) => stop.name)).toEqual([
-      "Pause",
-      "Pause",
+      "Pause the background",
+      "Pause the video",
       "Render the brand video",
       "Record the shader loop",
       "Close",

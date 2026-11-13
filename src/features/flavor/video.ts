@@ -5,6 +5,7 @@ import {
   isOneOf,
   isRecord,
 } from "@/features/studio/guards";
+import type { BrandProps } from "@/flavor/remotion/brand-intro";
 
 // The video helpers of the Flavor dialog (docs/specs/05-motion-3d.md, section 5.8; R5-53, R5-56)
 // and the hosts' sentences of sections 6.4 and 13.3, word for word. The hero shows FLAVOR_LINES
@@ -134,7 +135,17 @@ export const VIDEO_LINES = Object.freeze({
 
 /** The sentences and labels of a host of the animated background (section 6.4). */
 export const FLAVOR_LINES: Readonly<
-  Record<"no-webgl2" | "context-lost" | "restart" | "still" | "still-canvas" | "pause", string>
+  Record<
+    | "no-webgl2"
+    | "context-lost"
+    | "restart"
+    | "still"
+    | "still-canvas"
+    | "pause"
+    | "pause-background"
+    | "pause-video",
+    string
+  >
 > = Object.freeze({
   "no-webgl2":
     "This browser cannot draw the animated background, so a still gradient shows instead.",
@@ -144,4 +155,56 @@ export const FLAVOR_LINES: Readonly<
   // The Flavor dialog's preview held still by the canvas's switch alone (6.4's amendment).
   "still-canvas": "The background is still because the canvas's Reduce motion switch is on.",
   pause: "Pause",
+  // The Flavor dialog's two buttons each get a name of their own (R6-36); the hero keeps "Pause".
+  "pause-background": "Pause the background",
+  "pause-video": "Pause the video",
 });
+
+/** The first family of a font stack, unquoted: `"Fraunces", serif` is `Fraunces`. */
+function firstFamily(stack: string, name: string): string {
+  const family = (stack.split(",")[0] ?? "").trim().replace(/^(["'])(.*)\1$/, "$2");
+  if (family === "") throw new RangeError(`${name} must name a font family`);
+  return family;
+}
+
+/** The count of palettes the brand video draws. */
+const PALETTE_COUNT = 5;
+
+/**
+ * The brand video's text alternative (section 13.1): what the frame draws, in one sentence, for the
+ * wrapper's `aria-describedby`. Checks `props` as `brandProps` makes it, every type before any value.
+ */
+export function brandDescription(props: BrandProps): string {
+  assertRecord(props, "brandDescription: props");
+  const { name, oneLiner, lot, fonts, checks, palettes } = props;
+  assertString(name, "brandDescription: props.name");
+  assertString(oneLiner, "brandDescription: props.oneLiner");
+  assertString(lot, "brandDescription: props.lot");
+  assertRecord(fonts, "brandDescription: props.fonts");
+  assertString(fonts.display, "brandDescription: props.fonts.display");
+  assertString(fonts.body, "brandDescription: props.fonts.body");
+  assertRecord(checks, "brandDescription: props.checks");
+  assertNumber(checks.passed, "brandDescription: props.checks.passed");
+  assertNumber(checks.required, "brandDescription: props.checks.required");
+  if (!Array.isArray(palettes)) {
+    throw new TypeError(
+      `brandDescription: props.palettes must be an array, got ${describeType(palettes)}`,
+    );
+  }
+  for (const count of [checks.passed, checks.required]) {
+    if (!(Number.isInteger(count) && count >= 0)) {
+      throw new RangeError(
+        `brandDescription: props.checks must be whole numbers from 0, got ${count}`,
+      );
+    }
+  }
+  if (palettes.length !== PALETTE_COUNT) {
+    throw new RangeError(
+      `brandDescription: props.palettes must hold ${PALETTE_COUNT} palettes, got ${palettes.length}`,
+    );
+  }
+  const display = firstFamily(fonts.display, "brandDescription: props.fonts.display");
+  const body = firstFamily(fonts.body, "brandDescription: props.fonts.body");
+  const subject = oneLiner === "" ? name : `${name}, "${oneLiner}"`;
+  return `A six-second video of ${subject}: five rows of eleven swatches (primary, secondary, accent, neutral and danger), a sample card with a Get started button, and the line ${checks.passed} of ${checks.required} required checks pass, with the lot ${lot}. It is set in ${display} and ${body}.`;
+}

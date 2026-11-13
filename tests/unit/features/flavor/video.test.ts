@@ -124,6 +124,8 @@ describe("the hosts' lines", () => {
       still: "The background is still because this device asks for reduced motion.",
       "still-canvas": "The background is still because the canvas's Reduce motion switch is on.",
       pause: "Pause",
+      "pause-background": "Pause the background",
+      "pause-video": "Pause the video",
     });
     expect(Object.isFrozen(FLAVOR_LINES)).toBe(true);
   });
