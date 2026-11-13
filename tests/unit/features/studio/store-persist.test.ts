@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyPreset, choosePairing, presetOf } from "@/engine";
+import { choosePairing, presetOf } from "@/engine";
 import { DRAFT_KEY, readDraft, writeDraft } from "@/features/studio/drafts";
 import { paramsOfSpec, resolveParams } from "@/features/studio/params";
 import { bindStudioWindow } from "@/features/studio/store";
@@ -9,11 +9,14 @@ import { type DesignSpec, encodeSpec } from "@/spec";
 import { withValue } from "../../spec/support";
 import { lastPosted, makeStore } from "./store-support";
 import {
+  draftOf,
   FRESH_PARAMS,
   fakeLocation,
   freshSpec,
   generate,
   memoryStorage,
+  presetSpec,
+  roundSpec,
   seedSequence,
   throwingStorage,
 } from "./support";
@@ -26,27 +29,6 @@ import {
 // `presetOf(spec)`, so they open a `dark-dev-tool` design, which that function names.
 
 const DEBOUNCE_MS = 300;
-
-/** A real spec other than FRESH's, for links and drafts. */
-const roundSpec = () => generate({ ...FRESH_PARAMS, radius: "round", pairing: "funnel" }, "seed-7");
-
-/**
- * A real spec that holds a preset's values, so `presetOf` names it (M6's section 16 rows, R6-26):
- * the `dark-dev-tool` preset, whose view is dark and dense.
- */
-const presetSpec = () =>
-  generate(resolveParams(applyPreset(FRESH_PARAMS, "dark-dev-tool"), "seed-7"), "seed-7");
-
-/** A draft as the store writes it, for the spec and params given. */
-function draftOf(
-  spec = roundSpec(),
-  params: unknown = paramsOfSpec(spec).params,
-  preset: string | null = "bento",
-) {
-  return memoryStorage({
-    [DRAFT_KEY]: JSON.stringify({ v: 1, link: encodeSpec(spec), params, preset }),
-  });
-}
 
 beforeEach(() => {
   vi.useFakeTimers();

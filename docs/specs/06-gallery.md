@@ -1871,12 +1871,22 @@ hero's "Pause" keeps its name, F-FIX6-04), F-A11Y5-01 (axe on `/`, with the new 
 and F-SEC4-02 (their page lists stay; F-SEC6-01 covers the new pages), F-TPL-27, F-VT-03 to 07, F-LAZY4-01 and F-LAZY5-01, every golden, and the guards C-GUARD3-01 to
 04, C-GUARD4-01 to 12 and C-GUARD5-01 to 12 (each walk now positive by R6-39's construction).
 
-**Ruling of Task 6.5b (2026-11-07): one more change R6-26 makes.** The table above misses an M4 flow that R6-26
-changes: `tests/e2e/ai-browser.spec.ts`, "Write the rationale on the shared route stores the model's text in one undoable
-commit, shown as text", asserted that a design opened from a link holds no preset (R2-14 item 2), so the rationale input
-it posts carried `preset: null`. Its link is a fresh design, whose values `presetOf` names `"default"`, so the input
-now carries `presetOf(START_SPEC)`; the rest of the flow stands. Task 6.5b found it in its full gate and changed the
-flow in the same commit as this paragraph.
+**Ruling of Task 6.5b (2026-11-07, completed 2026-11-13): two more cases R6-26 changes.** The table above misses two
+cases that say a design opened from a link with no matching draft holds no preset (R2-14 item 2):
+
+- C-STORE-39 (M2, amended in M3 and M4). Was: "a link load gives `params` from `paramsOfSpec` and `preset: null` (the
+  spec has no preset field) unless the draft matches (C-HASH-16)". Now: a link load gives `params` from `paramsOfSpec`
+  and the preset `presetOf(spec)` unless the draft matches; the draft-restore half and M3's and M4's amendments stand.
+  Its test opened a link whose values match no preset, so it passed under either rule; it now opens a `dark-dev-tool`
+  design, pins `presetOf(link)` to `"dark-dev-tool"`, and asserts the store takes it rather than the draft's `"bento"`.
+- M4's flow "Write the rationale on the shared route stores the model's text in one undoable commit, shown as text"
+  (`tests/e2e/ai-browser.spec.ts`) asserted that the rationale input it posts carries `preset: null`. Its link is a
+  fresh design, whose values `presetOf` names `"default"`, so the input now carries `presetOf(START_SPEC)`; the rest of
+  the flow stands.
+
+C-STORE-21's row says nothing of the preset, so it stands; its test's `preset` null now reads `presetOf(other())`,
+which is null for that link. Task 6.5b found the flow in its full gate and C-STORE-39 in review, and changed each in the
+same commit as its part of this paragraph.
 
 ## 17. Review Focus
 

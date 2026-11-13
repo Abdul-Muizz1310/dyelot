@@ -10,9 +10,15 @@ import {
   PAIRINGS,
   PRESETS,
   parseColor,
+  presetOf,
   rgbToOklch,
 } from "@/engine";
-import { DIRECTION_PARAM_KEYS, parseParams, resolveParams } from "@/features/studio/params";
+import {
+  DIRECTION_PARAM_KEYS,
+  paramsOfSpec,
+  parseParams,
+  resolveParams,
+} from "@/features/studio/params";
 import { runGenerate } from "@/features/studio/protocol";
 import {
   createStudioStore,
@@ -32,6 +38,7 @@ import {
   freshSpec,
   generate,
   linkOfValue,
+  presetSpec,
   seedSequence,
 } from "./support";
 
@@ -645,7 +652,8 @@ describe("loadFromHash", () => {
     expect(state.spec).toEqual(other());
     expect(state.seed).toBe("seed-7");
     expect(state.params).toEqual({ ...FRESH_PARAMS, radius: "round", pairing: "funnel" });
-    expect(state.preset).toBeNull();
+    // R6-26 (docs/specs/06-gallery.md): a link with no matching draft takes presetOf(spec).
+    expect(state.preset).toBe(presetOf(other()));
     expect(state.history).toHaveLength(1);
     store.getState().undo();
     expect(store.getState().spec).toEqual(freshSpec());
@@ -735,17 +743,21 @@ describe("drafts on the first load", () => {
     expect(store.getState().status.notice).toEqual({ kind: "draft-restored" });
   });
 
-  it("C-STORE-39 a link with no matching draft takes paramsOfSpec and preset null", () => {
+  it("C-STORE-39 a link with no matching draft takes paramsOfSpec and presetOf(spec), not the draft's preset (M6)", () => {
     const first = makeStore();
     commit(first.store, first.stub, (s) => s.applyPreset("bento"), true);
     first.store.getState().flush();
-    const link = generate({ ...FRESH_PARAMS, radius: "round" }, "seed-7");
+    // R6-26 (docs/specs/06-gallery.md, section 16): a design that holds a preset's values, so the
+    // case cannot pass on a link that matches no preset.
+    const link = presetSpec();
+    expect(presetOf(link)).toBe("dark-dev-tool");
     const { store } = makeStore({
       storage: first.storage,
       location: fakeLocation(writeHash(link)).location,
     });
     expect(store.getState().spec).toEqual(link);
-    expect(store.getState().preset).toBeNull();
+    expect(store.getState().params).toEqual(paramsOfSpec(link).params);
+    expect(store.getState().preset).toBe(presetOf(link));
     expect(store.getState().status.notice).toBeNull();
   });
 });

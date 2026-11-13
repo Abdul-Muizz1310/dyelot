@@ -1,7 +1,14 @@
 import { deflateRawSync } from "node:zlib";
 import { vi } from "vitest";
-import { type DirectionParams, generateSystem } from "@/engine";
-import type { DesignSpec } from "@/spec";
+import {
+  applyPreset,
+  type DirectionParams,
+  generateSystem,
+  paramsOfSpec,
+  resolveParams,
+} from "@/engine";
+import { DRAFT_KEY } from "@/features/studio/drafts";
+import { type DesignSpec, encodeSpec } from "@/spec";
 import { deepFreeze, linkOfDeflated } from "../../spec/support";
 
 // Shared fixtures for the studio cases of docs/specs/02-studio.md, sections 6.7 and 6.8. `FRESH` is
@@ -54,6 +61,31 @@ export function memoryStorage(initial: Record<string, string> = {}) {
       items.delete(key);
     }),
   };
+}
+
+/**
+ * A real spec other than FRESH's, for links and drafts. Its values match no preset (bento is round,
+ * but pairs commissioner), so `presetOf` gives null for it.
+ */
+export const roundSpec = (): DesignSpec =>
+  generate({ ...FRESH_PARAMS, radius: "round", pairing: "funnel" }, "seed-7");
+
+/**
+ * A real spec that holds a preset's values, so `presetOf` names it (R6-26 of
+ * docs/specs/06-gallery.md): the `dark-dev-tool` preset, whose view is dark and dense.
+ */
+export const presetSpec = (): DesignSpec =>
+  generate(resolveParams(applyPreset(FRESH_PARAMS, "dark-dev-tool"), "seed-7"), "seed-7");
+
+/** A storage holding the draft the store writes for `spec`, `params` and `preset`. */
+export function draftOf(
+  spec: DesignSpec = roundSpec(),
+  params: unknown = paramsOfSpec(spec).params,
+  preset: string | null = "bento",
+) {
+  return memoryStorage({
+    [DRAFT_KEY]: JSON.stringify({ v: 1, link: encodeSpec(spec), params, preset }),
+  });
 }
 
 /** A storage whose every method throws, as a blocked or full `localStorage` does (RF2). */

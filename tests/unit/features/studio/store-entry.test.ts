@@ -1,13 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { applyPreset, type DirectionParams, normalizeSeed, parseColor } from "@/engine";
+import { applyPreset, normalizeSeed, parseColor } from "@/engine";
 import { DRAFT_KEY, readDraft } from "@/features/studio/drafts";
-import { freshParams, paramsOfSpec, resolveParams } from "@/features/studio/params";
+import { freshParams, resolveParams } from "@/features/studio/params";
+import { bindStudioWindow } from "@/features/studio/store";
 import { writeHash } from "@/features/studio/url";
 import { DEFAULT_VIEW, presetView } from "@/features/studio/view";
-import { type DesignSpec, encodeSpec, normalizeSpec, specId } from "@/spec";
+import { normalizeSpec, specId } from "@/spec";
 import { MADDER, TURQUOISE } from "../../support/gallery";
 import { makeStore } from "./store-support";
-import { FRESH_PARAMS, fakeLocation, freshSpec, generate, memoryStorage } from "./support";
+import { draftOf, FRESH_PARAMS, fakeLocation, freshSpec, generate } from "./support";
 
 // Cases are C-STORE6-01 to C-STORE6-06 and C-STORE6-09 of docs/specs/06-gallery.md, section 14
 // (R6-24 to R6-26, 10.2, 10.3): an entry hash outranks the draft on the first load and counts as
@@ -19,31 +20,19 @@ const DEBOUNCE_MS = 300;
 /** The seed `#color=f66c6d` locks: `normalizeSeed(parseColor("#f66c6d"))`. */
 const MADDER_SEED = normalizeSeed(parseColor("#f66c6d"));
 
-/** A real design other than FRESH's, for the drafts an entry must not use. */
-const roundSpec = () => generate({ ...FRESH_PARAMS, radius: "round", pairing: "funnel" }, "seed-7");
-
-/** A storage holding the draft the store would write for `spec`, `params` and `preset`. */
-function draftOf(spec: DesignSpec, params: DirectionParams, preset: string | null) {
-  return memoryStorage({
-    [DRAFT_KEY]: JSON.stringify({ v: 1, link: encodeSpec(spec), params, preset }),
-  });
-}
-
-/** A draft of `roundSpec`, as M2's tests write one. */
-const roundDraft = () => draftOf(roundSpec(), paramsOfSpec(roundSpec()).params, "bento");
-
 beforeEach(() => {
   vi.useFakeTimers();
 });
 
 afterEach(() => {
   vi.useRealTimers();
+  window.history.replaceState(null, "", "/");
 });
 
 describe("an entry on the first load (R6-24)", () => {
   it("C-STORE6-01 #color= opens a fresh design with the primary locked, over the draft, and persists it", () => {
     const { location, history } = fakeLocation("#color=f66c6d");
-    const storage = roundDraft();
+    const storage = draftOf();
     const { store, stub } = makeStore({ location, history, storage });
     const params = { ...freshParams(), primary: MADDER_SEED };
     const state = store.getState();
@@ -101,7 +90,7 @@ describe("an entry on the first load (R6-24)", () => {
 
   it("C-STORE6-04 a malformed entry opens a fresh design with the link notice and persists nothing", () => {
     const { location, history } = fakeLocation("#color=zzz");
-    const storage = roundDraft();
+    const storage = draftOf();
     const stored = storage.items.get(DRAFT_KEY);
     const { store, stub } = makeStore({ location, history, storage });
     const state = store.getState();
@@ -161,12 +150,15 @@ describe("a loaded design's preset and view (R6-26)", () => {
 
   it("C-STORE6-09 a hashchange load takes the link's preset and keeps the visitor's view", () => {
     const { store } = makeStore();
+    const unbind = bindStudioWindow(store, window);
     const view = store.getState().view;
     expect(view.mode).toBe("light");
-    store.getState().loadFromHash(`#s=${TURQUOISE.link}`);
+    window.history.replaceState(null, "", `#s=${TURQUOISE.link}`);
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
     expect(specId(store.getState().spec)).toBe(TURQUOISE.specId);
     expect(store.getState().preset).toBe("dark-dev-tool");
     expect(store.getState().view).toBe(view);
     expect(store.getState().view.mode).toBe("light");
+    unbind();
   });
 });

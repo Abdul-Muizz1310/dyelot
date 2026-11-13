@@ -58,7 +58,13 @@ async function noModelRuns(page: Page, request: APIRequestContext): Promise<() =
   const before = await mockLog(request);
   return async () => {
     expect(requests.filter(isAiRequest).map((entry) => entry.url())).toEqual([]);
-    expect((await mockLog(request)).slice(before.length)).toEqual([]);
+    // The mock's log is one for the whole run, and `POST /__scenario` clears it. The flows that post
+    // to it live in ai-route.spec.ts, which runs before this file in the run's order, but nothing
+    // enforces that order: a log shorter than at the start means another worker cleared it in
+    // between, and the check below would then pass on an empty slice, so that fails the flow too.
+    const after = await mockLog(request);
+    expect(after.length).toBeGreaterThanOrEqual(before.length);
+    expect(after.slice(before.length)).toEqual([]);
   };
 }
 
