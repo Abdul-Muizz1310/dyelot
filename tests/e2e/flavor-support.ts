@@ -552,3 +552,16 @@ export async function loadingCount(page: Page): Promise<number> {
   if (kept === null) throw new Error("loadingCount: LOADING_RECORD is not installed");
   return kept.length;
 }
+
+// Task 6.2: the gallery's clipboard refusal (docs/specs/06-gallery.md, section 4).
+
+/**
+ * `CLIPBOARD_DENY` makes `navigator.clipboard.writeText` reject with a `NotAllowedError`, as a
+ * browser does when it refuses the write (F-GAL6-09). Install it before `goto`.
+ */
+export async function CLIPBOARD_DENY(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    Clipboard.prototype.writeText = () =>
+      Promise.reject(new DOMException("Write permission denied.", "NotAllowedError"));
+  });
+}

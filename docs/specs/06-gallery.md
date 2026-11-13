@@ -282,6 +282,12 @@ drafter)**
 plain links, "all" and the six tags, `aria-current="page"` on the active one), the count line and the cards in `defs.ts`
 order. An unknown tag shows every entry and a sentence that does not repeat the query (7.1). **(decision B2, B3; the copy drafter)**
 
+Amended by Task 6.2 (2026-11-13). The gallery's own text holds some query values: Gamboge's line says "A loud,
+confident …" and the filter shows "calm" and "bold", so F-GAL6-04 cannot ask that the page hold none of them. It asks
+that the page show exactly the text of `/gallery` with the one sentence added (its lines compared, trimmed), which holds
+no query value the gallery does not already show, and that the values found nowhere in the gallery ("calm,bold",
+`<script>`, `alert(1)`) are absent.
+
 **R6-14 · The card.** Each card is an `article` named by its `h2` (the entry's name) holding, in order: the line; the
 tags; the specimen (7.3), framed, the only color on the page; the type pairing's display and body family names; the preset
 label; the receipt line `summaryLines(summary)[0]` ("78 of 78 required contrast checks pass"); the lot; and two links,
@@ -291,6 +297,14 @@ label; the receipt line `summaryLines(summary)[0]` ("78 of 78 required contrast 
 hardly compresses. The chrome stays near-gray (the house neutrals and madder, I-M6-06); every number is Geist Mono
 with tabular numerals. **(decision B3; the order and the
 names drafter)**
+
+Amended by Task 6.2 (2026-11-13). A visually hidden span cannot give 7.2's names: Tailwind's `sr-only` is
+`position: absolute`, the name computation treats the span as a block, and both Chromium's own accessibility tree (read
+through CDP) and Playwright's name the link "Open in the studio , Madder", with a space before the comma. An
+`inline-block` or `position: fixed` span did the same; only an in-flow span of zero font size kept the comma, and text
+of zero size is no reliable way to hide words from sight alone. So each card link carries its name as `aria-label`
+("Open in the studio, <name>", "Details of <name>"), which both trees read exactly; each name still starts with the
+link's visible words, which are unchanged, so WCAG 2.5.3 and axe's `label-content-name-mismatch` hold as 7.2 intends.
 
 **R6-15 · `/gallery/[slug]`.** A server page that awaits `params`, looks the slug up with `entryOf` and calls `notFound()`
 for an unknown one, so the 404 page answers. It shows the name, how it was made, the tags, the preset, the lot,
@@ -1151,7 +1165,7 @@ bg-panel p-5` box, and in it, in order:
 | Tags | `<p data-tags>` "mood: " and the tags joined by ", " |
 | Specimen | 7.3 |
 | Facts | `<dl>` of four rows: "Type" with "<display> and <body>" (one name when they are the same family), "Preset" with the preset label, "Receipt" with `summaryLines(summary)[0]`, "Lot" with the lot in Geist Mono |
-| Links | "Open in the studio" to `openHref(slug, "studio")` and "Details" to `/gallery/<slug>`, each `min-h-8`; a visually hidden span after the visible words gives the accessible names "Open in the studio, <name>" and "Details of <name>", so each name starts with its visible label (WCAG 2.5.3, axe's `label-content-name-mismatch`) and no two links share a name |
+| Links | "Open in the studio" to `openHref(slug, "studio")` and "Details" to `/gallery/<slug>`, each `min-h-8`; an `aria-label` gives the accessible names "Open in the studio, <name>" and "Details of <name>" (a visually hidden span puts a space before the comma, R6-14's amendment), so each name starts with its visible label (WCAG 2.5.3, axe's `label-content-name-mismatch`) and no two links share a name |
 
 `GalleryCard.tsx` is a server component; the page sends no `gallery.json` to the browser.
 
@@ -1617,7 +1631,7 @@ Tests: `tests/e2e/gallery.spec.ts`, with `tests/e2e/flavor-support.ts`.
 | F-GAL6-01 | pass | `/gallery`: one `h1` "The gallery"; the intro with 6 and 18; the filter `nav` "Filter by mood" with "all" and the six tags in order, "all" carrying `aria-current="page"`; "All 24 designs."; 24 `[data-gallery-card]` in `GALLERY_DEFS` order by `data-slug`; the nav's "gallery" link is current | ruling R6-13 |
 | F-GAL6-02 | pass | The cards of `madder` and `kermes`: the `h2` name, the line, "mood: bold" and "mood: calm, editorial", 25 specimen swatches whose computed background colors are the specimen's hexes in order, "Host Grotesk" (one name) and "Schibsted Grotesk and Source Serif 4", "Custom" and "Editorial", "78 of 78 required contrast checks pass", the lot; the link named "Open in the studio, Madder" with `href` `/gallery/madder/open/studio` and "Details of Madder" with `/gallery/madder` | ruling R6-14, R6-08 |
 | F-GAL6-03 | pass | `/gallery?tag=calm`: "7 of 24 designs are tagged calm.", the seven cards of 6.2 in order, "calm" current and "all" not | ruling R6-13, R6-07 |
-| F-GAL6-04 | failure | `/gallery?tag=loud`, `?tag=`, `?tag=calm&tag=bold` and `?tag=%3Cscript%3Ealert(1)%3C%2Fscript%3E`: "That mood is not one of the six, so every design shows.", "All 24 designs.", 24 cards, "all" current; the page's text holds none of the query values; no console error and no dialog | RF2, ruling R6-07, R6-13 |
+| F-GAL6-04 | failure | `/gallery?tag=loud`, `?tag=`, `?tag=calm&tag=bold` and `?tag=%3Cscript%3Ealert(1)%3C%2Fscript%3E`: "That mood is not one of the six, so every design shows.", "All 24 designs.", 24 cards, "all" current; the page's text is `/gallery`'s with that sentence added, so it holds no query value the gallery does not already show (R6-13's amendment); no console error and no dialog | RF2, ruling R6-07, R6-13 |
 | F-GAL6-05 | pass | `/gallery/kermes`: the `h1` "Kermes", the line, "Made from this brief by the studio's word list, with no model. It matched: slow, longform, magazine, serif, warm, paper, burgundy."; the `dl`; the four lines of `summaryLines`; two scale figures of 88 swatches each whose colors are `scales.light` and `scales.dark`; the six roles per mode with their hexes; the type table's ten rows; "Open in the studio", "Open in the explorer" and "Open in the motion lab" with `openHref` hrefs; "Back to the gallery". `/gallery/madder` says "Made from one seed color with the studio's controls." | ruling R6-15 |
 | F-GAL6-06 | pass | The round trip: on `/gallery`, "Open in the studio, Kermes" follows its redirect and opens the studio at `/studio#s=<KERMES.link>` with the name "Kermes", the lot `KERMES.lot` and the preset select on "Editorial"; the Receipt section passes; no "Rebuild from the parameters"; the export dialog's "Download" is enabled and the zip's `receipt.json` holds `design.createdWith` `"lexicon"` and `summary.pass` true | ruling R6-10, I-M6-02, decision B5 |
 | F-GAL6-07 | failure | `/gallery/nope`, `/gallery/Madder` and `/gallery/madder%20` answer 404 with the terminal 404 page; no nav link is current | ruling R6-15 |
