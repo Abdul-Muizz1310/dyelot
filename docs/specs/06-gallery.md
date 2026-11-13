@@ -15,11 +15,12 @@ Status: approved by the owner on 2026-11-07, as written, after one independent r
 in section 21, and approved the close's edit of the workspace `CLAUDE.md` counts.
 
 Section 2 lists the owner's standing rulings and the controller's decisions of 2026-11-07. Section 3 turns each decision
-into rulings R6-01 to R6-60, and section 14 holds 171 cases (94 `C-` cases and 77 `F-` cases; probe 6 moved F-TPL6-06 to section 18). A ruling ends with
-**(decision X#)** when it states a controller decision, or **(drafter)** when this spec supplies a rule the decisions
-leave open; a ruling that does both says which part is which. The owner can overturn any ruling by editing this file
-before the task that uses it starts. Task 6.0 (R6-57) probes every external fact this spec could not verify before any
-other task, in six probes, and says what happens when a probe fails.
+into rulings R6-01 to R6-60, and section 14 holds 172 cases (94 `C-` cases and 78 `F-` cases; probe 6 moved F-TPL6-06
+to section 18, and Task 6.7's review added F-TPL6-07). A ruling ends with **(decision X#)** when it states a controller
+decision, or **(drafter)** when this spec supplies a rule the decisions leave open; a ruling that does both says which
+part is which. The owner can overturn any ruling by editing this file before the task that uses it starts. Task 6.0
+(R6-57) probes every external fact this spec could not verify before any other task, in six probes, and says what
+happens when a probe fails.
 
 ## 1. Purpose and scope
 
@@ -452,6 +453,10 @@ Amended at Task 6.7 (R6-33 amendment): a chunk that does not arrive reaches `Tem
 `onCaughtError`), as it does for the explorer's chunk (R5-39 amendment). So F-TPL6-05 allows exactly three console
 lines: the two of 14.11 of M5 and React's one report, whose text starts "ChunkLoadError: Failed to load chunk <the
 aborted chunk's path> from module <id>"; section 14's sentence on `ABORT_CHUNK` stands for every other flow.
+
+Amended at Task 6.7's review: `Template` renders a lazy template through `React.lazy` only until its chunk has loaded,
+and then renders the loaded component itself, because a new `React.lazy` over a loaded chunk still suspends once, which
+under reduced motion showed the loading sentence and made a `startViewTransition` call at its reveal (13.3).
 
 **R6-34 · The settings template's clip margin.** `.st` takes `overflow: clip` and `overflow-clip-margin: 12px` (the
 `canvas.css` pattern) in place of `overflow: hidden`, so the "Show me" outline of `.st-top` and `.st-save-bar` shows whole
@@ -1525,6 +1530,13 @@ switch never mounts a new one. Each lazy template file adds `export default <Nam
 `preloadTemplates("landing", idleScheduler(window))` in an effect after its first render and cancels it on unmount.
 `idleScheduler` uses `requestIdleCallback(run, { timeout: 2000 })` when the window has it, else `setTimeout(run, 1000)`.
 
+Amended at Task 6.7's review: the canvas preloads through `KEEPING_LOADERS` (`templates/index.tsx`), each
+`TEMPLATE_LOADERS[id]` keeping its template's component once loaded, and `LazyTemplate` renders that component itself
+unless it made a lazy component for the id before the load (which it keeps, so a shown template never remounts), so a
+switch to a preloaded template commits once, with no loading sentence. `TemplateBoundary` also takes the shown template:
+a switch to another template clears its alert, and that switch, like "Try again", forgets the template the alert was
+for (F-TPL6-07).
+
 ### 13.4 The settings template's clip margin (G2)
 
 Form A: `.st { overflow: clip; overflow-clip-margin: 12px; }` with the comment the `canvas.css` rule carries. Form B (when
@@ -1721,7 +1733,8 @@ Tests: `tests/unit/features/preview/load.test.ts` and `tests/e2e/templates-lazy.
 | F-TPL6-02 | pass | Without `NO_IDLE`, after the load the five lazy chunks are fetched with no switch (the response list, polled) | ruling R6-33 |
 | F-TPL6-03 | pass | With `VT_RECORD`, `LOADING_RECORD`, `NO_IDLE` and `HOLD_CHUNK` on the settings chunk, a switch to "settings" keeps `[data-template="landing"]` in the canvas while the chunk is held; after `release()` settings shows, the switch made one `startViewTransition` call whose record holds `::view-transition-group(dyelot-template)`, and `LOADING_RECORD` is empty | ruling R6-33, R5-46, probe 3 |
 | F-TPL6-04 | pass | Under `emulateMedia({ reducedMotion: "reduce" })` with `NO_IDLE` and `HOLD_CHUNK` on the editorial chunk, choosing "editorial" shows "Loading the template…" (`role="status"`); after `release()` the template shows; every animation `VT_RECORD` holds lasts 0 ms | ruling R6-33 |
-| F-TPL6-05 | failure | With `ABORT_CHUNK(page, <the dashboard marker>)` and `NO_IDLE`, choosing "dashboard" shows "This template could not load." and "Try again" (`role="alert"`), no raw error; after `release()`, "Try again" shows the dashboard | ruling R6-33, I-M6-04 |
+| F-TPL6-05 | failure | With `ABORT_CHUNK(page, <the dashboard marker>)` and `NO_IDLE`, choosing "dashboard" shows "This template could not load." and "Try again" (`role="alert"`), no raw error; after `release()`, "Try again" shows the dashboard; besides the two console lines of 14.11 of M5 the flow allows React's one report of the caught error (R6-33 amendment) | ruling R6-33, I-M6-04 |
+| F-TPL6-07 | failure | With `ABORT_CHUNK(page, <the dashboard marker>)` and `NO_IDLE`, choosing "dashboard" shows the alert; choosing "settings" then shows `[data-template-root="settings"]` and no alert; after `release()`, choosing "dashboard" again shows the dashboard with no "Try again"; the flow allows F-TPL6-05's three console lines | added (Task 6.7's review), RF3, ruling R6-33 |
 | F-TPL6-RF3 | pass | With `NO_IDLE`, `LOADING_RECORD` and `HOLD_CHUNK` on both chunks, motion allowed, choosing "dashboard" and then "mobile" keeps the landing template on screen; after both are released the canvas shows `[data-template="mobile"]`, at most two `startViewTransition` calls were made, and `LOADING_RECORD` is empty | RF3, ruling R6-33 |
 
 ### 14.8 Accessibility fixes (Task 6.8)
@@ -1872,11 +1885,11 @@ written from its row, never from an uncovered-line report.
 | C-REPO-M2-03 (M2), C-GUARD4-10 (M4), C-GUARD5-09 (M5) | The coverage include and floors of M5's section 15 | Also section 15's new lists (C-GUARD6-03) | R6-54 |
 | M5's spec 13.3 | The Brand video region keeps its name | Plus the figure and its description of R6-35 (a note in 13.3) | R6-35 |
 | F-A11Y-04 (M2) | `chromaOffenders` is local to `tests/e2e/studio.spec.ts` | It imports `chromaOffenders` from `tests/e2e/color-support.ts` (Task 6.2) and calls it with `{ root: "body", skip: ["[data-canvas]"] }`; its allowance and assertions stand | R6-14 |
-| F-VT-01, F-VT-02 (M5) | The switch to "dashboard" comes right after `openStudio` | It comes after the five lazy chunks have loaded (the response list, polled), so the flows test the transition and not the load; their assertions stand. On probe 3's build F-VT-02 failed one run in five (one `startViewTransition` call, from the reveal after the loading sentence), when its switch came before the idle preload had fetched the dashboard chunk, so its wait includes that chunk's response (`TEMPLATE_MARKERS.dashboard`), and Task 6.7 ran the file five times in a row with no failure | R6-33 |
+| F-VT-01, F-VT-02, F-VT-03 (M5) | The switch comes right after `openStudio`; F-VT-02 and F-VT-03 read the record once the frame's `data-template` flips | The switch comes after the five lazy chunks have arrived and run (the response list, polled, and no script or stylesheet still loading), so the flows test the transition and not the load; F-VT-02 and F-VT-03 read the record once the new template's root shows, with `LOADING_RECORD` empty; their assertions stand. Probe 3's one failing run of F-VT-02 in five came from the switch suspending, not from a missing chunk: a new `React.lazy` suspends once even over a loaded chunk, so a reduced-motion switch committed the loading sentence (which flips `data-template`) and its reveal made a `startViewTransition` call, which a read at the flip catches only when it comes late; Task 6.7's review renders a loaded template with no suspend (R6-33 amendment) | R6-33 |
 
 Every other M1 to M5 case stands as written (I-M6-07), among them C-LAND5-02 (the hero cards), F-HERO-01 to 06 (the
 hero's "Pause" keeps its name, F-FIX6-04), F-A11Y5-01 (axe on `/`, with the new sections inside its page), F-SEC4-01
-and F-SEC4-02 (their page lists stay; F-SEC6-01 covers the new pages), F-TPL-27, F-VT-03 to 07, F-LAZY4-01 and F-LAZY5-01, every golden, and the guards C-GUARD3-01 to
+and F-SEC4-02 (their page lists stay; F-SEC6-01 covers the new pages), F-TPL-27, F-VT-04 to 07, F-LAZY4-01 and F-LAZY5-01, every golden, and the guards C-GUARD3-01 to
 04, C-GUARD4-01 to 12 and C-GUARD5-01 to 12 (each walk now positive by R6-39's construction).
 
 **Ruling of Task 6.5b (2026-11-07, completed 2026-11-13): two more cases R6-26 changes.** The table above misses two
@@ -1904,7 +1917,7 @@ The five input classes most likely to bite a visitor, each with the tests that p
 |---|---|---|
 | RF1 | Entry hashes at their edges: a broken escape, 501 characters, a `+`, a second `#`, a `#start` value other than `image`, any unicode | C-HASH6-RF1, C-HASH6-02, C-HASH6-05, C-START6-03, F-HASH6-05 |
 | RF2 | Data that drifts and queries that probe: the engine changes and the committed files go stale; `?tag=` empty, repeated or holding markup; an unknown or capitalized slug | C-GAL6-RF2, C-GAL6-02, F-GAL6-04, F-GAL6-07 |
-| RF3 | Templates that load late or not at all: two switches before either chunk arrives, a failed chunk, reduced motion during a load | F-TPL6-RF3, F-TPL6-03, F-TPL6-04, F-TPL6-05 |
+| RF3 | Templates that load late or not at all: two switches before either chunk arrives, a failed chunk, reduced motion during a load | F-TPL6-RF3, F-TPL6-03, F-TPL6-04, F-TPL6-05, F-TPL6-07 |
 | RF4 | Share cards at their limits: the longest brief and name, an unknown slug, the image route's size | C-CARD6-RF4, F-SHARE6-01, F-SHARE6-04 |
 | RF5 | Narrow screens: the nav's two rows at 320 and 360 px, the gallery and About at 360 px, Lighthouse at mobile | F-NAV6-RF5, F-NAV6-02, F-A11Y6-02, F-LH6-02 |
 

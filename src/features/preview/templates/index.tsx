@@ -3,12 +3,18 @@
 import { type ComponentType, type LazyExoticComponent, lazy } from "react";
 import type { TemplateId } from "@/features/studio/view";
 import { Landing } from "./Landing";
-import { type LazyTemplateId, TEMPLATE_LOADERS, type TemplateProps } from "./load";
+import {
+  type LazyTemplateId,
+  TEMPLATE_LOADERS,
+  type TemplateModule,
+  type TemplateProps,
+} from "./load";
 
 // The canvas templates (spec section 7.4): the kitchen sink (Task 2.7), the landing page and the
 // editorial article (Task 2.8), the dashboard and the settings (Task 2.9), and the mobile template
 // (Task 2.10a). The landing template, the one every first load shows, is a static import; the other
-// five load on demand through `React.lazy` of their loaders (docs/specs/06-gallery.md, R6-33, 13.3).
+// five load on demand through `React.lazy` of their loaders until their chunk has loaded, and then
+// render with no suspend (docs/specs/06-gallery.md, R6-33, 13.3).
 
 /** The template switcher's labels, in the order of `TEMPLATE_IDS`. */
 export const TEMPLATE_LABELS: Readonly<Record<TemplateId, string>> = Object.freeze({
@@ -28,7 +34,27 @@ export const FIXED_FRAMES: Readonly<Partial<Record<TemplateId, string>>> = Objec
   mobile: "Three 360 px screens",
 });
 
-/** One lazy component per lazy template, made on first use and again after "Try again". */
+/** Each lazy template's component, kept once its chunk has loaded, so it renders with no suspend. */
+const loaded = new Map<LazyTemplateId, ComponentType<TemplateProps>>();
+
+/**
+ * `TEMPLATE_LOADERS`, each keeping its template's component once it has loaded. The canvas preloads
+ * through these, and each lazy component loads through them (13.3, as amended at Task 6.7's review).
+ */
+export const KEEPING_LOADERS = Object.freeze(
+  Object.fromEntries(
+    (Object.keys(TEMPLATE_LOADERS) as LazyTemplateId[]).map((id) => [
+      id,
+      () =>
+        TEMPLATE_LOADERS[id]().then((module) => {
+          loaded.set(id, module.default);
+          return module;
+        }),
+    ]),
+  ),
+) as Readonly<Record<LazyTemplateId, () => Promise<TemplateModule>>>;
+
+/** One lazy component per template first shown before its chunk loaded, made again after a failure. */
 const lazies = new Map<LazyTemplateId, LazyExoticComponent<ComponentType<TemplateProps>>>();
 
 /** Forgets the lazy component of `id`, whose load failed, so the next render makes a new one. */
@@ -36,10 +62,18 @@ export function forgetTemplate(id: LazyTemplateId): void {
   lazies.delete(id);
 }
 
-function lazyTemplate(id: LazyTemplateId): LazyExoticComponent<ComponentType<TemplateProps>> {
+/**
+ * The component that shows `id`. A lazy component made before the chunk loaded stays: once resolved it
+ * renders at once, and keeping it keeps the shown template's state. Without one, a loaded template
+ * renders its own component, since a new `React.lazy` suspends once even over a loaded chunk (R6-33,
+ * as amended at Task 6.7's review). Otherwise a new lazy component loads it.
+ */
+function templateComponent(id: LazyTemplateId): ComponentType<TemplateProps> {
   const kept = lazies.get(id);
   if (kept !== undefined) return kept;
-  const load = TEMPLATE_LOADERS[id];
+  const ready = loaded.get(id);
+  if (ready !== undefined) return ready;
+  const load = KEEPING_LOADERS[id];
   if (load === undefined) throw new RangeError(`Template: no template ${JSON.stringify(id)}`);
   const made = lazy(load);
   lazies.set(id, made);
@@ -47,7 +81,7 @@ function lazyTemplate(id: LazyTemplateId): LazyExoticComponent<ComponentType<Tem
 }
 
 function LazyTemplate({ id, spec, view }: TemplateProps & { id: LazyTemplateId }) {
-  const Shown = lazyTemplate(id);
+  const Shown = templateComponent(id);
   return <Shown spec={spec} view={view} />;
 }
 

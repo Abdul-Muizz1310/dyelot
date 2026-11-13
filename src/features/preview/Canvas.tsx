@@ -18,7 +18,7 @@ import { feelSpring } from "@/theme/vars";
 import { MotionScope } from "./kit";
 import { useOsReducedMotion } from "./kit/reduced";
 import { TemplateBoundary } from "./TemplateBoundary";
-import { forgetTemplate, Template } from "./templates";
+import { forgetTemplate, KEEPING_LOADERS, Template } from "./templates";
 import { idleScheduler, preloadTemplates, TEMPLATE_LINES } from "./templates/load";
 import { shownTemplate, templateTransition } from "./transition";
 import { useCanvasFonts } from "./useCanvasFonts";
@@ -37,7 +37,8 @@ import { canvasStyle } from "./vars";
 // switch. A switch with motion allowed is a transition, so a template still loading keeps the old
 // one on screen and the switch commits once; under reduced motion it is urgent and the loading
 // sentence shows. A template that could not load shows a sentence and "Try again". After the first
-// render the five lazy templates load when the browser is idle, so a later switch finds its chunk.
+// render the five lazy templates load when the browser is idle, so a later switch finds them loaded
+// and renders at once, with no loading sentence.
 
 export function Canvas({
   spec,
@@ -75,7 +76,7 @@ export function Canvas({
     return () => observer.disconnect();
   }, []);
   // A first load always shows the landing template (the view is never stored).
-  useEffect(() => preloadTemplates("landing", idleScheduler(window)), []);
+  useEffect(() => preloadTemplates("landing", idleScheduler(window), KEEPING_LOADERS), []);
   return (
     <div ref={stageRef} data-canvas-stage="" className="canvas-stage">
       <div className="canvas-fit" style={{ width: width * scale, height: height * scale }}>
@@ -98,8 +99,9 @@ export function Canvas({
           >
             <MotionScope reduced={view.reducedMotion} spring={spring}>
               <TemplateBoundary
-                onRetry={() => {
-                  if (template !== "landing") forgetTemplate(template);
+                shown={template}
+                forget={(id) => {
+                  if (id !== "landing") forgetTemplate(id);
                 }}
               >
                 <Suspense

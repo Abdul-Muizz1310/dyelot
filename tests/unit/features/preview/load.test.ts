@@ -16,13 +16,7 @@ import { TEMPLATE_IDS } from "@/features/studio/view";
 // The canvas's lazy templates (docs/specs/06-gallery.md, R6-33 and section 5.5): C-TPL6-01 to 04.
 
 /** The lazy templates, in the order of `TEMPLATE_IDS`. */
-const LAZY: readonly LazyTemplateId[] = [
-  "dashboard",
-  "settings",
-  "mobile",
-  "editorial",
-  "kitchen-sink",
-];
+const LAZY = TEMPLATE_IDS.filter((id): id is LazyTemplateId => id !== "landing");
 
 /** Fake loaders that record each call, in order; `failing` rejects. */
 function fakeLoaders(failing?: LazyTemplateId) {

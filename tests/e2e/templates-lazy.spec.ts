@@ -10,6 +10,7 @@ import {
   test,
   VT_RECORD,
   vtRecord,
+  type Watch,
 } from "./flavor-support";
 import { canvasFrame, openStudio, stubSeeds } from "./studio-support";
 import {
@@ -20,8 +21,8 @@ import {
   templateSelect,
 } from "./template-support";
 
-// The lazy templates of docs/specs/06-gallery.md (R6-33, 13.3): F-TPL6-01 to 05 and F-TPL6-RF3
-// (Task 6.7). The landing template loads with the studio; the other five load on demand, or when the
+// The lazy templates of docs/specs/06-gallery.md (R6-33, 13.3): F-TPL6-01 to 05, F-TPL6-07 and
+// F-TPL6-RF3 (Task 6.7). The landing template loads with the studio; the other five load on demand, or when the
 // browser is idle after the first paint, and each is told apart by probe 3's marker (R6-57). Every
 // flow fails, through the watch of flavor-support's `test`, on a `securitypolicyviolation` event, a
 // console error, a page error or an unhandled rejection it does not allow by name.
@@ -36,6 +37,17 @@ const RETRY = "Try again";
 /** The next request for a JavaScript chunk: the switch has started to load its template. */
 const chunkRequest = (page: Page): Promise<Request> =>
   page.waitForRequest((request) => /\/_next\/static\/chunks\/[^/]+\.js$/.test(request.url()));
+
+/**
+ * Allows the console lines of a dashboard chunk that `ABORT_CHUNK` aborted: 14.11's two failed loads,
+ * its request and Turbopack's one retry, and React's one report of the error the boundary caught (the
+ * R6-33 amendment, as R5-39's for the explorer).
+ */
+async function allowFailedDashboard(page: Page, watch: Watch, aborted: readonly string[]) {
+  await allowAbortedChunk(page, watch, aborted, TEMPLATE_MARKERS.dashboard);
+  const path = new URL(aborted[0] ?? "").pathname.replace(/[.]/g, "\\.");
+  watch.allow(new RegExp(`^ChunkLoadError: Failed to load chunk ${path} from module \\d+\\n`), 1);
+}
 
 /** Opens the studio on its first design and waits until no request is still on its way. */
 async function openQuiet(page: Page): Promise<void> {
@@ -140,16 +152,36 @@ test.describe("RF3 templates that load late or not at all", () => {
     await expect(alert.getByRole("button", { name: RETRY, exact: true })).toBeVisible();
     // No raw error: the sentence and the button are all the canvas says.
     await expect(canvasFrame(page)).toHaveText(`${FAILED}${RETRY}`);
-    // 14.11's ABORT_CHUNK rule: the chunk failed twice, its request and Turbopack's one retry. React
-    // reports the error the boundary caught once (the R6-33 amendment, as R5-39's for the explorer).
-    await allowAbortedChunk(page, watch, aborted, TEMPLATE_MARKERS.dashboard);
-    const path = new URL(aborted[0] ?? "").pathname.replace(/[.]/g, "\\.");
-    watch.allow(new RegExp(`^ChunkLoadError: Failed to load chunk ${path} from module \\d+\\n`), 1);
+    await allowFailedDashboard(page, watch, aborted);
     chunk.release();
     await alert.getByRole("button", { name: RETRY, exact: true }).click();
     await expect(templateRoot(page, "dashboard")).toBeVisible();
     await expect(canvasFrame(page).getByRole("alert")).toHaveCount(0);
     await expect(canvasFrame(page)).toHaveAttribute("data-template", "dashboard");
+  });
+
+  // Breaks when the alert of a template that could not load stays over the next template chosen, or
+  // that template's failure is kept, so that choosing it again fails with no request (Task 6.7's
+  // review).
+  test("F-TPL6-07 a switch away from a template that could not load clears the alert, and choosing it again loads it", async ({
+    page,
+    watch,
+  }) => {
+    const aborted = recordAborted(page);
+    await NO_IDLE(page);
+    const chunk = await ABORT_CHUNK(page, TEMPLATE_MARKERS.dashboard);
+    await openQuiet(page);
+    await templateSelect(page).selectOption("dashboard");
+    await expect(canvasFrame(page).getByRole("alert")).toBeVisible();
+    await allowFailedDashboard(page, watch, aborted);
+    await templateSelect(page).selectOption("settings");
+    await expect(templateRoot(page, "settings")).toBeVisible();
+    await expect(canvasFrame(page).getByRole("alert")).toHaveCount(0);
+    await expect(canvasFrame(page)).toHaveAttribute("data-template", "settings");
+    chunk.release();
+    await templateSelect(page).selectOption("dashboard");
+    await expect(templateRoot(page, "dashboard")).toBeVisible();
+    await expect(canvasFrame(page).getByRole("alert")).toHaveCount(0);
   });
 
   // Breaks when a second switch before either chunk arrives shows the loading sentence, drops the

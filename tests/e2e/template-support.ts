@@ -1,7 +1,7 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { type Rgb, ROLE_NAMES, wcagRatio } from "@/engine";
 import type { LazyTemplateId } from "@/features/preview/templates/load";
-import type { TemplateId } from "@/features/studio/view";
+import { TEMPLATE_IDS, type TemplateId } from "@/features/studio/view";
 import { canvasFrame } from "./studio-support";
 
 // Shared helpers for the template flows of docs/specs/02-studio.md, sections 7.5 to 7.7: the
@@ -1132,7 +1132,7 @@ export const TEMPLATE_MARKERS: Readonly<Record<LazyTemplateId, string>> = Object
 });
 
 /** The lazy templates, in the order of `TEMPLATE_IDS`. */
-export const LAZY_TEMPLATES = Object.keys(TEMPLATE_MARKERS) as readonly LazyTemplateId[];
+export const LAZY_TEMPLATES = TEMPLATE_IDS.filter((id): id is LazyTemplateId => id !== "landing");
 
 type ChunkBody =
   | { readonly url: string; readonly text: string }
@@ -1172,5 +1172,41 @@ export function recordTemplateChunks(page: Page): { loaded(): Promise<LazyTempla
         texts.some((text) => text.includes(TEMPLATE_MARKERS[id])),
       );
     },
+  };
+}
+
+/**
+ * Keeps, from before the page's scripts run, every script and stylesheet whose `load` event has
+ * fired: a script has run, a stylesheet applies. `pending()` names the scripts (`nomodule` ones aside,
+ * which a module browser never runs) and stylesheets in the document that have not loaded yet. Once
+ * the lazy templates' chunks have arrived and nothing is pending, their loaders have resolved, so a
+ * switch meets a loaded template (Task 6.7's review). Install it before `goto`; poll `pending()`.
+ */
+export async function recordChunkLoads(page: Page): Promise<{ pending(): Promise<string[]> }> {
+  await page.addInitScript(() => {
+    const loaded = new Set<Element>();
+    (window as unknown as { __chunkLoads: Set<Element> }).__chunkLoads = loaded;
+    document.addEventListener(
+      "load",
+      (event) => {
+        if (event.target instanceof HTMLScriptElement || event.target instanceof HTMLLinkElement) {
+          loaded.add(event.target);
+        }
+      },
+      true,
+    );
+  });
+  return {
+    pending: () =>
+      page.evaluate(() => {
+        const loaded = (window as unknown as { __chunkLoads?: Set<Element> }).__chunkLoads;
+        if (loaded === undefined) throw new Error("recordChunkLoads: the record is not installed");
+        const resources = document.querySelectorAll<HTMLScriptElement | HTMLLinkElement>(
+          'script[src]:not([nomodule]), link[rel="stylesheet"][href]',
+        );
+        return [...resources]
+          .filter((element) => !loaded.has(element))
+          .map((element) => (element instanceof HTMLScriptElement ? element.src : element.href));
+      }),
   };
 }

@@ -1,4 +1,5 @@
 import type { ComponentType } from "react";
+import { describeType } from "@/features/studio/guards";
 import { TEMPLATE_IDS, type TemplateId, type View } from "@/features/studio/view";
 import { loadOnce } from "@/lib/load-once";
 import type { DesignSpec } from "@/spec";
@@ -35,13 +36,6 @@ export const TEMPLATE_LINES: Readonly<Record<"loading" | "failed" | "retry", str
     failed: "This template could not load.",
     retry: "Try again",
   });
-
-/** The type of `value` as an error message names it: `null` and arrays are not "object". */
-function describeType(value: unknown): string {
-  if (value === null) return "null";
-  if (Array.isArray(value)) return "array";
-  return typeof value;
-}
 
 /**
  * A scheduler on `win`: `requestIdleCallback(run, { timeout: 2000 })`, cancelled with
