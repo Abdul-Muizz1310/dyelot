@@ -788,9 +788,19 @@ function m6PurityFindings(file: string, source: string): string[] {
       blank(node);
       return;
     }
-    // Lighthouse's category, a name in audit-core.mjs alone: its string and its object key.
+    // Lighthouse's category, a name in audit-core.mjs alone: the string where it names the category
+    // (an array's element, the argument of a call to a plain function) and the object key. A string
+    // that reaches a global (`globalThis["performance"]`, `Reflect.get(…, "performance")`) stays.
     if (file === AUDIT_CORE) {
-      if (ts.isStringLiteral(node) && node.text === "performance") blank(node);
+      if (ts.isStringLiteral(node) && node.text === "performance") {
+        const parent = node.parent;
+        if (
+          ts.isArrayLiteralExpression(parent) ||
+          (ts.isCallExpression(parent) && ts.isIdentifier(parent.expression))
+        ) {
+          blank(node);
+        }
+      }
       if (ts.isPropertyAssignment(node) && ts.isIdentifier(node.name)) {
         if (node.name.text === "performance") blank(node.name);
       }
@@ -854,6 +864,13 @@ describe("C-GUARD6-10 the purity scanners find nothing in the M6 pure files", ()
     expect(m6PurityFindings(AUDIT_CORE, "const { performance } = globalThis;")).toEqual([
       "performance",
     ]);
+    // A string that reaches the global is no category name.
+    for (const reach of [
+      'const t = globalThis["performance"].now();',
+      'const clock = Reflect.get(globalThis, "performance");',
+    ]) {
+      expect(m6PurityFindings(AUDIT_CORE, `${category}\n${reach}`), reach).toEqual(["performance"]);
+    }
     // The allowance is audit-core.mjs's alone.
     expect(m6PurityFindings(path.join(ROOT, "src/features/about/copy.ts"), category)).toEqual([
       "performance",

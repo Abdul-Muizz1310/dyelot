@@ -1,34 +1,17 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { VIDEO_LINES } from "@/features/flavor/video";
 import { PLAYER_CAP, TELEMETRY, test } from "./flavor-support";
+import { expectLoaded, loaded, REMOTION, recordScripts } from "./lazy-support";
 import { button, openStudio, stubSeeds } from "./studio-support";
 
 // The laziness flows of docs/specs/05-motion-3d.md, section 14.11 (R5-61, I-M5-04): F-LAZY5-01 to 04
 // (Task 5.11a). Each reads the text of every JavaScript response a page fetches and tells the heavy
 // libraries apart by the marker strings of R5-64 (probes 1, 4 and 5), and the engine by its version
-// string. Every flow fails, through the watch of flavor-support's `test`, on a
-// `securitypolicyviolation` event, a console error, a page error or an unhandled rejection in any
-// document it visits (14.11).
+// string, both in tests/e2e/lazy-support.ts. Every flow fails, through the watch of flavor-support's
+// `test`, on a `securitypolicyviolation` event, a console error, a page error or an unhandled
+// rejection in any document it visits (14.11).
 
 test.use({ viewport: { width: 1280, height: 800 } });
-
-/**
- * R5-64's markers, each found in its library's chunk only (probes 1, 4 and 5), and the engine's
- * version string (`ENGINE_VERSION`, src/engine/generate.ts).
- */
-const MARKERS = {
-  three: "THREE.WebGLRenderer",
-  r3f: "R3F: Hooks can only be used within the Canvas component",
-  player: "Some companies are required to obtain a license to use Remotion",
-  remotion: "No video config found",
-  renderer: "register-usage-point",
-  mediabunny: "MediabunnyVideoHandler",
-  engine: "dyelot.engine/1",
-} as const;
-type Library = keyof typeof MARKERS;
-
-/** Remotion's code: the Player, its core and the web renderer (R5-61). */
-const REMOTION: readonly Library[] = ["player", "remotion", "renderer"];
 
 /**
  * Probe 1's eight strings, which no JavaScript of `/explore` may hold, in any case: the remote
@@ -44,62 +27,6 @@ const REMOTE_ASSETS = [
   "unpkg.com",
   "storage.googleapis.com",
 ] as const;
-
-/** The text of every JavaScript response a page fetches, kept from the moment it is called. */
-type Scripts = {
-  /**
-   * Each response's URL and text, once every response so far has been read. A body that could not
-   * be read is an error naming its URL: a chunk the flow cannot read is never counted as holding no
-   * marker.
-   */
-  read(): Promise<readonly { readonly url: string; readonly text: string }[]>;
-};
-
-type Body =
-  | { readonly url: string; readonly text: string }
-  | { readonly url: string; readonly error: string };
-
-function recordScripts(page: Page): Scripts {
-  // Each read settles into a body or its failure at once, so a failure waits for `read()` to report
-  // it, never surfacing as an unhandled rejection in between.
-  const bodies: Promise<Body>[] = [];
-  page.on("response", (response) => {
-    const type = response.headers()["content-type"] ?? "";
-    if (!type.includes("javascript")) return;
-    const url = response.url();
-    bodies.push(
-      response.text().then(
-        (text) => ({ url, text }),
-        (error: unknown) => ({
-          url,
-          error: error instanceof Error ? error.message : String(error),
-        }),
-      ),
-    );
-  });
-  return {
-    read: async () => {
-      const read = await Promise.all(bodies);
-      return read.map((body) => {
-        if ("error" in body) {
-          throw new Error(`recordScripts: could not read ${body.url}: ${body.error}`);
-        }
-        return body;
-      });
-    },
-  };
-}
-
-/** The libraries of `libraries` whose marker some script so far holds. */
-async function loaded(scripts: Scripts, libraries: readonly Library[]): Promise<Library[]> {
-  const texts = await scripts.read();
-  return libraries.filter((library) => texts.some(({ text }) => text.includes(MARKERS[library])));
-}
-
-/** Waits until the page has loaded the marker of each of `libraries`, polling its scripts. */
-async function expectLoaded(scripts: Scripts, libraries: readonly Library[]): Promise<void> {
-  await expect.poll(() => loaded(scripts, libraries)).toEqual(libraries);
-}
 
 const flavorButton = (page: Page): Locator => button(page, "Flavor");
 const dialog = (page: Page): Locator => page.getByRole("dialog", { name: "Flavor", exact: true });

@@ -1860,8 +1860,11 @@ Next's `Metadata` (5.1) through `import type { Metadata } from "next"`, which C-
 of Next; and `scripts/audit-core.mjs` names Lighthouse's `performance` category (`CATEGORIES` and the key of
 `categoryScores`, 5.6), which C-GUARD3-02's `\bperformance\b` reads as the clock. So the case scans each file with its
 whole `import type` and `export type … from` declarations blanked, since TypeScript erases them and they load nothing,
-and `audit-core.mjs` alone with its string `"performance"` and its object key `performance:` blanked too; a value import
-of Next, a call of `performance.now()` and a destructured `performance` are still found (the case's probes). The row's
+and `audit-core.mjs` alone with the string `"performance"` blanked where it names the category (an element of an array,
+the argument of a call to a plain function such as `score`) and the object key `performance:`; a value import of Next, a
+call of `performance.now()`, a destructured `performance` and a string that reaches the global
+(`globalThis["performance"]`, `Reflect.get(globalThis, "performance")`) are still found (the case's probes; the last
+two since review round 1). The row's
 "C-REPO-01's and C-GUARD3-02's scanners list `src/export/guards.ts`" reads as: C-GUARD3-02's list, the one that covers
 `src/export` (C-REPO-01's covers `src/engine` and `src/spec`), holds it, and neither scanner finds anything in it.
 
