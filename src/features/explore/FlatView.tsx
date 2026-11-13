@@ -1,10 +1,10 @@
+import { useId } from "react";
 import type { Mode } from "@/engine";
 import { gamutSlice, SOLID_GAMUTS, type SolidGamut } from "@/engine";
 import type { DesignSpec } from "@/spec";
 import { dotAt, GAMUT_NAMES, scenePoints, slicePath, sliceSteps } from "./scene";
 
 const SIZE = 320;
-const LIST_ID = "flat-view-steps";
 
 /** Each outline's line (8.3): the chrome stays achromatic, so a dye color is judged against it. */
 const LINES: Readonly<Record<SolidGamut, { stroke: string; dash?: string; dotted?: true }>> = {
@@ -24,6 +24,7 @@ const LEGEND: Readonly<Record<SolidGamut, string>> = {
  * form of the 3D view and its fallback. It renders on the server and in the client.
  */
 export function FlatView({ spec, mode, l }: { spec: DesignSpec; mode: Mode; l: number }) {
+  const id = useId();
   const near = sliceSteps(scenePoints(spec, mode), l);
   const at = l.toFixed(2);
   return (
@@ -34,7 +35,7 @@ export function FlatView({ spec, mode, l }: { spec: DesignSpec; mode: Mode; l: n
         height={SIZE}
         viewBox={`0 0 ${SIZE} ${SIZE}`}
         role="img"
-        aria-labelledby="flat-view-caption"
+        aria-labelledby={`${id}-caption`}
         className="h-auto max-w-full rounded-lg border border-border bg-panel"
       >
         {SOLID_GAMUTS.map((gamut) => {
@@ -66,7 +67,7 @@ export function FlatView({ spec, mode, l }: { spec: DesignSpec; mode: Mode; l: n
           );
         })}
       </svg>
-      <figcaption id="flat-view-caption" className="font-mono text-xs text-fg-muted">
+      <figcaption id={`${id}-caption`} className="font-mono text-xs text-fg-muted">
         {`At L ${at}: how far each gamut reaches at every hue, and the ${near.length} steps within 0.04 of that lightness.`}
       </figcaption>
       <ul className="m-0 list-none space-y-1 p-0 font-mono text-xs text-fg-muted">
@@ -74,11 +75,11 @@ export function FlatView({ spec, mode, l }: { spec: DesignSpec; mode: Mode; l: n
           <li key={gamut}>{`${GAMUT_NAMES[gamut]}: ${LEGEND[gamut]}`}</li>
         ))}
       </ul>
-      <p id={LIST_ID} className="m-0 font-mono text-xs text-foreground">
+      <p id={`${id}-steps`} className="m-0 font-mono text-xs text-foreground">
         Steps near this lightness
       </p>
       <ul
-        aria-labelledby={LIST_ID}
+        aria-labelledby={`${id}-steps`}
         className="m-0 list-none space-y-1 p-0 font-mono text-xs text-fg-muted"
       >
         {near.length === 0 ? (

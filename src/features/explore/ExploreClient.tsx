@@ -1,7 +1,17 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { Component, type ReactNode, useCallback, useEffect, useId, useMemo, useState } from "react";
+import {
+  Component,
+  type ReactNode,
+  type Ref,
+  useCallback,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { type Mode, SOLID_GAMUTS, type SolidGamut } from "@/engine";
 import { useOsReducedMotion } from "@/features/preview/kit/reduced";
 import { BUTTON } from "@/features/studio/chrome";
@@ -96,6 +106,7 @@ function Slider({
   value,
   text,
   onChange,
+  inputRef,
 }: {
   label: string;
   min: number;
@@ -104,6 +115,7 @@ function Slider({
   value: number;
   text: string;
   onChange(value: number): void;
+  inputRef?: Ref<HTMLInputElement>;
 }) {
   const id = useId();
   return (
@@ -115,6 +127,7 @@ function Slider({
         <span className="font-mono text-foreground text-xs tabular-nums">{text}</span>
       </div>
       <input
+        ref={inputRef}
         id={id}
         type="range"
         min={min}
@@ -197,7 +210,11 @@ export function ExploreClient({ initial }: { initial: DesignSpec }) {
   }, []);
   const onReady = useCallback(() => setPanel({ state: "3d" }), []);
   const onLost = useCallback(() => fallBack("context-lost"), [fallBack]);
+  // "Turn" is the first of the camera controls: the restart moves focus there before its own button
+  // goes away, so focus never falls to the body (R6-37).
+  const turn = useRef<HTMLInputElement>(null);
   const restart = () => {
+    turn.current?.focus();
     setMount((count) => count + 1);
     setPanel({ state: "loading" });
   };
@@ -236,6 +253,7 @@ export function ExploreClient({ initial }: { initial: DesignSpec }) {
         />
         <Slider
           label="Turn"
+          inputRef={turn}
           min={-180}
           max={180}
           step={1}
