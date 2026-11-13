@@ -2,7 +2,7 @@ import { expect, type Locator, type Page } from "@playwright/test";
 import { type Rgb, ROLE_NAMES, wcagRatio } from "@/engine";
 import type { LazyTemplateId } from "@/features/preview/templates/load";
 import { TEMPLATE_IDS, type TemplateId } from "@/features/studio/view";
-import { canvasFrame } from "./studio-support";
+import { canvasFrame, openStudio } from "./studio-support";
 
 // Shared helpers for the template flows of docs/specs/02-studio.md, sections 7.5 to 7.7: the
 // template and frame switches, and the structural checks every template runs (F-TPL-13, F-TPL-15,
@@ -25,11 +25,15 @@ export const TYPE_STEPS = [
 
 const toolbar = (page: Page) => page.getByRole("region", { name: "Canvas toolbar" });
 
-/** Shows a template and waits for its root, and for its entrance, if any, to come to rest. */
+/**
+ * Shows a template and waits for its root, and for its entrance, if any, to come to rest. On a page
+ * the idle preload has not finished (R6-33), the root waits for its template's chunk to arrive and
+ * run, so it gets 15 s; a serial group opens its shared page with `openPreloaded`.
+ */
 export async function showTemplate(page: Page, id: TemplateId): Promise<Locator> {
   await toolbar(page).getByRole("combobox", { name: "Template", exact: true }).selectOption(id);
   const root = templateRoot(page, id);
-  await expect(root).toBeVisible();
+  await expect(root).toBeVisible({ timeout: 15_000 });
   await expect
     .poll(() =>
       canvasFrame(page).evaluate((frame) => {
@@ -1209,4 +1213,18 @@ export async function recordChunkLoads(page: Page): Promise<{ pending(): Promise
           .map((element) => (element instanceof HTMLScriptElement ? element.src : element.href));
       }),
   };
+}
+
+/**
+ * Opens the studio and waits until the idle preload has brought the five lazy templates' chunks (the
+ * response list, polled for probe 3's markers) and the page has run them (no script or stylesheet
+ * still loading), so a switch tests the transition and not the load (section 16 of
+ * docs/specs/06-gallery.md).
+ */
+export async function openPreloaded(page: Page): Promise<void> {
+  const chunks = recordTemplateChunks(page);
+  const loads = await recordChunkLoads(page);
+  await openStudio(page);
+  await expect.poll(() => chunks.loaded()).toEqual(LAZY_TEMPLATES);
+  await expect.poll(() => loads.pending()).toEqual([]);
 }

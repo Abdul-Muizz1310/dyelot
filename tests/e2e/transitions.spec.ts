@@ -3,9 +3,7 @@ import { tokenRow } from "@/features/studio/token-row";
 import { LOADING_RECORD, loadingCount, test, VT_RECORD, vtRecord } from "./flavor-support";
 import { canvasFrame, first, inspectorAside, openStudio, stubSeeds } from "./studio-support";
 import {
-  LAZY_TEMPLATES,
-  recordChunkLoads,
-  recordTemplateChunks,
+  openPreloaded,
   reduceMotion,
   screenOf,
   showTemplate,
@@ -18,20 +16,6 @@ import {
 // event, a console error, a page error or an unhandled rejection in any document it visits (14.11).
 
 const GROUP = "::view-transition-group(dyelot-template)";
-
-/**
- * Opens the studio and waits until the idle preload has brought the five lazy templates' chunks (the
- * response list, polled for probe 3's markers) and the page has run them (no script or stylesheet
- * still loading), so a switch tests the transition and not the load (section 16 of
- * docs/specs/06-gallery.md).
- */
-async function openPreloaded(page: Page): Promise<void> {
-  const chunks = recordTemplateChunks(page);
-  const loads = await recordChunkLoads(page);
-  await openStudio(page);
-  await expect.poll(() => chunks.loaded()).toEqual(LAZY_TEMPLATES);
-  await expect.poll(() => loads.pending()).toEqual([]);
-}
 
 /** Waits for the record to hold one call and its `ready` animations. */
 async function recorded(page: Page) {
