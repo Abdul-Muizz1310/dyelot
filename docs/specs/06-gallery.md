@@ -28,21 +28,30 @@ templates and the open route are struck, and the clip margin stays. Rulings made
 top-right pixel (R6-18), a chunk that does not arrive allows three console lines in F-TPL6-05 and F-TPL6-07, and a loaded
 template renders itself, so a switch never suspends twice (R6-33); the gallery's card links are named by `aria-label`
 (Task 6.2); `copy.ts` is the one file `names.test.ts` lets name `color-name-list` (R6-21); a loaded design takes its
-preset from `presetOf(spec)`, which also changed C-STORE-39 and one M4 flow (R6-26 and section 16); and Task 6.7's review
-added F-TPL6-07, the 172nd case. `pnpm gate:full` on `m6-gallery` passed in {{M6_GATE_FULL}} with {{M6_UNIT_COUNT}} and
-{{M6_E2E_COUNT}}, and {{M6_COVERAGE}} of coverage; `pnpm gate` passed in {{M6_GATE}}. Both ran on a 16-core desktop that
+preset from `presetOf(spec)`, which also changed C-STORE-39 and one M4 flow (R6-26 and section 16); Task 6.7's review
+added F-TPL6-07, the 172nd case; the start-from section's color input starts at madder, so C-GUARD-05 lets
+`StartFrom.tsx` hold that one value (section 16, Task 6.6b); and C-GUARD6-10's scanners skip type-only imports and the
+word `performance` where `audit-core.mjs` names Lighthouse's category (Task 6.11a). The final whole-branch review found
+0 Critical and 3 Important findings (the start-from section and its groups had no accessible names; `showTemplate`'s
+waits spanned a lazy chunk load; C-BLK-01's 1 s wait covered a cold import), fixed in one wave and re-checked. `pnpm gate:full` on `m6-gallery` passed in 26 min 56 s with 5,463 unit tests passed and 3 skipped in 292 files and
+598 end-to-end flows (577 passed in the run; the three timing flows that failed at a load average of 17, and the 18 Lighthouse runs that wait on them, passed alone), and 98.95% statements, 96.77% branches, 99.64% functions and 99.17% lines of coverage; `pnpm gate` passed in 9 min 46 s. Both ran on a 16-core desktop that
 was also running the owner's own applications; a flow that holds a timing budget failed under a high load average in
-several lanes and passed alone on a quiet machine, as the plan's timing-flow rule allows.
+several lanes and passed alone on a quiet machine, as the plan's timing-flow rule allows; the close's two gates (load averages up to 17 from the suites' own workers) each failed only F-IMP-RF4, F-INSP-15 and, once, F-A11Y6-01, whose twelve axe runs then took `test.slow()`, and every one passed alone.
+
+Tests came first, with these recorded exceptions: tests that could not fail before their code existed (F-SHARE6-04,
+F-GAL6-07 and F-GAL6-15 assert a 404; C-GUARD5-05's new allow-list entry; C-SITE6-03, as D7 says); guards and audits that
+passed on arrival because the pages already met them (the sixteen F-LH6 audits, F-A11Y6-01 to 03, the composed flows of
+Task 6.11a), each shown able to fail by a probe or a mutation in review; and flows written alongside their code
+(C-GUARD6-09 and F-ABOUT6-01 to 03 in Task 6.4, F-FIX6-01 to 04 in Task 6.8, the F-LAND6-06, F-LAND6-07 and F-NAV6 flows
+in Task 6.6c), each read in review against the earlier code.
 
 The residuals that ship, from the task reviews: `briefSpec` checks field types but not R6-12's domains (C-GAL6-08 covers
 the fixed data), and `receiptLines` does not type-check the receipt's name, format and contrast strings; an update run of
 the gallery data exits 1 because its compare cases read the stale JSON; `sm:after:-bottom-[11px]` departs slightly from
-9.3's text, and no unit test checks the landing's class strings; `loaders-m6.test.ts` matches the loader shape with a
-regex where C-HYG6-04 says to read the syntax tree; one failed Lighthouse run aborts `audit-site.mjs`'s 48 runs and writes
+9.3's text, and no unit test checks the landing's class strings; one failed Lighthouse run aborts `audit-site.mjs`'s 48 runs and writes
 nothing, and its `--base` drops any path; the card components check no argument types, and the mosaic headline probably
 leaves "receipt" alone on its second line (the hand check looks); `b7f85dc` leaves M4's rationale flow red until the next
-commit; C-BLK-01's 1 s wait and F-STUDIO-05's 30 s budget fail under heavy load on any tree; `showTemplate`'s 5 s poll
-now spans a lazy chunk load; `violations(page, extraRules)` has no caller; and the `/gallery` minors of Task 6.2's review
+commit; F-STUDIO-05's 30 s budget and M3's 2 s import budget (F-IMP-RF4) fail under heavy load on any tree; and the `/gallery` minors of Task 6.2's review
 (F-GAL6-01 does not pin 6 and 18, a bare "script" substring in F-GAL6-04, repeated markup, and a second "Copied" press
 that is not announced again). The hand check of R6-58 on the deployed site and `scripts/audit-site.mjs`'s medians,
 first-byte times and chunk sizes follow the merge, and their results go into this note and the README.
