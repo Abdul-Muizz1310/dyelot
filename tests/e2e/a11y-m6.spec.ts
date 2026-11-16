@@ -60,6 +60,9 @@ const PAGES = [
 test("F-A11Y6-01 axe, with Lighthouse's rules, finds no violation on the new pages", async ({
   page,
 }) => {
+  // Twelve axe runs (six pages at two sizes) with about thirty extra rules: under a full gate's load
+  // they outgrow the default 30 s, so the budget is tripled.
+  test.slow();
   const rules = lighthouseRules();
   expect(rules.length).toBeGreaterThanOrEqual(25);
   for (const name of NAMED_RULES) expect(rules, name).toContain(name);
