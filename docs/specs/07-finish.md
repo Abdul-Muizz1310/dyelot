@@ -286,6 +286,51 @@ M7" in section 13's UI and flows row, and an M7 row in section 14's table. The c
 **R7-26 · Task 7.0.** Task 7.0 runs the open probes of section 12 on the rebased branch before any other task and
 records each result in this ruling; a probe that fails takes the fallback section 12 states. **(decision D4)**
 
+The four open probes ran in a scratch lane cut from the rebased `m7-finish` at `cd8b0fb` (Playwright 1.65.1), with
+section 7's change applied as written; probe 3 added R7-12's two lines and probe 4 9.1's script, after probe 2. No
+scratch code merges. The logs are in the M7 notes' `logs/7.0/`.
+
+1. **The `timed` project on 1.65.1.** Result (2026-11-17): pass; the fallback (D3) is not needed, and R7-04, C-SER7-01
+   and `test:e2e` stand. `playwright test --list` shows 598 tests: 559 under `chromium` (580 on the base, 21 fewer), the
+   18 Lighthouse runs, and 21 under `timed`, which are section 7's 20 source titles (F-IMP-RF4's one title runs two
+   cases); no title holding one of the twelve ids and no `@timed` test is left under `chromium`, and F-TPL-39's
+   serial-group test stays there. `--project timed --no-deps` printed "Running 21 tests using 1 worker" and passed 21 in
+   2.1 minutes. In each run of probe 2, every `chromium` result came first, then the 18 `lighthouse` results, then the
+   21 `timed` ones, and the timed phase took about as long as the sum of its tests' times (91 s against 87 s, 93 s
+   against 90 s), so the project's `workers: 1` holds inside a full run of eight workers too. 1.65.1's
+   `types/test.d.ts` documents the key ("workers limit for this project").
+2. **One run.** Result (2026-11-17): pass; each of the three passed in one run under the whole-gate lock, with no
+   failure, no flaky test and no rerun, so section 7 is not amended. Times are the log's `date -Is` lines (+05:00); load
+   averages are `uptime`'s 1-, 5- and 15-minute values, first and last:
+
+   | Run | Time | Load average, first; last | Vitest | Playwright | `timed` phase |
+   |---|---|---|---|---|---|
+   | `gate:full` 1 | 18:02:32 to 18:35:59, 33 min 27 s | 2.11, 1.35, 1.00; 12.52, 11.96, 10.63 | 5,464 passed, 3 skipped (292 files, 1 skipped); coverage 98.95, 96.77, 99.64, 99.17 | 598 passed in 11.3 min (559, 18, 21) | 121 s, the sum of its tests' times |
+   | `gate:full` 2 | 18:36:36 to 19:06:06, 29 min 30 s | 6.91, 10.60, 10.22; 2.93, 9.26, 10.84 | the same counts and coverage | 598 passed in 9.6 min | 91 s |
+   | `gate` | 19:06:49 to 19:18:23, 11 min 34 s | 1.61, 8.13, 10.40; 2.49, 9.37, 11.52 | 5,242 passed, 3 skipped (248 files, 1 skipped) | 598 passed in 9.7 min | 93 s |
+
+   The phase times of runs 2 and 3 are measured from the last `lighthouse` result to the last `timed` one, by a watcher
+   that stamped the log's result lines; run 1 had no watcher. The first load averages of runs 2 and 3 carry the
+   previous run's tail; no other lane, build or test run shared the machine. In `gate:full` the coverage run takes 20
+   to 22 minutes of the gate. The `chromium` phase took about 6 minutes, the Lighthouse phase about 1.9, and the timed
+   phase 1.5 to 2, not the "about four minutes" of section 7 and section 19. The budgets measured in `timed`, in run 1,
+   run 2 and `gate`: F-IMP-RF4's notice 895 and 839 ms, 740 and 594 ms, 791 and 740 ms (2,000 ms), its longest task
+   292, 258 and 250 ms (1,000 ms); F-LOOP-01's test 20.0, 16.3 and 17.5 s (61 s); F-RENDER-01's test 28.2, 11.8 and
+   12.3 s (36 s). Rows 21 to 23 (C-BLK-01, the five F-TPL flows of the serial groups, F-A11Y6-01) and the single
+   failures section 7 leaves in `chromium` passed in all three runs.
+3. **The two-line headline.** Result (2026-11-17): pass. `/gallery/opengraph-image` on `next start` (port 3160), before
+   and after R7-12 in scratch (the headline box a flex column with today's row gap, each line a flex row of its words
+   with today's word gap): before, "24 design systems, each with its" and "receipt" alone; after, "24 design systems,"
+   and "each with its receipt", with "receipt" in madder, nothing clipped, both PNGs 1200 × 630. The two PNGs differ
+   only inside x 74 to 1108, y 177 to 294, the headline: in both, the tile rows sit at y 304 to 343, 356 to 395, 408 to
+   447 and 460 to 499 and the footer's rule at y 518 (`mosaic-before.png`, `mosaic-after.png`).
+4. **`pnpm data:update`.** Result (2026-11-17): pass, with 9.1's string in a scratch `package.json`. With `madder`'s
+   first strip hex in `cards.json` changed from `#e47372` to `#e47373`, a plain run of `cards.test.ts` failed
+   C-CARD6-02's compare (exit 1); `pnpm data:update` then exited 0 (4 passed, 51 skipped, 4 files), `git diff --quiet
+   src/features/gallery/cards.json` held, and `gallery.json`, `receipt-excerpt.json` and `hero-cards.json` were
+   unchanged. With both switches set, `vitest list` over 9.1's four files with `-t rewrites` lists exactly the four
+   writers: C-GAL6-02 in `web-slow`, and C-CARD6-02, C-REC6-02 and C-LAND5-02 in `web`.
+
 **R7-27 · Amendments to earlier specs' text.** The close amends three texts, each marked "Amended in M7": 06's 9.3 says
 that from 640 px the active mark keeps M5's place on the nav's border (`sm:after:-bottom-[11px]`), which the code does
 and F-NAV6-01 checks; 06's 8.2 says the headline sets two lines (if R7-12 stands); and 04's close note gains one sentence
@@ -664,7 +709,7 @@ line boxes of R7-12 do not change what it reads (Task 7.3's red run shows it).
 | Section 6's rows 41 to 55 | Section 6 | Not scheduled, for each row's reason |
 | Removing "(experimental)" from the on-device switch | 04-ai.md section 18 | The owner's, after R7-22's record |
 | Launch and marketing copy | 06 section 18 | Outside the milestones: the owner's |
-| C-CARD7-01, if the owner chooses option A of item 2 | R7-12 | Not scheduled; no test carries it then |
+| ~~C-CARD7-01, if the owner chooses option A of item 2~~ | ~~R7-12~~ | ~~Not scheduled; no test carries it then~~ Struck on 2026-11-17: the owner chose option B (section 21), so R7-12 stands and Task 7.3 writes C-CARD7-01's test (R7-26) |
 
 ## 19. Risks
 
