@@ -218,10 +218,58 @@ Chromium 156 (2026-11-07). Accessibility at desktop and mobile was 100 and 100 o
 and 97 on `/studio`, which loses only `target-size` on nine targets of the canvas's scaled-down landing template. One run took 5,879
 to 8,334 ms. The per-slug share card rendered per request at 102,863 bytes for Madder.
 
-{{M6_AUDIT}}
+After the merge, `node scripts/audit-site.mjs` ran Lighthouse three times per route and form factor on the deployed site, interleaved, and took the medians. Every route met section 12.3's goals of the gallery spec: accessibility was 100 everywhere except `/studio` at mobile (97, the M5 baseline), best practices 100 and layout shift 0 on every route. `/studio`, `/explore` and `/motion` at mobile are recorded, as 12.3 asks: the studio's canvas and inspector scripts (1.4 MB decoded) give it a total blocking time of 1.8 s on Lighthouse's throttled phone. `/connect`'s SEO of 66 is its `noindex`, by design. The nonce CSP renders each page per request, which costs about 300 ms of first byte over the static `/robots.txt`.
 
-The M6 spec lists 172 cases in its section 14 (94 `C-` cases and 78 `F-` cases). The hand check on dyelot.vercel.app follows the
-merge, and its result goes into the spec's close note.
+#### Measured on 2026-11-17: Lighthouse medians
+
+https://dyelot.vercel.app, load average 1.03 before and 0.86 after.
+
+| Route | Form factor | Performance | Accessibility | Best practices | SEO | LCP (ms) | TBT (ms) | CLS |
+|---|---|---|---|---|---|---|---|---|
+| `/` | desktop | 97 | 100 | 100 | 100 | 757 | 0 | 0.000 |
+| `/` | mobile | 97 | 100 | 100 | 100 | 1780 | 112 | 0.000 |
+| `/gallery` | desktop | 99 | 100 | 100 | 100 | 518 | 0 | 0.000 |
+| `/gallery` | mobile | 97 | 100 | 100 | 100 | 1775 | 111 | 0.000 |
+| `/gallery/madder` | desktop | 99 | 100 | 100 | 100 | 584 | 0 | 0.000 |
+| `/gallery/madder` | mobile | 96 | 100 | 100 | 100 | 2335 | 120 | 0.000 |
+| `/about` | desktop | 100 | 100 | 100 | 100 | 615 | 0 | 0.000 |
+| `/about` | mobile | 100 | 100 | 100 | 100 | 1471 | 41 | 0.000 |
+| `/studio` | desktop | 80 | 100 | 100 | 100 | 891 | 313 | 0.000 |
+| `/studio` | mobile | 59 | 97 | 100 | 100 | 3698 | 1800 | 0.000 |
+| `/explore` | desktop | 98 | 100 | 100 | 100 | 603 | 24 | 0.000 |
+| `/explore` | mobile | 81 | 100 | 100 | 100 | 1612 | 699 | 0.000 |
+| `/motion` | desktop | 99 | 100 | 100 | 100 | 581 | 1 | 0.000 |
+| `/motion` | mobile | 97 | 100 | 100 | 100 | 1552 | 167 | 0.000 |
+| `/connect` | desktop | 99 | 100 | 100 | 66 | 605 | 0 | 0.000 |
+| `/connect` | mobile | 99 | 100 | 100 | 66 | 1417 | 35 | 0.000 |
+
+#### Measured on 2026-11-17: first-byte medians
+
+https://dyelot.vercel.app, load average 1.03 before and 0.86 after.
+
+| Path | First byte (ms) | Over `/robots.txt` (ms) |
+|---|---|---|
+| `/` | 509 | 304 |
+| `/robots.txt` | 205 | 0 |
+| `/gallery` | 513 | 308 |
+
+#### Measured on 2026-11-17: page weight up to the load event
+
+https://dyelot.vercel.app, load average 1.03 before and 0.86 after.
+
+| Route | Scripts | Script KB decoded | Script KB transferred | HTML KB decoded | HTML KB transferred |
+|---|---|---|---|---|---|
+| `/` | 9 | 515.5 | 163.9 | 129.3 | 46.6 |
+| `/gallery` | 9 | 481.8 | 151.4 | 390.4 | 21.8 |
+| `/gallery/madder` | 9 | 483.8 | 152.2 | 132.1 | 18.4 |
+| `/about` | 9 | 481.8 | 151.5 | 53.2 | 9.9 |
+| `/studio` | 16 | 1397.0 | 426.9 | 24.8 | 6.1 |
+| `/explore` | 12 | 1013.3 | 298.1 | 85.6 | 26.3 |
+| `/motion` | 13 | 1175.8 | 355.9 | 103.7 | 25.0 |
+| `/connect` | 9 | 497.8 | 157.4 | 28.5 | 6.7 |
+
+The M6 spec lists 172 cases in its section 14 (94 `C-` cases and 78 `F-` cases). The hand check on dyelot.vercel.app on
+2026-11-17 passed: `/gallery` and `/about` load with no console error or CSP violation, a card opens its design in the studio with its name, lot and preset and its export downloads, both share cards are 1200 × 630 PNGs, `/studio#color=f66c6d` locks the primary and becomes a design link at once, and the longest open link (Tyrian, a 7,515-character `Location`) opens on all three pages.
 
 ---
 

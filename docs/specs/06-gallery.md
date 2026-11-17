@@ -53,8 +53,19 @@ nothing, and its `--base` drops any path; the card components check no argument 
 leaves "receipt" alone on its second line (the hand check looks); `b7f85dc` leaves M4's rationale flow red until the next
 commit; F-STUDIO-05's 30 s budget and M3's 2 s import budget (F-IMP-RF4) fail under heavy load on any tree; and the `/gallery` minors of Task 6.2's review
 (F-GAL6-01 does not pin 6 and 18, a bare "script" substring in F-GAL6-04, repeated markup, and a second "Copied" press
-that is not announced again). The hand check of R6-58 on the deployed site and `scripts/audit-site.mjs`'s medians,
-first-byte times and chunk sizes follow the merge, and their results go into this note and the README.
+that is not announced again). The hand check of R6-58 passed on `https://dyelot.vercel.app` on 2026-11-17, after the merge (`f26a6cb`): `/gallery` and
+`/about` load with no console error and no CSP violation; Kermes's "Open in the studio" opens it with its name, lot
+`1b3f·a778` and the Editorial preset, and its export downloads; `/gallery/madder/opengraph-image` (103,361 bytes) and
+`/gallery/opengraph-image` (89,232 bytes) are PNGs of 1200 × 630; `/studio#color=f66c6d` locks the primary at that
+color and its hash becomes `#s=` within 16 ms; Tyrian's three open links answer 307 with a `Location` of up to 7,515
+characters and load on Vercel; no request leaves the origin. The mosaic card leaves "receipt" alone on its second line, in
+madder, unclipped. `scripts/audit-site.mjs` (three interleaved runs, load average 1.03 before and 0.86 after) met every goal
+of 12.3: accessibility 100 on every route at both form factors except `/studio` at mobile (97); performance 96 to 100 on
+`/`, `/gallery`, `/gallery/madder` and `/about`, 80, 98 and 99 on `/studio`, `/explore` and `/motion` at desktop, and
+59, 81 and 97 at mobile, recorded (the studio's 1.4 MB of decoded script gives it a total blocking time of 1.8 s on the
+throttled phone); best practices 100 and CLS 0 everywhere; SEO 100 except `/connect`'s 66 (`noindex`, R4-22). The
+first-byte medians of `/` and `/gallery` are 509 and 513 ms, 304 and 308 ms over `/robots.txt`'s 205 ms: the cost of
+rendering per request under the nonce CSP (R6-47). The README holds the three tables (R6-48).
 
 Section 2 lists the owner's standing rulings and the controller's decisions of 2026-11-07. Section 3 turns each decision
 into rulings R6-01 to R6-60, and section 14 holds 172 cases (94 `C-` cases and 78 `F-` cases; probe 6 moved F-TPL6-06
