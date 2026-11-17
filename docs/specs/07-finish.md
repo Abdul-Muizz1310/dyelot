@@ -699,7 +699,9 @@ line boxes of R7-12 do not change what it reads (Task 7.3's red run shows it).
 
 ## 21. Owner approval items
 
-Each item ends with a recommendation, the drafter's.
+Each item ends with a recommendation, the drafter's. The owner's answers (2026-11-17): the spec approved at `9aa7845`,
+with every recommendation accepted: item 1 option A (the `timed` project), item 2 option B (two balanced lines), and
+items 3, 4 and 6 as written; item 5 noted.
 
 1. **The timing flows** (section 7, R7-04 to R7-06). Options: **A.** A `timed` project, one worker, after `lighthouse`,
    holding section 7's twelve ids and F-TPL-39's top-level test by the tag `@timed` (21 tests), with each lane's whole
