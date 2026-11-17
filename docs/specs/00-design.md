@@ -303,7 +303,7 @@ a Disconnect button that clears the key. *Refined in M4: `connect-src 'self' htt
 | Transitions and scroll story | React `<ViewTransition>`, CSS scroll-driven animations, Motion 14.9 (`reducedMotion="user"`) | No GSAP in the product *Refined in M5: `motion` stays 14.3.0 (R5-60).* |
 
 Version pins: three stays on 0.186.x while `postprocessing` declares `three < 0.187`; React Three Fiber
-9.8 needs React below 19.4; WebGL2 is the baseline and WebGPU is out of scope. *Refined in M5: exactly three 0.186.1, with no `postprocessing`; React Three Fiber 9.8.2, drei 10.7.9, `remotion`, `@remotion/player` and `@remotion/web-renderer` 4.0.539, `mediabunny` 1.62.0 and `motion` 14.3.0 (R5-50, R5-60).*
+9.8 needs React below 19.4; WebGL2 is the baseline and WebGPU is out of scope. *Refined in M5: exactly three 0.186.1, with no `postprocessing`; React Three Fiber 9.8.2, drei 10.7.9, `remotion`, `@remotion/player` and `@remotion/web-renderer` 4.0.539, `mediabunny` 1.62.0 and `motion` 14.3.0 (R5-50, R5-60).* *Refined on 2026-11-17: three 0.187.0, Remotion 4.0.543 and `mediabunny` 1.64.0, by the R5-50 and R5-60 amendment of `05-motion-3d.md`.*
 
 ## 12. Stack
 
