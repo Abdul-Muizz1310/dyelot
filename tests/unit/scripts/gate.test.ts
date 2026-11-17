@@ -163,16 +163,16 @@ const M5_DEPENDENCIES = [
 /** C-GUARD5-02's pins (R5-60), each in the one field that holds it; M6 changes none. */
 const M5_PINS: Record<"dependencies" | "devDependencies", Record<string, string>> = {
   dependencies: {
-    three: "0.186.1",
+    three: "0.187.0",
     "@react-three/fiber": "9.8.2",
     "@react-three/drei": "10.7.9",
-    remotion: "4.0.539",
-    "@remotion/player": "4.0.539",
-    "@remotion/web-renderer": "4.0.539",
-    mediabunny: "1.62.0",
+    remotion: "4.0.543",
+    "@remotion/player": "4.0.543",
+    "@remotion/web-renderer": "4.0.543",
+    mediabunny: "1.64.0",
     motion: "14.3.0",
   },
-  devDependencies: { "@types/three": "0.186.0" },
+  devDependencies: { "@types/three": "0.187.0" },
 };
 
 describe("C-GUARD6-02 package.json adds exactly lighthouse 13.5.0, as a dev dependency", () => {

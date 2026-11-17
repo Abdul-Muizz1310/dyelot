@@ -1770,7 +1770,7 @@
       {
         "path": "flavor/remotion/README.md",
         "bytes": 8123,
-        "sha256": "3e62b40e4df18f4fd7bc71c039b04551af7978bca4cf0acfc9fdac0528a3b82a"
+        "sha256": "84897b9305509f362d731383ca30b52c46034ceed2b23a6464a8e56769ebee41"
       },
       {
         "path": "flavor/remotion/brand-intro.tsx",
@@ -1800,9 +1800,9 @@
       {
         "path": "receipt.json",
         "bytes": 46507,
-        "sha256": "1461c3869aa2bd7eb3a54e01cf8f82dba5771638692d00f8173e36bce7a35458"
+        "sha256": "f906e9ac068139f887d5818a5cc7f7228d16f7bf58627680e4b22d1cbf91252c"
       }
     ],
-    "zipSha256": "fb0452367c0b8a68a6094c05698b7d2da780e26459506836956c2d715aa5ad4d"
+    "zipSha256": "bfe1e61f65af4e5b94ed5b7e104eb43361f81312b5d5dd1c7f32dd8238a8a8bd"
   }
 }

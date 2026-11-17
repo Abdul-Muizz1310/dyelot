@@ -820,7 +820,7 @@ dependabot bumps at once, overriding the two-week habit. The pins become `remoti
 three 0.187.0 and `@types/three` 0.187.0 (`postprocessing`, whose `three < 0.187` range set the old pin, is still not
 used), with `@react-three/fiber` 9.8.2 and `@react-three/drei` 10.7.9 unchanged. C-GUARD5-02 now also checks that
 `mediabunny`'s pin equals the `mediabunny` dependency in the installed `node_modules/@remotion/web-renderer/package.json`,
-so a group bump that splits the pair fails with a message naming both versions.
+so a group bump that splits the pair fails with a message naming both versions. Section 12.1's README line and C-FEX-05 now read `remotion@4.0.543` and `@remotion/cli@4.0.543`.
 
 **R5-61 · Laziness.** The first load of `/studio` fetches no chunk that holds three, R3F, Remotion or Mediabunny code;
 `/` fetches none of three, R3F, Remotion or the engine; `/explore` none of Remotion or Mediabunny; opening the Flavor
@@ -1995,7 +1995,7 @@ Remotion at no cost. Companies of four or more people need a Remotion Company Li
 ## Render it
 
 ```sh
-npm install remotion@4.0.539 @remotion/cli@4.0.539 react react-dom
+npm install remotion@4.0.543 @remotion/cli@4.0.543 react react-dom
 npx remotion studio flavor/remotion/root.tsx
 npx remotion render flavor/remotion/root.tsx brand-intro-light out/brand-intro-light.mp4
 ```
@@ -2255,7 +2255,7 @@ Tests: `tests/unit/export/flavor.test.ts`, `tests/unit/export/brand.test.ts`, `t
 | C-FEX-02 | pass | `flavorFiles(SPEC, ORIGIN)` gives R5-24's nine paths in order; each text has no `\r`, no byte-order mark and no line ending in a space or a tab, and ends with one newline; the four raw files equal `FLAVOR_SOURCES` | ruling R5-24, R3-09 |
 | C-FEX-03 | pass | `flavor/flavor.css` is M3's three header comments for `SPEC`, the fourth comment of 12.1 and R5-20's rule with the five `var()` stops; `scanLine` finds nothing on any of its lines | ruling R5-20, R5-24 |
 | C-FEX-04 | pass | `flavor/palette.json` reads `{ name: "untitled", loopSeconds: 10, seed: flavorSeed(specId(SPEC)), fade: { durationMs: 200, easing: [0.2, 0, 0, 1] }, light: flavorStops(SPEC, "light"), dark: flavorStops(SPEC, "dark") }` with its keys in that order, written `JSON.stringify(value, null, 2)` plus a newline | ruling R5-24, R3-11 |
-| C-FEX-05 | pass | The two READMEs equal 12.1's texts with `SPEC`'s name, lot and link; `flavor/remotion/README.md` holds `https://remotion.pro/license`, "Companies of four or more people need a Remotion Company License." and `npm install remotion@4.0.539 @remotion/cli@4.0.539 react react-dom` | ruling R5-24, R5-55 |
+| C-FEX-05 | pass | The two READMEs equal 12.1's texts with `SPEC`'s name, lot and link; `flavor/remotion/README.md` holds `https://remotion.pro/license`, "Companies of four or more people need a Remotion Company License." and `npm install remotion@4.0.543 @remotion/cli@4.0.543 react react-dom` | ruling R5-24, R5-55 |
 | C-FEX-06 | pass | `flavor/remotion/brand.json` is `{ light: brandProps(SPEC, "light"), dark: brandProps(SPEC, "dark") }` in R3-11's layout | ruling R5-24, R5-30 |
 | C-FEX-07 | pass | `brandProps(SPEC, "light")`: `name` `"untitled"`, `oneLiner` `""`, `lot` `lotTag(specId(SPEC))`, `checks` the `requiredPass` and `required` of `summarize(measureSpec(SPEC), lintSpec(SPEC), "srgb").contrast`, the palettes primary, secondary, accent, neutral and danger with their 11 light hexes, `colors` the eight light roles, `fonts` the light `--font-display` and `--font-body` of `themeVars`, and `motion` `{ baseMs: 200, standard: [0.2, 0, 0, 1], springs }` with `settleMs` 411, 706 and 1056; `JSON.parse(JSON.stringify(props))` deep-equals it | ruling R5-30 |
 | C-FEX-08 | failure | `brandProps(null, "light")` throws `TypeError` and `brandProps(SPEC, "dim")` `RangeError`, each naming `brandProps` | ruling R5-30, R-05 |
