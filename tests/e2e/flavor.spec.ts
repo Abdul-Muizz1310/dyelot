@@ -64,8 +64,12 @@ const section = (page: Page, name: string): Locator =>
   dialog(page).getByRole("region", { name, exact: true });
 const preview = (page: Page): Locator => dialog(page).locator("[data-flavor-preview] canvas");
 const player = (page: Page): Locator => section(page, "Brand video").locator("[data-brand-player]");
-const pauseIn = (page: Page, name: string): Locator =>
-  section(page, name).getByRole("button", { name: "Pause", exact: true });
+/** A section's Pause: "Pause the background" in Background, "Pause the video" in Brand video (R6-36). */
+const pauseIn = (page: Page, name: "Background" | "Brand video"): Locator =>
+  section(page, name).getByRole("button", {
+    name: name === "Background" ? "Pause the background" : "Pause the video",
+    exact: true,
+  });
 
 /** The stops the preview names in `data-flavor-stops` for the first design in `mode`. */
 const stopsOf = (mode: Mode): string => flavorStops(first(), mode).join(",").toLowerCase();

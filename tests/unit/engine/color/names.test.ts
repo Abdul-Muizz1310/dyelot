@@ -103,6 +103,13 @@ describe("indexNames", () => {
 const STATIC_IMPORT =
   /(^|[;\n])\s*(import|export)\s+(?:[^"';()]*?\bfrom\s*)?["']color-name-list|(^|[;\n])\s*import\s*["']color-name-list/;
 
+/** A dynamic import of the list: `import("color-name-list")`, with or without its subpath. */
+const DYNAMIC_IMPORT = /import\(\s*["']color-name-list/;
+
+/** Whether `source` loads the list in any form: static, side-effect, re-export or dynamic. */
+const importsList = (source: string): boolean =>
+  STATIC_IMPORT.test(source) || DYNAMIC_IMPORT.test(source);
+
 function sourceFiles(dir: string): string[] {
   return readdirSync(dir).flatMap((entry) => {
     const full = path.join(dir, entry);
@@ -129,16 +136,32 @@ describe("the list stays out of the engine", () => {
     expect('const m = await import("color-name-list/bestof");').not.toMatch(STATIC_IMPORT);
   });
 
+  it("C-NAME-07 reports a probe of each form that loads the list, and none that only names it", () => {
+    for (const probe of [
+      'import { colornames } from "color-name-list";',
+      'import "color-name-list";',
+      'const m = await import("color-name-list");',
+    ]) {
+      expect(importsList(probe), probe).toBe(true);
+    }
+    expect(
+      importsList('{ text: "Color names come from color-name-list, under the MIT license." }'),
+    ).toBe(false);
+  });
+
   it("C-NAME-07 names color-name-list only in src/features/studio/names.ts, in a dynamic import", () => {
     const allowed = path.join(ROOT, "src/features/studio/names.ts");
-    const naming = sourceFiles(path.join(ROOT, "src")).filter((file) =>
-      readFileSync(file, "utf8").includes("color-name-list"),
+    // The About copy credits the package in prose (R6-21, 11.2); it imports nothing.
+    const credit = path.join(ROOT, "src/features/about/copy.ts");
+    const naming = sourceFiles(path.join(ROOT, "src")).filter(
+      (file) => file !== credit && readFileSync(file, "utf8").includes("color-name-list"),
     );
     expect(naming.filter((file) => file !== allowed)).toEqual([]);
+    expect(importsList(readFileSync(credit, "utf8"))).toBe(false);
     for (const file of naming) {
       const source = readFileSync(file, "utf8");
       expect(source).not.toMatch(STATIC_IMPORT);
-      expect(source).toMatch(/import\(\s*["']color-name-list/);
+      expect(source).toMatch(DYNAMIC_IMPORT);
     }
     const names = readFileSync(path.join(ROOT, "src/engine/color/names.ts"), "utf8");
     expect(names).not.toContain("color-name-list");

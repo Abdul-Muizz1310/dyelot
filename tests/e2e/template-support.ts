@@ -1,7 +1,8 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 import { type Rgb, ROLE_NAMES, wcagRatio } from "@/engine";
-import type { TemplateId } from "@/features/studio/view";
-import { canvasFrame } from "./studio-support";
+import type { LazyTemplateId } from "@/features/preview/templates/load";
+import { TEMPLATE_IDS, type TemplateId } from "@/features/studio/view";
+import { canvasFrame, openStudio } from "./studio-support";
 
 // Shared helpers for the template flows of docs/specs/02-studio.md, sections 7.5 to 7.7: the
 // template and frame switches, and the structural checks every template runs (F-TPL-13, F-TPL-15,
@@ -24,11 +25,15 @@ export const TYPE_STEPS = [
 
 const toolbar = (page: Page) => page.getByRole("region", { name: "Canvas toolbar" });
 
-/** Shows a template and waits for its root, and for its entrance, if any, to come to rest. */
+/**
+ * Shows a template and waits for its root, and for its entrance, if any, to come to rest. On a page
+ * the idle preload has not finished (R6-33), the root waits for its template's chunk to arrive and
+ * run, so it gets 15 s; a serial group opens its shared page with `openPreloaded`.
+ */
 export async function showTemplate(page: Page, id: TemplateId): Promise<Locator> {
   await toolbar(page).getByRole("combobox", { name: "Template", exact: true }).selectOption(id);
   const root = templateRoot(page, id);
-  await expect(root).toBeVisible();
+  await expect(root).toBeVisible({ timeout: 15_000 });
   await expect
     .poll(() =>
       canvasFrame(page).evaluate((frame) => {
@@ -1114,4 +1119,112 @@ export async function paintedContrast(
     ratio: color === null || fill === null ? 0 : wcagRatio(channels(color), channels(fill)),
     threshold: large ? 3 : 4.5,
   }));
+}
+
+// Task 6.7: the lazy templates' chunks (docs/specs/06-gallery.md, R6-33, probe 3 of R6-57).
+
+/**
+ * Probe 3's markers: each a literal of that template's file and of no other file under `src/`, found in
+ * its own chunk only and in none of the studio's first load (R6-57).
+ */
+export const TEMPLATE_MARKERS: Readonly<Record<LazyTemplateId, string>> = Object.freeze({
+  dashboard: "Dashboard: no tide event after now",
+  settings: "Settings: the design has no --chart-1",
+  mobile: "Mobile: no tide event after now",
+  editorial: "Editorial: link target",
+  "kitchen-sink": "kit-t-body sink-muted",
+});
+
+/** The lazy templates, in the order of `TEMPLATE_IDS`. */
+export const LAZY_TEMPLATES = TEMPLATE_IDS.filter((id): id is LazyTemplateId => id !== "landing");
+
+type ChunkBody =
+  | { readonly url: string; readonly text: string }
+  | { readonly url: string; readonly error: string };
+
+/**
+ * The response list: the text of every JavaScript response the page receives from the moment this is
+ * called. `loaded()` names, in the order of `LAZY_TEMPLATES`, the lazy templates whose marker some
+ * response so far holds, once every body so far has been read; a body that cannot be read fails it, so
+ * an unread chunk never counts as holding no marker. Poll it.
+ */
+export function recordTemplateChunks(page: Page): { loaded(): Promise<LazyTemplateId[]> } {
+  // Each read settles into a body or its failure at once, so a failure waits for `loaded()`.
+  const bodies: Promise<ChunkBody>[] = [];
+  page.on("response", (response) => {
+    if (!(response.headers()["content-type"] ?? "").includes("javascript")) return;
+    const url = response.url();
+    bodies.push(
+      response.text().then(
+        (text) => ({ url, text }),
+        (error: unknown) => ({
+          url,
+          error: error instanceof Error ? error.message : String(error),
+        }),
+      ),
+    );
+  });
+  return {
+    loaded: async () => {
+      const texts = (await Promise.all(bodies)).map((body) => {
+        if ("error" in body) {
+          throw new Error(`recordTemplateChunks: could not read ${body.url}: ${body.error}`);
+        }
+        return body.text;
+      });
+      return LAZY_TEMPLATES.filter((id) =>
+        texts.some((text) => text.includes(TEMPLATE_MARKERS[id])),
+      );
+    },
+  };
+}
+
+/**
+ * Keeps, from before the page's scripts run, every script and stylesheet whose `load` event has
+ * fired: a script has run, a stylesheet applies. `pending()` names the scripts (`nomodule` ones aside,
+ * which a module browser never runs) and stylesheets in the document that have not loaded yet. Once
+ * the lazy templates' chunks have arrived and nothing is pending, their loaders have resolved, so a
+ * switch meets a loaded template (Task 6.7's review). Install it before `goto`; poll `pending()`.
+ */
+export async function recordChunkLoads(page: Page): Promise<{ pending(): Promise<string[]> }> {
+  await page.addInitScript(() => {
+    const loaded = new Set<Element>();
+    (window as unknown as { __chunkLoads: Set<Element> }).__chunkLoads = loaded;
+    document.addEventListener(
+      "load",
+      (event) => {
+        if (event.target instanceof HTMLScriptElement || event.target instanceof HTMLLinkElement) {
+          loaded.add(event.target);
+        }
+      },
+      true,
+    );
+  });
+  return {
+    pending: () =>
+      page.evaluate(() => {
+        const loaded = (window as unknown as { __chunkLoads?: Set<Element> }).__chunkLoads;
+        if (loaded === undefined) throw new Error("recordChunkLoads: the record is not installed");
+        const resources = document.querySelectorAll<HTMLScriptElement | HTMLLinkElement>(
+          'script[src]:not([nomodule]), link[rel="stylesheet"][href]',
+        );
+        return [...resources]
+          .filter((element) => !loaded.has(element))
+          .map((element) => (element instanceof HTMLScriptElement ? element.src : element.href));
+      }),
+  };
+}
+
+/**
+ * Opens the studio and waits until the idle preload has brought the five lazy templates' chunks (the
+ * response list, polled for probe 3's markers) and the page has run them (no script or stylesheet
+ * still loading), so a switch tests the transition and not the load (section 16 of
+ * docs/specs/06-gallery.md).
+ */
+export async function openPreloaded(page: Page): Promise<void> {
+  const chunks = recordTemplateChunks(page);
+  const loads = await recordChunkLoads(page);
+  await openStudio(page);
+  await expect.poll(() => chunks.loaded()).toEqual(LAZY_TEMPLATES);
+  await expect.poll(() => loads.pending()).toEqual([]);
 }

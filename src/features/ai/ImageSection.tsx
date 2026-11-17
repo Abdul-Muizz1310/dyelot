@@ -130,7 +130,19 @@ export async function readVibe(
   return { failures, result };
 }
 
-export function ImageSection({ store, activity }: { store: StudioStore; activity: AiActivity }) {
+export function ImageSection({
+  store,
+  activity,
+  focusInput = false,
+}: {
+  store: StudioStore;
+  activity: AiActivity;
+  /**
+   * An entry hash's image request (R6-24, 5.4): when it turns true, "Choose an image" takes focus.
+   * Nothing is read, and no worker starts, until the visitor chooses a file.
+   */
+  focusInput?: boolean;
+}) {
   const vibe = useAiAction(activity, "vibe");
   const [held, setHeld] = useState<HeldImage | null>(null);
   const [imageLines, setImageLines] = useState<readonly string[]>([]);
@@ -151,6 +163,10 @@ export function ImageSection({ store, activity }: { store: StudioStore; activity
     },
     [],
   );
+
+  useEffect(() => {
+    if (focusInput) input.current?.focus();
+  }, [focusInput]);
 
   /**
    * Reads a chosen or dropped file (13.3). The type and size are checked first: a refused file

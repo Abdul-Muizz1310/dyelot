@@ -83,6 +83,31 @@ export function robotsFile(site: Site): MetadataRoute.Robots {
   };
 }
 
-export function sitemapEntries(site: Site): MetadataRoute.Sitemap {
-  return site.routes.sitemap.map((route) => ({ url: new URL(route, site.origin).href }));
+const typeName = (value: unknown): string =>
+  value === null ? "null" : Array.isArray(value) ? "array" : typeof value;
+
+/** The site's sitemap routes, then `more` (the gallery's entry pages, R6-31). */
+export function sitemapEntries(site: Site, more: readonly Route[] = []): MetadataRoute.Sitemap {
+  if (!Array.isArray(more)) {
+    throw new TypeError(`sitemapEntries: more must be an array, got ${typeName(more)}`);
+  }
+  for (const route of more) {
+    if (typeof route !== "string") {
+      throw new TypeError(`sitemapEntries: every route must be a string, got ${typeName(route)}`);
+    }
+  }
+  const seen = new Set<string>(site.routes.sitemap);
+  for (const route of more) {
+    if (!route.startsWith("/")) {
+      throw new RangeError(`sitemapEntries: route ${route} must start with /`);
+    }
+    if (seen.has(route)) throw new RangeError(`sitemapEntries: route ${route} is already listed`);
+    if (site.routes.disallow.some((prefix) => route.startsWith(prefix))) {
+      throw new RangeError(`sitemapEntries: route ${route} is one robots.txt would disallow`);
+    }
+    seen.add(route);
+  }
+  return [...site.routes.sitemap, ...more].map((route) => ({
+    url: new URL(route, site.origin).href,
+  }));
 }

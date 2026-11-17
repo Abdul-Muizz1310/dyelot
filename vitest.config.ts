@@ -61,6 +61,10 @@ const SLOW_WEB_TESTS = [
   "tests/unit/features/studio/store-lock-pair-aaa.test.ts", // 13.7 s
   "tests/unit/features/studio/store-lock-pair-aa.test.ts", // 13.4 s
   "tests/unit/features/ai/steer-property.test.ts", // 19.5 to 19.7 s solo, load 0.7 to 0.9: C-CHIP-09
+  // Task 6.1a, solo and idle: each rebuilds the 24 designs or measures them.
+  "tests/unit/features/gallery/data.test.ts", // 28.3 s: C-GAL6-02, C-GAL6-RF2, C-GAL6-04 to 07
+  "tests/unit/features/gallery/build.test.ts", // 20.2 s: C-GAL6-03
+  "tests/unit/features/gallery/build-property.test.ts", // 39.2 s: C-GAL6-14, 50 runs of briefSpec
 ];
 
 /** The slow set of R2-31 apart from the scan; the gate guard (C-REPO-M2-07) reads it. */
@@ -121,6 +125,8 @@ const PREVIEW_HELPERS = [
   "format",
   "transition",
   "kit/reduced",
+  // The lazy templates' loaders, idle scheduler and preload (Task 6.7, R6-33).
+  "templates/load",
 ].map((name) => `src/features/preview/${name}.ts`);
 
 /** The motion lab's pure helpers (Task 5.7a), held to `PURE_FLOORS` the same way. */
@@ -151,9 +157,17 @@ const AI_HELPERS = [
 ].map((name) => `src/features/ai/${name}.ts`);
 
 /** The landing's pure helpers (Tasks 5.5a and 5.5b), held to `PURE_FLOORS` the same way. */
-const LANDING_HELPERS = ["heroes", "story", "cycle"].map(
+const LANDING_HELPERS = ["heroes", "story", "cycle", "receipt", "start"].map(
   (name) => `src/features/landing/${name}.ts`,
 );
+
+/** The gallery's pure helpers (Task 6.1a), held to `PURE_FLOORS` the same way. */
+const GALLERY_HELPERS = ["tags", "defs", "data", "cards", "links", "build"].map(
+  (name) => `src/features/gallery/${name}.ts`,
+);
+
+/** The about page's copy (Task 6.4), held to `PURE_FLOORS` the same way. */
+const ABOUT_HELPERS = ["copy"].map((name) => `src/features/about/${name}.ts`);
 
 /** The explorer's pure helpers (Task 5.6a), held to `PURE_FLOORS` the same way. */
 const EXPLORE_HELPERS = ["scene", "webgl"].map((name) => `src/features/explore/${name}.ts`);
@@ -278,6 +292,8 @@ export default defineConfig({
         ...AI_HELPERS,
         ...FLAVOR_HELPERS,
         ...LANDING_HELPERS,
+        ...GALLERY_HELPERS,
+        ...ABOUT_HELPERS,
         ...EXPLORE_HELPERS,
         // The server shell's pieces (M4); handle.ts composes them, and the routes are covered by
         // the flows.
@@ -307,6 +323,8 @@ export default defineConfig({
             ...AI_HELPERS,
             ...FLAVOR_HELPERS,
             ...LANDING_HELPERS,
+            ...GALLERY_HELPERS,
+            ...ABOUT_HELPERS,
             ...EXPLORE_HELPERS,
           ].map((file) => [file, PURE_FLOORS]),
         ),

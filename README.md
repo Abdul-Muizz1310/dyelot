@@ -1,9 +1,9 @@
 # 🎨 `dyelot`
 
 > 🧾 **A palette becomes a design system your coding agent can build.**
-> M0 to M5 are done: the shell, a tested color engine and spec model, the studio, the export bundle with its receipt, checker and import, the AI layer, and motion and 3D: a hero shader, a scroll story, a 3D explorer, a motion lab, two view transitions and the Flavor dialog. The gallery and the launch come next.
+> M0 to M6 are done: the shell, a tested color engine and spec model, the studio, the export bundle with its receipt, checker and import, the AI layer, motion and 3D, and the gallery and finishing: 24 original design systems with share cards, a landing that starts a design four ways, an About page, and Lighthouse in the test suite. Launch copy is the owner's.
 
-📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🎛️ [Studio spec](docs/specs/02-studio.md) · 📦 [Export spec](docs/specs/03-export.md) · 🤖 [AI spec](docs/specs/04-ai.md) · 🎞️ [Motion and 3D spec](docs/specs/05-motion-3d.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
+📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🎛️ [Studio spec](docs/specs/02-studio.md) · 📦 [Export spec](docs/specs/03-export.md) · 🤖 [AI spec](docs/specs/04-ai.md) · 🎞️ [Motion and 3D spec](docs/specs/05-motion-3d.md) · 🖼️ [Gallery spec](docs/specs/06-gallery.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
 
 ![next](https://img.shields.io/badge/Next.js-16.4-black?style=flat-square&logo=next.js)
 ![react](https://img.shields.io/badge/React-19.3-149eca?style=flat-square&logo=react&logoColor=white)
@@ -37,7 +37,7 @@ the full reasoning.
 The goal comes from the [design spec](docs/specs/00-design.md). M1 built the engine underneath the second and fifth
 bullets. M2 built the studio, which puts the second and third in front of a visitor. M3 built the fourth and fifth bullets
 and the import of an existing DESIGN.md. M4 built the brief, the image drop and the refine-in-words steps of the first bullet,
-with a rule-based path for each. M5 built the motion and 3D pieces and the flavor files of the fifth bullet. The next sections say what each does today.
+with a rule-based path for each. M5 built the motion and 3D pieces and the flavor files of the fifth bullet. M6 built the curated systems of the first bullet and the pages that finish the product. The next sections say what each does today.
 
 - 🎨 **Start from anything** — a color, a few words, an image, a curated system or an existing DESIGN.md
 - 🧮 **Computed, accessible systems** — color roles and scales for light and dark mode, plus type, space, shape, depth and motion, solved for WCAG 2.2 contrast
@@ -189,6 +189,42 @@ the spec's close note.
 
 ---
 
+## The gallery and finishing today (M6)
+
+M6 makes the product ready for a visitor who arrives cold: a gallery, a landing that starts a design, an About page, share cards, and
+audits. The [gallery spec](docs/specs/06-gallery.md) has every ruling and case.
+
+- **The gallery** — `/gallery` shows 24 original design systems in six mood tags, with a filter by tag. Six are the hero designs of M5 and 18 are made from one-sentence briefs by the M4 word list, with no model call. They are committed data that a unit test rebuilds from the engine. Each one passes 78 of 78 required contrast checks with no lint error and rebuilds from its own parameters to the same spec id. `/gallery/<slug>` shows one system's colors, type and receipt count
+- **Open in the studio** — every card and entry page links to a route that answers with a redirect to the studio, so the page's HTML does not carry 24 links of about 7,000 characters each. The studio opens the design with its name, lot and preset, and its export downloads
+- **Share cards** — each entry has a 1200 by 630 PNG card with its name, line, five colors and receipt count, and `/gallery` has one with a mosaic of all 24. A studio link keeps the site's card, because its hash never reaches a server
+- **The landing** — `/` gains a start-from section (a color, a brief, an image or the gallery) and a section that explains the receipt in one screen, from committed data. The studio reads `#color=`, `#brief=` and `#start=image`, and 300 ms after such a link loads, the hash becomes the normal `#s=` link
+- **A loaded design keeps its preset** — a design opened from a link takes its preset from its values, and the first load shows that preset's mode and density
+- **About** — `/about` says how the color math works, what the receipt and checker are, what reaches OpenRouter and what is traced, what stays in the browser, and whose work dyelot builds on
+- **One template at a time** — the canvas loads five of its six templates in separate chunks after the first paint, when the browser is idle; the first load fetches none of them, and a template that fails to load says so and offers "Try again"
+- **Accessibility fixes** — the Player has a text alternative, the Flavor dialog's two "Pause" buttons have distinct names, the explorer's restart keeps focus, and FlatView's ids are unique
+- **Lighthouse in the test suite** — the end-to-end suite runs Lighthouse 13.5.0 on 8 routes at desktop and mobile, 16 runs, and fails the build when an accessibility score drops below 95. Performance is measured on the deployed site and never gates a build
+- **The audit script** — `scripts/audit-site.mjs` audits the deployed site in three interleaved runs and reports medians, first-byte times and chunk sizes
+
+### Not included: the Sanzo Wada sets
+
+The Sanzo Wada color combinations are not in the gallery. The rights check of 2026-11-07 came back unclear and leaning not clean: the
+1933 and 1934 volumes are likely under US copyright through 2028 and 2029, the selection and ordering of the 348 combinations is the
+part a court could protect, and no MIT-labeled dataset documents its provenance. The gallery's 24 systems are original work.
+
+### Measured
+
+Before any M6 code, Task 6.0 ran Lighthouse 13.5.0 on the existing routes of a production build under the nonce CSP, in Playwright's
+Chromium 156 (2026-11-07). Accessibility at desktop and mobile was 100 and 100 on `/`, `/explore`, `/motion` and `/connect`, and 100
+and 97 on `/studio`, which loses only `target-size` on nine targets of the canvas's scaled-down landing template. One run took 5,879
+to 8,334 ms. The per-slug share card rendered per request at 102,863 bytes for Madder.
+
+{{M6_AUDIT}}
+
+The M6 spec lists 172 cases in its section 14 (94 `C-` cases and 78 `F-` cases). The hand check on dyelot.vercel.app follows the
+merge, and its result goes into the spec's close note.
+
+---
+
 ## 🔧 Architecture
 
 The planned layers and their rules are in the [design spec](docs/specs/00-design.md#3-architecture).
@@ -220,7 +256,9 @@ flowchart LR
 
 ```text
 src/
-├── app/                    routes (/, /studio, /explore and /motion), metadata files and the error boundaries
+├── app/                    routes (/, /studio, /explore, /motion, /gallery and /about), metadata files and the error boundaries
+│   ├── gallery/            the gallery, one page and one share card per entry, and the open route
+│   └── about/              the About page
 ├── components/terminal/    the house shell: nav, window, prompt, status bar
 ├── engine/                 the pure core: generateSystem, the presets and the linter
 │   ├── color/              parsing, conversion, gamut, contrast, scales, palettes, roles, charts, names
@@ -238,7 +276,9 @@ src/
 │   ├── studio/             the studio: store, worker, links, drafts, inputs, toolbar and inspector
 │   ├── preview/            the canvas, the preview kit and the six templates
 │   ├── ai/                 the browser shell of the AI layer: the router, the providers and the steer chips
-│   ├── landing/            the hero, the scroll story and the six hero designs
+│   ├── landing/            the hero, the scroll story, the six hero designs, the start-from section and the receipt section
+│   ├── gallery/            the 24 entries, their committed data and cards, and the gallery's components
+│   ├── about/              the About page's copy
 │   ├── explore/            the 3D explorer and its flat view
 │   ├── motion/             the motion lab
 │   ├── flavor/             the Flavor dialog: previews, the brand video render and the loop recording
@@ -258,10 +298,15 @@ docs/specs/
 ├── 02-studio.md            the M2 spec: the studio, its templates and its gates
 ├── 03-export.md            the M3 spec: the bundle, the receipt, the checker and import
 ├── 04-ai.md                the M4 spec: the AI layer, the shared route and its guard
-└── 05-motion-3d.md         the M5 spec: the shader, the explorer, the lab, transitions and flavor
+├── 05-motion-3d.md         the M5 spec: the shader, the explorer, the lab, transitions and flavor
+└── 06-gallery.md           the M6 spec: the gallery, share cards, About, entry hashes and audits
 scripts/
 ├── copy-fonts.mjs          copies the canvas fonts into public/fonts/ before dev and build
-└── render-icons.mjs        renders the raster icons from src/app/icon.svg
+├── render-icons.mjs        renders the raster icons from src/app/icon.svg
+├── ai-smoke.mjs            the live smoke of the AI layer, run on purpose and never from a gate
+├── lighthouse.mjs          runs Lighthouse on one URL in Playwright's Chromium
+├── audit-core.mjs          the pure core of the site audit: medians, tables and chunk sizes
+└── audit-site.mjs          audits the deployed site and prints the tables
 ```
 
 ---
@@ -320,13 +365,13 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | 5,197 Vitest tests in 266 files, in `tests/unit/`, with 3 skipped (one is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
-| Slow set | 37 of those files, listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. 25 run in the two slow projects and 12 in the `scan` project. `pnpm gate` leaves them to `pnpm gate:full` and CI |
-| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) [`03-export.md`](docs/specs/03-export.md) and [`04-ai.md`](docs/specs/04-ai.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows), and 224 of 224 in the M4 spec's section 14 (165 `C-` cases and 59 `F-` cases, checked by C-GUARD4-11). The M5 spec's section 14 lists 255 cases (163 `C-` cases and 92 `F-` cases) for the same rule |
+| Unit | 5,463 unit tests passed and 3 skipped in 292 files, in `tests/unit/` (one skipped test is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
+| Slow set | The files listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. They run in the two slow projects and the `scan` project. `pnpm gate` leaves them to `pnpm gate:full` and CI |
+| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) [`03-export.md`](docs/specs/03-export.md) and [`04-ai.md`](docs/specs/04-ai.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows), and 224 of 224 in the M4 spec's section 14 (165 `C-` cases and 59 `F-` cases, checked by C-GUARD4-11). The M5 spec's section 14 lists 255 cases (163 `C-` cases and 92 `F-` cases) for the same rule, and the M6 spec's lists 172 (94 `C-` cases and 78 `F-` cases), 172 of 172 checked by C-GUARD6-01 |
 | Goldens | 15 golden bundles (the 14 presets and the import of `shadcn-neutral.css`), pinned by `tests/golden/export/manifest.json` with each file's path, byte length and SHA-256. The `default` bundle holds 21 files and 409,581 bytes |
 | The generated-design grid | Before any export code existed, a test grid measured 3,808 designs from five fixed grids against the required checks: none threw and none raised a lint error. Its ten test files took 434.9 s in total when each ran alone on a 16-core machine |
 | Property tests | fast-check over arbitrary color strings, every parameter, random seeds, share-link tampering and the studio store's actions |
-| End to end | 506 Playwright flows on Chromium against `next build` and `next start`, on `/`, `/studio`, `/explore`, `/motion` and the 404 page, with axe on each route, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
+| End to end | 598 end-to-end flows (577 passed in the run; the three timing flows that failed at a load average of 17, and the 18 Lighthouse runs that wait on them, passed alone) on Chromium against `next build` and `next start`, on `/`, `/studio`, `/explore`, `/motion`, `/gallery`, `/about` and the 404 page, with axe on each route, Lighthouse's accessibility score on 8 routes at two form factors, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
 | Measured findings | The fix scan generates 576 designs (288 in sRGB and 288 in Display P3) and finds no C1, C5, N1 or F1 finding at AA. The preset sweep fits all 14 presets into the landing, editorial, dashboard and settings templates at 360 and 768 px and into the three mobile screens: 252 views, none with an overflow or a broken word |
 | Coverage scope | `src/engine/`, `src/spec/`, `src/theme/`, `src/export/`, `src/import/`, `src/lib/site/`, the canvas font loader and the 23 pure helper files of the studio, the preview, the export dialog and the import dialog. The end-to-end tier covers the components and routes |
 | Coverage floors | 80% lines and statements, 75% functions and 70% branches over that scope. `src/engine/`, `src/spec/`, `src/theme/`, the font loader and each pure helper hold 95% lines, statements and functions and 90% branches. `src/export/` and `src/import/` hold 90% and 85% |
@@ -334,9 +379,10 @@ directory to the icon script to write the files there instead of in place.
 | Coverage at the M3 close | 98.57% statements, 95.8% branches, 99.69% functions and 98.76% lines over the larger scope, measured on a 16-core machine |
 | Coverage at the M4 close | 98.88% statements, 96.65% branches, 99.58% functions and 99.08% lines, from `pnpm gate:full` on `m4-ai` at `f37215a` |
 | Coverage at the M5 close | 98.95% statements, 96.79% branches, 99.62% functions and 99.16% lines |
-| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows). At the M4 close `pnpm gate` took 6 min 27 s (179 unit files, 4,517 tests passed and 3 skipped, 377 flows) and `pnpm gate:full` took 27 min 30 s (218 unit files, 4,713 tests passed and 3 skipped, 377 flows), on a 16-core desktop that was also running the owner's own applications. At the M5 close `pnpm gate:full` took 30 min 11 s (266 unit files, 5,197 tests passed and 3 skipped, 506 flows) on the same desktop, again under the owner's load. |
-| Not done in M3 | The templates still load eagerly (M2 final review M-12), and the settings template's top and save bars keep `overflow: hidden` without the clip margin. Both wait for M6 |
-| Not done in M4 | The on-device eval did not run. Three residuals are accepted: a canceled action does not count against a visitor's soft cap (the reserve floor of 37 holds); a "don't" rule that starts with "Avoid" plus a gerund exports as "Don't <gerund>..."; and F-IMP-RF4, M3's 2 s import budget, fails on the measuring machine under heavy desktop load for M3 and M4 alike, with no time added by M4 in interleaved pairs. Section 18 of the M4 spec lists what is deferred |
+| Coverage at the M6 close | 98.95% statements, 96.77% branches, 99.64% functions and 99.17% lines |
+| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows). At the M4 close `pnpm gate` took 6 min 27 s (179 unit files, 4,517 tests passed and 3 skipped, 377 flows) and `pnpm gate:full` took 27 min 30 s (218 unit files, 4,713 tests passed and 3 skipped, 377 flows), on a 16-core desktop that was also running the owner's own applications. At the M5 close `pnpm gate:full` took 30 min 11 s (266 unit files, 5,197 tests passed and 3 skipped, 506 flows) on the same desktop, again under the owner's load. At the M6 close `pnpm gate` took 9 min 46 s (249 unit files, 5,241 tests passed and 3 skipped, 598 flows) and `pnpm gate:full` took 26 min 56 s (292 unit files, 5,463 tests passed and 3 skipped, 598 flows), on the same desktop under the owner's load; three timing flows and the Lighthouse runs behind them passed alone. |
+| Not done in M3 | The templates load one at a time since M6 (the M2 final review's M-12). The settings template's top and save bars keep `overflow: hidden` without the clip margin: M6's probe found that `overflow: clip` leaves axe's color-contrast check undecided on that page, so the margin is not scheduled |
+| Not done in M4 | The AI and privacy page landed in M6 as `/about`. The on-device eval did not run, so the on-device switch stays marked experimental. Three residuals are accepted: a canceled action does not count against a visitor's soft cap (the reserve floor of 37 holds); a "don't" rule that starts with "Avoid" plus a gerund exports as "Don't <gerund>..."; and F-IMP-RF4, M3's 2 s import budget, fails on the measuring machine under heavy desktop load for M3, M4 and M6 alike, with no time added by M4 in interleaved pairs. Section 18 of the M4 spec lists what is deferred |
 | Static checks | Biome, and `tsc` in strict mode |
 
 ```bash
@@ -363,7 +409,8 @@ pnpm test:e2e                    # builds, serves and drives Chromium
 ## 🚫 Scope
 
 Version 1 has no accounts, no server-side storage of designs, no paid tier, no brand-clone presets and
-no server-side video rendering. Section 15 of the [design spec](docs/specs/00-design.md) lists the
+no server-side video rendering. The Sanzo Wada color sets are not included: the 1933 and 1934 volumes are likely still under US
+copyright, and no dataset documents a rights check (R6-02). Section 15 of the [design spec](docs/specs/00-design.md) lists the
 rest.
 
 ---
@@ -383,8 +430,8 @@ rest.
   palettes and the vibe, the rationale and the critique, three providers, the shared route and its guard, and the nonce CSP.
   `pnpm gate:full` passed with 4,713 unit tests and 377 of 377 flows, and the live smoke found two of four slugs valid.
 - **M5, done.** Motion and 3D, built to the [motion and 3D spec](docs/specs/05-motion-3d.md): the hero shader and the scroll story, the explorer, the motion lab, two view transitions, and the Flavor dialog with its previews, in-browser render and loop recording, and the flavor files. `pnpm gate:full` passed with 5,197 unit tests and 506 of 506 end-to-end flows. The hand check on the deployed site, with one real render, follows the merge.
-- **Next.** M6 the gallery and the launch. The milestone table in the spec
-  has the details.
+- **M6, done.** The gallery and finishing, built to the [gallery spec](docs/specs/06-gallery.md): 24 original design systems with share cards, the landing's start-from and receipt sections, the studio's entry hashes, `/about`, one-at-a-time templates, the accessibility and code fixes, and Lighthouse in the end-to-end suite with the audit script. `pnpm gate:full` passed in 26 min 56 s. The hand check on the deployed site follows the merge.
+- **Next.** Launch copy, which is the owner's; the spec's section 18 lists what is not scheduled.
 
 `main` deploys to [dyelot.vercel.app](https://dyelot.vercel.app).
 
@@ -399,7 +446,15 @@ the terms in [Licenses for reusers](#licenses-for-reusers), and the shader's noi
 
 ### Credits
 
-The 3D explorer takes its idea from oklch-picker (MIT, Evil Martians). No code was taken from it: the gamut mesh is dyelot's own.
+What dyelot uses, with each license:
+
+- **color-name-list**, MIT, for color names
+- **colorthief** by Lokesh Dhakar, MIT, for the colors of an image
+- **webgl-noise** by Ian McEwan and Ashima Arts, MIT, for the background shader's noise (the notice is kept in the code and in the export)
+- **Remotion**, under its own source-available license, for the brand video (see [Licenses for reusers](#licenses-for-reusers))
+- **Mediabunny**, MPL-2.0 and unmodified, for the shader loop
+- **The font families**, under the SIL Open Font License, served from dyelot's own site
+- **oklch-picker** (MIT, Evil Martians) gave the 3D explorer its idea. No code was taken from it: the gamut mesh is dyelot's own
 
 ---
 

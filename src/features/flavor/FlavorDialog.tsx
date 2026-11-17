@@ -231,7 +231,7 @@ function Background({
           onClick={() => setPaused((value) => !value)}
           className={`${TOGGLE_BUTTON} self-start`}
         >
-          {FLAVOR_LINES.pause}
+          {FLAVOR_LINES["pause-background"]}
         </button>
       )}
       <div role="status" className={`min-h-5 text-sm ${WRAP}`}>

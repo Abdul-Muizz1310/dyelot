@@ -46,7 +46,7 @@ describe("defineSite (T-FE-20)", () => {
       },
       // docs/specs/04-ai.md, R4-22 and section 16: the API and the OAuth callback leave robots.txt.
       routes: {
-        sitemap: ["/", "/studio", "/explore", "/motion"],
+        sitemap: ["/", "/studio", "/explore", "/motion", "/gallery", "/about"],
         disallow: ["/api/", "/connect/callback"],
       },
     });

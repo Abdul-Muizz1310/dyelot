@@ -9,6 +9,8 @@
 > M4 sync (2026-11-06): where the M4 spec, `docs/specs/04-ai.md`, refines this document, the sentence carries a note in italics that starts "Refined in M4". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 >
 > M5 sync (2026-11-06): where the M5 spec, `docs/specs/05-motion-3d.md`, refines this document, the sentence carries a note in italics that starts "Refined in M5". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
+>
+> M6 sync (2026-11-13): where the M6 spec, `docs/specs/06-gallery.md`, refines this document, the sentence carries a note in italics that starts "Refined in M6". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 
 # dyelot — a palette becomes a design system your coding agent can build
 
@@ -22,7 +24,7 @@ scope and the contrast readout in one question round, then approved this spec an
 dyelot is the portfolio's ninth product and its frontend showcase. A visitor, with no sign-in, can:
 
 1. **Start from anything**: a color, a few words about the brand, an image, a curated system, or an
-   existing DESIGN.md or shadcn theme.
+   existing DESIGN.md or shadcn theme. *Refined in M6: the curated systems are the gallery's 24 original designs, the six hero designs and 18 made from one-sentence briefs by the M4 word list, with no model call; each is a link that the studio opens and rebuilds (R6-05, R6-06).*
 2. **Get a complete design system**: color roles and scales for light and dark mode, type, space, shape,
    depth and motion, all computed, all accessible by construction.
 3. **See it live** on six realistic pages that share one state, at phone, tablet and desktop widths.
@@ -58,7 +60,7 @@ specimen. Every number (ratios, OKLCH values, Lc, ΔE) is set in Geist Mono with
 
 One Next.js 16.4 app on Vercel Hobby. All generation runs in the browser. The server does three things
 only: the shared-quota AI route, share-card images, and site metadata. There is no database: a design lives
-in the URL hash and, as a draft, in the visitor's own browser storage.
+in the URL hash and, as a draft, in the visitor's own browser storage. *Refined in M6: the share-card images are one per gallery entry and one for `/gallery`; a studio link keeps the site's card, because its hash never reaches a server (R6-18 to R6-20).*
 
 | Layer | Path | Job | Rules |
 |---|---|---|---|
@@ -80,7 +82,7 @@ byte-identical exports, and a golden-file test enforces it.
 deflated with `fflate` and base64url-encoded (`/studio#s=…`). The hash never reaches the server. Drafts
 persist in `localStorage` inside try/catch; a design never depends on it. *Refined in M1: the link also carries an
 8-byte integrity trailer, the FNV-1a 64 of the deflate bytes, and size guards. Raw deflate cannot detect tampering.
-A valid payload that is not in canonical form opens normalized, with an unchanged spec id.* *Refined in M3: a snapshot also records whether the studio generated it or loaded it, so the export block knows which designs it can rebuild (R3-42).*
+A valid payload that is not in canonical form opens normalized, with an unchanged spec id.* *Refined in M3: a snapshot also records whether the studio generated it or loaded it, so the export block knows which designs it can rebuild (R3-42).* *Refined in M6: a loaded design takes `presetOf(spec)` as its preset, and the first load shows that preset's mode and density, as a draft does (R6-26).*
 
 ## 4. The spec: `dyelot.spec/1`
 
@@ -141,7 +143,7 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
   brand hue at chroma 0.005–0.02. Status hues start at success 150°, warning 70°, danger 25°, info 250°.
 *Refined in M1: M1 ships the OKLCH harmonies only. Cosine and Poline-style generators move to M5, and the Sanzo Wada
   combinations to M6. Neutrals follow a tint table: none 0, warm 0.012 at hue 60, cool 0.012 at hue 250, brand 0.010
-  at the primary hue.* *Refined in M5: cosine and Poline-style generators are not scheduled; the shader interpolates five solved steps in OKLab (R5-03).*
+  at the primary hue.* *Refined in M5: cosine and Poline-style generators are not scheduled; the shader interpolates five solved steps in OKLab (R5-03).* *Refined in M6: the Sanzo Wada combinations are not scheduled; the rights check of 2026-11-07 was unclear and leaning not clean (R6-02).*
 - **Image to palette.** In a Web Worker: downscale, quantize with `colorthief` 3.5 in OKLCH, score with the
   Material-style rule (share and chroma, hue diversity), assign heuristic roles. The exact extracted colors
   become locked seeds.
@@ -192,13 +194,13 @@ and the motion budget and reduced-motion policy. M2 and M3 add them.*
 
 | Route | Purpose |
 |---|---|
-| `/` | The showcase. A hero whose shader is driven by a live palette, a scroll-driven story where a system assembles itself (CSS scroll timelines), the receipt explained in one screen, entry points: start from a color, a brief, an image, or the gallery. *Refined in M5: the hero, a five-step story whose last step is the receipt's count, and links to the studio, the explorer and the lab; the other entry points wait for M6's landing polish (R5-31 to R5-34).* |
+| `/` | The showcase. A hero whose shader is driven by a live palette, a scroll-driven story where a system assembles itself (CSS scroll timelines), the receipt explained in one screen, entry points: start from a color, a brief, an image, or the gallery. *Refined in M5: the hero, a five-step story whose last step is the receipt's count, and links to the studio, the explorer and the lab; the other entry points wait for M6's landing polish (R5-31 to R5-34).* *Refined in M6: the start-from section and the receipt section arrive, and the studio reads `#color=`, `#brief=` and `#start=image` (R6-23 to R6-25, R6-27 to R6-29).* |
 | `/studio` | The editor (§8). |
 | `/explore` | 3D OKLCH explorer: the sRGB, P3 and Rec2020 gamut solids, the current palette as points, scales as tubes, lightness slices. *Refined in M5: one lightness slice; Rec. 2020 joins the engine as a solid-only space, so the spec's `Gamut` stays `srgb` or `p3`; a flat SVG view is always shown (R5-06 to R5-08, R5-35 to R5-40).* |
 | `/motion` | Motion lab: presets, spring and easing curves, live previews, export. *Refined in M5: the lab edits the design's `motionTokens` and opens the studio with them; fields are bounded by the schema and the lab's caps (R5-41 to R5-45).* |
-| `/gallery` | Curated original systems and the Sanzo Wada combinations; any card opens in the studio. No brand clones. |
+| `/gallery` | Curated original systems and the Sanzo Wada combinations; any card opens in the studio. No brand clones. *Refined in M6: 24 original systems in six mood tags, each card opening in the studio as a design it can rebuild, and no Sanzo Wada combinations (R6-02, R6-05, R6-10, R6-13).* |
 | `/connect`, `/connect/callback` | The visitor-key sign-in with OpenRouter (§10). *Refined in M4: both pages are `noindex`; the callback is disallowed in robots and sends no referrer (R4-22, R4-33).* |
-| `/about` | How it works: the math, the receipt, the licenses, the privacy note for in-browser video. |
+| `/about` | How it works: the math, the receipt, the licenses, the privacy note for in-browser video. *Refined in M6: also what reaches OpenRouter, what is traced and what stays on the device (R6-21).* |
 
 ## 8. The studio
 
@@ -326,7 +328,7 @@ export ≥ 90%.
 | Spec | Rejects unknown versions, out-of-range values and missing roles; canonical serialization is stable; URL codec round-trips; a tampered or truncated hash fails with a message, never a blank studio |
 | Export | Golden files per preset; byte-identical output for the same spec; DTCG validates against the 2025.10 schemas; DESIGN.md lints with 0 errors; TOON round-trips; the registry item validates against shadcn's schema; `dyelot-check.mjs` passes on a clean fixture app and fails on raw hex, `bg-blue-500` and a tampered `theme.css`. *Refined in M3: goldens for the 14 presets and one import, and the validators run on vendored schemas with no network (R3-27, R3-28).* |
 | AI | Out-of-range model output is rejected; provider order; labeled fallback on every failure; the guard refuses below the reserve; a schema failure never retries; PKCE state mismatch is rejected; the visitor key never appears in a request to our origin; on-device unavailable falls through *Refined in M4: section 14 of the M4 spec holds the cases, with a local mock of OpenRouter and Playwright interception, and no network in any test (R4-58).* |
-| UI and flows (Playwright) | Color → system → export zip; brief (model mocked at the route) → system; image → palette; import DESIGN.md → preview → export; share link restores the exact spec; undo and redo; locks survive regenerate; reduced motion stops every animation; axe finds no violations on every route |
+| UI and flows (Playwright) | Color → system → export zip; brief (model mocked at the route) → system; image → palette; import DESIGN.md → preview → export; share link restores the exact spec; undo and redo; locks survive regenerate; reduced motion stops every animation; axe finds no violations on every route *Refined in M6: also Lighthouse's accessibility score of at least 95 on every public route at desktop and mobile, gated in the end-to-end suite (R6-44).* |
 | Motion and 3D | WebGL missing shows the fallback; context loss swaps in the poster; video export is hidden where `canRenderMediaOnWeb()` fails *Refined in M5: section 14 of the M5 spec holds the cases, and every flow asserts state, never frame counts or timing (R5-62).* |
 
 ## 14. Milestones
@@ -342,7 +344,7 @@ code. This document stays the umbrella; a milestone spec may refine it but must 
 | M3 | Export bundle, receipt, checker, import | Every validator passes in CI |
 | M4 | AI: lexicon and chips, shared-quota route with guard and cache, on-device, visitor key, image extraction | Mocked flows pass; one live smoke call per slug within budget *Refined in M4: section 20 of the M4 spec adds the on-device eval record and a hand smoke on the deployed site.* |
 | M5 | Hero shader, explorer, motion lab, view transitions, scroll story, Remotion preview and export, Mediabunny loop, flavor exports | Fallback and reduced-motion cases pass *Refined in M5: section 20 of the M5 spec adds the hand check on the deployed site with one real render (R5-65).* |
-| M6 | Gallery, landing polish, share cards, performance and accessibility audits (Lighthouse accessibility ≥ 95), README, knowledge-graph product node | Deployed with the owner's OK; live flows checked |
+| M6 | Gallery, landing polish, share cards, performance and accessibility audits (Lighthouse accessibility ≥ 95), README, knowledge-graph product node | Deployed with the owner's OK; live flows checked *Refined in M6: the owner's merge-when-green ruling of 2026-11-04 is the OK, and section 20 of the M6 spec lists the live checks (R6-58).* |
 
 ## 15. Out of scope for v1
 
@@ -357,7 +359,7 @@ export; a custom MCP server; publishing `dyelot` to npm (possible later, with th
 - **The on-device model reaches few visitors.** It is opt-in, and every path falls through.
 - **The perceptual-score license is ambiguous.** It is advisory, generically labeled and removable in one
   flag.
-- **Bundle weight.** 3D, video and AI code load only on the routes that need them.
+- **Bundle weight.** 3D, video and AI code load only on the routes that need them. *Refined in M6: the canvas templates also load one at a time, and the chunk sizes of every route are measured and recorded (R6-33, R6-48).*
 - **Open questions to settle in the milestone specs:** whether `/api/v1/key` calls count against the free
   quota; `"use cache"` inside route handlers under Cache Components; the Turbopack way to export component
   source as a string; Player hydration with Cache Components; which Langfuse TypeScript SDK fits AI SDK v7

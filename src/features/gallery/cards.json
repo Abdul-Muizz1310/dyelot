@@ -1,0 +1,340 @@
+{
+  "cards": [
+    {
+      "slug": "madder",
+      "name": "Madder",
+      "line": "One locked seed, #f66c6d, and the studio's defaults.",
+      "strip": [
+        "#e47372",
+        "#c0839e",
+        "#da7d3d",
+        "#9b9393",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "weld",
+      "name": "Weld",
+      "line": "One locked seed, #e3c23b, and the studio's defaults.",
+      "strip": [
+        "#c48a13",
+        "#bd8a61",
+        "#7fa034",
+        "#98948e",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "verdigris",
+      "name": "Verdigris",
+      "line": "One locked seed, #4bae87, and the studio's defaults.",
+      "strip": [
+        "#15a97c",
+        "#7c9e6a",
+        "#16a5a6",
+        "#8e9793",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "woad",
+      "name": "Woad",
+      "line": "One locked seed, #0e84b7, and the studio's defaults.",
+      "strip": [
+        "#0e84b7",
+        "#4ba1ab",
+        "#6b93eb",
+        "#8f969a",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "logwood",
+      "name": "Logwood",
+      "line": "One locked seed, #7652ac, and the studio's defaults.",
+      "strip": [
+        "#a783e2",
+        "#8193ca",
+        "#ca78c3",
+        "#96949a",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "cochineal",
+      "name": "Cochineal",
+      "line": "One locked seed, #cd3f9b, and the studio's defaults.",
+      "strip": [
+        "#cd3f9b",
+        "#ab88bc",
+        "#e3727e",
+        "#9a9397",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "realgar",
+      "name": "Realgar",
+      "line": "A balanced, versatile planner for small teams, professional and fast, in orange.",
+      "strip": [
+        "#ba6826",
+        "#c6847d",
+        "#cf841e",
+        "#99948f",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "cinnabar",
+      "name": "Cinnabar",
+      "line": "A Swiss grid for an architecture studio, stark and precise, with one red.",
+      "strip": [
+        "#ac766e",
+        "#b28c86",
+        "#c4857b",
+        "#949595",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "ochre",
+      "name": "Ochre",
+      "line": "A minimal concrete grid, neutral and crisp, with one ochre mark.",
+      "strip": [
+        "#9c8255",
+        "#ab9077",
+        "#b88c61",
+        "#949595",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "kermes",
+      "name": "Kermes",
+      "line": "A slow longform magazine set in serif on warm paper, with burgundy headings.",
+      "strip": [
+        "#ac7579",
+        "#ad8b9e",
+        "#c0886e",
+        "#9a948d",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "lapis",
+      "name": "Lapis",
+      "line": "A formal law journal, classic serif on quiet paper, with navy rules.",
+      "strip": [
+        "#7286b1",
+        "#7899ae",
+        "#9a8dc3",
+        "#9a948d",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "gamboge",
+      "name": "Gamboge",
+      "line": "A loud, confident neo brutalism store page in saturated yellow with sharp edges.",
+      "strip": [
+        "#9c8600",
+        "#16a2c3",
+        "#d077b4",
+        "#949595",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "smalt",
+      "name": "Smalt",
+      "line": "A frosted glass landing page for a weather startup, cool azure and high contrast.",
+      "strip": [
+        "#1a89c5",
+        "#4ca0af",
+        "#7590ed",
+        "#90959c",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "turquoise",
+      "name": "Turquoise",
+      "line": "A dense, fast terminal for API work, flat panels and one teal accent.",
+      "strip": [
+        "#009790",
+        "#62a280",
+        "#16a2c3",
+        "#8d9796",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "safflower",
+      "name": "Safflower",
+      "line": "A friendly bento of modular tiles for a mobile app in rose.",
+      "strip": [
+        "#c05b6e",
+        "#bb84a9",
+        "#e07853",
+        "#9b9394",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "verditer",
+      "name": "Verditer",
+      "line": "A slow northern lights gradient for a storefront, vivid and cool.",
+      "strip": [
+        "#00a362",
+        "#77a144",
+        "#16a6a0",
+        "#90959c",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "tyrian",
+      "name": "Tyrian",
+      "line": "Neon synthwave, holographic and magenta, playful as the eighties.",
+      "strip": [
+        "#c54ebe",
+        "#009ca4",
+        "#8d9d13",
+        "#90959c",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "sepia",
+      "name": "Sepia",
+      "line": "A handcrafted leather workshop, warm and layered.",
+      "strip": [
+        "#bc662f",
+        "#c78382",
+        "#d18322",
+        "#9a948d",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "fustic",
+      "name": "Fustic",
+      "line": "An embossed brewery label in warm amber, lit from one side.",
+      "strip": [
+        "#ad7300",
+        "#c3876b",
+        "#b09213",
+        "#9a948d",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "rhodonite",
+      "name": "Rhodonite",
+      "line": "A maximalist poster collage, wild and festive, with fuchsia everywhere.",
+      "strip": [
+        "#cf48ab",
+        "#dd7a57",
+        "#16a971",
+        "#949595",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "turmeric",
+      "name": "Turmeric",
+      "line": "A cozy organic bakery in honey and cream, slow and handmade.",
+      "strip": [
+        "#9c8255",
+        "#af8e7c",
+        "#9e965b",
+        "#9a948d",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "terre-verte",
+      "name": "Terre verte",
+      "line": "A quiet matcha tea house, slow and handmade.",
+      "strip": [
+        "#7a8f61",
+        "#a49373",
+        "#67a17f",
+        "#9a948d",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "malachite",
+      "name": "Malachite",
+      "line": "A stark pixel bitmap in black and lime, sharp and flat.",
+      "strip": [
+        "#668f33",
+        "#829d66",
+        "#75a23d",
+        "#949595",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    },
+    {
+      "slug": "azurite",
+      "name": "Azurite",
+      "line": "A bouncy, expressive habit tracker, friendly and animated, in blue.",
+      "strip": [
+        "#507fcd",
+        "#599dbd",
+        "#9788e7",
+        "#91959b",
+        "#e3746d"
+      ],
+      "passed": 78,
+      "required": 78
+    }
+  ]
+}

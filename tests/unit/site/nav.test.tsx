@@ -2,7 +2,8 @@ import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, expectTypeOf, it } from "vitest";
 import { AppNav, type AppNavProps } from "@/components/terminal/AppNav";
 
-// C-SITE5-04 of docs/specs/05-motion-3d.md, section 14.5 (R5-34, 7.3).
+// C-SITE5-04 of docs/specs/05-motion-3d.md, section 14.5 (R5-34, 7.3), as amended by C-SITE6-04 of
+// docs/specs/06-gallery.md (R6-30).
 
 const REPOSITORY = "https://github.com/Abdul-Muizz1310/dyelot";
 const LINKS = [
@@ -10,13 +11,15 @@ const LINKS = [
   ["studio", "/studio"],
   ["explore", "/explore"],
   ["motion", "/motion"],
+  ["gallery", "/gallery"],
+  ["about", "/about"],
   ["github", REPOSITORY],
 ] as const;
 
 afterEach(cleanup);
 
 describe("AppNav (7.3)", () => {
-  it("C-SITE5-04 lists home, studio, explore, motion and github in order, with their hrefs", () => {
+  it("C-SITE6-04 lists home, studio, explore, motion, gallery, about and github in order, with their hrefs", () => {
     render(<AppNav />);
     const nav = screen.getByRole("navigation");
     const links = within(nav)
@@ -41,14 +44,25 @@ describe("AppNav (7.3)", () => {
     );
   });
 
+  it("C-SITE6-04 active marks gallery alone, and about alone", () => {
+    for (const name of ["gallery", "about"] as const) {
+      const { unmount } = render(<AppNav active={name} />);
+      const current = screen
+        .getAllByRole("link")
+        .filter((l) => l.getAttribute("aria-current") === "page");
+      expect(current.map((l) => l.textContent)).toEqual([name]);
+      unmount();
+    }
+  });
+
   it("C-SITE5-04 the brand keeps the word dyelot in its accessible name", () => {
     render(<AppNav />);
     expect(screen.getByRole("link", { name: "dyelot" })).toHaveAttribute("href", "/");
   });
 
-  it("C-SITE5-04 active is home, explore, motion or absent", () => {
+  it("C-SITE6-04 active is home, explore, motion, gallery, about or absent", () => {
     expectTypeOf<AppNavProps["active"]>().toEqualTypeOf<
-      "home" | "explore" | "motion" | undefined
+      "home" | "explore" | "motion" | "gallery" | "about" | undefined
     >();
   });
 });

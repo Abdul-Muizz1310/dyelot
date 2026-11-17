@@ -31,7 +31,10 @@
     "**/*.mts",
     "src/export/checker/*.mjs",
     "src/flavor/*.mjs",
-    "tests/e2e/*.mjs"
+    "tests/e2e/*.mjs",
+    "scripts/audit-core.mjs",
+    "scripts/lighthouse.mjs",
+    "scripts/audit-site.mjs"
   ],
   "exclude": ["node_modules"]
 }

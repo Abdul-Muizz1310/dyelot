@@ -1,4 +1,8 @@
 import { test as base, expect, type Page } from "@playwright/test";
+import type { PresetId } from "@/engine";
+import { DRAFT_KEY, type StorageLike, writeDraft } from "@/features/studio/drafts";
+import { paramsOfSpec } from "@/features/studio/params";
+import type { DesignSpec } from "@/spec";
 
 // Init scripts and readers the M5 flows share (docs/specs/05-motion-3d.md, section 4). Each init script
 // takes the page and installs itself before the next navigation. The flows' one `test`, with its watch
@@ -437,4 +441,127 @@ export async function STATUS_RECORD(
         selector,
       ),
   };
+}
+
+// Task 6.5b: the draft a flow stores before the studio's first load.
+
+/**
+ * `STORAGE_DRAFT(spec, preset)` (docs/specs/06-gallery.md, section 4) is an init script that writes
+ * M2's draft record for `spec` with `preset` under `DRAFT_KEY` before the load. The record is the
+ * one `writeDraft` stores for the spec's snapshot, its params `paramsOfSpec(spec)` and its seed
+ * `meta.seed`, computed in Node; the page only sets the text. Install it before `goto`.
+ */
+export async function STORAGE_DRAFT(
+  page: Page,
+  spec: DesignSpec,
+  preset: PresetId | null,
+): Promise<void> {
+  const items = new Map<string, string>();
+  const storage: StorageLike = {
+    getItem: (key) => items.get(key) ?? null,
+    setItem: (key, value) => void items.set(key, value),
+    removeItem: (key) => void items.delete(key),
+  };
+  writeDraft(storage, {
+    params: paramsOfSpec(spec).params,
+    seed: spec.meta.seed,
+    spec,
+    preset,
+    provenance: "loaded",
+    createdWith: spec.meta.createdWith,
+  });
+  const record = items.get(DRAFT_KEY);
+  if (record === undefined) throw new Error("STORAGE_DRAFT: writeDraft stored no record");
+  await page.addInitScript(
+    ([key, value]) => {
+      window.localStorage.setItem(key, value);
+    },
+    [DRAFT_KEY, record] as const,
+  );
+}
+
+// Task 6.7: the lazy templates' init scripts and readers (docs/specs/06-gallery.md, section 4).
+
+/**
+ * `NO_IDLE` replaces `requestIdleCallback` with one that never runs its callback, so the canvas's
+ * idle preload of the lazy templates (R6-33) never starts. Install it before `goto`.
+ */
+export async function NO_IDLE(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    let handle = 0;
+    window.requestIdleCallback = () => {
+      handle += 1;
+      return handle;
+    };
+  });
+}
+
+/**
+ * `HOLD_CHUNK` answers each `/_next/static/chunks/*.js` request with `route.fetch()` and holds the
+ * response whose text holds `marker` until `release()` is called, then fulfills it. A response without
+ * the marker falls back to the next route, so two holds compose. Install it before `goto`.
+ */
+export async function HOLD_CHUNK(page: Page, marker: string): Promise<{ release(): void }> {
+  let release = () => {};
+  const released = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("**/_next/static/chunks/*.js", async (route) => {
+    const response = await route.fetch();
+    const text = await response.text();
+    if (!text.includes(marker)) {
+      await route.fallback();
+      return;
+    }
+    await released;
+    await route.fulfill({ response, body: text });
+  });
+  return { release: () => release() };
+}
+
+/**
+ * `LOADING_RECORD` keeps the text of every `[data-template-loading]` element that enters the
+ * document, from before the page's scripts run: a `MutationObserver` on the whole document reads each
+ * added node, so a loading sentence that shows however briefly is kept. Read it with `loadingCount`.
+ */
+export async function LOADING_RECORD(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    const selector = "[data-template-loading]";
+    const kept: string[] = [];
+    (window as unknown as { __templateLoading: string[] }).__templateLoading = kept;
+    new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (!(node instanceof Element)) continue;
+          const found = [
+            ...(node.matches(selector) ? [node] : []),
+            ...node.querySelectorAll(selector),
+          ];
+          for (const element of found) kept.push(element.textContent ?? "");
+        }
+      }
+    }).observe(document, { childList: true, subtree: true });
+  });
+}
+
+/** How many loading sentences `LOADING_RECORD` has kept so far; it fails when the record is missing. */
+export async function loadingCount(page: Page): Promise<number> {
+  const kept = await page.evaluate(
+    () => (window as unknown as { __templateLoading?: string[] }).__templateLoading ?? null,
+  );
+  if (kept === null) throw new Error("loadingCount: LOADING_RECORD is not installed");
+  return kept.length;
+}
+
+// Task 6.2: the gallery's clipboard refusal (docs/specs/06-gallery.md, section 4).
+
+/**
+ * `CLIPBOARD_DENY` makes `navigator.clipboard.writeText` reject with a `NotAllowedError`, as a
+ * browser does when it refuses the write (F-GAL6-09). Install it before `goto`.
+ */
+export async function CLIPBOARD_DENY(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    Clipboard.prototype.writeText = () =>
+      Promise.reject(new DOMException("Write permission denied.", "NotAllowedError"));
+  });
 }

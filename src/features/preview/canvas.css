@@ -103,3 +103,13 @@
     transition: none !important;
   }
 }
+
+/* The sentence the frame shows while a template loads, and when it could not, with "Try again"
+ * (R6-33). */
+.canvas-note {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-3);
+  margin: 0;
+  padding: var(--space-6);
+}

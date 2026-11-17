@@ -1,0 +1,52 @@
+{
+  "format": "dyelot.check/1",
+  "name": "Madder",
+  "checks": 80,
+  "summary": {
+    "pass": true,
+    "contrast": {
+      "checks": 80,
+      "required": 78,
+      "requiredPass": 78,
+      "advisoryBelow": 2
+    },
+    "separation": {
+      "checks": 16,
+      "below": 0
+    },
+    "gamut": {
+      "gamut": "srgb",
+      "values": 176,
+      "outside": 0
+    },
+    "lint": {
+      "error": 0,
+      "warn": 3,
+      "info": 2
+    }
+  },
+  "contrast": {
+    "check": "C1:foreground/background",
+    "rule": "C1",
+    "kind": "text",
+    "mode": "light",
+    "foreground": "foreground",
+    "fg": "#272324",
+    "background": "background",
+    "bg": "#ffffff",
+    "ratio": 15.5307,
+    "threshold": 4.5,
+    "required": true,
+    "pass": true,
+    "lc": 102.5
+  },
+  "finding": {
+    "id": "D3",
+    "severity": "warn",
+    "mode": "dark",
+    "subject": "primary-600",
+    "measured": 0.17,
+    "threshold": 0.14,
+    "source": "Material guidance on dark-mode accents"
+  }
+}

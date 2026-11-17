@@ -1,5 +1,6 @@
 import type { AiFeature, FeatureInput } from "@/ai";
 import { assertOneOf, describeType, isRecord } from "@/features/studio/guards";
+import { loadOnce } from "@/lib/load-once";
 
 // The AI core's loader (docs/specs/04-ai.md, R4-04 and section 5.6): app code reaches `@/ai` only
 // through this `import()`, memoized per page and forgotten when it fails, as `@/export` is loaded
@@ -9,16 +10,8 @@ import { assertOneOf, describeType, isRecord } from "@/features/studio/guards";
 /** The `@/ai` entry as `import()` gives it. */
 export type AiModule = typeof import("@/ai");
 
-let loading: Promise<AiModule> | null = null;
-
 /** The AI entry, loaded once; a failed load is forgotten so that the next action asks the network again. */
-export function loadAi(): Promise<AiModule> {
-  loading ??= import("@/ai").catch((error: unknown) => {
-    loading = null;
-    throw error;
-  });
-  return loading;
-}
+export const loadAi = loadOnce(() => import("@/ai"));
 
 /**
  * What every provider is asked, checked (R-05), each error naming `caller`: the loaded module, a

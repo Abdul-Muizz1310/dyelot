@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { SITE } from "../../src/lib/site/config";
+import { GALLERY_DATA } from "../unit/support/gallery";
 import { ready } from "./studio-support";
 
 const REPOSITORY = "https://github.com/Abdul-Muizz1310/dyelot";
@@ -75,10 +76,10 @@ test("F-HOME-01 the home page links to the studio, beside the repository link", 
   await expect(studio).toBeVisible();
   await expect(studio).toHaveAttribute("href", "/studio");
   await expect(studio).not.toHaveAttribute("target");
-  // One list holds the four links, as siblings.
+  // One list holds the links, as siblings.
   await expect(
     main.locator(
-      `div:has(> a[href="/studio"]):has(> a[href="/explore"]):has(> a[href="/motion"]):has(> a[href="${REPOSITORY}"])`,
+      `div:has(> a[href="/studio"]):has(> a[href="/explore"]):has(> a[href="/motion"]):has(> a[href="/gallery"]):has(> a[href="/about"]):has(> a[href="${REPOSITORY}"])`,
     ),
   ).toHaveCount(1);
 });
@@ -93,7 +94,7 @@ test("F-HOME-02 following the studio link opens the studio", async ({ page }) =>
 
 // F-HOME-03 (section 10, amended by docs/specs/05-motion-3d.md section 16). Breaks when the sitemap drops
 // a route, reorders them, or lists one under another origin.
-test("F-HOME-03 the sitemap lists the four routes in order", async ({ request }) => {
+test("F-HOME-03 the sitemap lists the 30 URLs in order", async ({ request }) => {
   const response = await request.get("/sitemap.xml");
   expect(response.status()).toBe(200);
   const locations = [...(await response.text()).matchAll(/<loc>([^<]*)<\/loc>/g)].map(
@@ -104,6 +105,9 @@ test("F-HOME-03 the sitemap lists the four routes in order", async ({ request })
     "https://dyelot.vercel.app/studio",
     "https://dyelot.vercel.app/explore",
     "https://dyelot.vercel.app/motion",
+    "https://dyelot.vercel.app/gallery",
+    "https://dyelot.vercel.app/about",
+    ...GALLERY_DATA.entries.map((entry) => `https://dyelot.vercel.app/gallery/${entry.slug}`),
   ]);
   expect(SITE.url).toBe("https://dyelot.vercel.app");
 });

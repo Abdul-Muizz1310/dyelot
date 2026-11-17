@@ -15,6 +15,18 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      testIgnore: /lighthouse-m6\.spec\.ts/,
+    },
+    // The Lighthouse gate (docs/specs/06-gallery.md, R6-44 and 12.2): after every other flow, so no
+    // audit shares the CPU, its tests in order and one at a time. It sets no `use`: a launch in the
+    // test runner takes the running project's `use`, and a device's options break Lighthouse's own
+    // screen emulation (probe 1, R6-57).
+    {
+      name: "lighthouse",
+      testMatch: /lighthouse-m6\.spec\.ts/,
+      dependencies: ["chromium"],
+      retries: 1,
+      fullyParallel: false,
     },
   ],
   webServer: [

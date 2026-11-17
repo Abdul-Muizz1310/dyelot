@@ -35,6 +35,7 @@ import {
   heroMetrics,
   mobileOverflow,
   mountMotion,
+  openPreloaded,
   openSheet,
   overflow,
   paintedContrast,
@@ -234,7 +235,7 @@ test.describe("7.5 The kitchen sink", () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     page = await context.newPage();
     await stubSeeds(page);
-    await openStudio(page);
+    await openPreloaded(page);
     await templateSelect(page).selectOption("kitchen-sink");
     await expect(canvasPane(page, "dark")).toBeAttached();
   });
@@ -725,7 +726,7 @@ test.describe("7.6 The landing and editorial templates", () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     page = await context.newPage();
     await stubSeeds(page);
-    await openStudio(page);
+    await openPreloaded(page);
     await page.evaluate(() => document.fonts.ready);
   });
 
@@ -1765,7 +1766,7 @@ test.describe("7.7 The dashboard and settings templates", () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     page = await context.newPage();
     await stubSeeds(page);
-    await openStudio(page);
+    await openPreloaded(page);
     await page.evaluate(() => document.fonts.ready);
   });
 
@@ -2477,7 +2478,7 @@ test.describe("7.7 The mobile template", () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 800 } });
     page = await context.newPage();
     await stubSeeds(page);
-    await openStudio(page);
+    await openPreloaded(page);
     await page.evaluate(() => document.fonts.ready);
   });
 

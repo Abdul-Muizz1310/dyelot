@@ -43,8 +43,8 @@ import {
 } from "./params";
 import type { GenerateReply } from "./protocol";
 import { type RebuildOutcome, rebuildOutcome } from "./rebuild";
-import { type HashResult, type Notice, readHash, writeHash } from "./url";
-import { DEFAULT_VIEW, DENSITIES, mergeView, type View } from "./view";
+import { type HashResult, type Notice, readEntry, readHash, writeHash } from "./url";
+import { DEFAULT_VIEW, DENSITIES, mergeView, presetView, type View } from "./view";
 
 // The studio store (spec section 5.7, R2-13, R2-14, R2-17, R2-28, R2-29). Every change is a
 // numbered request to the generator through `deps.client`; a reply applies only when its id is
@@ -57,6 +57,13 @@ export type Status = {
   readonly notice: Notice | null;
   readonly draft: "on" | "off";
 };
+/**
+ * What an entry hash asks the studio shell to do once (R6-24, 5.4): put a brief in the Brief box, or
+ * take the visitor to the Image section's "Choose an image".
+ */
+export type StudioEntry =
+  | { readonly kind: "brief"; readonly text: string }
+  | { readonly kind: "image" };
 export type StudioState = Snapshot & {
   readonly history: readonly Snapshot[];
   readonly future: readonly Snapshot[];
@@ -67,6 +74,8 @@ export type StudioState = Snapshot & {
    * a required check; null for every other design.
    */
   readonly outcome: RebuildOutcome | null;
+  /** The first load's brief or image entry, until the shell takes it with `takeEntry` (R6-24). */
+  readonly entry: StudioEntry | null;
 };
 export type StudioActions = {
   setParams(patch: ParamsPatch, options?: { coalesce?: string }): void;
@@ -107,6 +116,8 @@ export type StudioActions = {
   /** Writes a pending hash and draft now (`pagehide`, a hidden page). */
   flush(): void;
   dispose(): void;
+  /** The entry once, then null (R6-24, 10.2): the shell takes it after its first render. */
+  takeEntry(): StudioEntry | null;
 };
 export type Studio = StudioState & StudioActions;
 export type StudioStore = StoreApi<Studio>;
@@ -230,7 +241,8 @@ function linkNotice(
 /**
  * The snapshot of a spec opened from a link or a draft (R2-14 item 2). A draft for the same spec
  * whose params passed `readDraft`'s check supplies params, seed and preset, so an explicit pairing
- * stays explicit; otherwise `paramsOfSpec` supplies the params and the preset is null.
+ * stays explicit; otherwise `paramsOfSpec` supplies the params and `presetOf` the preset, so a
+ * design that holds a preset's values shows that preset in the select (R6-26).
  */
 function snapshotOf(
   spec: DesignSpec,
@@ -255,7 +267,7 @@ function snapshotOf(
       params,
       seed: spec.meta.seed,
       spec,
-      preset: null,
+      preset: presetOf(spec),
       provenance: "loaded",
       createdWith: spec.meta.createdWith,
     },
@@ -263,10 +275,20 @@ function snapshotOf(
   };
 }
 
+/** What the first load opens: the snapshot, its notice, an entry for the shell, and its persist. */
+type FirstLoad = {
+  readonly snapshot: Snapshot;
+  readonly notice: Notice | null;
+  readonly entry: StudioEntry | null;
+  /** True when the load counts as the first commit, so its link and draft follow 300 ms later. */
+  readonly persist: boolean;
+};
+
 /**
- * The studio store. The first load takes the hash if it opens, else the draft, else a fresh design
- * (R2-14 item 2); a hash that fails opens the draft or a fresh design with a `link` notice, so the
- * page is never blank (Review Focus 1).
+ * The studio store. The first load takes the hash if it opens, else an entry hash (R6-24), else the
+ * draft, else a fresh design (R2-14 item 2); a hash that fails opens the draft or a fresh design
+ * with a `link` notice, so the page is never blank (Review Focus 1). It opens with the view of its
+ * design's preset (R6-26).
  */
 export function createStudioStore(deps: StudioDeps): StudioStore {
   checkDeps(deps);
@@ -285,9 +307,9 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     return seed;
   };
 
-  function fresh(): Snapshot {
+  /** A fresh design: `params`, the fresh ones unless an entry locks a seed, and a new seed. */
+  function fresh(params: DirectionParams = freshParams()): Snapshot {
     const seed = nextSeed();
-    const params = freshParams();
     const spec = normalizeSpec(client.generateNow(resolveParams(params, seed), seed));
     return {
       params,
@@ -299,11 +321,37 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     };
   }
 
-  function firstLoad(draft: Draft | null): { snapshot: Snapshot; notice: Notice | null } {
+  /**
+   * An entry hash's first load (R6-24, R6-25, 10.2), or null for a hash that is no entry. Like a
+   * link, it outranks the draft: a color opens a fresh design with the primary locked at it, a brief
+   * or an image a fresh design and the entry for the shell, each counting as the first commit; a
+   * malformed entry opens a fresh design with the damaged-link notice and persists nothing.
+   */
+  function entryLoad(hash: string): FirstLoad | null {
+    const read = readEntry(hash);
+    if (read.kind === "none") return null;
+    if (read.kind === "malformed") {
+      const notice: Notice = { kind: "link", reason: "corrupt", fallback: "fresh" };
+      return { snapshot: fresh(), notice, entry: null, persist: false };
+    }
+    const { entry } = read;
+    if (entry.kind === "color") {
+      const params = { ...freshParams(), primary: entry.seed };
+      return { snapshot: fresh(params), notice: null, entry: null, persist: true };
+    }
+    return { snapshot: fresh(), notice: null, entry, persist: true };
+  }
+
+  function firstLoad(draft: Draft | null): FirstLoad {
     const link = readHash(location.hash);
     if (link.kind === "spec") {
       const { snapshot, customFonts } = snapshotOf(link.spec, draft);
-      return { snapshot, notice: customFonts ? { kind: "custom-fonts" } : null };
+      const notice: Notice | null = customFonts ? { kind: "custom-fonts" } : null;
+      return { snapshot, notice, entry: null, persist: false };
+    }
+    if (link.kind === "none") {
+      const entered = entryLoad(location.hash);
+      if (entered !== null) return entered;
     }
     if (draft !== null) {
       const { snapshot, customFonts } = snapshotOf(draft.spec, draft);
@@ -312,9 +360,10 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
       let notice: Notice = { kind: "draft-restored" };
       if (customFonts) notice = { kind: "custom-fonts" };
       if (link.kind === "error") notice = linkNotice(link, "draft");
-      return { snapshot, notice };
+      return { snapshot, notice, entry: null, persist: false };
     }
-    return { snapshot: fresh(), notice: link.kind === "error" ? linkNotice(link, "fresh") : null };
+    const notice = link.kind === "error" ? linkNotice(link, "fresh") : null;
+    return { snapshot: fresh(), notice, entry: null, persist: false };
   }
 
   // The outcome of rebuilding a held blocked design, by spec id (R3-42): computed when the design is
@@ -348,7 +397,9 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     history: [],
     future: [],
     status: { phase: "idle", notice: first.notice, draft: stored.readable ? "on" : "off" },
-    view: DEFAULT_VIEW,
+    // A loaded design opens with its preset's mode and density (R6-26, 10.3).
+    view: presetView(DEFAULT_VIEW, committed.preset),
+    entry: first.entry,
     setParams,
     applyPreset,
     regenerate,
@@ -367,6 +418,7 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     dismissNotice,
     flush,
     dispose,
+    takeEntry,
   }));
   const state = () => store.getState();
   const patch = (partial: Partial<StudioState>) => store.setState(partial);
@@ -374,6 +426,8 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
     status: { ...state().status, ...change },
   });
   const unsubscribe = client.subscribe(onReply);
+  // An entry's load counts as the first commit (R6-24): its link and draft follow 300 ms later.
+  if (first.persist) schedulePersist();
 
   /** Writes the committed design's link into the hash and saves the draft (C-HASH-11, C-DRAFT-11). */
   function persist(): void {
@@ -778,6 +832,12 @@ export function createStudioStore(deps: StudioDeps): StudioStore {
       cancelPersist();
       saveDraft();
     }
+  }
+
+  function takeEntry(): StudioEntry | null {
+    const { entry } = state();
+    if (entry !== null) patch({ entry: null });
+    return entry;
   }
 
   return store;

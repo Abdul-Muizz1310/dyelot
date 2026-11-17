@@ -7,6 +7,7 @@ import {
   type Hex,
   lintSpec,
   paramsOfSpec,
+  presetOf,
   toHex,
 } from "@/engine";
 import { CHIPS, chipChange } from "@/features/ai/steer";
@@ -408,8 +409,9 @@ test.describe("13.5 The inspector", () => {
     await expect(section).toContainText("No rules yet.");
     await writeRationale(page).click();
     await expect(rationaleLines(page).locator("p")).toHaveText([SHARED_LINE]);
-    // A design opened from a link holds no preset (R2-14 item 2).
-    expect(posted).toEqual([ai.rationaleInput(START_SPEC, null)]);
+    // A design opened from a link holds the preset `presetOf` names (R6-26, section 16 of
+    // docs/specs/06-gallery.md): "default" for this fresh design.
+    expect(posted).toEqual([ai.rationaleInput(START_SPEC, presetOf(START_SPEC))]);
     await expectCreatedWith(page, "model:test/text-1:free");
     const spec = await hashedSpec(page);
     expect(spec.meta.oneLiner).toBe(RATIONALE_OUT.oneLiner);

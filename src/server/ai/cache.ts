@@ -19,7 +19,7 @@ export type AiCache = {
 };
 
 const MAX_DEFAULT = 256;
-const TTL_DEFAULT_MS = 86_400_000;
+export const TTL_DEFAULT_MS = 86_400_000;
 /** One attempt per tier, three tiers at most (R4-12). */
 const MAX_ATTEMPTS = 3;
 /** Every tier name, once: the compiler checks this record against `TierName`. */

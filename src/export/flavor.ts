@@ -3,6 +3,7 @@ import { type DesignSpec, lotTag, specId } from "@/spec";
 import { flavorBackground, LOOP_SECONDS } from "../flavor/flavor.mjs";
 import { brandProps } from "./brand";
 import { FLAVOR_SOURCES } from "./flavor-sources";
+import { describeType, httpsOrigin } from "./guards";
 import { cssComment, editLink, mdText } from "./text";
 import type { BundleFile } from "./types";
 
@@ -10,30 +11,11 @@ import type { BundleFile } from "./types";
 // five are generated from the design. Like the other generators it reads no clock, locale or
 // randomness, so one design gives one set of bytes.
 
-function describeType(value: unknown): string {
-  if (value === null) return "null";
-  return Array.isArray(value) ? "array" : typeof value;
-}
-
 function check(spec: unknown, origin: unknown): void {
   if (typeof spec !== "object" || spec === null) {
     throw new TypeError(`flavorFiles: spec must be an object, got ${describeType(spec)}`);
   }
-  if (typeof origin !== "string") {
-    throw new TypeError(`flavorFiles: origin must be a string, got ${describeType(origin)}`);
-  }
-  let valid = false;
-  try {
-    const url = new URL(origin);
-    valid = url.protocol === "https:" && url.origin === origin;
-  } catch {
-    valid = false;
-  }
-  if (!valid) {
-    throw new RangeError(
-      `flavorFiles: origin must be an https origin with no path, got ${JSON.stringify(origin)}`,
-    );
-  }
+  httpsOrigin(origin, "flavorFiles");
 }
 
 /** `JSON.stringify(value, null, 2)` and a newline (R3-11). */

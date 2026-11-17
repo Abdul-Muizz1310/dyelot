@@ -22,7 +22,13 @@ import { InputsPanel } from "./InputsPanel";
 import { Inspector } from "./Inspector";
 import { LotTag } from "./LotTag";
 import { Notices } from "./Notices";
-import { bindStudioWindow, createStudioStore, randomSeed, type StudioStore } from "./store";
+import {
+  bindStudioWindow,
+  createStudioStore,
+  randomSeed,
+  type StudioEntry,
+  type StudioStore,
+} from "./store";
 import { Toast, type ToastState } from "./Toast";
 import { Toolbar } from "./Toolbar";
 import { linkUrl } from "./url";
@@ -102,6 +108,32 @@ function StudioShell({ store }: { store: StudioStore }) {
   useEffect(() => {
     activity.getState().setOnDevice(readToggle(safeStorage(window)));
   }, [activity]);
+
+  // An entry hash's brief or image request (R6-24, 10.2), taken from the store once, after the
+  // first render, and handed to the inputs panel, which fills the Brief box or focuses "Choose an
+  // image". Below 1024 px the inputs drawer opens first, from the toolbar's "Inputs" button, and the
+  // entry waits for it: the drawer's own focus on its heading comes first, the entry's focus last.
+  // Nothing runs: no model, no word list, no worker.
+  const [entry, setEntry] = useState<StudioEntry | null>(null);
+  const waitingEntry = useRef<StudioEntry | null>(null);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the entry is taken once, after the first render, at that render's width; a second take gives null.
+  useEffect(() => {
+    const taken = store.getState().takeEntry();
+    if (taken === null) return;
+    const opener = document.querySelector<HTMLElement>('[aria-controls="studio-inputs"]');
+    if (isDrawer.inputs && opener !== null) {
+      waitingEntry.current = taken;
+      openDrawer("inputs", opener);
+    } else {
+      setEntry(taken);
+    }
+  }, [store]);
+  // After useDrawers' effect, which focused the open drawer's heading in this commit.
+  useEffect(() => {
+    if (open !== "inputs" || waitingEntry.current === null) return;
+    setEntry(waitingEntry.current);
+    waitingEntry.current = null;
+  }, [open]);
 
   async function copyLink(): Promise<void> {
     // Where focus goes back to when the visitor closes a toast that took it (F-STUDIO-23).
@@ -300,6 +332,7 @@ function StudioShell({ store }: { store: StudioStore }) {
             activity={activity}
             importButton={importButton}
             onImport={(opener) => openImport(opener)}
+            entry={entry}
           />
         </aside>
         <Toolbar

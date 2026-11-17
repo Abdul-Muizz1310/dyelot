@@ -1,5 +1,16 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
+import { GALLERY_DATA } from "../unit/support/gallery";
 import { PLAYER_CAP } from "./flavor-support";
+import {
+  directives,
+  isDataBlock,
+  nonceOf,
+  scriptTags,
+  violations,
+  watchOrigin,
+  watchPolicy,
+  workers,
+} from "./security-support";
 import { button, openStudio, settled, stubSeeds } from "./studio-support";
 
 // The security flows of docs/specs/04-ai.md, section 14.11 (Task 4.12b): F-SEC4-01 to 05, the nonce
@@ -8,7 +19,8 @@ import { button, openStudio, settled, stubSeeds } from "./studio-support";
 // page that a production build does not serve (R4-32). They run against the production build.
 // Section 16 of docs/specs/05-motion-3d.md adds /explore and /motion to F-SEC4-01's and F-SEC4-02's
 // pages and Remotion's host to `connect-src` (R5-58); F-SEC5-01 to 03 (Task 5.11a; R5-58, R5-59,
-// I-M5-09) follow them.
+// I-M5-09) follow them. The readers they share with security-m6.spec.ts are in
+// tests/e2e/security-support.ts; 12.2's policy stays written out here, from the spec.
 
 test.use({ viewport: { width: 1280, height: 800 } });
 
@@ -22,40 +34,8 @@ const PAGE_POLICY = (nonce: string): string =>
   `default-src 'self'; base-uri 'self'; font-src 'self' data:; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'nonce-${nonce}' 'strict-dynamic'; worker-src 'self' blob:; connect-src 'self' https://openrouter.ai https://www.remotion.pro; frame-ancestors 'none'; object-src 'none'; form-action 'self';`;
 /** R4-24's policy for every path under /api/, word for word from the spec. */
 const API_POLICY = "default-src 'none'; frame-ancestors 'none';";
-/** The nonce the proxy makes: the base64 of a UUID, 48 characters (C-PROXY-01). */
-const NONCE_SOURCE = /'nonce-([A-Za-z0-9+/]{48})'/;
 /** Chromium's own line for a document that answers 404 (Task 4.0's probe 2): not a policy error. */
 const NOT_FOUND_LINE = "Failed to load resource: the server responded with a status of 404";
-
-/** The nonce a page policy names; a policy without one fails the flow. */
-function nonceOf(policy: string, path: string): string {
-  const nonce = NONCE_SOURCE.exec(policy)?.[1];
-  if (nonce === undefined) throw new Error(`${path}: the policy names no nonce: ${policy}`);
-  return nonce;
-}
-
-/** `a b; c d` becomes `{ a: ["b"], c: ["d"] }`, so a check reads one directive. */
-function directives(policy: string): Record<string, string[]> {
-  return Object.fromEntries(
-    policy
-      .split(";")
-      .map((part) => part.trim())
-      .filter(Boolean)
-      .map((part) => {
-        const [name = "", ...values] = part.split(/\s+/);
-        return [name, values];
-      }),
-  );
-}
-
-/** The opening tag of every `<script>` in an HTML document. */
-const scriptTags = (html: string): string[] => html.match(/<script\b[^>]*>/gi) ?? [];
-
-/**
- * A data block: a `<script>` whose type no browser runs (the home page's JSON-LD). A policy governs
- * only scripts that run, so it needs no nonce (Task 4.0's probe 2: it raises no violation).
- */
-const isDataBlock = (tag: string): boolean => /\btype="application\/(?:ld\+)?json"/i.test(tag);
 
 /**
  * 12.2: the files the proxy passes through (the metadata routes and the fonts) carry the page
@@ -73,35 +53,6 @@ function expectOtherHeaders(headers: Record<string, string>, path: string, refer
   expect(headers["referrer-policy"], path).toBe(referrer);
   expect(headers["permissions-policy"], path).toBe(PERMISSIONS);
 }
-
-/**
- * Records, before the page's scripts run, every policy violation the document reports and every
- * worker the page starts.
- */
-async function watchPolicy(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    const host = window as unknown as { __violations: string[]; __workers: number };
-    host.__violations = [];
-    host.__workers = 0;
-    document.addEventListener(
-      "securitypolicyviolation",
-      (event) => host.__violations.push(`${event.violatedDirective} ${event.blockedURI}`),
-      true,
-    );
-    const Real = window.Worker;
-    window.Worker = class extends Real {
-      constructor(...args: ConstructorParameters<typeof Worker>) {
-        super(...args);
-        host.__workers += 1;
-      }
-    };
-  });
-}
-
-const violations = (page: Page): Promise<string[]> =>
-  page.evaluate(() => (window as unknown as { __violations: string[] }).__violations);
-const workers = (page: Page): Promise<number> =>
-  page.evaluate(() => (window as unknown as { __workers: number }).__workers);
 
 test.describe("12 security headers, robots and the connect pages", () => {
   test("F-SEC4-01 each page and HTML 404 carries 12.1's policy with a fresh nonce its scripts carry; /api/nope carries R4-24's", async ({
@@ -241,6 +192,9 @@ test.describe("12 security headers, robots and the connect pages", () => {
       "https://dyelot.vercel.app/studio",
       "https://dyelot.vercel.app/explore",
       "https://dyelot.vercel.app/motion",
+      "https://dyelot.vercel.app/gallery",
+      "https://dyelot.vercel.app/about",
+      ...GALLERY_DATA.entries.map((entry) => `https://dyelot.vercel.app/gallery/${entry.slug}`),
     ]);
 
     const font = await request.get("/fonts/geist/geist-latin-wght-normal.woff2");
@@ -414,34 +368,8 @@ test.describe("M5 pages under the policy (R5-58, R5-59)", () => {
     page,
     baseURL,
   }) => {
-    const origin = new URL(baseURL ?? "http://localhost").origin;
-    // A data: or blob: URL is read in memory: only these schemes reach a server. A socket belongs to
-    // the origin it upgrades from, so ws: and wss: compare as http: and https:.
-    const SCHEMES: Readonly<Record<string, string>> = {
-      "http:": "http:",
-      "https:": "https:",
-      "ws:": "http:",
-      "wss:": "https:",
-    };
-    const leaves = (url: URL): boolean => {
-      const scheme = SCHEMES[url.protocol];
-      return scheme !== undefined && `${scheme}//${url.host}` !== origin;
-    };
-    const outside: string[] = [];
-    page.on("request", (request) => {
-      if (leaves(new URL(request.url()))) outside.push(request.url());
-    });
-    // Playwright reports a WebSocket as a `websocket` event, never as a request.
-    page.on("websocket", (socket) => {
-      if (leaves(new URL(socket.url()))) outside.push(socket.url());
-    });
-    // A request or a socket that leaves anyway goes no further than the browser (R4-58), and the
-    // list keeps it.
-    await page.route(leaves, (route) => route.abort());
-    await page.routeWebSocket(leaves, (socket) => {
-      outside.push(socket.url());
-      void socket.close();
-    });
+    // Every request and socket that leaves the origin is kept, and stopped in the browser (R4-58).
+    const { outside } = await watchOrigin(page, new URL(baseURL ?? "http://localhost").origin);
     const problems = trackProblems(page);
     await watchPolicy(page);
 

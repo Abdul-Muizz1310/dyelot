@@ -39,6 +39,24 @@ function assertStep(value: number, name: string): asserts value is Step {
   }
 }
 
+/** The parts of `spec` `tokenRow` reads, each an object (an array for the scale), else a TypeError. */
+function assertShape(spec: DesignSpec, mode: Mode, palette: PaletteName): void {
+  const color: unknown = (spec as { color?: unknown }).color;
+  assertRecord(color, "tokenRow: spec.color");
+  const palettes = color.palettes;
+  assertRecord(palettes, "tokenRow: spec.color.palettes");
+  const set = palettes[palette];
+  assertRecord(set, `tokenRow: spec.color.palettes.${palette}`);
+  if (!Array.isArray(set[mode])) {
+    throw new TypeError(
+      `tokenRow: spec.color.palettes.${palette}.${mode} must be an array, got ${describeType(set[mode])}`,
+    );
+  }
+  const roles = color.roles;
+  assertRecord(roles, "tokenRow: spec.color.roles");
+  assertRecord(roles[mode], `tokenRow: spec.color.roles.${mode}`);
+}
+
 /** The token row of `palette`'s `step` in `mode`. */
 export function tokenRow(spec: DesignSpec, mode: Mode, palette: PaletteName, step: Step): TokenRow {
   assertRecord(spec, "tokenRow: spec");
@@ -50,6 +68,7 @@ export function tokenRow(spec: DesignSpec, mode: Mode, palette: PaletteName, ste
   assertOneOf(mode, MODES, "tokenRow: mode");
   assertOneOf(palette, PALETTE_NAMES, "tokenRow: palette");
   assertStep(step, "tokenRow: step");
+  assertShape(spec, mode, palette);
   const found = spec.color.palettes[palette][mode].find((candidate) => candidate.step === step);
   if (found === undefined) throw new RangeError(`tokenRow: no step ${step} in ${palette}`);
   const roles = spec.color.roles[mode];

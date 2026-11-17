@@ -1,8 +1,15 @@
 import { expect, type Page } from "@playwright/test";
 import { tokenRow } from "@/features/studio/token-row";
-import { test, VT_RECORD, vtRecord } from "./flavor-support";
+import { LOADING_RECORD, loadingCount, test, VT_RECORD, vtRecord } from "./flavor-support";
 import { canvasFrame, first, inspectorAside, openStudio, stubSeeds } from "./studio-support";
-import { reduceMotion, screenOf, showTemplate, templateSelect } from "./template-support";
+import {
+  openPreloaded,
+  reduceMotion,
+  screenOf,
+  showTemplate,
+  templateRoot,
+  templateSelect,
+} from "./template-support";
 
 // The view transitions of Tasks 5.8a and 5.8b (docs/specs/05-motion-3d.md, rulings R5-46 to R5-49).
 // Every flow fails, through the watch of flavor-support's `test`, on a `securitypolicyviolation`
@@ -22,7 +29,7 @@ test.describe("template cross-fade", () => {
   }) => {
     await VT_RECORD(page);
     await stubSeeds(page);
-    await openStudio(page);
+    await openPreloaded(page);
     await templateSelect(page).selectOption("dashboard");
     const record = await recorded(page);
     expect(record.calls).toBe(1);
@@ -37,22 +44,30 @@ test.describe("template cross-fade", () => {
   test("F-VT-02 under the OS reduced motion every recorded animation is 0 ms", async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await VT_RECORD(page);
+    await LOADING_RECORD(page);
     await stubSeeds(page);
-    await openStudio(page);
+    // The dashboard's chunk has loaded before the switch (the preload): a switch that suspended
+    // would show the loading sentence, and its reveal makes a call even under the OS setting.
+    await openPreloaded(page);
     await templateSelect(page).selectOption("dashboard");
+    // Read once the dashboard has rendered, not when the frame's `data-template` flips: that flip
+    // would also come with a loading sentence, before its reveal (Task 6.7's review).
+    await expect(templateRoot(page, "dashboard")).toBeVisible();
     await expect(canvasFrame(page)).toHaveAttribute("data-template", "dashboard");
     // Under the OS setting the new template renders in the same commit: no transition call at all.
     const record = await vtRecord(page);
     expect(record.calls).toBe(0);
     expect(record.animations.filter((a) => a.duration > 0)).toEqual([]);
+    expect(await loadingCount(page)).toBe(0);
   });
 
   test("F-VT-03 the canvas's Reduce motion skips the cross-fade and keeps the FAQ's open item", async ({
     page,
   }) => {
     await VT_RECORD(page);
+    await LOADING_RECORD(page);
     await stubSeeds(page);
-    await openStudio(page);
+    await openPreloaded(page);
     const landing = await showTemplate(page, "landing");
     const second = landing.locator('[data-block="faq"] button[aria-expanded]').nth(1);
     await second.click();
@@ -65,12 +80,15 @@ test.describe("template cross-fade", () => {
     await reduceMotion(page).click();
     await expect(canvasFrame(page)).toHaveAttribute("data-reduced-motion", "true");
     await templateSelect(page).selectOption("settings");
+    // Read once the settings template has rendered (as F-VT-02).
+    await expect(templateRoot(page, "settings")).toBeVisible();
     await expect(canvasFrame(page)).toHaveAttribute("data-template", "settings");
     const record = await vtRecord(page);
     expect(record.calls).toBe(0);
     expect(
       record.animations.filter((a) => a.pseudo.includes("dyelot-template") && a.duration > 0),
     ).toEqual([]);
+    expect(await loadingCount(page)).toBe(0);
   });
 });
 

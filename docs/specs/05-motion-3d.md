@@ -2082,6 +2082,8 @@ frame, and `brand-intro.tsx` stays byte for byte as its golden pinned it. The "B
 Player's loading and failure lines and its "Pause" stay outside the hidden frame. F-A11Y5-01's axe runs leave out
 `[data-brand-player] [data-brand-frame]` and nothing else, and check that each such frame is `aria-hidden`.
 
+Amended in M6: the wrapper is a figure described by the video's contents (06-gallery.md, R6-35).
+
 ### 13.4 The privacy note
 
 In the render button's place: a group labeled by its heading "Before the first render" (an `h4` with `tabIndex={-1}`,
