@@ -392,16 +392,16 @@ describe("C-GUARD5-05 the landing's client code reaches no core", () => {
 /** R5-60's exact versions, each in the dependency field that must hold it. */
 const M5_PINS = {
   dependencies: {
-    three: "0.186.1",
+    three: "0.187.0",
     "@react-three/fiber": "9.8.2",
     "@react-three/drei": "10.7.9",
-    remotion: "4.0.539",
-    "@remotion/player": "4.0.539",
-    "@remotion/web-renderer": "4.0.539",
-    mediabunny: "1.62.0",
+    remotion: "4.0.543",
+    "@remotion/player": "4.0.543",
+    "@remotion/web-renderer": "4.0.543",
+    mediabunny: "1.64.0",
     motion: "14.3.0",
   },
-  devDependencies: { "@types/three": "0.186.0" },
+  devDependencies: { "@types/three": "0.187.0" },
 } as const;
 
 /**
@@ -465,8 +465,20 @@ describe("C-GUARD5-02 package.json pins R5-60's versions and holds none of its e
 
   it("C-GUARD5-02 pins three, R3F, drei, Remotion, Mediabunny, motion and @types/three exactly", () => {
     expect(pinProblems(manifest, PENDING_PINS)).toEqual([]);
-    expect(manifest.dependencies.three).toBe("0.186.1");
-    expect(manifest.devDependencies["@types/three"]).toBe("0.186.0");
+    expect(manifest.dependencies.three).toBe("0.187.0");
+    expect(manifest.devDependencies["@types/three"]).toBe("0.187.0");
+  });
+
+  it("C-GUARD5-02 pins mediabunny to the version the installed @remotion/web-renderer depends on", () => {
+    const renderer = JSON.parse(
+      readFileSync(path.join(ROOT, "node_modules/@remotion/web-renderer/package.json"), "utf8"),
+    ) as { dependencies: Record<string, string> };
+    const pinned = manifest.dependencies.mediabunny;
+    const wanted = renderer.dependencies.mediabunny;
+    expect(
+      pinned,
+      `mediabunny is pinned at ${pinned} but @remotion/web-renderer depends on ${wanted}`,
+    ).toBe(wanted);
   });
 
   it("C-GUARD5-02 reports a range, a wrong field, a missing pin and each excluded package (a probe)", () => {
@@ -477,10 +489,10 @@ describe("C-GUARD5-02 package.json pins R5-60's versions and holds none of its e
     expect(pinProblems(exact, [])).toEqual([]);
     expect(
       pinProblems(
-        { ...exact, dependencies: { ...exact.dependencies, three: "^0.186.1", motion: "14.3.1" } },
+        { ...exact, dependencies: { ...exact.dependencies, three: "^0.187.0", motion: "14.3.1" } },
         [],
       ),
-    ).toEqual(["three: ^0.186.1, not 0.186.1", "motion: 14.3.1, not 14.3.0"]);
+    ).toEqual(["three: ^0.187.0, not 0.187.0", "motion: 14.3.1, not 14.3.0"]);
     const { "@react-three/drei": _drei, ...withoutDrei } = exact.dependencies;
     expect(pinProblems({ ...exact, dependencies: withoutDrei }, [])).toEqual([
       "@react-three/drei: in no field, not dependencies alone",
@@ -488,7 +500,7 @@ describe("C-GUARD5-02 package.json pins R5-60's versions and holds none of its e
     expect(
       pinProblems(
         {
-          dependencies: { ...exact.dependencies, "@types/three": "0.186.0" },
+          dependencies: { ...exact.dependencies, "@types/three": "0.187.0" },
           devDependencies: {},
         },
         [],

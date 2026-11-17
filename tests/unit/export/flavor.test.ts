@@ -113,7 +113,7 @@ describe("flavorFiles", () => {
     expect(remotion).toContain("https://remotion.pro/license");
     expect(remotion).toContain("Companies of four or more people need a Remotion Company License.");
     expect(remotion).toContain(
-      "npm install remotion@4.0.539 @remotion/cli@4.0.539 react react-dom",
+      "npm install remotion@4.0.543 @remotion/cli@4.0.543 react react-dom",
     );
   });
 
@@ -207,7 +207,7 @@ Remotion at no cost. Companies of four or more people need a Remotion Company Li
 ## Render it
 
 \`\`\`sh
-npm install remotion@4.0.539 @remotion/cli@4.0.539 react react-dom
+npm install remotion@4.0.543 @remotion/cli@4.0.543 react react-dom
 npx remotion studio flavor/remotion/root.tsx
 npx remotion render flavor/remotion/root.tsx brand-intro-light out/brand-intro-light.mp4
 \`\`\`

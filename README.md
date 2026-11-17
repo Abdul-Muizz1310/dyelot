@@ -398,7 +398,7 @@ directory to the icon script to write the files there instead of in place.
 | Concern | Choice |
 |---|---|
 | App | Next.js 16.4 App Router, React 19.3, TypeScript strict |
-| Motion and 3D | three 0.186.1, `@react-three/fiber` 9.8.2 and `@react-three/drei` 10.7.9 (for `OrbitControls` only) in one lazy chunk; `motion` 14.3.0; `remotion`, `@remotion/player` and `@remotion/web-renderer` 4.0.539; `mediabunny` 1.62.0; no `postprocessing` and no GSAP |
+| Motion and 3D | three 0.187.0, `@react-three/fiber` 9.8.2 and `@react-three/drei` 10.7.9 (for `OrbitControls` only) in one lazy chunk; `motion` 14.3.0; `remotion`, `@remotion/player` and `@remotion/web-renderer` 4.0.543; `mediabunny` 1.64.0; no `postprocessing` and no GSAP |
 | Style | Tailwind 4.3, the portfolio's dark terminal tokens, Geist and Geist Mono, one madder accent |
 | Color | OKLCH and WCAG 2.2 contrast, in a pure TypeScript engine |
 | Spec | zod 4 in jitless mode (no `eval` under the CSP), fflate for the share link and the zip |
