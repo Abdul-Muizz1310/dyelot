@@ -309,6 +309,61 @@ export function ttfbPlan(paths, rounds) {
 }
 
 /**
+ * Runs `plan`'s items through `run`, in order (R7-16). A run that rejects or throws is retried once
+ * at once; a second failure stops the plan, and the records so far come back with the failure.
+ * @template {{ run: number, route: string, formFactor: string }} Item
+ * @param {readonly Item[]} plan
+ * @param {(item: Item) => unknown} run
+ * @returns {Promise<{ records: unknown[], failure: null | { run: number, route: string, formFactor: string, message: string }, retried: Item[] }>}
+ */
+export async function runPlan(plan, run) {
+  if (!Array.isArray(plan)) {
+    throw new TypeError(`runPlan: plan must be an array, not ${kind(plan)}`);
+  }
+  if (typeof run !== "function") {
+    throw new TypeError(`runPlan: run must be a function, not ${kind(run)}`);
+  }
+  if (plan.length === 0) throw new RangeError("runPlan: plan is empty");
+  /** @type {unknown[]} */
+  const records = [];
+  /** @type {Item[]} */
+  const retried = [];
+  for (const item of plan) {
+    try {
+      records.push(await run(item));
+    } catch {
+      retried.push(item);
+      try {
+        records.push(await run(item));
+      } catch (error) {
+        const { run: number, route, formFactor } = item;
+        const message = error instanceof Error ? error.message : String(error);
+        return { records, failure: { run: number, route, formFactor, message }, retried };
+      }
+    }
+  }
+  return { records, failure: null, retried };
+}
+
+/**
+ * The record of an audit that stopped at a failed run (R7-16): what ran, and the failure.
+ * @param {{ date: string, base: string, runs: number, load: unknown, records: unknown[], failure: object }} parts
+ */
+export function partialRecord(parts) {
+  if (typeof parts !== "object" || parts === null || Array.isArray(parts)) {
+    throw new TypeError(`partialRecord: parts must be an object, not ${kind(parts)}`);
+  }
+  const { date, base, runs, load, records, failure } = parts;
+  if (!Array.isArray(records)) {
+    throw new TypeError(`partialRecord: records must be an array, not ${kind(records)}`);
+  }
+  if (typeof failure !== "object" || failure === null || Array.isArray(failure)) {
+    throw new TypeError(`partialRecord: failure must be an object, not ${kind(failure)}`);
+  }
+  return { date, base, runs, load, lighthouse: records, failure };
+}
+
+/**
  * The middle value of the sorted values, or the mean of the two middle ones for an even count (each
  * halved first when their sum would overflow).
  * @param {readonly number[]} values finite numbers, at least one

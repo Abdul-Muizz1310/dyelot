@@ -14,7 +14,9 @@ import {
   categoryScores,
   FORM_FACTORS,
   median,
+  partialRecord,
   routeName,
+  runPlan,
   scriptTotals,
   ttfbPlan,
 } from "../../../scripts/audit-core.mjs";
@@ -520,5 +522,83 @@ describe("the median's property", () => {
       { numRuns: 500, seed: 6010 },
     );
     expect(median([Number.MAX_VALUE, Number.MAX_VALUE])).toBe(Number.MAX_VALUE);
+  });
+});
+
+// C-AUD7-01 to C-AUD7-06 of docs/specs/07-finish.md, section 14.4 (R7-16, R7-17, R-05).
+
+type Item = { run: number; route: string; formFactor: string };
+
+/** A fake `run` that counts calls per item and fails each call of `failing` items `times` times. */
+function fakeRun(failing: Item[], times: number, how: "reject" | "throw" = "reject") {
+  const calls = new Map<Item, number>();
+  const run = (item: Item) => {
+    const count = (calls.get(item) ?? 0) + 1;
+    calls.set(item, count);
+    if (failing.includes(item) && count <= times) {
+      if (how === "throw") throw new Error(`boom ${count}`);
+      return Promise.reject(new Error(`boom ${count}`));
+    }
+    return Promise.resolve({ ...item });
+  };
+  return { run, calls };
+}
+
+describe("the plan's runner", () => {
+  const plan = auditPlan(["/a", "/b"], FORM_FACTORS, 1);
+
+  it("C-AUD7-01 retries a run that rejects once and keeps every record in plan order", async () => {
+    for (const how of ["reject", "throw"] as const) {
+      const { run, calls } = fakeRun([plan[2] as Item], 1, how);
+      const result = await runPlan(plan, run);
+      expect(result.records).toEqual(plan.map((item) => ({ ...item })));
+      expect(result.failure).toBeNull();
+      expect([...calls.values()].reduce((sum, count) => sum + count, 0)).toBe(5);
+      expect(result.retried).toEqual([plan[2]]);
+    }
+  });
+
+  it("C-AUD7-02 stops at a run that rejects twice and a partial record keeps what ran", async () => {
+    const { run, calls } = fakeRun([plan[2] as Item], 2);
+    const result = await runPlan(plan, run);
+    expect(result.records).toEqual([{ ...plan[0] }, { ...plan[1] }]);
+    expect(result.failure).toEqual({
+      run: 1,
+      route: "/b",
+      formFactor: "desktop",
+      message: "boom 2",
+    });
+    expect(calls.has(plan[3] as Item)).toBe(false);
+    const record = partialRecord({
+      date: "2026-11-17",
+      base: "https://a.test",
+      runs: 1,
+      load: { before: [0], after: [0] },
+      records: result.records,
+      failure: result.failure,
+    } as never);
+    expect(record.lighthouse).toEqual(result.records);
+    expect(record.failure).toEqual(result.failure);
+    for (const key of ["medians", "firstByte", "weight"]) expect(record).not.toHaveProperty(key);
+    const stringly = await runPlan(plan, () => Promise.reject("plain"));
+    expect(stringly.failure?.message).toBe("plain");
+  });
+
+  it("C-AUD7-03 checks types before values and names the function", async () => {
+    const run = async (item: Item) => item;
+    const cases: [Promise<unknown>, typeof TypeError | typeof RangeError, string][] = [
+      [runPlan(bad(null), run), TypeError, "runPlan"],
+      [runPlan(plan, bad(3)), TypeError, "runPlan"],
+      [runPlan([], bad(3)), TypeError, "runPlan"],
+      [runPlan([], run), RangeError, "runPlan"],
+    ];
+    for (const [promise, error, name] of cases) {
+      await expect(promise).rejects.toBeInstanceOf(error);
+      await expect(promise).rejects.toThrow(new RegExp(`^${name}`));
+    }
+    expect(() => partialRecord(bad(null))).toThrow(TypeError);
+    expect(() => partialRecord(bad(null))).toThrow(/^partialRecord/);
+    expect(() => partialRecord(bad({ records: 1, failure: {} }))).toThrow(TypeError);
+    expect(() => partialRecord(bad({ records: [], failure: null }))).toThrow(TypeError);
   });
 });
