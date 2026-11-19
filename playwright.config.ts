@@ -34,7 +34,10 @@ export default defineConfig({
     },
     // The load family (docs/specs/07-finish.md, R7-04, R7-05 and section 7): flows that hold a time
     // budget or a harness timeout, one at a time after the Lighthouse runs, beside no other browser.
-    // To rerun them alone: `pnpm exec playwright test --project timed --no-deps`.
+    // To rerun them alone: `pnpm exec playwright test --project timed --no-deps`. A run filtered by
+    // file or `--grep` that selects a timed flow also runs every `chromium` and `lighthouse` test, its
+    // dependencies; to stay narrow, run `--project chromium <files>`, then `--project timed --no-deps
+    // <files>`.
     {
       name: "timed",
       use: DESKTOP,
