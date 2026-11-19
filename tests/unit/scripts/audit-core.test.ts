@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import fc from "fast-check";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import {
   A11Y_FLOOR,
@@ -10,9 +11,11 @@ import {
   auditPlan,
   auditRecord,
   auditTable,
+  baseOrigin,
   CATEGORIES,
   categoryScores,
   FORM_FACTORS,
+  kind,
   median,
   partialRecord,
   routeName,
@@ -20,6 +23,7 @@ import {
   scriptTotals,
   ttfbPlan,
 } from "../../../scripts/audit-core.mjs";
+import { importsOf } from "../engine/guard-support";
 
 // C-AUD6-01 to C-AUD6-08 of docs/specs/06-gallery.md, section 14.10 (R6-44 to R6-48, R-05): the
 // audit's pure arithmetic. The two fixtures are real Lighthouse 13.5.0 reports of two scratch pages,
@@ -600,5 +604,54 @@ describe("the plan's runner", () => {
     expect(() => partialRecord(bad(null))).toThrow(/^partialRecord/);
     expect(() => partialRecord(bad({ records: 1, failure: {} }))).toThrow(TypeError);
     expect(() => partialRecord(bad({ records: [], failure: null }))).toThrow(TypeError);
+  });
+});
+
+describe("the base origin", () => {
+  it("C-AUD7-04 gives the origin of an origin-only URL", () => {
+    expect(baseOrigin("https://dyelot.vercel.app")).toBe("https://dyelot.vercel.app");
+    expect(baseOrigin("https://dyelot.vercel.app/")).toBe("https://dyelot.vercel.app");
+    expect(baseOrigin("http://localhost:3100")).toBe("http://localhost:3100");
+    expect(baseOrigin("HTTPS://A.test:443")).toBe("https://a.test");
+  });
+
+  it("C-AUD7-05 refuses a path, query, fragment, credentials, scheme or non-URL", () => {
+    for (const text of [
+      "https://a.test/x",
+      "https://a.test/?q=1",
+      "https://a.test/#top",
+      "https://u:p@a.test",
+      "ftp://a.test",
+      "not a url",
+    ]) {
+      expect(() => baseOrigin(text), text).toThrow(RangeError);
+      expect(() => baseOrigin(text), text).toThrow(/^baseOrigin/);
+    }
+    expect(() => baseOrigin(bad(3))).toThrow(TypeError);
+    expect(() => baseOrigin(bad(3))).toThrow(/^baseOrigin/);
+  });
+});
+
+describe("the shared kind", () => {
+  it("C-AUD7-06 is exported here and lighthouse.mjs imports it instead of declaring it", () => {
+    expect([kind(null), kind([]), kind(3)]).toEqual(["null", "an array", "number"]);
+    const file = path.join(import.meta.dirname, "..", "..", "..", "scripts", "lighthouse.mjs");
+    const source = readFileSync(file, "utf8");
+    const core = importsOf(file, source).find((record) => record.specifier === "./audit-core.mjs");
+    expect(core?.names).toContain("kind");
+    const tree = ts.createSourceFile(file, source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.TS);
+    const declared: string[] = [];
+    const visit = (node: ts.Node): void => {
+      if (
+        (ts.isFunctionDeclaration(node) || ts.isVariableDeclaration(node)) &&
+        node.name !== undefined &&
+        ts.isIdentifier(node.name)
+      ) {
+        declared.push(node.name.text);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(tree);
+    expect(declared).not.toContain("kind");
   });
 });

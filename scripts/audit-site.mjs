@@ -19,6 +19,7 @@ import {
   auditPlan,
   auditRecord,
   auditTable,
+  baseOrigin,
   CATEGORIES,
   FORM_FACTORS,
   median,
@@ -265,15 +266,12 @@ function options(argv) {
     strict: true,
     allowPositionals: false,
   });
-  const base = values.base ?? DEFAULT_BASE;
-  if (!URL.canParse(base) || !["http:", "https:"].includes(new URL(base).protocol)) {
-    throw new RangeError(`--base needs an http or https origin, not "${base}"`);
-  }
+  const base = baseOrigin(values.base ?? DEFAULT_BASE);
   const runs = values.runs === undefined ? DEFAULT_RUNS : Number(values.runs);
   if (!Number.isInteger(runs) || runs < 1 || runs > 10) {
     throw new RangeError(`--runs needs a whole number from 1 to 10, not "${values.runs}"`);
   }
-  return { base: new URL(base).origin, runs };
+  return { base, runs };
 }
 
 /** An error's message, for the one line the script prints. */

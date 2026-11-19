@@ -106,7 +106,7 @@ const ROW_FIELDS = Object.freeze({
 const KB = 1000;
 
 /** A value's kind for an error message. */
-function kind(/** @type {unknown} */ value) {
+export function kind(/** @type {unknown} */ value) {
   if (value === null) return "null";
   return Array.isArray(value) ? "an array" : typeof value;
 }
@@ -361,6 +361,26 @@ export function partialRecord(parts) {
     throw new TypeError(`partialRecord: failure must be an object, not ${kind(failure)}`);
   }
   return { date, base, runs, load, lighthouse: records, failure };
+}
+
+/**
+ * The origin of an http or https URL with no path, query, fragment or credentials (R7-17).
+ * @param {string} text
+ */
+export function baseOrigin(text) {
+  if (typeof text !== "string") {
+    throw new TypeError(`baseOrigin: --base must be a string, not ${kind(text)}`);
+  }
+  if (
+    !URL.canParse(text) ||
+    !["http:", "https:"].includes(new URL(text).protocol) ||
+    new URL(text).href !== `${new URL(text).origin}/`
+  ) {
+    throw new RangeError(
+      `baseOrigin: --base must be an http or https origin with no path, query or fragment, got "${text}"`,
+    );
+  }
+  return new URL(text).origin;
 }
 
 /**

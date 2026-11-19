@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { setTimeout as sleep } from "node:timers/promises";
 import { chromium } from "@playwright/test";
 import lighthouse, { desktopConfig } from "lighthouse";
-import { CATEGORIES, FORM_FACTORS } from "./audit-core.mjs";
+import { CATEGORIES, FORM_FACTORS, kind } from "./audit-core.mjs";
 
 /** How long Chromium has to write its debugging port, and how often the file is read. */
 const PORT_WAIT_MS = 10_000;
@@ -25,12 +25,6 @@ const PORT_POLL_MS = 100;
  * @property {string[]} [args] Extra Chromium flags.
  * @property {Launch} [launch] Starts the browser; injectable so a test can see whether it ran.
  */
-
-/** A value's kind for an error message. */
-function kind(/** @type {unknown} */ value) {
-  if (value === null) return "null";
-  return Array.isArray(value) ? "an array" : typeof value;
-}
 
 /**
  * The Lighthouse report (LHR) of `url` at `formFactor`. Every type is checked first (R-05): a
