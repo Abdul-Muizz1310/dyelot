@@ -5,8 +5,10 @@
 //      request each (ttfbPlan), each from the request's start to its response headers;
 //   3. each route's scripts and HTML document up to the `load` event, in a fresh Chromium context;
 //   4. the machine's load average before and after, and the date.
-// It writes test-results/audit-site/<YYYY-MM-DD>.json and prints auditTable's three tables. It is
-// not a test, and it reaches the network: it measures the site it is given.
+// It writes test-results/audit-site/<YYYY-MM-DD>.json and prints auditTable's three tables. A run
+// that fails twice makes it write test-results/audit-site/<date>.partial.json (from partialRecord),
+// print nothing on standard output and exit 1. It is not a test, and it reaches the network: it
+// measures the site it is given.
 // Usage: node scripts/audit-site.mjs [--base <origin>] [--runs <n>]
 import { mkdirSync, writeFileSync } from "node:fs";
 import { loadavg } from "node:os";
