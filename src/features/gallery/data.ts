@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import type { PaletteName, PresetId, RoleName, TypeStepName } from "@/engine";
 import galleryJson from "./gallery.json";
+import { typeName } from "./links";
 import type { GalleryTag, TagChoice } from "./tags";
 
 // The gallery's committed entries (R6-08) and the reads over them. This file imports no engine, spec or
@@ -87,11 +88,6 @@ const TAG_CHOICES: readonly string[] = [
 const DESCRIPTION_MIN = 50;
 const DESCRIPTION_MAX = 160;
 
-function typeName(value: unknown): string {
-  if (value === null) return "null";
-  return Array.isArray(value) ? "array" : typeof value;
-}
-
 /** The entry with `slug`, or null for an unknown slug. */
 export function entryOf(slug: string): GalleryEntry | null {
   if (typeof slug !== "string") {
@@ -119,11 +115,39 @@ export function galleryRoutes(): readonly `/gallery/${string}`[] {
   return GALLERY.entries.map((entry) => `/gallery/${entry.slug}` as const);
 }
 
+const isObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value);
+
 function describeEntry(entry: GalleryEntry, caller: string): string {
-  if (typeof entry !== "object" || entry === null || Array.isArray(entry)) {
+  if (!isObject(entry)) {
     throw new TypeError(`${caller}: entry must be an object, got ${typeName(entry)}`);
   }
-  const { requiredPass, required } = entry.summary.contrast;
+  const { summary } = entry;
+  if (!isObject(summary)) {
+    throw new TypeError(`${caller}: entry.summary must be an object, got ${typeName(summary)}`);
+  }
+  const { contrast } = summary;
+  if (!isObject(contrast)) {
+    throw new TypeError(
+      `${caller}: entry.summary.contrast must be an object, got ${typeName(contrast)}`,
+    );
+  }
+  const fields = { requiredPass: contrast.requiredPass, required: contrast.required };
+  for (const [field, value] of Object.entries(fields)) {
+    if (typeof value !== "number") {
+      throw new TypeError(
+        `${caller}: entry.summary.contrast.${field} must be a number, got ${typeName(value)}`,
+      );
+    }
+  }
+  for (const [field, value] of Object.entries(fields)) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new RangeError(
+        `${caller}: entry.summary.contrast.${field} must be a whole number of at least 0, got ${value}`,
+      );
+    }
+  }
+  const { requiredPass, required } = fields;
   const text = `${entry.line} ${requiredPass} of ${required} required contrast checks pass.`;
   if (text.length < DESCRIPTION_MIN || text.length > DESCRIPTION_MAX) {
     throw new RangeError(

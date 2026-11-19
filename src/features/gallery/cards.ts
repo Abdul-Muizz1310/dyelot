@@ -1,5 +1,6 @@
 import cardsJson from "./cards.json";
 import type { GalleryData } from "./data";
+import { typeName } from "./links";
 
 /** One entry's share-card data (R6-09). This file imports no engine code (C-GUARD6-05). */
 export type GalleryCard = {
@@ -18,11 +19,6 @@ const PALETTES = ["primary", "secondary", "accent", "neutral", "danger"] as cons
 /** The step-500 hex in a specimen row of steps 100, 300, 500, 700 and 900. */
 const MIDDLE = 2;
 
-function typeName(value: unknown): string {
-  if (value === null) return "null";
-  return Array.isArray(value) ? "array" : typeof value;
-}
-
 /** `cards.json` as committed; C-CARD6-02 rebuilds and compares it. */
 export const GALLERY_CARDS: GalleryCards = cardsJson;
 
@@ -34,8 +30,12 @@ export function galleryCards(data: GalleryData): GalleryCards {
   return {
     cards: data.entries.map((entry) => {
       const rows = entry.specimen;
-      const ordered =
-        Array.isArray(rows) && PALETTES.every((palette, i) => rows[i]?.palette === palette);
+      if (!Array.isArray(rows)) {
+        throw new TypeError(
+          `galleryCards: the specimen of "${entry.slug}" must be an array, got ${typeName(rows)}`,
+        );
+      }
+      const ordered = PALETTES.every((palette, i) => rows[i]?.palette === palette);
       if (!ordered || rows.length !== PALETTES.length) {
         throw new RangeError(
           `galleryCards: the specimen of "${entry.slug}" must hold ${PALETTES.join(", ")} in order`,

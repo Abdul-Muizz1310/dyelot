@@ -1,14 +1,15 @@
 /** The pages a gallery design opens in (R6-14). */
 export type LinkPage = "studio" | "explore" | "motion";
 
-const PAGES: readonly string[] = ["studio", "explore", "motion"];
+/** The pages a gallery design opens in, in the order the entry page lists them (R7-10). */
+export const LINK_PAGES: readonly LinkPage[] = Object.freeze(["studio", "explore", "motion"]);
 /** The longest link the studio reads (65,536 characters). */
 const LINK_MAX = 65_536;
 const LINK = /^[A-Za-z0-9_-]+$/;
 /** R6-12's slug pattern. */
-const SLUG = /^[a-z]+(-[a-z]+)*$/;
+export const SLUG = /^[a-z]+(-[a-z]+)*$/;
 
-function typeName(value: unknown): string {
+export function typeName(value: unknown): string {
   if (value === null) return "null";
   return Array.isArray(value) ? "array" : typeof value;
 }
@@ -19,8 +20,16 @@ function typeCheckPage(page: unknown, caller: string): void {
   }
 }
 
+/** Whether `page` is one of the pages a gallery design opens in. */
+export function isLinkPage(page: string): page is LinkPage {
+  if (typeof page !== "string") {
+    throw new TypeError(`isLinkPage: page must be a string, got ${typeName(page)}`);
+  }
+  return (LINK_PAGES as readonly string[]).includes(page);
+}
+
 function domainCheckPage(page: string, caller: string): void {
-  if (!PAGES.includes(page)) {
+  if (!isLinkPage(page)) {
     throw new RangeError(`${caller}: page must be studio, explore or motion, got "${page}"`);
   }
 }

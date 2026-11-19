@@ -16,15 +16,16 @@ import {
 } from "@/engine";
 import { HERO_PARAMS, heroSpec } from "@/features/landing/heroes";
 import { STORY_ROLES } from "@/features/landing/story";
+import { isRecord } from "@/features/studio/guards";
 import { mergeParams } from "@/features/studio/params";
-import { type DesignSpec, encodeSpec, lotTag, specId } from "@/spec";
+import { type DesignSpec, encodeSpec, isPlainText, lotTag, specId } from "@/spec";
 import type { GalleryData, GalleryEntry, SpecimenPalette } from "./data";
 import { type BriefDef, GALLERY_DEFS, type GalleryDef } from "./defs";
+import { SLUG, typeName } from "./links";
 
 /** The three names of the AI core the builder calls. `@/ai` is named in `import type` only (C-GUARD6-06). */
 export type GalleryAi = Pick<typeof AiModule, "briefColors" | "matchLexicon" | "briefChange">;
 
-const SLUG = /^[a-z]+(-[a-z]+)*$/;
 const AI_NAMES = ["briefColors", "matchLexicon", "briefChange"] as const;
 const SPECIMEN: readonly SpecimenPalette[] = [
   "primary",
@@ -36,14 +37,6 @@ const SPECIMEN: readonly SpecimenPalette[] = [
 const SPECIMEN_STEPS = [100, 300, 500, 700, 900];
 /** The steps that take the display family, as the DTCG export assigns them (app code cannot import `@/export`). */
 const HEADING_STEPS: readonly string[] = ["display", "h1", "h2", "h3", "h4"];
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value);
-
-function typeName(value: unknown): string {
-  if (value === null) return "null";
-  return Array.isArray(value) ? "array" : typeof value;
-}
 
 function needRecord(value: unknown, path: string, caller: string): void {
   if (!isRecord(value)) {
@@ -83,9 +76,28 @@ export function briefSpec(
       throw new TypeError(`briefSpec: def.${field} must be a string, got ${typeName(def[field])}`);
     }
   }
-  if (!SLUG.test(def.slug)) {
+  const { name, slug, brief } = def;
+  if (!/^[A-Za-z]+(?: [A-Za-z]+)*$/.test(name) || name.length > 18) {
     throw new RangeError(
-      `briefSpec: def.slug must be lowercase words joined by hyphens, got "${def.slug}"`,
+      `briefSpec: the name of "${slug}" must be 1 to 18 letters and single spaces, got "${name}"`,
+    );
+  }
+  if (slug !== name.toLowerCase().replaceAll(" ", "-")) {
+    throw new RangeError(
+      `briefSpec: the slug "${slug}" must be the name in lowercase with hyphens`,
+    );
+  }
+  if (!isPlainText(brief)) {
+    throw new RangeError(`briefSpec: the brief of "${slug}" must be plain text`);
+  }
+  if (brief.length < 30 || brief.length > 100) {
+    throw new RangeError(
+      `briefSpec: the brief of "${slug}" must have 30 to 100 characters, got ${brief.length}`,
+    );
+  }
+  if (!brief.endsWith(".") || brief.indexOf(".") !== brief.length - 1) {
+    throw new RangeError(
+      `briefSpec: the brief of "${slug}" must be one sentence ending in a period`,
     );
   }
   const { seeds, rest } = ai.briefColors(def.brief);
