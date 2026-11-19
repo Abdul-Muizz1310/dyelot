@@ -16,6 +16,9 @@ type CopyState = { readonly kind: "idle" | "copied" | "blocked" };
 
 export function CopyLink({ link }: { link: string }) {
   const [state, setState] = useState<CopyState>({ kind: "idle" });
+  // The status line's text, apart from `state`: each press clears it before the write, so the next
+  // announcement is a new change in the live region (R7-11).
+  const [message, setMessage] = useState("");
   const field = useRef<HTMLInputElement>(null);
 
   // Each refusal is a new state object, so a second press selects the link again.
@@ -26,12 +29,15 @@ export function CopyLink({ link }: { link: string }) {
   }, [state]);
 
   async function copy(): Promise<void> {
+    setMessage("");
     try {
       await navigator.clipboard.writeText(link);
       setState({ kind: "copied" });
+      setMessage(COPIED);
     } catch {
       // A refused write, or no clipboard at all: the link goes in the field instead.
       setState({ kind: "blocked" });
+      setMessage(BLOCKED);
     }
   }
 
@@ -41,7 +47,7 @@ export function CopyLink({ link }: { link: string }) {
         Copy the studio link
       </button>
       <p role="status" className="min-h-5 text-sm">
-        {state.kind === "copied" ? COPIED : state.kind === "blocked" ? BLOCKED : ""}
+        {message}
       </p>
       {state.kind === "blocked" && (
         <input
