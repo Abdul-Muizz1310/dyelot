@@ -22,7 +22,8 @@
     "test:e2e": "playwright test",
     "test:fast": "vitest run --project core --project web",
     "gate": "pnpm lint && pnpm typecheck && pnpm test:fast && pnpm test:e2e",
-    "gate:full": "pnpm lint && pnpm typecheck && pnpm vitest run --coverage && pnpm test:e2e"
+    "gate:full": "pnpm lint && pnpm typecheck && pnpm vitest run --coverage && pnpm test:e2e",
+    "data:update": "DYELOT_UPDATE_GALLERY=1 DYELOT_UPDATE_HEROES=1 vitest run --project web --project web-slow tests/unit/features/gallery/data.test.ts tests/unit/features/gallery/cards.test.ts tests/unit/features/landing/receipt.test.ts tests/unit/features/landing/heroes.test.ts -t rewrites"
   },
   "dependencies": {
     "@csstools/css-color-parser": "4.2.7",
