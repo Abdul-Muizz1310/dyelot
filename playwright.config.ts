@@ -36,8 +36,8 @@ export default defineConfig({
     // budget or a harness timeout, one at a time after the Lighthouse runs, beside no other browser.
     // To rerun them alone: `pnpm exec playwright test --project timed --no-deps`. A run filtered by
     // file or `--grep` that selects a timed flow also runs every `chromium` and `lighthouse` test, its
-    // dependencies; to stay narrow, run `--project chromium <files>`, then `--project timed --no-deps
-    // <files>`.
+    // dependencies; to stay narrow, run `<files> --project chromium`, then `<files> --project timed
+    // --no-deps` (the files first: `--project` takes a list, so a file after it reads as a project).
     {
       name: "timed",
       use: DESKTOP,
