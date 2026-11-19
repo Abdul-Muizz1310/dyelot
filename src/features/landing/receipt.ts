@@ -96,6 +96,23 @@ export function receiptLines(excerpt: ReceiptExcerpt): readonly string[] {
     requiredPass: summary.contrast.requiredPass,
     errors: summary.lint.error,
   };
+  const strings = {
+    name,
+    format,
+    "contrast.foreground": contrast.foreground,
+    "contrast.background": contrast.background,
+    "contrast.mode": contrast.mode,
+  };
+  for (const [key, value] of Object.entries(strings)) {
+    if (typeof value !== "string") {
+      throw new TypeError(`receiptLines: ${key} must be a string, got ${typeName(value)}`);
+    }
+  }
+  if (finding !== null && !isRecord(finding)) {
+    throw new TypeError(
+      `receiptLines: finding must be an object or null, got ${typeName(finding)}`,
+    );
+  }
   for (const [key, value] of Object.entries(counts)) {
     if (typeof value !== "number") {
       throw new TypeError(`receiptLines: ${key} must be a number, got ${typeName(value)}`);
