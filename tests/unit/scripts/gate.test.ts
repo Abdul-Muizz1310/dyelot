@@ -345,26 +345,46 @@ function carriesTimedTag(options: ts.Expression | undefined): boolean {
   });
 }
 
-type TaggedTest = { file: string; title: string; inDescribe: boolean };
+/**
+ * A call's name from the syntax tree, `test.describe.serial` for `test.describe\n  .serial(…)`, so
+ * the formatter's line breaks do not change it; null for anything but names joined by dots.
+ */
+function calleeName(node: ts.Expression): string | null {
+  if (ts.isIdentifier(node)) return node.text;
+  if (!ts.isPropertyAccessExpression(node)) return null;
+  const base = calleeName(node.expression);
+  return base === null ? null : `${base}.${node.name.text}`;
+}
+
+/** A title's text: a string's, a template's source, or "" for anything else, such as a callback. */
+function titleOf(node: ts.Expression | undefined, tree: ts.SourceFile): string {
+  if (node === undefined) return "";
+  if (ts.isStringLiteralLike(node)) return node.text;
+  return ts.isTemplateExpression(node) ? node.getText(tree) : "";
+}
+
+type TaggedCall = { file: string; call: string; title: string; inDescribe: boolean };
 
 /**
- * The `test` calls of `source` that carry TIMED_TAG, by their options or in their title, read from
- * the syntax tree, each with whether a `test.describe` call holds it.
+ * The `test` and `test.describe` calls of `source` that carry TIMED_TAG, by their options or in
+ * their title, read from the syntax tree, each with its name and whether a `test.describe` call
+ * holds it. A tagged describe moves every test inside it into `timed`, so it counts too.
  */
-function timedTagged(source: string, file: string): TaggedTest[] {
+function timedTagged(source: string, file: string): TaggedCall[] {
   const tree = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
-  const found: TaggedTest[] = [];
+  const found: TaggedCall[] = [];
   const visit = (node: ts.Node, inDescribe: boolean): void => {
     let inside = inDescribe;
     if (ts.isCallExpression(node)) {
-      const name = node.expression.getText(tree);
+      const call = calleeName(node.expression) ?? "";
       const [title, options] = node.arguments;
-      const text =
-        title === undefined ? "" : ts.isStringLiteralLike(title) ? title.text : title.getText(tree);
-      if (DESCRIBE_TITLE.test(name)) inside = true;
-      else if (E2E_TITLE.test(name) && (carriesTimedTag(options) || text.includes(TIMED_TAG))) {
-        found.push({ file: path.relative(E2E_DIR, file), title: text, inDescribe });
+      const text = titleOf(title, tree);
+      const describe = DESCRIBE_TITLE.test(call);
+      const tagged = carriesTimedTag(options) || text.includes(TIMED_TAG);
+      if ((describe || E2E_TITLE.test(call)) && tagged) {
+        found.push({ file: path.relative(E2E_DIR, file), call, title: text, inDescribe });
       }
+      if (describe) inside = true;
     }
     ts.forEachChild(node, (child) => visit(child, inside));
   };
@@ -410,6 +430,7 @@ describe("C-SER7-02 the timed list selects section 7's flows and nothing else", 
     expect(files.flatMap((file) => timedTagged(read(file), file))).toEqual([
       {
         file: "templates.spec.ts",
+        call: "test",
         title:
           "F-TPL-39 every painted color is named on a design whose 46 role colors are distinct",
         inDescribe: false,
