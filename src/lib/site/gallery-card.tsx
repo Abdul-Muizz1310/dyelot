@@ -42,7 +42,8 @@ const LINE_COLUMNS = Math.floor(CONTENT_WIDTH / (LINE_PX * GLYPH_ADVANCE));
 
 const BLOCK = { width: 200, height: 96 } as const;
 
-const MOSAIC_HEADLINE = "24 design systems, each with its receipt";
+/** The headline's two lines (R7-12): the break leaves no word alone on the second. */
+const MOSAIC_LINES = ["24 design systems,", "each with its receipt"] as const;
 const MOSAIC_HIGHLIGHT = "receipt";
 const HEADLINE_PX = 56;
 const TILES_PER_ROW = 6;
@@ -269,8 +270,7 @@ export function MosaicShareCard({ cards, icon }: { cards: readonly GalleryCard[]
         <div
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            columnGap: HEADLINE_PX * GLYPH_ADVANCE,
+            flexDirection: "column",
             rowGap: Math.round(HEADLINE_PX * 0.14),
             fontSize: HEADLINE_PX,
             fontWeight: 700,
@@ -278,10 +278,14 @@ export function MosaicShareCard({ cards, icon }: { cards: readonly GalleryCard[]
             letterSpacing: TRACKING,
           }}
         >
-          {MOSAIC_HEADLINE.split(" ").map((word) => (
-            <span key={word} style={word === MOSAIC_HIGHLIGHT ? { color: SITE.accent } : {}}>
-              {word}
-            </span>
+          {MOSAIC_LINES.map((line) => (
+            <div key={line} style={{ display: "flex", columnGap: HEADLINE_PX * GLYPH_ADVANCE }}>
+              {line.split(" ").map((word) => (
+                <span key={word} style={word === MOSAIC_HIGHLIGHT ? { color: SITE.accent } : {}}>
+                  {word}
+                </span>
+              ))}
+            </div>
           ))}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: MOSAIC_GAP }}>

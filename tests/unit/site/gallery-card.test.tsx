@@ -9,7 +9,13 @@ import {
   MosaicShareCard,
   SHARE_CARD_SIZE,
 } from "@/lib/site/gallery-card";
-import { CONTENT_WIDTH, GLYPH_ADVANCE, INK, wrapLines } from "@/lib/site/share-card";
+import {
+  CONTENT_WIDTH,
+  GLYPH_ADVANCE,
+  INK,
+  LETTER_SPACING_EM,
+  wrapLines,
+} from "@/lib/site/share-card";
 import { wordProblems } from "../support/gallery";
 
 // The gallery's share cards (docs/specs/06-gallery.md, 8.1 and 8.2, section 14.3). Each card is read
@@ -218,6 +224,46 @@ describe("C-CARD6-RF4 every card fits its lines (RF4, R6-12, R6-18)", () => {
     const brief = "A calm study in slate, rope and harbor light.";
     expect(wordProblems({ name, slug: name.toLowerCase(), brief, line: brief })).toEqual([
       `name "${name}" is not 1 to 18 letters and single spaces`,
+    ]);
+  });
+});
+
+describe("C-CARD7-01 the mosaic headline sets two balanced lines (R7-12)", () => {
+  const root = tree(MosaicShareCard({ cards: GALLERY_CARDS.cards, icon: ICON }));
+
+  it("C-CARD7-01 is a column of two flex rows, 8 px apart, with receipt alone in madder", () => {
+    const headline = boxes(root).find((box) => box.style.fontSize === 56);
+    expect(headline?.style).toMatchObject({ display: "flex", flexDirection: "column", rowGap: 8 });
+    const lines = (headline?.children ?? []) as Box[];
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(line.style).toMatchObject({
+        display: "flex",
+        columnGap: 56 * GLYPH_ADVANCE,
+      });
+    }
+    const lineTexts = lines.map((line) =>
+      texts(line.children)
+        .map((run) => run.text)
+        .join(" "),
+    );
+    expect(lineTexts).toEqual(["24 design systems,", "each with its receipt"]);
+    const columns = Math.floor(CONTENT_WIDTH / (56 * GLYPH_ADVANCE));
+    expect(columns).toBe(32);
+    for (const text of lineTexts) {
+      expect(text.length).toBeLessThanOrEqual(columns);
+      expect(text.split(" ").length).toBeGreaterThan(1);
+    }
+    const runs = texts(headline?.children ?? []);
+    for (const run of runs) {
+      expect(run.style).toMatchObject({
+        fontWeight: 700,
+        fontSize: 56,
+        letterSpacing: `${LETTER_SPACING_EM}em`,
+      });
+    }
+    expect(runs.filter((run) => run.style.color === SITE.accent).map((r) => r.text)).toEqual([
+      "receipt",
     ]);
   });
 });
