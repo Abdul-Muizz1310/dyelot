@@ -233,6 +233,7 @@ describe("receiptLines checks what it prints (R7-14)", () => {
   it("C-REC7-01 a string name with a whole-number domain error still reports the type first", () => {
     const bad = { ...RECEIPT_EXCERPT, name: 5, checks: 1.5 } as unknown as ReceiptExcerpt;
     expect(() => receiptLines(bad)).toThrow(TypeError);
+    expect(() => receiptLines(bad)).toThrow(/^receiptLines: name must be/);
   });
 
   it('C-REC7-01 receiptExcerpt("5") is a RangeError', () => {
