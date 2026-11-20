@@ -197,7 +197,7 @@ test("F-A11Y6-04 each new page has one h1 and never skips a heading level", asyn
   for (const path of ["/gallery", "/gallery/kermes", "/about", "/"]) {
     await page.goto(path);
     const headings = await headingsOf(page);
-    expect(headings.filter((heading) => heading.level === 1).length, `${path}: h1 count`).toBe(1);
+    await expect(page.locator("h1:visible"), path).toHaveCount(1);
     expect(headings[0]?.level, `${path}: first`).toBe(1);
     headings.forEach((heading, i) => {
       if (i === 0) return;
