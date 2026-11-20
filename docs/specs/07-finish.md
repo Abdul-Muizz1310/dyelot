@@ -7,13 +7,30 @@
 > (`sdd-archive/task-*-review-r*.md`). Every code fact below was read on `main` at `54f0a60` on 2026-11-17; where a fact
 > needs a run, a browser or the network, section 12 makes it a probe of Task 7.0, or records the controller's run.
 
-Status: draft of 2026-11-17, revised the same day after one independent review (1 Critical, 9 Important and 12 Minor
-findings, each fixed in this text), for the owner's approval. No plan, lane or code starts before the owner approves it.
-The Langfuse check (R7-23) and the on-device eval (R7-22) are the controller's records, taken with the owner's leave.
+Status: done. The owner approved the spec on 2026-11-17 (section 21), every recommendation accepted. M7 merges to `main`
+in one pull request, "fix: close M6's residuals and pass each gate in one run (M7)"; its number and merge commit are
+recorded in the meta-repo's `knowledge/products/product-dyelot.md`. The close gates passed: `pnpm gate:full` in 27 min
+33 s and `pnpm gate` in 10 min 49 s, each in one run with no rerun. The final review counted 0 Critical, 1 Important and
+4 Minor findings. The 22 case ids of section 14 each name a test, which C-GUARD7-01 checks: 22 of 22. The Langfuse check
+(R7-23) and the on-device eval (R7-22) are the controller's records, taken with the owner's leave.
 
 Close note: the Langfuse check is done (R7-23): on 2026-11-17 one "Read the brief" on the deployed studio left trace
-`dd753fbc`, read through Langfuse's v2 observations endpoint. {{M7_EVAL}} The rest is written at the close (R7-21,
-R7-24, R7-25): the dependency pull request, the gate times and load averages, and the review counts.
+`dd753fbc`, read through Langfuse's v2 observations endpoint. The on-device eval ran on 2026-11-17 (R7-22): `pnpm dev`
+on `main` at `54f0a60`, `/dev/on-device-eval` in the installed Chrome 157 through Playwright's
+`launchPersistentContext`, headless, with the four default switches dropped, on a throwaway profile holding the built-in
+model (4.2 GB, deleted after the record). It ran from 12:03 to 12:11 UTC, 8.3 minutes on the CPU of a 16-core machine
+with no discrete GPU, and the page's result line reads "Passed every check: 24 of 24 (100%). JSON: 24 of 24. Schema: 24
+of 24. Engine: 24 of 24." with 0 page errors, so the pass rate over `EVAL_BRIEFS` is 24 of 24 in JSON, schema and engine
+(R4-32). "(experimental)" stays; removing it is the owner's decision. The dependency pull request (R7-21) is #13, merged
+on 2026-11-17 at 12:57 UTC as `b310b3b`. The close gates: `pnpm gate:full` on `60de1c5` ran from 13:06:23 to 13:33:56
+(+05:00) on 2026-11-20, 27 min 33 s, with load averages of 2.59, 4.49 and 5.18 before and 3.84, 9.66 and 9.77 after:
+5,505 unit tests passed and 3 skipped in 294 files, coverage was 98.97% statements, 96.86% branches, 99.64% functions
+and 99.17% lines, and 600 flows passed in 9.4 minutes (561 in `chromium`, the 18 Lighthouse runs, and 21 in `timed`,
+whose tests took 84 s). `pnpm gate` ran from 13:33:56 to 13:44:45, 10 min 49 s, with load averages of 3.84, 9.66 and
+9.77 before and 3.99, 9.59 and 10.80 after: 5,283 unit tests and the same 600 flows passed. Neither had a failure, a
+flaky flow or a rerun. The final review counted 0 Critical, 1 Important and 4 Minor findings; the Important finding
+asked for three mutation runs, which were recorded, and three Minors and part of the fourth were fixed in one wave
+(`82bfa49` to `60de1c5`).
 
 On 2026-11-17 the owner ruled "Complete the dyelot": an M7 cleanup milestone that fixes the residual minors M6 shipped
 with, run as M6 ran (this spec, the owner's approval, a plan, then test-first lanes). Section 2 lists that ruling and the
@@ -744,7 +761,7 @@ line boxes of R7-12 do not change what it reads (Task 7.3's red run shows it).
 
 ## 21. Owner approval items
 
-Each item ends with a recommendation, the drafter's. The owner's answers (2026-11-17): the spec approved at `9aa7845`,
+Each item ends with a recommendation, the drafter's. The owner's answers (2026-11-17): the spec approved at `cd7ba0f` (`9aa7845` before the rebase onto the deps merge),
 with every recommendation accepted: item 1 option A (the `timed` project), item 2 option B (two balanced lines), and
 items 3, 4 and 6 as written; item 5 noted.
 

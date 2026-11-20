@@ -1284,6 +1284,9 @@ mosaic of four rows of six tiles in `GALLERY_DEFS` order, each tile 160 × 40 px
 equal bands, with 12 px gaps. The parts sit 8 px apart, with -0.02 em tracking on the headline, as R6-18's ruling
 records. `MOSAIC_ALT` is "dyelot's gallery: 24 design systems, each shown as five of its colors."
 
+Amended in M7 (R7-12, R7-27): the headline sets two lines, "24 design systems," and "each with its receipt", with the
+same words, size and height.
+
 ## 9. The landing (Task 6.6)
 
 ### 9.1 The start-from section
@@ -1347,6 +1350,9 @@ the links share one row, as today. Below 640 px the links' row takes `flex-wrap`
 column gap of 12 px, at most two rows; the nav's height is `min-h-14` instead of `h-14`, with 4 px of vertical padding; the
 active link's underline sits 2 px below its own box (`after:-bottom-[2px]`) instead of on the nav's border. The 404 page
 marks no link (M0's test "the nav marks no link as current on the 404 page" stands).
+
+Amended in M7 (R7-27): from 640 px the active mark keeps M5's place on the nav's border, `sm:after:-bottom-[11px]`, which
+the code does and F-NAV6-01 checks.
 
 `src/app/sitemap.ts` returns `sitemapEntries(SITE, galleryRoutes())`, so `/sitemap.xml` lists `/`, `/studio`, `/explore`,
 `/motion`, `/gallery`, `/about` and then the 24 entry pages. `sitemapEntries(site, more = [])` is a `TypeError` for a

@@ -11,6 +11,8 @@
 > M5 sync (2026-11-06): where the M5 spec, `docs/specs/05-motion-3d.md`, refines this document, the sentence carries a note in italics that starts "Refined in M5". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 >
 > M6 sync (2026-11-13): where the M6 spec, `docs/specs/06-gallery.md`, refines this document, the sentence carries a note in italics that starts "Refined in M6". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
+>
+> M7 sync (2026-11-20): where the M7 spec, `docs/specs/07-finish.md`, refines this document, the sentence carries a note in italics that starts "Refined in M7". Its refinement table (section 1, "Where this spec refines the umbrella") lists each change with the reason. The rest of the text is unchanged.
 
 # dyelot — a palette becomes a design system your coding agent can build
 
@@ -328,7 +330,7 @@ export ≥ 90%.
 | Spec | Rejects unknown versions, out-of-range values and missing roles; canonical serialization is stable; URL codec round-trips; a tampered or truncated hash fails with a message, never a blank studio |
 | Export | Golden files per preset; byte-identical output for the same spec; DTCG validates against the 2025.10 schemas; DESIGN.md lints with 0 errors; TOON round-trips; the registry item validates against shadcn's schema; `dyelot-check.mjs` passes on a clean fixture app and fails on raw hex, `bg-blue-500` and a tampered `theme.css`. *Refined in M3: goldens for the 14 presets and one import, and the validators run on vendored schemas with no network (R3-27, R3-28).* |
 | AI | Out-of-range model output is rejected; provider order; labeled fallback on every failure; the guard refuses below the reserve; a schema failure never retries; PKCE state mismatch is rejected; the visitor key never appears in a request to our origin; on-device unavailable falls through *Refined in M4: section 14 of the M4 spec holds the cases, with a local mock of OpenRouter and Playwright interception, and no network in any test (R4-58).* |
-| UI and flows (Playwright) | Color → system → export zip; brief (model mocked at the route) → system; image → palette; import DESIGN.md → preview → export; share link restores the exact spec; undo and redo; locks survive regenerate; reduced motion stops every animation; axe finds no violations on every route *Refined in M6: also Lighthouse's accessibility score of at least 95 on every public route at desktop and mobile, gated in the end-to-end suite (R6-44).* |
+| UI and flows (Playwright) | Color → system → export zip; brief (model mocked at the route) → system; image → palette; import DESIGN.md → preview → export; share link restores the exact spec; undo and redo; locks survive regenerate; reduced motion stops every animation; axe finds no violations on every route *Refined in M6: also Lighthouse's accessibility score of at least 95 on every public route at desktop and mobile, gated in the end-to-end suite (R6-44).* *Refined in M7: the load family's flows run in a `timed` project, one at a time after the parallel flows and Lighthouse, so a gate passes in one run (R7-04).* |
 | Motion and 3D | WebGL missing shows the fallback; context loss swaps in the poster; video export is hidden where `canRenderMediaOnWeb()` fails *Refined in M5: section 14 of the M5 spec holds the cases, and every flow asserts state, never frame counts or timing (R5-62).* |
 
 ## 14. Milestones
@@ -345,6 +347,7 @@ code. This document stays the umbrella; a milestone spec may refine it but must 
 | M4 | AI: lexicon and chips, shared-quota route with guard and cache, on-device, visitor key, image extraction | Mocked flows pass; one live smoke call per slug within budget *Refined in M4: section 20 of the M4 spec adds the on-device eval record and a hand smoke on the deployed site.* |
 | M5 | Hero shader, explorer, motion lab, view transitions, scroll story, Remotion preview and export, Mediabunny loop, flavor exports | Fallback and reduced-motion cases pass *Refined in M5: section 20 of the M5 spec adds the hand check on the deployed site with one real render (R5-65).* |
 | M6 | Gallery, landing polish, share cards, performance and accessibility audits (Lighthouse accessibility ≥ 95), README, knowledge-graph product node | Deployed with the owner's OK; live flows checked *Refined in M6: the owner's merge-when-green ruling of 2026-11-04 is the OK, and section 20 of the M6 spec lists the live checks (R6-58).* |
+| M7 | The finishing pass: M6's residuals, one-run gates, the close records | Both gates pass in one run and the close records are written *Refined in M7: section 20 of the M7 spec lists what is done (R7-25).* |
 
 ## 15. Out of scope for v1
 
