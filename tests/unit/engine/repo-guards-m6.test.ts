@@ -9,6 +9,7 @@ import { brandDescription, FLAVOR_LINES } from "@/features/flavor/video";
 import { RECEIPT_EXCERPT, RECEIPT_LINES, receiptLines } from "@/features/landing/receipt";
 import { START_LINES } from "@/features/landing/start";
 import { TEMPLATE_LINES } from "@/features/preview/templates/load";
+import { NEVER_USE_HOSTS } from "@/lib/site/define";
 import { GALLERY_CARD_ALT, MOSAIC_ALT } from "@/lib/site/gallery-card";
 import vitestConfig from "../../../vitest.config";
 import { m6CopyProblems } from "../support/copy-m6";
@@ -987,7 +988,8 @@ describe("C-GUARD6-12 no M6 words name the perceptual formula or a never-use hos
     for (const text of ["An APCA score", "the apca check", "Apca-W3"]) {
       expect(nameProblems(text), text).toEqual(["the perceptual score's trade name"]);
     }
-    for (const host of ["bastion.vercel.app", "abdulmuizz.dev"]) {
+    expect(NEVER_USE_HOSTS.size).toBe(6);
+    for (const host of [...NEVER_USE_HOSTS]) {
       expect(nameProblems(`See ${host.toUpperCase()} for more.`), host).toEqual([
         `never-use host "${host}"`,
       ]);

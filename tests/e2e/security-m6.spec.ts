@@ -1,4 +1,5 @@
 import { expect } from "@playwright/test";
+import { entryHref } from "@/features/gallery/links";
 import { GALLERY_DATA } from "../unit/support/gallery";
 import { test } from "./flavor-support";
 import {
@@ -140,13 +141,13 @@ test.describe("R6-49 no new surface", () => {
     request,
   }) => {
     const locations = new Map<string, string>();
-    for (const { slug } of GALLERY_DATA.entries) {
+    for (const { slug, link } of GALLERY_DATA.entries) {
       for (const page of OPEN_PAGES) {
         const path = `/gallery/${slug}/open/${page}`;
         const response = await request.get(path, { maxRedirects: 0 });
         expect(response.status(), path).toBe(307);
         const location = response.headers().location ?? "";
-        expect(location.startsWith(`/${page}#s=`), `${path}: ${location.slice(0, 40)}`).toBe(true);
+        expect(location, path).toBe(entryHref(page, link));
         locations.set(path, location);
       }
     }
