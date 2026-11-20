@@ -1,7 +1,7 @@
 # 🎨 `dyelot`
 
 > 🧾 **A palette becomes a design system your coding agent can build.**
-> M0 to M6 are done: the shell, a tested color engine and spec model, the studio, the export bundle with its receipt, checker and import, the AI layer, motion and 3D, and the gallery and finishing: 24 original design systems with share cards, a landing that starts a design four ways, an About page, and Lighthouse in the test suite. Launch copy is the owner's.
+> M0 to M7 are done: the shell, a tested color engine and spec model, the studio, the export bundle with its receipt, checker and import, the AI layer, motion and 3D, and the gallery and finishing: 24 original design systems with share cards, a landing that starts a design four ways, an About page, and Lighthouse in the test suite, then a finishing pass that fixed M6's residuals and made each gate pass in one run. Launch copy is the owner's.
 
 📖 [Why](WHY.md) · 📐 [Design spec](docs/specs/00-design.md) · 🧮 [Engine spec](docs/specs/01-color-engine.md) · 🎛️ [Studio spec](docs/specs/02-studio.md) · 📦 [Export spec](docs/specs/03-export.md) · 🤖 [AI spec](docs/specs/04-ai.md) · 🎞️ [Motion and 3D spec](docs/specs/05-motion-3d.md) · 🖼️ [Gallery spec](docs/specs/06-gallery.md) · 🏗️ [Architecture](docs/specs/00-design.md#3-architecture) · 🗺️ [Milestones](docs/specs/00-design.md#14-milestones)
 
@@ -135,8 +135,12 @@ On Vercel Production the primary and vision-1 slugs are `gemma-4-26b` and the fa
 `nemotron-3.5-super-vl`; the fallback and vision-3 slugs are unset. Preview deployments have none of the AI variables, so
 previews use the rule-based paths.
 
-The on-device eval was not run: no Chrome with the built-in model was available in the session. Its page,
-`/dev/on-device-eval`, exists in development builds only, and the switch stays labeled "(experimental)".
+The on-device eval did not run in M4: no Chrome with the built-in model was available in that session. It ran in M7, on
+2026-11-17, through `/dev/on-device-eval` (a page in development builds only) in the installed Chrome 157, driven by
+Playwright on a throwaway profile holding the built-in model, in 8.3 minutes on the CPU of a 16-core machine. The page's
+result line reads "Passed every check: 24 of 24 (100%). JSON: 24 of 24. Schema: 24 of 24. Engine: 24 of 24." with 0 page
+errors. The switch stays labeled "(experimental)": removing the label is the owner's decision. The record is in the
+close note of the [M7 spec](docs/specs/07-finish.md).
 
 ---
 
@@ -159,7 +163,7 @@ a sentence. The [motion and 3D spec](docs/specs/05-motion-3d.md) has every rulin
 
 - **Remotion is not MIT.** It is source-available under its own license: free for individuals and for companies of up to 3 people, and companies of 4 or more people need a Remotion Company License. The terms are at [remotion.pro/license](https://remotion.pro/license). dyelot uses it as an individual's project with `licenseKey: "free-license"`. The exported `flavor/remotion/` source carries a "Built with Remotion" header, and its README says the same
 - **Mediabunny is MPL-2.0**, used unmodified
-- **The 2D simplex noise** in `src/flavor/flavor.mjs` is adapted from stegu/webgl-noise under the MIT license, with its notice kept in the file and in the export
+- **The 2D simplex noise** in `src/flavor/flavor.mjs` is the simplex noise of webgl-noise by Ian McEwan and Ashima Arts, from stegu/webgl-noise, under the MIT license; its notice is kept in the code and in the export
 - **dyelot's own code stays MIT**
 
 ### Privacy of the brand video
@@ -382,6 +386,7 @@ pnpm dev          # http://localhost:3000
 | `pnpm test:fast` | The unit tests outside the slow set: the Vitest projects `core` and `web` |
 | `pnpm vitest run --coverage` | Every unit test with the coverage floors enforced |
 | `pnpm test:e2e` | Builds, serves on port 3100 and runs Playwright on Chromium |
+| `pnpm data:update` | Rewrites the four committed data files at once and exits 0: `gallery.json`, `cards.json`, `receipt-excerpt.json` and `hero-cards.json` (9.1 of the M7 spec) |
 | `pnpm gate` | Lint, typecheck, `pnpm test:fast`, then `pnpm test:e2e`: the gate of each task |
 | `pnpm gate:full` | Lint, typecheck, every unit test with coverage, then `pnpm test:e2e`: the gate that closes a milestone. CI runs the same steps |
 | `node scripts/render-icons.mjs` | Renders `favicon.ico`, `apple-icon.png` and the three manifest PNGs from `src/app/icon.svg` with Playwright's Chromium |
@@ -413,13 +418,13 @@ directory to the icon script to write the files there instead of in place.
 
 | Metric | Value |
 |---|---|
-| Unit | 5,463 unit tests passed and 3 skipped in 292 files, in `tests/unit/` (one skipped test is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
+| Unit | 5,505 unit tests passed and 3 skipped in 294 files, in `tests/unit/` (one skipped test is an exhaustive sweep of all 16,777,216 8-bit seeds that runs only with `DYELOT_EXHAUSTIVE=1`). The pure core and the export and import layers run in plain Node, the rest in jsdom with Testing Library |
 | Slow set | The files listed in `vitest.config.ts` by their measured time alone: the property and scan tests that took 10 s or more. They run in the two slow projects and the `scan` project. `pnpm gate` leaves them to `pnpm gate:full` and CI |
-| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) [`03-export.md`](docs/specs/03-export.md) and [`04-ai.md`](docs/specs/04-ai.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows), and 224 of 224 in the M4 spec's section 14 (165 `C-` cases and 59 `F-` cases, checked by C-GUARD4-11). The M5 spec's section 14 lists 255 cases (163 `C-` cases and 92 `F-` cases) for the same rule, and the M6 spec's lists 172 (94 `C-` cases and 78 `F-` cases), 172 of 172 checked by C-GUARD6-01 |
+| Spec cases | Every case in [`01-color-engine.md`](docs/specs/01-color-engine.md), [`02-studio.md`](docs/specs/02-studio.md) [`03-export.md`](docs/specs/03-export.md) and [`04-ai.md`](docs/specs/04-ai.md) has a test that carries its id, such as `C-SCALE-02` or `F-TPL-40`: 344 of 344 at the M1 close, 467 of 467 at the M2 close (322 unit cases and 145 flows), 338 of 338 in the M3 spec's section 10 (287 unit cases and 51 flows), and 224 of 224 in the M4 spec's section 14 (165 `C-` cases and 59 `F-` cases, checked by C-GUARD4-11). The M5 spec's section 14 lists 255 cases (163 `C-` cases and 92 `F-` cases) for the same rule, and the M6 spec's lists 172 (94 `C-` cases and 78 `F-` cases), 172 of 172 checked by C-GUARD6-01. The M7 spec's lists 22 (20 `C-` cases and 2 `F-` cases), 22 of 22 checked by C-GUARD7-01 |
 | Goldens | 15 golden bundles (the 14 presets and the import of `shadcn-neutral.css`), pinned by `tests/golden/export/manifest.json` with each file's path, byte length and SHA-256. The `default` bundle holds 21 files and 409,581 bytes |
 | The generated-design grid | Before any export code existed, a test grid measured 3,808 designs from five fixed grids against the required checks: none threw and none raised a lint error. Its ten test files took 434.9 s in total when each ran alone on a 16-core machine |
 | Property tests | fast-check over arbitrary color strings, every parameter, random seeds, share-link tampering and the studio store's actions |
-| End to end | 598 end-to-end flows (577 passed in the run; the three timing flows that failed at a load average of 17, and the 18 Lighthouse runs that wait on them, passed alone) on Chromium against `next build` and `next start`, on `/`, `/studio`, `/explore`, `/motion`, `/gallery`, `/about` and the 404 page, with axe on each route, Lighthouse's accessibility score on 8 routes at two form factors, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
+| End to end | 600 end-to-end flows run once, with no rerun, in three Playwright projects: `chromium` in parallel, then `lighthouse`, then `timed` (21 load-bound flows, one worker, after `chromium` and `lighthouse`); they run on Chromium against `next build` and `next start`, on `/`, `/studio`, `/explore`, `/motion`, `/gallery`, `/about` and the 404 page, with axe on each route, Lighthouse's accessibility score on 8 routes at two form factors, on the export and import dialogs and on the inspector's Receipt section, and checks on the security headers |
 | Measured findings | The fix scan generates 576 designs (288 in sRGB and 288 in Display P3) and finds no C1, C5, N1 or F1 finding at AA. The preset sweep fits all 14 presets into the landing, editorial, dashboard and settings templates at 360 and 768 px and into the three mobile screens: 252 views, none with an overflow or a broken word |
 | Coverage scope | `src/engine/`, `src/spec/`, `src/theme/`, `src/export/`, `src/import/`, `src/lib/site/`, the canvas font loader and the 23 pure helper files of the studio, the preview, the export dialog and the import dialog. The end-to-end tier covers the components and routes |
 | Coverage floors | 80% lines and statements, 75% functions and 70% branches over that scope. `src/engine/`, `src/spec/`, `src/theme/`, the font loader and each pure helper hold 95% lines, statements and functions and 90% branches. `src/export/` and `src/import/` hold 90% and 85% |
@@ -428,16 +433,24 @@ directory to the icon script to write the files there instead of in place.
 | Coverage at the M4 close | 98.88% statements, 96.65% branches, 99.58% functions and 99.08% lines, from `pnpm gate:full` on `m4-ai` at `f37215a` |
 | Coverage at the M5 close | 98.95% statements, 96.79% branches, 99.62% functions and 99.16% lines |
 | Coverage at the M6 close | 98.95% statements, 96.77% branches, 99.64% functions and 99.17% lines |
-| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows). At the M4 close `pnpm gate` took 6 min 27 s (179 unit files, 4,517 tests passed and 3 skipped, 377 flows) and `pnpm gate:full` took 27 min 30 s (218 unit files, 4,713 tests passed and 3 skipped, 377 flows), on a 16-core desktop that was also running the owner's own applications. At the M5 close `pnpm gate:full` took 30 min 11 s (266 unit files, 5,197 tests passed and 3 skipped, 506 flows) on the same desktop, again under the owner's load. At the M6 close `pnpm gate` took 9 min 46 s (249 unit files, 5,241 tests passed and 3 skipped, 598 flows) and `pnpm gate:full` took 26 min 56 s (292 unit files, 5,463 tests passed and 3 skipped, 598 flows), on the same desktop under the owner's load; three timing flows and the Lighthouse runs behind them passed alone. |
+| Coverage at the M7 close | 98.97% statements, 96.86% branches, 99.64% functions and 99.17% lines |
+| Gate times | At the M2 close `pnpm gate` took 172.8 s and `pnpm gate:full` took 601.3 s on the 8-core reference machine. At the M3 close, on a 16-core machine, `pnpm gate` took 262.8 s (4 min 22.8 s; 122 unit files, 2,516 tests passed and 1 skipped, 286 flows) and `pnpm gate:full` took 22 min 40 s (159 unit files, 286 flows). At the M4 close `pnpm gate` took 6 min 27 s (179 unit files, 4,517 tests passed and 3 skipped, 377 flows) and `pnpm gate:full` took 27 min 30 s (218 unit files, 4,713 tests passed and 3 skipped, 377 flows), on a 16-core desktop that was also running the owner's own applications. At the M5 close `pnpm gate:full` took 30 min 11 s (266 unit files, 5,197 tests passed and 3 skipped, 506 flows) on the same desktop, again under the owner's load. At the M6 close `pnpm gate` took 9 min 46 s (249 unit files, 5,241 tests passed and 3 skipped, 598 flows) and `pnpm gate:full` took 26 min 56 s (292 unit files, 5,463 tests passed and 3 skipped, 598 flows), on the same desktop under the owner's load; three timing flows and the Lighthouse runs behind them passed alone. At the M7 close, on the same desktop, `pnpm gate:full` took 27 min 33 s (294 unit files, 5,505 tests passed and 3 skipped, 600 flows; load average 2.59 before and 3.84 after) and `pnpm gate` took 10 min 49 s (250 unit files, 5,283 tests passed and 3 skipped, 600 flows; load average 3.84 before and 3.99 after), each in one run with no rerun. |
 | Not done in M3 | The templates load one at a time since M6 (the M2 final review's M-12). The settings template's top and save bars keep `overflow: hidden` without the clip margin: M6's probe found that `overflow: clip` leaves axe's color-contrast check undecided on that page, so the margin is not scheduled |
-| Not done in M4 | The AI and privacy page landed in M6 as `/about`. The on-device eval did not run, so the on-device switch stays marked experimental. Three residuals are accepted: a canceled action does not count against a visitor's soft cap (the reserve floor of 37 holds); a "don't" rule that starts with "Avoid" plus a gerund exports as "Don't <gerund>..."; and F-IMP-RF4, M3's 2 s import budget, fails on the measuring machine under heavy desktop load for M3, M4 and M6 alike, with no time added by M4 in interleaved pairs. Section 18 of the M4 spec lists what is deferred |
+| Not done in M4 | The AI and privacy page landed in M6 as `/about`. The on-device eval ran in M7 (see [the AI layer](#-the-ai-layer-today-m4)): 24 of 24 briefs passed every check, and the on-device switch stays marked experimental. Three residuals are accepted: a canceled action does not count against a visitor's soft cap (the reserve floor of 37 holds); a "don't" rule that starts with "Avoid" plus a gerund exports as "Don't <gerund>..."; and F-IMP-RF4, M3's 2 s import budget, fails on the measuring machine under heavy desktop load for M3, M4 and M6 alike, with no time added by M4 in interleaved pairs. Section 18 of the M4 spec lists what is deferred |
 | Static checks | Biome, and `tsc` in strict mode |
 
 ```bash
 pnpm test:fast                   # unit, without the slow set
 pnpm vitest run --coverage       # every unit test, with the floors
 pnpm test:e2e                    # builds, serves and drives Chromium
+pnpm data:update                 # rewrites the four committed data files, then exits 0
 ```
+
+`pnpm data:update` runs only the four writers of the committed gallery, card, receipt and hero data with both update
+switches on (`DYELOT_UPDATE_GALLERY=1` and `DYELOT_UPDATE_HEROES=1`), so it never runs a compare case against a stale
+file; each writer still refuses under `CI`, and the next plain run is the check. A run filtered by file or by `--grep`
+that selects a timed flow also runs every `chromium` and `lighthouse` test, so narrow runs go as `<files> --project
+chromium`, then `<files> --project timed --no-deps` (the files before `--project`).
 
 ---
 
@@ -479,6 +492,7 @@ rest.
   `pnpm gate:full` passed with 4,713 unit tests and 377 of 377 flows, and the live smoke found two of four slugs valid.
 - **M5, done.** Motion and 3D, built to the [motion and 3D spec](docs/specs/05-motion-3d.md): the hero shader and the scroll story, the explorer, the motion lab, two view transitions, and the Flavor dialog with its previews, in-browser render and loop recording, and the flavor files. `pnpm gate:full` passed with 5,197 unit tests and 506 of 506 end-to-end flows. The hand check on the deployed site, with one real render, follows the merge.
 - **M6, done.** The gallery and finishing, built to the [gallery spec](docs/specs/06-gallery.md): 24 original design systems with share cards, the landing's start-from and receipt sections, the studio's entry hashes, `/about`, one-at-a-time templates, the accessibility and code fixes, and Lighthouse in the end-to-end suite with the audit script. `pnpm gate:full` passed in 26 min 56 s. The hand check on the deployed site follows the merge.
+- **M7, done.** The finishing pass, built to the [finishing-pass spec](docs/specs/07-finish.md) after the five dependency bumps of [#13](https://github.com/Abdul-Muizz1310/dyelot/pull/13) with paired Remotion pins: M6's residuals fixed, a `timed` Playwright project so each gate passes in one run, `pnpm data:update`, the on-device eval (24 of 24) and the Langfuse check. Both close gates passed in one run: `pnpm gate:full` in 27 min 33 s and `pnpm gate` in 10 min 49 s.
 - **Next.** Launch copy, which is the owner's; the spec's section 18 lists what is not scheduled.
 
 `main` deploys to [dyelot.vercel.app](https://dyelot.vercel.app).
@@ -490,7 +504,9 @@ rest.
 MIT — see [LICENSE](LICENSE). Geist Mono is vendored under the SIL Open Font License
 (`src/lib/site/fonts/OFL.txt`), and the nav glyph is lucide's swatch-book (ISC). The 40 canvas font families are
 copied from their Fontsource packages under the SIL Open Font License, each with its license text. Remotion and Mediabunny carry
-the terms in [Licenses for reusers](#licenses-for-reusers), and the shader's noise carries stegu/webgl-noise's MIT notice.
+the terms in [Licenses for reusers](#licenses-for-reusers), and the shader carries the simplex noise of webgl-noise by
+Ian McEwan and Ashima Arts, from stegu/webgl-noise, under the MIT license; its notice is kept in the code and in the
+export.
 
 ### Credits
 
@@ -498,7 +514,7 @@ What dyelot uses, with each license:
 
 - **color-name-list**, MIT, for color names
 - **colorthief** by Lokesh Dhakar, MIT, for the colors of an image
-- **webgl-noise** by Ian McEwan and Ashima Arts, MIT, for the background shader's noise (the notice is kept in the code and in the export)
+- **The background shader's noise**: the simplex noise of webgl-noise by Ian McEwan and Ashima Arts, from stegu/webgl-noise, under the MIT license; its notice is kept in the code and in the export
 - **Remotion**, under its own source-available license, for the brand video (see [Licenses for reusers](#licenses-for-reusers))
 - **Mediabunny**, MPL-2.0 and unmodified, for the shader loop
 - **The font families**, under the SIL Open Font License, served from dyelot's own site

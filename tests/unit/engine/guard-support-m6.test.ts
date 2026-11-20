@@ -64,4 +64,11 @@ describe("codeFiles (R6-39)", () => {
     expect(reads.length).toBeGreaterThan(1);
     expect(reads.some((folder) => folder.endsWith(PROBE_DIR))).toBe(false);
   });
+
+  it("C-HYG7-01 names null and an array in the TypeError instead of object", () => {
+    expect(() => codeFiles(null as never)).toThrow(TypeError);
+    expect(() => codeFiles(null as never)).toThrow(/^codeFiles: .*got null$/);
+    expect(() => codeFiles([] as never)).toThrow(TypeError);
+    expect(() => codeFiles([] as never)).toThrow(/^codeFiles: .*got array$/);
+  });
 });

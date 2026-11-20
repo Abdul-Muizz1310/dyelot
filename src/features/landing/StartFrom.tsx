@@ -47,7 +47,11 @@ function ColorGroup() {
           onChange={(event) => setHex(event.currentTarget.value)}
           className="h-8 w-12 cursor-pointer rounded-md border border-control-edge bg-page p-0.5"
         />
-        <output htmlFor={id} className="font-mono text-foreground text-sm tabular-nums">
+        <output
+          htmlFor={id}
+          aria-live="off"
+          className="font-mono text-foreground text-sm tabular-nums"
+        >
           {hex}
         </output>
       </div>

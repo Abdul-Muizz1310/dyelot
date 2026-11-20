@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import fc from "fast-check";
+import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import {
   A11Y_FLOOR,
@@ -10,14 +11,19 @@ import {
   auditPlan,
   auditRecord,
   auditTable,
+  baseOrigin,
   CATEGORIES,
   categoryScores,
   FORM_FACTORS,
+  kind,
   median,
+  partialRecord,
   routeName,
+  runPlan,
   scriptTotals,
   ttfbPlan,
 } from "../../../scripts/audit-core.mjs";
+import { importsOf } from "../engine/guard-support";
 
 // C-AUD6-01 to C-AUD6-08 of docs/specs/06-gallery.md, section 14.10 (R6-44 to R6-48, R-05): the
 // audit's pure arithmetic. The two fixtures are real Lighthouse 13.5.0 reports of two scratch pages,
@@ -520,5 +526,141 @@ describe("the median's property", () => {
       { numRuns: 500, seed: 6010 },
     );
     expect(median([Number.MAX_VALUE, Number.MAX_VALUE])).toBe(Number.MAX_VALUE);
+  });
+});
+
+// C-AUD7-01 to C-AUD7-06 of docs/specs/07-finish.md, section 14.4 (R7-16, R7-17, R-05).
+
+type Item = { run: number; route: string; formFactor: string };
+
+/** A fake `run` that counts calls per item and fails each call of `failing` items `times` times. */
+function fakeRun(failing: Item[], times: number, how: "reject" | "throw" = "reject") {
+  const calls = new Map<Item, number>();
+  const run = (item: Item) => {
+    const count = (calls.get(item) ?? 0) + 1;
+    calls.set(item, count);
+    if (failing.includes(item) && count <= times) {
+      if (how === "throw") throw new Error(`boom ${count}`);
+      return Promise.reject(new Error(`boom ${count}`));
+    }
+    return Promise.resolve({ ...item });
+  };
+  return { run, calls };
+}
+
+describe("the plan's runner", () => {
+  const plan = auditPlan(["/a", "/b"], FORM_FACTORS, 1);
+
+  it("C-AUD7-01 retries a run that rejects once and keeps every record in plan order", async () => {
+    for (const how of ["reject", "throw"] as const) {
+      const { run, calls } = fakeRun([plan[2] as Item], 1, how);
+      const result = await runPlan(plan, run);
+      expect(result.records).toEqual(plan.map((item) => ({ ...item })));
+      expect(result.failure).toBeNull();
+      expect([...calls.values()].reduce((sum, count) => sum + count, 0)).toBe(5);
+      expect(result.retried).toEqual([plan[2]]);
+    }
+    const last = plan[3] as Item;
+    const { run, calls } = fakeRun([last], 1);
+    const result = await runPlan(plan, run);
+    expect(result.records).toEqual(plan.map((item) => ({ ...item })));
+    expect(result.records).toHaveLength(4);
+    expect(result.failure).toBeNull();
+    expect(result.retried).toEqual([last]);
+    expect(calls.get(last)).toBe(2);
+  });
+
+  it("C-AUD7-02 stops at a run that rejects twice and a partial record keeps what ran", async () => {
+    const { run, calls } = fakeRun([plan[2] as Item], 2);
+    const result = await runPlan(plan, run);
+    expect(result.records).toEqual([{ ...plan[0] }, { ...plan[1] }]);
+    expect(result.failure).toEqual({
+      run: 1,
+      route: "/b",
+      formFactor: "desktop",
+      message: "boom 2",
+    });
+    expect(calls.has(plan[3] as Item)).toBe(false);
+    const record = partialRecord({
+      date: "2026-11-17",
+      base: "https://a.test",
+      runs: 1,
+      load: { before: [0], after: [0] },
+      records: result.records,
+      failure: result.failure,
+    } as never);
+    expect(record.lighthouse).toEqual(result.records);
+    expect(record.failure).toEqual(result.failure);
+    for (const key of ["medians", "firstByte", "weight"]) expect(record).not.toHaveProperty(key);
+    const stringly = await runPlan(plan, () => Promise.reject("plain"));
+    expect(stringly.failure?.message).toBe("plain");
+    expect(stringly.records).toEqual([]);
+  });
+
+  it("C-AUD7-03 checks types before values and names the function", async () => {
+    const run = async (item: Item) => item;
+    const cases: [Promise<unknown>, typeof TypeError | typeof RangeError, string][] = [
+      [runPlan(bad(null), run), TypeError, "runPlan"],
+      [runPlan(plan, bad(3)), TypeError, "runPlan"],
+      [runPlan([], bad(3)), TypeError, "runPlan"],
+      [runPlan([], run), RangeError, "runPlan"],
+    ];
+    for (const [promise, error, name] of cases) {
+      await expect(promise).rejects.toBeInstanceOf(error);
+      await expect(promise).rejects.toThrow(new RegExp(`^${name}`));
+    }
+    expect(() => partialRecord(bad(null))).toThrow(TypeError);
+    expect(() => partialRecord(bad(null))).toThrow(/^partialRecord/);
+    expect(() => partialRecord(bad({ records: 1, failure: {} }))).toThrow(TypeError);
+    expect(() => partialRecord(bad({ records: [], failure: null }))).toThrow(TypeError);
+  });
+});
+
+describe("the base origin", () => {
+  it("C-AUD7-04 gives the origin of an origin-only URL", () => {
+    expect(baseOrigin("https://dyelot.vercel.app")).toBe("https://dyelot.vercel.app");
+    expect(baseOrigin("https://dyelot.vercel.app/")).toBe("https://dyelot.vercel.app");
+    expect(baseOrigin("http://localhost:3100")).toBe("http://localhost:3100");
+    expect(baseOrigin("HTTPS://A.test:443")).toBe("https://a.test");
+  });
+
+  it("C-AUD7-05 refuses a path, query, fragment, credentials, scheme or non-URL", () => {
+    for (const text of [
+      "https://a.test/x",
+      "https://a.test/?q=1",
+      "https://a.test/#top",
+      "https://u:p@a.test",
+      "ftp://a.test",
+      "not a url",
+    ]) {
+      expect(() => baseOrigin(text), text).toThrow(RangeError);
+      expect(() => baseOrigin(text), text).toThrow(/^baseOrigin/);
+    }
+    expect(() => baseOrigin(bad(3))).toThrow(TypeError);
+    expect(() => baseOrigin(bad(3))).toThrow(/^baseOrigin/);
+  });
+});
+
+describe("the shared kind", () => {
+  it("C-AUD7-06 is exported here and lighthouse.mjs imports it instead of declaring it", () => {
+    expect([kind(null), kind([]), kind(3)]).toEqual(["null", "an array", "number"]);
+    const file = path.join(import.meta.dirname, "..", "..", "..", "scripts", "lighthouse.mjs");
+    const source = readFileSync(file, "utf8");
+    const core = importsOf(file, source).find((record) => record.specifier === "./audit-core.mjs");
+    expect(core?.names).toContain("kind");
+    const tree = ts.createSourceFile(file, source, ts.ScriptTarget.ESNext, true, ts.ScriptKind.TS);
+    const declared: string[] = [];
+    const visit = (node: ts.Node): void => {
+      if (
+        (ts.isFunctionDeclaration(node) || ts.isVariableDeclaration(node)) &&
+        node.name !== undefined &&
+        ts.isIdentifier(node.name)
+      ) {
+        declared.push(node.name.text);
+      }
+      ts.forEachChild(node, visit);
+    };
+    visit(tree);
+    expect(declared).not.toContain("kind");
   });
 });

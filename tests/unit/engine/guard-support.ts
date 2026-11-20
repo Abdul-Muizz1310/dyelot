@@ -2,6 +2,7 @@ import { type Dirent, existsSync, readdirSync, readFileSync, statSync } from "no
 import { builtinModules } from "node:module";
 import path from "node:path";
 import ts from "typescript";
+import { describeType } from "@/features/studio/guards";
 
 // The helpers the repository guards share (R5 preflight rulings 14 and 16): moved unchanged from
 // repo-guards.test.ts so the M5 guards import them rather than copy them. C-REPO-01's and
@@ -39,7 +40,7 @@ export const inProbe = (file: string): boolean =>
  */
 export function codeFiles(directory: string, read: typeof readdirSync = readdirSync): string[] {
   if (typeof directory !== "string") {
-    throw new TypeError(`codeFiles: directory must be a string, got ${typeof directory}`);
+    throw new TypeError(`codeFiles: directory must be a string, got ${describeType(directory)}`);
   }
   const found: string[] = [];
   const stack = [directory];

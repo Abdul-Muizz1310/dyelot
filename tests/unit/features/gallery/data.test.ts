@@ -135,6 +135,7 @@ describe("every entry (R6-08, R6-10)", () => {
   it(
     "C-GAL6-05 rebuilds from its own parameters to the same spec id, and exports",
     () => {
+      expect(GALLERY.entries).toHaveLength(24);
       for (const entry of GALLERY.entries) {
         const spec = decodeSpec(entry.link);
         const { seed, createdWith } = spec.meta;
@@ -171,6 +172,7 @@ describe("every entry (R6-08, R6-10)", () => {
   it(
     "C-GAL6-07 holds each field as the spec gives it",
     () => {
+      expect(GALLERY.entries).toHaveLength(24);
       for (const entry of GALLERY.entries) {
         const spec = decodeSpec(entry.link);
         expect(entry.specId, entry.slug).toBe(specId(spec));

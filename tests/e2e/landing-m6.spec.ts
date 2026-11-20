@@ -344,18 +344,35 @@ test.describe("the start-from section (14.6)", () => {
       page,
     }) => {
       await page.goto("/");
-      const urls = recordNavigations(page);
+      const navigations: string[] = [];
+      page.on("request", (request) => {
+        if (request.isNavigationRequest()) navigations.push(request.url());
+      });
       const box = section(page).getByLabel("Describe the product or mood", { exact: true });
       await box.fill(text);
       await section(page).getByRole("button", { name: "Take this brief to the studio" }).click();
       await expect(briefStatus(page)).toHaveText("Write a few words first.");
       await expect(box).toBeFocused();
-      // A bounded wait: a navigation the submit started would have committed by now.
-      await page.waitForTimeout(500);
+      expect(navigations).toEqual([]);
       expect(new URL(page.url()).pathname).toBe("/");
-      expect(urls.filter((url) => new URL(url).pathname !== "/")).toEqual([]);
     });
   }
+
+  test("F-LAND7-01 the color value is not announced on every input, the brief's status still is", async ({
+    page,
+  }) => {
+    await page.goto("/");
+    const output = section(page).locator("output");
+    await expect(output).toHaveAttribute("aria-live", "off");
+    for (const hex of ["#0e84b7", "#b7410e", "#1f7a3a"]) {
+      await section(page).getByLabel("Seed color", { exact: true }).fill(hex);
+      await expect(output).toHaveText(hex);
+    }
+    const box = section(page).getByLabel("Describe the product or mood", { exact: true });
+    await box.fill("1234");
+    await section(page).getByRole("button", { name: "Take this brief to the studio" }).click();
+    await expect(briefStatus(page)).toHaveText("Write a few words first.");
+  });
 
   test("F-LAND6-05 the image link and the gallery link open their pages", async ({ page }) => {
     await page.goto("/");

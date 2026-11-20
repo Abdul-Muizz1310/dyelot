@@ -5,7 +5,7 @@ import { Prompt } from "@/components/terminal/Prompt";
 import { summaryLines } from "@/features/export/files";
 import { CopyLink } from "@/features/gallery/CopyLink";
 import { entryMetadata, entryOf, type GalleryEntry } from "@/features/gallery/data";
-import { absoluteStudioLink, type LinkPage, openHref } from "@/features/gallery/links";
+import { absoluteStudioLink, LINK_PAGES, type LinkPage, openHref } from "@/features/gallery/links";
 import { SITE } from "@/lib/site/config";
 
 type EntryProps = { params: Promise<{ slug: string }> };
@@ -29,11 +29,11 @@ const MODES = [
   { mode: "light", label: "Light mode" },
   { mode: "dark", label: "Dark mode" },
 ] as const;
-const OPEN_LINKS: readonly { page: LinkPage; label: string }[] = [
-  { page: "studio", label: "Open in the studio" },
-  { page: "explore", label: "Open in the explorer" },
-  { page: "motion", label: "Open in the motion lab" },
-];
+const OPEN_LABELS: Record<LinkPage, string> = {
+  studio: "Open in the studio",
+  explore: "Open in the explorer",
+  motion: "Open in the motion lab",
+};
 
 /** Each family once, joined as a sentence lists them: "a", "a and b", "a, b and c". */
 function familyList({ display, body, mono }: GalleryEntry["families"]): string {
@@ -198,9 +198,9 @@ export default async function GalleryEntryPage({ params }: EntryProps) {
             Open it
           </h2>
           <div className="flex flex-col">
-            {OPEN_LINKS.map(({ page, label }) => (
+            {LINK_PAGES.map((page) => (
               <a key={page} href={openHref(entry.slug, page)} className={LINK}>
-                {label}
+                {OPEN_LABELS[page]}
               </a>
             ))}
           </div>

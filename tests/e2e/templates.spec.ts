@@ -58,6 +58,7 @@ import {
   typeTriples,
   unnamedPaint,
 } from "./template-support";
+import { TIMED_TAG } from "./timed-flows";
 
 // The template flows of docs/specs/02-studio.md: the kitchen sink of section 7.5 (Task 2.7, F-TPL-01
 // to F-TPL-08 and F-TPL-38, and axe in both modes), the landing and editorial templates of section
@@ -1367,9 +1368,9 @@ function distinctRoles(spec: DesignSpec): DesignSpec {
   return DesignSpecSchema.parse({ ...spec, color: { ...spec.color, roles } });
 }
 
-test("F-TPL-39 every painted color is named on a design whose 46 role colors are distinct", async ({
-  page,
-}) => {
+test("F-TPL-39 every painted color is named on a design whose 46 role colors are distinct", {
+  tag: TIMED_TAG,
+}, async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 800 });
   const spec = distinctRoles(first());
   for (const mode of MODES) {

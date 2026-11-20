@@ -5,8 +5,10 @@
 //      request each (ttfbPlan), each from the request's start to its response headers;
 //   3. each route's scripts and HTML document up to the `load` event, in a fresh Chromium context;
 //   4. the machine's load average before and after, and the date.
-// It writes test-results/audit-site/<YYYY-MM-DD>.json and prints auditTable's three tables. It is
-// not a test, and it reaches the network: it measures the site it is given.
+// It writes test-results/audit-site/<YYYY-MM-DD>.json and prints auditTable's three tables. A run
+// that fails twice makes it write test-results/audit-site/<date>.partial.json (from partialRecord),
+// print nothing on standard output and exit 1. It is not a test, and it reaches the network: it
+// measures the site it is given.
 // Usage: node scripts/audit-site.mjs [--base <origin>] [--runs <n>]
 import { mkdirSync, writeFileSync } from "node:fs";
 import { loadavg } from "node:os";
@@ -19,9 +21,12 @@ import {
   auditPlan,
   auditRecord,
   auditTable,
+  baseOrigin,
   CATEGORIES,
   FORM_FACTORS,
   median,
+  partialRecord,
+  runPlan,
   scriptTotals,
   ttfbPlan,
 } from "./audit-core.mjs";
@@ -49,22 +54,43 @@ const FIRST_BYTE_ROUNDS = 10;
  */
 
 /**
- * Measures `base` and writes the record; returns the record's path and the README's tables. The
+ * Measures `base` and writes the record; returns the record's path and the README's tables, or
+ * (R7-16) the partial record's path and the failure of a run that failed twice, before any other pass. The
  * routes and first-byte paths default to the spec's; each must answer 2xx, or the audit stops.
  * @param {{ base: string, runs: number, routes?: readonly string[], paths?: readonly string[] }} options
  */
 export async function auditSite({ base, runs, routes = AUDIT_ROUTES, paths = FIRST_BYTE_PATHS }) {
   const date = localDate(new Date());
   const before = loadavg();
-  /** @type {LighthouseRun[]} */
-  const lighthouse = [];
-  for (const { run, route, formFactor } of auditPlan(routes, FORM_FACTORS, runs)) {
-    const record = auditRecord(await runLighthouse(new URL(route, base).href, formFactor));
-    lighthouse.push({ run, route, formFactor, record });
-    console.error(
-      `audit-site: run ${run}, ${route} at ${formFactor}, accessibility ${record.scores.accessibility}`,
-    );
+  const plan = auditPlan(routes, FORM_FACTORS, runs);
+  const { records, failure, retried } = await runPlan(plan, (item) =>
+    runLighthouse(new URL(item.route, base).href, item.formFactor).then((lhr) => {
+      const record = auditRecord(lhr);
+      console.error(
+        `audit-site: run ${item.run}, ${item.route} at ${item.formFactor}, accessibility ${record.scores.accessibility}`,
+      );
+      return { ...item, record };
+    }),
+  );
+  for (const { run, route, formFactor } of retried) {
+    console.error(`audit-site: run ${run}, ${route} at ${formFactor} failed once; retrying`);
   }
+  const directory = path.join(ROOT, "test-results", "audit-site");
+  if (failure !== null) {
+    mkdirSync(directory, { recursive: true });
+    const file = path.join(directory, `${date}.partial.json`);
+    const partial = partialRecord({
+      date,
+      base,
+      runs,
+      load: { before, after: loadavg() },
+      records,
+      failure,
+    });
+    writeFileSync(file, `${JSON.stringify(partial, null, 2)}\n`);
+    return { file, table: null, failure };
+  }
+  const lighthouse = /** @type {LighthouseRun[]} */ (records);
   const firstByte = await firstBytes(base, paths);
   const weight = await pageWeights(base, routes);
   const after = loadavg();
@@ -81,7 +107,6 @@ export async function auditSite({ base, runs, routes = AUDIT_ROUTES, paths = FIR
     })),
     ...weight,
   ];
-  const directory = path.join(ROOT, "test-results", "audit-site");
   mkdirSync(directory, { recursive: true });
   const file = path.join(directory, `${date}.json`);
   const record = {
@@ -95,7 +120,7 @@ export async function auditSite({ base, runs, routes = AUDIT_ROUTES, paths = FIR
     weight,
   };
   writeFileSync(file, `${JSON.stringify(record, null, 2)}\n`);
-  return { file, table: auditTable(rows) };
+  return { file, table: auditTable(rows), failure: null };
 }
 
 /** The local date as YYYY-MM-DD. */
@@ -243,15 +268,12 @@ function options(argv) {
     strict: true,
     allowPositionals: false,
   });
-  const base = values.base ?? DEFAULT_BASE;
-  if (!URL.canParse(base) || !["http:", "https:"].includes(new URL(base).protocol)) {
-    throw new RangeError(`--base needs an http or https origin, not "${base}"`);
-  }
+  const base = baseOrigin(values.base ?? DEFAULT_BASE);
   const runs = values.runs === undefined ? DEFAULT_RUNS : Number(values.runs);
   if (!Number.isInteger(runs) || runs < 1 || runs > 10) {
     throw new RangeError(`--runs needs a whole number from 1 to 10, not "${values.runs}"`);
   }
-  return { base: new URL(base).origin, runs };
+  return { base, runs };
 }
 
 /** An error's message, for the one line the script prints. */
@@ -270,7 +292,13 @@ async function main(argv) {
     console.error(`audit-site: ${messageOf(error)}; ${USAGE}`);
     return 1;
   }
-  const { file, table } = await auditSite(parsed);
+  const { file, table, failure } = await auditSite(parsed);
+  if (failure !== null) {
+    console.error(
+      `audit-site: run ${failure.run}, ${failure.route} at ${failure.formFactor} failed twice: ${failure.message}; wrote ${path.relative(ROOT, file)}`,
+    );
+    return 1;
+  }
   console.error(`audit-site: wrote ${path.relative(ROOT, file)}`);
   console.log(table);
   return 0;

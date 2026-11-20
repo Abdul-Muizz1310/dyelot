@@ -1,8 +1,8 @@
 /**
  * The gallery's link-preview cards (docs/specs/06-gallery.md, 8.1 and 8.2) as trees `next/og`
  * (Satori) can render: the M0 card's ground, flexbox only, inline styles, and every element with
- * more than one child a flex container. Each takes checked data from `cards.json` and never throws
- * for one of its cards.
+ * more than one child a flex container. Each takes checked data from `cards.json`; each throws for
+ * an argument that is not (docs/specs/07-finish.md, R7-13).
  */
 import type { ReactElement } from "react";
 import type { GalleryCard } from "@/features/gallery/cards";
@@ -42,10 +42,12 @@ const LINE_COLUMNS = Math.floor(CONTENT_WIDTH / (LINE_PX * GLYPH_ADVANCE));
 
 const BLOCK = { width: 200, height: 96 } as const;
 
-const MOSAIC_HEADLINE = "24 design systems, each with its receipt";
+/** The headline's two lines (R7-12): the break leaves no word alone on the second. */
+const MOSAIC_LINES = ["24 design systems,", "each with its receipt"] as const;
 const MOSAIC_HIGHLIGHT = "receipt";
 const HEADLINE_PX = 56;
 const TILES_PER_ROW = 6;
+const HEX = /^#[0-9a-f]{6}$/;
 const TILE = { width: 160, height: 40 } as const;
 const MOSAIC_GAP = 12;
 
@@ -123,8 +125,62 @@ function footer(path: string): ReactElement {
   );
 }
 
+function typeName(value: unknown): string {
+  if (value === null) return "null";
+  return Array.isArray(value) ? "array" : typeof value;
+}
+
+function expectType(ok: boolean, caller: string, path: string, what: string, value: unknown): void {
+  if (!ok) throw new TypeError(`${caller}: ${path} must be ${what}, got ${typeName(value)}`);
+}
+
+/** R7-13's types for one card; every type before any domain. */
+function typeCheckCard(card: unknown, caller: string, path: string): void {
+  expectType(
+    typeof card === "object" && card !== null && !Array.isArray(card),
+    caller,
+    path,
+    "an object",
+    card,
+  );
+  const fields = card as Record<string, unknown>;
+  for (const key of ["slug", "name", "line"]) {
+    expectType(typeof fields[key] === "string", caller, `${path}.${key}`, "a string", fields[key]);
+  }
+  const strip = fields.strip;
+  expectType(
+    Array.isArray(strip) && strip.every((hex) => typeof hex === "string"),
+    caller,
+    `${path}.strip`,
+    "an array of strings",
+    strip,
+  );
+  for (const key of ["passed", "required"]) {
+    expectType(typeof fields[key] === "number", caller, `${path}.${key}`, "a number", fields[key]);
+  }
+}
+
+/** R7-13's domains for one card whose types hold. */
+function domainCheckCard(card: GalleryCard, caller: string, path: string): void {
+  if (card.strip.length !== 5 || !card.strip.every((hex) => HEX.test(hex))) {
+    throw new RangeError(
+      `${caller}: ${path}.strip must be five lowercase #rrggbb colors, got ${JSON.stringify(card.strip)}`,
+    );
+  }
+  for (const key of ["passed", "required"] as const) {
+    if (!Number.isInteger(card[key]) || card[key] < 0) {
+      throw new RangeError(
+        `${caller}: ${path}.${key} must be a whole number of at least 0, got ${card[key]}`,
+      );
+    }
+  }
+}
+
 /** One entry's card (8.1, R6-18). */
 export function GalleryShareCard({ card, icon }: { card: GalleryCard; icon: string }) {
+  typeCheckCard(card, "GalleryShareCard", "card");
+  expectType(typeof icon === "string", "GalleryShareCard", "icon", "a string", icon);
+  domainCheckCard(card, "GalleryShareCard", "card");
   const lines = wrapLines(card.line.split(" "), LINE_COLUMNS).map((words) => words.join(" "));
   return (
     <div style={FRAME}>
@@ -193,6 +249,15 @@ function tile(card: GalleryCard): ReactElement {
 
 /** The gallery's card (8.2, R6-19): the headline and every entry's strip, six to a row. */
 export function MosaicShareCard({ cards, icon }: { cards: readonly GalleryCard[]; icon: string }) {
+  expectType(Array.isArray(cards), "MosaicShareCard", "cards", "an array", cards);
+  cards.forEach((card, i) => {
+    typeCheckCard(card, "MosaicShareCard", `cards[${i}]`);
+  });
+  expectType(typeof icon === "string", "MosaicShareCard", "icon", "a string", icon);
+  if (cards.length === 0) throw new RangeError("MosaicShareCard: cards must not be empty");
+  cards.forEach((card, i) => {
+    domainCheckCard(card, "MosaicShareCard", `cards[${i}]`);
+  });
   const rows = Array.from({ length: Math.ceil(cards.length / TILES_PER_ROW) }, (_, row) =>
     cards.slice(row * TILES_PER_ROW, (row + 1) * TILES_PER_ROW),
   );
@@ -205,8 +270,7 @@ export function MosaicShareCard({ cards, icon }: { cards: readonly GalleryCard[]
         <div
           style={{
             display: "flex",
-            flexWrap: "wrap",
-            columnGap: HEADLINE_PX * GLYPH_ADVANCE,
+            flexDirection: "column",
             rowGap: Math.round(HEADLINE_PX * 0.14),
             fontSize: HEADLINE_PX,
             fontWeight: 700,
@@ -214,10 +278,14 @@ export function MosaicShareCard({ cards, icon }: { cards: readonly GalleryCard[]
             letterSpacing: TRACKING,
           }}
         >
-          {MOSAIC_HEADLINE.split(" ").map((word) => (
-            <span key={word} style={word === MOSAIC_HIGHLIGHT ? { color: SITE.accent } : {}}>
-              {word}
-            </span>
+          {MOSAIC_LINES.map((line) => (
+            <div key={line} style={{ display: "flex", columnGap: HEADLINE_PX * GLYPH_ADVANCE }}>
+              {line.split(" ").map((word) => (
+                <span key={word} style={word === MOSAIC_HIGHLIGHT ? { color: SITE.accent } : {}}>
+                  {word}
+                </span>
+              ))}
+            </div>
           ))}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: MOSAIC_GAP }}>

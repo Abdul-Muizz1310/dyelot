@@ -95,6 +95,7 @@ test.describe("7.1 /gallery", () => {
   }) => {
     const response = await page.goto("/gallery");
     expect(response?.status()).toBe(200);
+    expect([HERO_COUNT, BRIEF_COUNT]).toEqual([6, 18]);
     await expect(page.getByRole("heading", { level: 1 })).toHaveText(["The gallery"]);
     await expect(page.getByText(INTRO, { exact: true })).toBeVisible();
     await expect(filterNav(page).getByRole("link")).toHaveText(["all", ...GALLERY_TAGS]);
@@ -166,7 +167,7 @@ test.describe("7.1 /gallery", () => {
       ["?tag=loud", []],
       ["?tag=", []],
       ["?tag=calm&tag=bold", ["calm,bold", "calm, bold"]],
-      ["?tag=%3Cscript%3Ealert(1)%3C%2Fscript%3E", ["<script>", "alert(1)", "script"]],
+      ["?tag=%3Cscript%3Ealert(1)%3C%2Fscript%3E", ["<script>", "alert(1)"]],
     ] as const) {
       const response = await page.goto(`/gallery${query}`);
       expect(response?.status(), query).toBe(200);
@@ -310,6 +311,7 @@ test.describe("7.4 /gallery/[slug]", () => {
     await expect(downloadButton(page)).toBeEnabled();
     const { bytes } = await download(page);
     const file = entriesOf(bytes).find((entry) => entry.path === "receipt.json");
+    expect(file, "receipt.json").toBeDefined();
     const parsed = JSON.parse(new TextDecoder().decode(file?.bytes)) as {
       design: { createdWith: string };
       summary: { pass: boolean };
@@ -344,6 +346,31 @@ test.describe("7.4 /gallery/[slug]", () => {
     await expect(copyBox(page).getByRole("status")).toHaveText("Copied the studio link.");
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(studioLinkOf(KERMES));
     await expect(copyBox(page).getByRole("textbox")).toHaveCount(0);
+  });
+
+  test("F-GAL7-01 each press of Copy the studio link is announced again", async ({
+    page,
+    context,
+  }) => {
+    await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+    await page.goto("/gallery/kermes");
+    await copyBox(page)
+      .getByRole("status")
+      .evaluate((status: HTMLElement) => {
+        const log: string[] = [];
+        (window as unknown as { __announced: string[] }).__announced = log;
+        new MutationObserver(() => {
+          const text = status.textContent ?? "";
+          if (text !== log[log.length - 1]) log.push(text);
+        }).observe(status, { childList: true, characterData: true, subtree: true });
+      });
+    const press = page.getByRole("button", { name: "Copy the studio link", exact: true });
+    await press.click();
+    await expect(copyBox(page).getByRole("status")).toHaveText("Copied the studio link.");
+    await press.click();
+    await expect
+      .poll(() => page.evaluate(() => (window as unknown as { __announced: string[] }).__announced))
+      .toEqual(["Copied the studio link.", "", "Copied the studio link."]);
   });
 
   test("F-GAL6-09 a refused copy shows the link in a selected read-only field and the blocked sentence", async ({
@@ -482,6 +509,7 @@ test.describe("R6-15 the open route", () => {
       "/gallery/nope/open/studio",
       "/gallery/kermes/open/lab",
       "/gallery/Kermes/open/studio",
+      "/gallery/kermes/open/%2F%2Fevil.example",
     ]) {
       const response = await page.request.get(path, { maxRedirects: 0 });
       expect(response.status(), path).toBe(404);

@@ -1,10 +1,6 @@
 import { notFound } from "next/navigation";
 import { entryOf } from "@/features/gallery/data";
-import { entryHref, type LinkPage } from "@/features/gallery/links";
-
-const PAGES: readonly string[] = ["studio", "explore", "motion"] satisfies readonly LinkPage[];
-
-const isLinkPage = (page: string): page is LinkPage => PAGES.includes(page);
+import { entryHref, isLinkPage } from "@/features/gallery/links";
 
 /**
  * The open route (docs/specs/06-gallery.md, R6-15): a known entry and a known page answer 307 with

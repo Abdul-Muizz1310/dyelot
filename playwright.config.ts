@@ -1,7 +1,9 @@
 import { defineConfig, devices } from "@playwright/test";
+import { TIMED_GREP } from "./tests/e2e/timed-flows";
 
 const port = Number(process.env.PORT ?? 3100);
 const baseURL = `http://localhost:${port}`;
+const DESKTOP = { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } };
 
 export default defineConfig({
   testDir: "./tests/e2e",
@@ -12,21 +14,37 @@ export default defineConfig({
   reporter: "list",
   use: { baseURL, trace: "on-first-retry" },
   projects: [
+    // The parallel flows: every flow but the Lighthouse runs and the timed ones.
     {
       name: "chromium",
-      use: { ...devices["Desktop Chrome"], viewport: { width: 1440, height: 900 } },
+      use: DESKTOP,
       testIgnore: /lighthouse-m6\.spec\.ts/,
+      grepInvert: TIMED_GREP,
     },
-    // The Lighthouse gate (docs/specs/06-gallery.md, R6-44 and 12.2): after every other flow, so no
-    // audit shares the CPU, its tests in order and one at a time. It sets no `use`: a launch in the
-    // test runner takes the running project's `use`, and a device's options break Lighthouse's own
-    // screen emulation (probe 1, R6-57).
+    // The Lighthouse gate (docs/specs/06-gallery.md, R6-44 and 12.2): after the parallel flows and
+    // before `timed` (docs/specs/07-finish.md, R7-04), so no audit shares the CPU, its tests in order
+    // and one at a time. It sets no `use`: a launch in the test runner takes the running project's
+    // `use`, and a device's options break Lighthouse's own screen emulation (probe 1, R6-57).
     {
       name: "lighthouse",
       testMatch: /lighthouse-m6\.spec\.ts/,
       dependencies: ["chromium"],
       retries: 1,
       fullyParallel: false,
+    },
+    // The load family (docs/specs/07-finish.md, R7-04, R7-05 and section 7): flows that hold a time
+    // budget or a harness timeout, one at a time after the Lighthouse runs, beside no other browser.
+    // To rerun them alone: `pnpm exec playwright test --project timed --no-deps`. A run filtered by
+    // file or `--grep` that selects a timed flow also runs every `chromium` and `lighthouse` test, its
+    // dependencies; to stay narrow, run `<files> --project chromium`, then `<files> --project timed
+    // --no-deps` (the files first: `--project` takes a list, so a file after it reads as a project).
+    {
+      name: "timed",
+      use: DESKTOP,
+      testIgnore: /lighthouse-m6\.spec\.ts/,
+      grep: TIMED_GREP,
+      dependencies: ["lighthouse"],
+      workers: 1,
     },
   ],
   webServer: [

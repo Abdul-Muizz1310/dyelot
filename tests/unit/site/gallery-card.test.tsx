@@ -9,7 +9,13 @@ import {
   MosaicShareCard,
   SHARE_CARD_SIZE,
 } from "@/lib/site/gallery-card";
-import { CONTENT_WIDTH, GLYPH_ADVANCE, INK, wrapLines } from "@/lib/site/share-card";
+import {
+  CONTENT_WIDTH,
+  GLYPH_ADVANCE,
+  INK,
+  LETTER_SPACING_EM,
+  wrapLines,
+} from "@/lib/site/share-card";
 import { wordProblems } from "../support/gallery";
 
 // The gallery's share cards (docs/specs/06-gallery.md, 8.1 and 8.2, section 14.3). Each card is read
@@ -219,5 +225,104 @@ describe("C-CARD6-RF4 every card fits its lines (RF4, R6-12, R6-18)", () => {
     expect(wordProblems({ name, slug: name.toLowerCase(), brief, line: brief })).toEqual([
       `name "${name}" is not 1 to 18 letters and single spaces`,
     ]);
+  });
+});
+
+describe("C-CARD7-01 the mosaic headline sets two balanced lines (R7-12)", () => {
+  const root = tree(MosaicShareCard({ cards: GALLERY_CARDS.cards, icon: ICON }));
+
+  it("C-CARD7-01 is a column of two flex rows, 8 px apart, with receipt alone in madder", () => {
+    const headline = boxes(root).find((box) => box.style.fontSize === 56);
+    expect(headline?.style).toMatchObject({ display: "flex", flexDirection: "column", rowGap: 8 });
+    const lines = (headline?.children ?? []) as Box[];
+    expect(lines).toHaveLength(2);
+    for (const line of lines) {
+      expect(line.style).toMatchObject({
+        display: "flex",
+        columnGap: 56 * GLYPH_ADVANCE,
+      });
+    }
+    const lineTexts = lines.map((line) =>
+      texts(line.children)
+        .map((run) => run.text)
+        .join(" "),
+    );
+    expect(lineTexts).toEqual(["24 design systems,", "each with its receipt"]);
+    const columns = Math.floor(CONTENT_WIDTH / (56 * GLYPH_ADVANCE));
+    expect(columns).toBe(32);
+    for (const text of lineTexts) {
+      expect(text.length).toBeLessThanOrEqual(columns);
+      expect(text.split(" ").length).toBeGreaterThan(1);
+    }
+    const runs = texts(headline?.children ?? []);
+    for (const run of runs) {
+      expect(run.style).toMatchObject({
+        fontWeight: 700,
+        fontSize: 56,
+        letterSpacing: `${LETTER_SPACING_EM}em`,
+      });
+    }
+    expect(runs.filter((run) => run.style.color === SITE.accent).map((r) => r.text)).toEqual([
+      "receipt",
+    ]);
+  });
+});
+
+describe("C-CARD7-02 the share cards check their arguments (R7-13, R-05)", () => {
+  const good = card("kermes");
+  const withCard = (patch: Record<string, unknown>) => ({ ...good, ...patch });
+  const gallery = (c: unknown, icon: unknown = ICON) =>
+    GalleryShareCard({ card: c, icon } as never);
+  const mosaic = (cards: unknown, icon: unknown = ICON) =>
+    MosaicShareCard({ cards, icon } as never);
+
+  it("C-CARD7-02 GalleryShareCard throws TypeError for types, naming the path", () => {
+    expect(() => gallery(null)).toThrow(TypeError);
+    expect(() => gallery(null)).toThrow(/^GalleryShareCard: card/);
+    expect(() => gallery(withCard({ passed: "78" }))).toThrow(TypeError);
+    expect(() => gallery(withCard({ passed: "78" }))).toThrow(/^GalleryShareCard:.*card\.passed/);
+    expect(() => gallery(good, 5)).toThrow(TypeError);
+    expect(() => gallery(good, 5)).toThrow(/^GalleryShareCard:.*icon/);
+  });
+
+  it("C-CARD7-02 GalleryShareCard throws RangeError for domains", () => {
+    const four = good.strip.slice(0, 4);
+    expect(() => gallery(withCard({ strip: four }))).toThrow(RangeError);
+    expect(() => gallery(withCard({ strip: four }))).toThrow(/^GalleryShareCard:.*card\.strip/);
+    const red = [...good.strip.slice(0, 4), "red"];
+    expect(() => gallery(withCard({ strip: red }))).toThrow(RangeError);
+    const upper = [...good.strip.slice(0, 4), "#AABBCC"];
+    expect(() => gallery(withCard({ strip: upper }))).toThrow(RangeError);
+    expect(() => gallery(withCard({ passed: -1 }))).toThrow(RangeError);
+    expect(() => gallery(withCard({ required: 1.5 }))).toThrow(RangeError);
+  });
+
+  it("C-CARD7-02 checks types before domains: a mixed card is a TypeError", () => {
+    const mixed = withCard({ passed: "78", strip: good.strip.slice(0, 4) });
+    expect(() => gallery(mixed)).toThrow(TypeError);
+    expect(() => mosaic([mixed])).toThrow(TypeError);
+  });
+
+  it("C-CARD7-02 MosaicShareCard throws by class, naming the path", () => {
+    expect(() => mosaic("x")).toThrow(TypeError);
+    expect(() => mosaic("x")).toThrow(/^MosaicShareCard:/);
+    expect(() => mosaic([])).toThrow(RangeError);
+    expect(() => mosaic([])).toThrow(/^MosaicShareCard:/);
+    expect(() => mosaic([good], 5)).toThrow(/^MosaicShareCard:.*icon/);
+    expect(() => mosaic([good, withCard({ strip: "x" })])).toThrow(
+      /^MosaicShareCard:.*cards\[1\]\.strip/,
+    );
+    const upper = withCard({ strip: [...good.strip.slice(0, 4), "#AABBCC"] });
+    expect(() => mosaic([good, good, good, upper])).toThrow(RangeError);
+    expect(() => mosaic([good, good, good, upper])).toThrow(/^MosaicShareCard:.*cards\[3\]\.strip/);
+  });
+
+  it("C-CARD7-02 every committed card still renders", () => {
+    for (const entry of GALLERY_CARDS.cards) {
+      expect(() => GalleryShareCard({ card: entry, icon: ICON })).not.toThrow();
+    }
+    expect(() => MosaicShareCard({ cards: GALLERY_CARDS.cards, icon: ICON })).not.toThrow();
+    const strips = GALLERY_CARDS.cards.map((entry) => entry.strip);
+    expect(strips.every((strip) => strip.length === 5)).toBe(true);
   });
 });

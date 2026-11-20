@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, type Page } from "@playwright/test";
+import { GALLERY_TAGS } from "@/features/gallery/tags";
 import { MADDER } from "../unit/support/gallery";
 import { overflowOf, settleAnimations, violations } from "./a11y-support";
 import { chromaOffenders } from "./color-support";
@@ -138,7 +139,7 @@ test("F-A11Y6-03 the gallery and an entry page are reachable by keyboard, each s
   await page.goto("/gallery");
   await page.getByRole("link", { name: "all", exact: true }).focus();
   const first = await focused(page);
-  const tags = ["calm", "bold", "editorial", "technical", "playful", "natural"];
+  const tags = [...GALLERY_TAGS];
   const open = `Open in the studio, ${MADDER.name}`;
   const details = `Details of ${MADDER.name}`;
   const stops = [first, ...(await tabTo(page, details))];
@@ -178,19 +179,25 @@ test("F-A11Y6-03 the gallery and an entry page are reachable by keyboard, each s
   expectReachable(entryStops);
 });
 
-/** The levels of the headings inside `main`, with their text, in document order. */
-const headingsOf = (page: Page): Promise<{ level: number; text: string }[]> =>
+type Heading = { level: number; text: string; story: boolean };
+
+/** The rendered headings inside `main` (`checkVisibility()`), in document order; `story` marks those inside `[data-story]`. */
+const headingsOf = (page: Page): Promise<Heading[]> =>
   page.evaluate(() =>
-    [...document.querySelectorAll("main h1, main h2, main h3, main h4, main h5, main h6")].map(
-      (h) => ({ level: Number(h.tagName.slice(1)), text: h.textContent?.trim() ?? "" }),
-    ),
+    [...document.querySelectorAll("main h1, main h2, main h3, main h4, main h5, main h6")]
+      .filter((h) => h.checkVisibility())
+      .map((h) => ({
+        level: Number(h.tagName.slice(1)),
+        text: h.textContent?.trim() ?? "",
+        story: h.closest("[data-story]") !== null,
+      })),
   );
 
 test("F-A11Y6-04 each new page has one h1 and never skips a heading level", async ({ page }) => {
   for (const path of ["/gallery", "/gallery/kermes", "/about", "/"]) {
     await page.goto(path);
-    await expect(page.locator("h1"), path).toHaveCount(1);
     const headings = await headingsOf(page);
+    await expect(page.locator("h1:visible"), path).toHaveCount(1);
     expect(headings[0]?.level, `${path}: first`).toBe(1);
     headings.forEach((heading, i) => {
       if (i === 0) return;
@@ -211,9 +218,11 @@ test("F-A11Y6-04 each new page has one h1 and never skips a heading level", asyn
         "the gallery",
       ]);
       expect(headings.slice(start + 1, start + 5).map((h) => h.level)).toEqual([3, 3, 3, 3]);
+      const story = headings.flatMap((heading, i) => (heading.story ? [i] : []));
+      expect(story, "the story's h2 and its five h3").toHaveLength(6);
       const receipt = texts.lastIndexOf("The receipt");
-      expect(receipt, "receipt h2 is the last heading").toBe(texts.length - 1);
       expect(headings[receipt]?.level).toBe(2);
+      expect(receipt, "receipt h2 follows every story heading").toBeGreaterThan(Math.max(...story));
       expect(receipt).toBeGreaterThan(start + 4);
     }
   }

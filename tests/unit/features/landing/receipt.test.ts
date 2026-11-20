@@ -198,3 +198,57 @@ describe("receiptLines (R6-29)", () => {
     expect(RECEIPT_LINES.command).toBe("$ node scripts/dyelot-check.mjs");
   });
 });
+
+describe("receiptLines checks what it prints (R7-14)", () => {
+  const contrastWith = (patch: Record<string, unknown>) =>
+    ({ ...RECEIPT_EXCERPT, contrast: { ...RECEIPT_EXCERPT.contrast, ...patch } }) as never;
+
+  it.each([
+    ["name", { ...RECEIPT_EXCERPT, name: 5 }],
+    ["format", { ...RECEIPT_EXCERPT, format: null }],
+    ["contrast.foreground", contrastWith({ foreground: 3 })],
+    ["contrast.background", contrastWith({ background: 3 })],
+    ["contrast.mode", contrastWith({ mode: 3 })],
+    ["finding", { ...RECEIPT_EXCERPT, finding: undefined }],
+    ["finding", { ...RECEIPT_EXCERPT, finding: [] }],
+  ])("C-REC7-01 a bad %s is a TypeError naming it", (field, bad) => {
+    expect(() => receiptLines(bad as never)).toThrow(TypeError);
+    expect(() => receiptLines(bad as never)).toThrow(
+      new RegExp(`^receiptLines: ${field.replace(".", "\\.")} must be`),
+    );
+  });
+
+  it("C-REC7-01 checks every type before any domain (required 77.5, requiredPass '78')", () => {
+    const bad = {
+      ...RECEIPT_EXCERPT,
+      summary: {
+        ...RECEIPT_EXCERPT.summary,
+        contrast: { ...RECEIPT_EXCERPT.summary.contrast, required: 77.5, requiredPass: "78" },
+      },
+    } as unknown as ReceiptExcerpt;
+    expect(() => receiptLines(bad)).toThrow(TypeError);
+    expect(() => receiptLines(bad)).toThrow(/^receiptLines: requiredPass must be a number/);
+  });
+
+  it("C-REC7-01 a string name with a whole-number domain error still reports the type first", () => {
+    const bad = { ...RECEIPT_EXCERPT, name: 5, checks: 1.5 } as unknown as ReceiptExcerpt;
+    expect(() => receiptLines(bad)).toThrow(TypeError);
+    expect(() => receiptLines(bad)).toThrow(/^receiptLines: name must be/);
+  });
+
+  it('C-REC7-01 receiptExcerpt("5") is a RangeError', () => {
+    expect(() => receiptExcerpt("5")).toThrow(RangeError);
+    expect(() => receiptExcerpt("5")).toThrow(/^receiptExcerpt:/);
+  });
+
+  it("C-REC7-01 RECEIPT_EXCERPT still gives C-REC6-04's six sentences", () => {
+    const lines = receiptLines(RECEIPT_EXCERPT);
+    expect(lines).toHaveLength(6);
+    expect(lines[1]).toBe(
+      "The summary: 78 of 78 required contrast checks pass, and the linter found no error.",
+    );
+    expect(lines[2]).toBe(
+      "One of the 80 contrast checks: foreground on background in light mode, measured, with the ratio cut to four decimals so it never rounds up.",
+    );
+  });
+});
