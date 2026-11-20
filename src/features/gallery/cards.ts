@@ -1,5 +1,5 @@
 import cardsJson from "./cards.json";
-import type { GalleryData } from "./data";
+import type { GalleryData, GalleryEntry } from "./data";
 import { typeName } from "./links";
 
 /** One entry's share-card data (R6-09). This file imports no engine code (C-GUARD6-05). */
@@ -27,14 +27,16 @@ export function galleryCards(data: GalleryData): GalleryCards {
   if (typeof data !== "object" || data === null || !Array.isArray(data.entries)) {
     throw new TypeError(`galleryCards: data must hold an entries array, got ${typeName(data)}`);
   }
+  for (const entry of data.entries) {
+    if (!Array.isArray(entry.specimen)) {
+      throw new TypeError(
+        `galleryCards: the specimen of "${entry.slug}" must be an array, got ${typeName(entry.specimen)}`,
+      );
+    }
+  }
   return {
     cards: data.entries.map((entry) => {
-      const rows = entry.specimen;
-      if (!Array.isArray(rows)) {
-        throw new TypeError(
-          `galleryCards: the specimen of "${entry.slug}" must be an array, got ${typeName(rows)}`,
-        );
-      }
+      const rows: GalleryEntry["specimen"] = entry.specimen;
       const ordered = PALETTES.every((palette, i) => rows[i]?.palette === palette);
       if (!ordered || rows.length !== PALETTES.length) {
         throw new RangeError(

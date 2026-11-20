@@ -156,6 +156,20 @@ describe("the readers' checks (R7-08)", () => {
     const short = () => galleryCards(data(KERMES.specimen.slice(0, 4)) as never);
     expect(short).toThrow(RangeError);
     expect(short).toThrow(/^galleryCards/);
+    // Types first across entries: an earlier entry's order fault does not hide a later entry's type fault.
+    const [first, second] = GALLERY_DATA.entries;
+    if (first === undefined || second === undefined) throw new Error("no entries");
+    const mixed = () =>
+      galleryCards({
+        entries: [
+          { ...first, specimen: first.specimen.slice(0, 4) },
+          { ...second, specimen: "x" },
+        ],
+      } as never);
+    expect(mixed).toThrow(TypeError);
+    expect(mixed).toThrow(
+      new RegExp(`^galleryCards: the specimen of "${second.slug}" must be an array, got string$`),
+    );
     expect(galleryCards(GALLERY_DATA).cards).toHaveLength(24);
   });
 });
