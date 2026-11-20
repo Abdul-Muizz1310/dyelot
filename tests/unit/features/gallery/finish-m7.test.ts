@@ -68,6 +68,10 @@ describe("briefSpec's word rules (R7-07)", () => {
     const bad = run({ name: 5, brief: `A ${"b".repeat(98)}.` });
     expect(bad).toThrow(TypeError);
     expect(bad).toThrow(/^briefSpec: def\.name/);
+    // Swapped: the first field's fault is its domain, the second's its type; types come first.
+    const swapped = run({ name: "Red 2", brief: 5 });
+    expect(swapped).toThrow(TypeError);
+    expect(swapped).toThrow(/^briefSpec: def\.brief must be a string/);
   });
 
   it("C-GAL7-04 passes the word rules at their bounds and stops at the word list", () => {
@@ -109,6 +113,7 @@ describe("the readers' checks (R7-08)", () => {
       [withContrast({ requiredPass: "78" }), "entry.summary.contrast.requiredPass"],
       [withContrast({ requiredPass: "78", required: 77.5 }), "entry.summary.contrast.requiredPass"],
     ];
+    const swapped = withContrast({ requiredPass: 77.5, required: "78" });
     const rangeRows: [GalleryEntry, string][] = [
       [withContrast({ requiredPass: 77.5 }), "entry.summary.contrast.requiredPass"],
       [withContrast({ requiredPass: -1 }), "entry.summary.contrast.requiredPass"],
@@ -126,6 +131,12 @@ describe("the readers' checks (R7-08)", () => {
           new RegExp(`^${read.name}: ${path.replaceAll(".", "\\.")}`),
         );
       }
+    }
+    for (const read of readers) {
+      expect(() => read(swapped), read.name).toThrow(TypeError);
+      expect(() => read(swapped)).toThrow(
+        new RegExp(`^${read.name}: entry\\.summary\\.contrast\\.required must be a number`),
+      );
     }
     expect(entryDescription(KERMES)).toBe(
       `${KERMES.line} ${KERMES.summary.contrast.requiredPass} of ${KERMES.summary.contrast.required} required contrast checks pass.`,
