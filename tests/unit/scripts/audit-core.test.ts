@@ -560,6 +560,14 @@ describe("the plan's runner", () => {
       expect([...calls.values()].reduce((sum, count) => sum + count, 0)).toBe(5);
       expect(result.retried).toEqual([plan[2]]);
     }
+    const last = plan[3] as Item;
+    const { run, calls } = fakeRun([last], 1);
+    const result = await runPlan(plan, run);
+    expect(result.records).toEqual(plan.map((item) => ({ ...item })));
+    expect(result.records).toHaveLength(4);
+    expect(result.failure).toBeNull();
+    expect(result.retried).toEqual([last]);
+    expect(calls.get(last)).toBe(2);
   });
 
   it("C-AUD7-02 stops at a run that rejects twice and a partial record keeps what ran", async () => {
@@ -586,6 +594,7 @@ describe("the plan's runner", () => {
     for (const key of ["medians", "firstByte", "weight"]) expect(record).not.toHaveProperty(key);
     const stringly = await runPlan(plan, () => Promise.reject("plain"));
     expect(stringly.failure?.message).toBe("plain");
+    expect(stringly.records).toEqual([]);
   });
 
   it("C-AUD7-03 checks types before values and names the function", async () => {
